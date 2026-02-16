@@ -1,25 +1,57 @@
+from __future__ import annotations
+
 import numpy as np
 
 import jax
 import jax.numpy as jnp
+from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
 from .lie import Basis
 
 from functools import partial
+from typing import Callable
 
 
 class Engine:
-    """
+    """Base engine for compiling quantum unitaries using Lie-algebraic methods.
+
+    The Engine sets up the algebraic infrastructure for quantum gate synthesis,
+    including projected and drift basis indices, and JIT-compiled JAX functions
+    for computing unitaries and fidelities.
+
+    Attributes:
+        full_basis: The full Lie algebra basis.
+        projected_basis: The projected (controllable) subalgebra basis.
+        drift_basis: The drift (uncontrollable) subalgebra basis, if any.
+        gates: Number of piecewise-constant gate segments.
+        projected_indices: Boolean mask for projected basis elements in the full basis.
+        drift_indices: Boolean mask for drift basis elements in the full basis.
+        proj_drift_indices: Combined boolean mask for projected and drift elements.
+        proj_drift_basis: Combined projected-and-drift `Basis` object.
+        proj_indices_projdrift_basis: Projected indices within the combined basis.
+        drift_indices_projdrift_basis: Drift indices within the combined basis.
+        compute_U_fn: JIT-compiled function to compute the unitary from parameters.
+        fid_U_fn: JIT-compiled function to compute fidelity against the target unitary.
     """
 
     def __init__(self,
-                 target_unitary,
+                 target_unitary: np.ndarray,
                  full_basis: Basis,
                  projected_basis: Basis,
-                 drift_basis: Basis = None,
-                 gates: int = 1):
+                 drift_basis: Basis | None = None,
+                 gates: int = 1) -> None:
+        """Initialise the Engine.
+
+        Args:
+            target_unitary: The target unitary matrix as ``np.ndarray``.
+            full_basis: The full Lie algebra ``Basis``.
+            projected_basis: The projected (controllable) subalgebra ``Basis``.
+            drift_basis: The drift (uncontrollable) subalgebra ``Basis``.
+                Defaults to ``None``.
+            gates: Number of piecewise-constant gate segments. Defaults to 1.
+        """
         self.full_basis = full_basis
         self.projected_basis = projected_basis
         self.drift_basis = drift_basis
@@ -44,15 +76,50 @@ class Engine:
         self.fid_U_fn = jax.jit(get_fidelity_fn(target_unitary))
 
 
-def fidelity(unitary, target_unitary):
+def fidelity(unitary: Array, target_unitary: Array) -> Array:
+    """Compute the fidelity between a unitary and a target unitary.
+
+    The fidelity is defined as the normalised absolute value of the
+    Hilbert-Schmidt inner product between the two matrices.
+
+    Args:
+        unitary: The unitary ``Array`` to evaluate.
+        target_unitary: The target unitary ``Array``.
+
+    Returns:
+        A scalar fidelity ``Array`` in the range $[0, 1]$.
+    """
     return jnp.abs(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
 
 
-def get_fidelity_fn(target_unitary):
+def get_fidelity_fn(target_unitary: Array) -> Callable[[Array], Array]:
+    """Create a partial fidelity function with a fixed target unitary.
+
+    Args:
+        target_unitary: The target unitary ``Array`` to bind.
+
+    Returns:
+        A ``Callable[[Array], Array]`` that accepts a single unitary
+        and returns the fidelity against ``target_unitary``.
+    """
     return partial(fidelity, target_unitary=target_unitary)
 
 
-def compute_matrices_params_list_fn(params_list, basis):
+def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
+    """Compute the product unitary from a list of parameter vectors.
+
+    For each parameter vector in `params_list`, constructs a Hamiltonian
+    as a linear combination of the `basis` elements, exponentiates it,
+    and accumulates the product unitary via `jax.lax.scan`.
+
+    Args:
+        params_list: ``Array`` of shape ``(gates, K)`` where each row
+            contains the Lie-algebra coefficients for one gate segment.
+        basis: ``Array`` of shape ``(K, d, d)`` of Hermitian basis matrices.
+
+    Returns:
+        The product unitary ``Array`` of shape ``(d, d)``.
+    """
     def step(U, params):
         A = jnp.tensordot(params, basis, axes=[[-1], [0]])
         Ui = jax.scipy.linalg.expm(1j * A)
@@ -64,5 +131,14 @@ def compute_matrices_params_list_fn(params_list, basis):
     return U_final
 
 
-def get_compute_matrices_params_list_fn(basis: np.ndarray):
+def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], Array]:
+    """Create a partial unitary-computation function with a fixed basis.
+
+    Args:
+        basis: Array of shape ``(K, d, d)`` of Hermitian basis matrices.
+
+    Returns:
+        A ``Callable[[Array], Array]`` that accepts a parameter list
+        and returns the product unitary.
+    """
     return partial(compute_matrices_params_list_fn, basis=basis)

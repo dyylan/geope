@@ -36,34 +36,25 @@ _no_overwrite_and_chkfinite_doc = _no_chkfinite_doc + "\nDoes not support the Sc
 
 @partial(jit, static_argnums=(1,))
 def roots_legendre(n: int, max_n: int = 10) -> tuple[Array, Array]:
-    """
-    Compute roots and weights for Gauss-Legendre quadrature.
-    JAX implementation of :func:`scipy.linalg.logm`.
+    """Compute roots and weights for Gauss-Legendre quadrature.
+
+    JAX implementation compatible with JIT compilation.
+
     Args:
-      n: quadrature order
-      max_n: Maximum number of roots to compute
-    Notes:
-      Because of static array size requirements function in JAX takes `max_n` argument to determine size of output arrays.
-      If `n < max_n` then entries for `n..max_n` will be zero and only positions below `n` will have valid nodes and weights.
-      If `n >= max_n` then only first `max_n` roots and weights will be in the result.
-      For inputs of 10000 and more, results may include NaNs because of precision errors.
-    Examples:
-      >>> nodes, weights = jax.scipy.special.roots_legendre(4, max_n=5)
-      >>> with jnp.printoptions(precision=2, suppress=True):
-      ...   print('nodes:', nodes)
-      ...   print('weights:', weights)
-      nodes: [-0.86 -0.34  0.34  0.86  0.  ]
-      weights: [0.35 0.65 0.65 0.35 0.  ]
-      To get all roots and weights use `max_n > n` and use only first `n` values
-      >>> with jnp.printoptions(precision=2, suppress=True):
-      ...   print('valid nodes:', nodes[:4])
-      ...   print('valid weights:', weights[:4])
-      valid nodes: [-0.86 -0.34  0.34  0.86]
-      valid weights: [0.35 0.65 0.65 0.35]
+        n: Quadrature order.
+        max_n: Maximum number of roots to compute. Output arrays
+            will have this size; entries beyond `n` are zero.
+
+    Returns:
+        A tuple ``(nodes, weights)`` of arrays of length `max_n`.
+
+    Note:
+        For inputs of 10000 and more, results may include NaNs
+        due to precision errors.
+
     References:
-      .. [1] W. H. Press, S. A. Teukolsky, W. T. Vetterling, and B. P. Flannery, Numerical Recipes
-           in FORTRAN: The Art of Scientific Computing, 2nd ed., Cambridge University Press,
-           London, 1992 (section 4.5 page 152)
+        W. H. Press et al., *Numerical Recipes in FORTRAN* (1992),
+        section 4.5, page 152.
     """
     eps = 3.0e-7
     m = (n + 1) // 2
@@ -101,10 +92,20 @@ def roots_legendre(n: int, max_n: int = 10) -> tuple[Array, Array]:
 
 @jit
 def _sqrtm_triu(T: Array) -> Array:
-    """
-    Implements Björck, Å., & Hammarling, S. (1983).
-        "A Schur method for the square root of a matrix". Linear algebra and
-        its applications", 52, 127-140.
+    """Compute the square root of an upper-triangular matrix.
+
+    Implements the Schur method of Björck & Hammarling (1983).
+
+    Args:
+        T: Upper-triangular matrix of shape ``(N, N)``.
+
+    Returns:
+        Upper-triangular square root matrix of shape ``(N, N)``.
+
+    References:
+        Björck, Å., & Hammarling, S. (1983). "A Schur method for the
+        square root of a matrix". *Linear Algebra and its Applications*,
+        52, 127–140.
     """
     diag = jnp.sqrt(jnp.diag(T))
     n = diag.size
@@ -128,6 +129,14 @@ def _sqrtm_triu(T: Array) -> Array:
 
 @jit
 def _sqrtm(A: ArrayLike) -> Array:
+    """Compute the matrix square root via the complex Schur decomposition.
+
+    Args:
+        A: Square matrix of shape ``(N, N)``.
+
+    Returns:
+        Matrix square root of shape ``(N, N)``.
+    """
     T, Z = jax.scipy.linalg.schur(A, output='complex')
     sqrt_T = _sqrtm_triu(T)
     return jnp.matmul(jnp.matmul(Z, sqrt_T, precision=lax.Precision.HIGHEST),
@@ -135,63 +144,49 @@ def _sqrtm(A: ArrayLike) -> Array:
 
 
 def sqrtm(A: ArrayLike, blocksize: int = 1) -> Array:
-    """Compute the matrix square root
-  
-    JAX implementation of :func:`scipy.linalg.sqrtm`.
-  
+    """Compute the matrix square root.
+
+    JAX implementation of ``scipy.linalg.sqrtm``.
+
     Args:
-      A: array of shape ``(N, N)``
-      blocksize: Not supported in JAX; JAX always uses ``blocksize=1``.
-  
+        A: Array of shape ``(N, N)``.
+        blocksize: Not supported in JAX; always uses ``blocksize=1``.
+
     Returns:
-      An array of shape ``(N, N)`` containing the matrix square root of ``A``
-  
-    See Also:
-      :func:`jax.scipy.linalg.expm`
-  
-    Examples:
-      >>> a = jnp.array([[1., 2., 3.],
-      ...                [2., 4., 2.],
-      ...                [3., 2., 1.]])
-      >>> sqrt_a = jax.scipy.linalg.sqrtm(a)
-      >>> with jnp.printoptions(precision=2, suppress=True):
-      ...   print(sqrt_a)
-      [[0.92+0.71j 0.54+0.j   0.92-0.71j]
-       [0.54+0.j   1.85+0.j   0.54-0.j  ]
-       [0.92-0.71j 0.54-0.j   0.92+0.71j]]
-  
-      By definition, matrix multiplication of the matrix square root with itself should
-      equal the input:
-  
-      >>> jnp.allclose(a, sqrt_a @ sqrt_a)
-      Array(True, dtype=bool)
-  
-    Notes:
-      This function implements the complex Schur method described in [1]_.  It does not use
-      recursive blocking to speed up computations as a Sylvester Equation solver is not
-      yet available in JAX.
-  
+        An array of shape ``(N, N)`` containing the matrix square root.
+
+    Raises:
+        NotImplementedError: If ``blocksize > 1``.
+
     References:
-      .. [1] Björck, Å., & Hammarling, S. (1983). "A Schur method for the square root of a matrix".
-             Linear algebra and its applications, 52, 127-140.
+        Björck, Å., & Hammarling, S. (1983). "A Schur method for the
+        square root of a matrix". *Linear Algebra and its Applications*,
+        52, 127–140.
     """
     if blocksize > 1:
         raise NotImplementedError("Blocked version is not implemented yet.")
     return _sqrtm(A)
 
 
-def _fractional_power_superdiag_entry(l1, l2, t12, p):
+def _fractional_power_superdiag_entry(
+    l1: Array, l2: Array, t12: Array, p: float
+) -> Array:
+    """Compute a super-diagonal entry of a fractional matrix power.
+
+    Args:
+        l1: First diagonal eigenvalue.
+        l2: Second diagonal eigenvalue.
+        t12: Super-diagonal entry of the triangular factor.
+        p: Fractional power exponent.
+
+    Returns:
+        The super-diagonal entry of $T^p$.
+
+    References:
+        Higham, N. J., & Lin, L. (2011). "A Schur-Padé Algorithm for
+        Fractional Powers of a Matrix". *SIAM J. Matrix Anal. Appl.*,
+        32(3), 1056–1078.
     """
-      Compute a superdiagonal entry of a fractional matrix power.
-  
-      References
-      ----------
-      .. [1] Nicholas J. Higham and Lijing lin (2011)
-             "A Schur-Pade Algorithm for Fractional Powers of a Matrix."
-             SIAM Journal on Matrix Analysis and Applications,
-             32 (3). pp. 1056-1078. ISSN 0895-4798
-  
-      """
 
     def last_case():
         """Equation 5.5"""
@@ -223,20 +218,23 @@ def _fractional_power_superdiag_entry(l1, l2, t12, p):
     )
 
 
-def _logm_superdiag_entry(l1, l2, t12):
-    """
-    Compute a superdiagonal entry of a matrix logarithm.
-  
-    JAX implementation of the same function from scipy.
-    This is like Eq. (11.28) in [1]_, except the determination of whether
-    l1 and l2 are sufficiently far apart has been modified.
-  
-    References
-    ----------
-    .. [1] Nicholas J. Higham (2008)
-            "Functions of Matrices: Theory and Computation"
-            ISBN 978-0-898716-46-7
-  
+def _logm_superdiag_entry(l1: Array, l2: Array, t12: Array) -> Array:
+    """Compute a super-diagonal entry of the matrix logarithm.
+
+    Based on Eq. (11.28) in Higham (2008), with a modified criterion
+    for determining whether eigenvalues are sufficiently separated.
+
+    Args:
+        l1: First diagonal eigenvalue.
+        l2: Second diagonal eigenvalue.
+        t12: Super-diagonal entry of the triangular factor.
+
+    Returns:
+        The super-diagonal entry of $\\log(T)$.
+
+    References:
+        Higham, N. J. (2008). *Functions of Matrices: Theory and
+        Computation*. ISBN 978-0-898716-46-7.
     """
 
     def last_case():
@@ -265,9 +263,21 @@ def _logm_superdiag_entry(l1, l2, t12):
 
 
 def _briggs_helper_function(a: Array, k: int) -> Array:
-    """
-      Implements Awad H. Al-Mohy (2012) "A more accurate Briggs method for the logarithm",
-             Numerical Algorithms, 59 : 393--402.
+    """Compute the Briggs helper function for accurate logarithm evaluation.
+
+    Implements the more accurate Briggs method to avoid cancellation
+    when computing $a - 1$ for values of $a$ near unity.
+
+    Args:
+        a: Input array.
+        k: Number of square-root iterations.
+
+    Returns:
+        The Briggs-corrected value.
+
+    References:
+        Al-Mohy, A. H. (2012). "A more accurate Briggs method for the
+        logarithm". *Numerical Algorithms*, 59, 393–402.
     """
     pi_half = jnp.pi / 2
     a_angle = jnp.angle(a)
@@ -293,13 +303,23 @@ def _briggs_helper_function(a: Array, k: int) -> Array:
 
 @partial(jit, static_argnames=("t", "itmax"))
 def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
-    """
-      Estimate of the 1-norm of a matrix A.
-  
-      Implements Nicholas J. Higham and Francoise Tisseur (2000),
-            "A Block Algorithm for Matrix 1-Norm Estimation,
-            with an Application to 1-Norm Pseudospectra."
-            SIAM J. Matrix Anal. Appl. Vol. 21, No. 4, pp. 1185-1201.
+    """Estimate the 1-norm of a matrix.
+
+    Implements the block algorithm of Higham & Tisseur (2000).
+
+    Args:
+        A: Square matrix of shape ``(N, N)``.
+        key: JAX PRNG key for random initialisation.
+        t: Number of columns in the iteration matrix. Defaults to 2.
+        itmax: Maximum number of iterations. Defaults to 5.
+
+    Returns:
+        A scalar estimate of $\\|A\\|_1$.
+
+    References:
+        Higham, N. J., & Tisseur, F. (2000). "A Block Algorithm for
+        Matrix 1-Norm Estimation, with an Application to 1-Norm
+        Pseudospectra". *SIAM J. Matrix Anal. Appl.*, 21(4), 1185–1201.
     """
     n = A.shape[-1]
     if t >= n:
@@ -412,11 +432,25 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
 
 
 @jit
-def _inverse_squaring(T_0: Array, theta: tuple[float], key: ArrayLike):
-    """
-    Implements lines 3--34 of algoritm 4.1 in Awad H. Al-Mohy and Nicholas J. Higham (2012)
-             "Improved Inverse Scaling and Squaring Algorithms
-             for the Matrix Logarithm."
+def _inverse_squaring(T_0: Array, theta: tuple[float], key: ArrayLike) -> tuple[Array, int, int]:
+    """Inverse scaling and squaring pre-processing for the matrix logarithm.
+
+    Implements lines 3–34 of Algorithm 4.1 in Al-Mohy & Higham (2012).
+
+    Args:
+        T_0: Upper-triangular Schur factor of shape ``(N, N)``.
+        theta: Tuple of threshold values from Table 2.1.
+        key: JAX PRNG key for norm estimation.
+
+    Returns:
+        A tuple ``(R, s, m)`` where ``R`` is the pre-processed matrix,
+        ``s`` is the number of square roots taken, and ``m`` is the
+        selected Padé order.
+
+    References:
+        Al-Mohy, A. H., & Higham, N. J. (2012). "Improved Inverse
+        Scaling and Squaring Algorithms for the Matrix Logarithm".
+        *SIAM J. Sci. Comput.*, 34(4), C152–C169.
     """
 
     def normest(T: Array, p: int, key: ArrayLike):
@@ -514,8 +548,22 @@ def _inverse_squaring(T_0: Array, theta: tuple[float], key: ArrayLike):
 
 @jit
 def _logm_triu(T: Array, key: ArrayLike) -> Array:
-    """
-    Implements Awad H. Al-Mohy and Nicholas J. Higham (2012) "Improved Inverse Scaling and Squaring Algorithms for the Matrix Logarithm."
+    """Compute the matrix logarithm of an upper-triangular matrix.
+
+    Implements the improved inverse scaling-and-squaring algorithm
+    of Al-Mohy & Higham (2012).
+
+    Args:
+        T: Upper-triangular matrix of shape ``(N, N)``.
+        key: JAX PRNG key for norm estimation.
+
+    Returns:
+        Upper-triangular logarithm matrix of shape ``(N, N)``.
+
+    References:
+        Al-Mohy, A. H., & Higham, N. J. (2012). "Improved Inverse
+        Scaling and Squaring Algorithms for the Matrix Logarithm".
+        *SIAM J. Sci. Comput.*, 34(4), C152–C169.
     """
     n = T.shape[-1]
     diag = jnp.diag(T)
@@ -559,40 +607,22 @@ def _logm_triu(T: Array, key: ArrayLike) -> Array:
 
 @jit
 def logm(A: ArrayLike, key: ArrayLike) -> Array:
-    """Compute matrix logarithm
-  
-    JAX implementation of :func:`scipy.linalg.logm`.
-  
+    """Compute the matrix logarithm.
+
+    JAX implementation of ``scipy.linalg.logm`` using the improved
+    inverse scaling-and-squaring method.
+
     Args:
-      A: array of shape ``(N, N)``
-  
+        A: Array of shape ``(N, N)``.
+        key: JAX PRNG key for internal norm estimation.
+
     Returns:
-      An array of shape ``(N, N)`` containing the matrix logarithm of ``A``.
-  
-    Examples:
-      >>> A = jnp.array([[1., 2., 3.],
-      ...                [2., 4., 2.],
-      ...                [3., 2., 1.]])
-      >>> log_a = jax.scipy.linalg.logm(a, key=jax.random.key(0))
-      >>> with jnp.printoptions(precision=2, suppress=True):
-      ...   print(log_a)
-      [[0.87+1.57j 0.62+0.j   0.17-1.57j]
-       [0.62-0.j   1.04-0.j   0.62+0.j  ]
-       [0.17-1.57j 0.62-0.j   0.87+1.57j]]
-  
-       By definition, matrix multiplication is inverse of exponentiation:
-  
-      >>> jnp.allclose(a, jax.scipy.linalg.expm(log_a))
-      Array(True, dtype=bool)
-  
-    Notes:
-      This uses the inverse scaling-and-squaring approximation method.
-  
+        An array of shape ``(N, N)`` containing the matrix logarithm.
+
     References:
-      .. [1] Awad H. Al-Mohy and Nicholas J. Higham (2012)
-             "Improved Inverse Scaling and Squaring Algorithms for the Matrix Logarithm."
-             SIAM Journal on Scientific Computing, 34 (4). C152-C169.
-             ISSN 1095-7197
+        Al-Mohy, A. H., & Higham, N. J. (2012). "Improved Inverse
+        Scaling and Squaring Algorithms for the Matrix Logarithm".
+        *SIAM J. Sci. Comput.*, 34(4), C152–C169.
     """
 
     def perform_real_logm(T, Z):
@@ -619,52 +649,22 @@ def logm(A: ArrayLike, key: ArrayLike) -> Array:
 @partial(jit, static_argnames=('check_finite',))
 def rsf2csf(T: ArrayLike, Z: ArrayLike, check_finite: bool = True) -> tuple[Array, Array]:
     """Convert real Schur form to complex Schur form.
-  
-    JAX implementation of :func:`scipy.linalg.rsf2csf`.
-  
+
+    JAX implementation of ``scipy.linalg.rsf2csf``.
+
     Args:
-      T: array of shape ``(..., N, N)`` containing the real Schur form of the input.
-      Z: array of shape ``(..., N, N)`` containing the corresponding Schur transformation
-        matrix.
-      check_finite: unused by JAX
-  
+        T: Array of shape ``(N, N)`` containing the real Schur form.
+        Z: Array of shape ``(N, N)`` containing the corresponding
+            Schur transformation matrix.
+        check_finite: Unused by JAX (present for API compatibility).
+
     Returns:
-      A tuple of arrays ``(T, Z)`` of the same shape as the inputs, containing the
-      Complex Schur form and the associated Schur transformation matrix.
-  
-    See Also:
-      :func:`jax.scipy.linalg.jax.scipy.linalg.schur`: Schur decomposition
-  
-    Examples:
-      >>> A = jnp.array([[0., 3., 3.],
-      ...                [0., 1., 2.],
-      ...                [2., 0., 1.]])
-      >>> Tr, Zr = jax.scipy.linalg.jax.scipy.linalg.schur(A)
-      >>> Tc, Zc = jax.scipy.linalg.rsf2csf(Tr, Zr)
-  
-      Both the real and complex form can be used to reconstruct the input matrix
-      to float32 precision:
-  
-      >>> jnp.allclose(Zr @ Tr @ Zr.T, A, atol=1E-5)
-      Array(True, dtype=bool)
-      >>> jnp.allclose(Zc @ Tc @ Zc.conj().T, A, atol=1E-5)
-      Array(True, dtype=bool)
-  
-      The real-valued Schur form is only quasi-upper-triangular, as we can see in this case:
-  
-      >>> with jax.numpy.printoptions(precision=2, suppress=True):
-      ...   print(Tr)
-      [[ 3.76 -2.17  1.38]
-       [ 0.   -0.88 -0.35]
-       [ 0.    2.37 -0.88]]
-  
-      By contrast, the complex form is truly upper-triangular:
-  
-      >>> with jnp.printoptions(precision=2, suppress=True):
-      ...   print(Tc)
-      [[ 3.76+0.j    1.29-0.78j  2.02-0.5j ]
-       [ 0.  +0.j   -0.88+0.91j -2.02+0.j  ]
-       [ 0.  +0.j    0.  +0.j   -0.88-0.91j]]
+        A tuple ``(T, Z)`` of the same shape, containing the complex
+        Schur form and its transformation matrix.
+
+    Raises:
+        ValueError: If `T` or `Z` is not square, or if their sizes
+            do not match.
     """
     del check_finite  # unused
 
