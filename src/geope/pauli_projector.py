@@ -13,7 +13,7 @@ from .lie import Basis
 
 
 def project_omegas(x: Array, basis: Array, dim: int) -> Array:
-    """Project a batch of matrices onto a Lie-algebra basis.
+    """Project a batch of matrices onto a Lie algebra basis.
 
     Computes the trace inner product of each matrix in `x` with
     each basis element, normalised by the Hilbert-space dimension.
@@ -43,7 +43,7 @@ def get_project_omegas_fn(basis: Basis) -> Callable[[Array], Array]:
 
 
 def get_kron_chain(n: int) -> Callable[[Array], Array]:
-    """Build a JIT-compiled Kronecker-product chain function.
+    """Build a JIT-compiled Kronecker product chain function.
 
     Constructs the four single-qubit Pauli matrices and returns
     a function that builds an $n$-qubit Pauli string via iterated

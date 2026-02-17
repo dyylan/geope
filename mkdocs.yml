@@ -24,8 +24,8 @@ theme:
               name: Switch to light mode
     icon:
         repo: fontawesome/brands/github # GitHub logo in top right
-    logo: "_static/square.png"
-    favicon: "_static/square.png"
+    logo: "_static/geope_logo.png"
+    favicon: "_static/geope_logo.png"
 
 site_name: GEOPE
 site_description: The documentation for the GEOPE software library.
