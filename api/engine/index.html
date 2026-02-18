@@ -479,7 +479,7 @@
   
   
   <span class="md-ellipsis">
-    Pulse smoothing
+    Pulse Smoothing with GEOPE
     
   </span>
   
@@ -557,7 +557,7 @@
   
   
   <span class="md-ellipsis">
-    Index
+    geope
     
   </span>
   
@@ -660,33 +660,6 @@
   <a href="#geope.engine.fidelity" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;fidelity
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.engine.get_fidelity_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_fidelity_fn
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.engine.compute_matrices_params_list_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;compute_matrices_params_list_fn
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.engine.get_compute_matrices_params_list_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_compute_matrices_params_list_fn
     </span>
   </a>
   
@@ -798,33 +771,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#geope.engine.get_fidelity_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_fidelity_fn
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.engine.compute_matrices_params_list_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;compute_matrices_params_list_fn
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.engine.get_compute_matrices_params_list_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_compute_matrices_params_list_fn
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -906,7 +852,7 @@ for computing unitaries and fidelities.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.gates">gates</span></code></td>
+            <td><code><span title="geope.engine.Engine.piecewise_steps">piecewise_steps</span></code></td>
             <td>
             </td>
             <td>
@@ -1125,7 +1071,7 @@ errors defaults to 'strict'.</p>
 
 
 <h5 id="geope.engine.Engine.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gates</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
 
 <a href="#geope.engine.Engine.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1213,7 +1159,7 @@ Defaults to <code>None</code>.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>gates</code>
+                <code>piecewise_steps</code>
             </td>
             <td>
                   <code><span title="int">int</span></code>
@@ -1331,263 +1277,11 @@ Hilbert-Schmidt inner product between the two matrices.</p>
 
     </div>
 
-</div>
+</div><!-- ::: geope.engine.get_fidelity_fn
 
-<div class="doc doc-object doc-function">
+::: geope.engine.compute_matrices_params_list_fn
 
-
-<h4 id="geope.engine.get_fidelity_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_fidelity_fn</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">)</span></code>
-
-<a href="#geope.engine.get_fidelity_fn" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Create a partial fidelity function with a fixed target unitary.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>target_unitary</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The target unitary <code>Array</code> to bind.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> that accepts a single unitary</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>and returns the fidelity against <code>target_unitary</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.engine.compute_matrices_params_list_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">compute_matrices_params_list_fn</span><span class="p">(</span><span class="n">params_list</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
-
-<a href="#geope.engine.compute_matrices_params_list_fn" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Compute the product unitary from a list of parameter vectors.</p>
-<p>For each parameter vector in <code>params_list</code>, constructs a Hamiltonian
-as a linear combination of the <code>basis</code> elements, exponentiates it,
-and accumulates the product unitary via <code>jax.lax.scan</code>.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>params_list</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>Array</code> of shape <code>(gates, K)</code> where each row
-contains the Lie-algebra coefficients for one gate segment.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>basis</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>Array</code> of shape <code>(K, d, d)</code> of Hermitian basis matrices.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The product unitary <code>Array</code> of shape <code>(d, d)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.engine.get_compute_matrices_params_list_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_compute_matrices_params_list_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
-
-<a href="#geope.engine.get_compute_matrices_params_list_fn" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Create a partial unitary-computation function with a fixed basis.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>basis</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Array of shape <code>(K, d, d)</code> of Hermitian basis matrices.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> that accepts a parameter list</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>and returns the product unitary.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
+::: geope.engine.get_compute_matrices_params_list_fn -->
 
 
 

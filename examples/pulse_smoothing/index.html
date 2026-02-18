@@ -26,7 +26,7 @@
     
     
       
-        <title>Pulse smoothing - Geodesic Pulse Engineering (GEOPE)</title>
+        <title>Pulse Smoothing with GEOPE - Geodesic Pulse Engineering (GEOPE)</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cz-with-h_1t-control" class="md-skip">
+        <a href="#pulse-smoothing-with-geope" class="md-skip">
           Skip to content
         </a>
       
@@ -117,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Pulse smoothing
+              Pulse Smoothing with GEOPE
             
           </span>
         </div>
@@ -493,7 +493,7 @@
   
   
   <span class="md-ellipsis">
-    Pulse smoothing
+    Pulse Smoothing with GEOPE
     
   </span>
   
@@ -506,7 +506,7 @@
   
   
   <span class="md-ellipsis">
-    Pulse smoothing
+    Pulse Smoothing with GEOPE
     
   </span>
   
@@ -529,27 +529,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#solve-with-geope-and-perform-repeated-geometric-smoothing-steps-fewer-steps-would-be-sufficient" class="md-nav__link">
+  <a href="#setup" class="md-nav__link">
     <span class="md-ellipsis">
-      Solve with GEOPE and perform repeated Geometric smoothing steps (fewer steps would be sufficient)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gaussian-filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      Gaussian filter
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#plot-results" class="md-nav__link">
-    <span class="md-ellipsis">
-      Plot results
+      Setup
     </span>
   </a>
   
@@ -626,7 +608,7 @@
   
   
   <span class="md-ellipsis">
-    Index
+    geope
     
   </span>
   
@@ -763,27 +745,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#solve-with-geope-and-perform-repeated-geometric-smoothing-steps-fewer-steps-would-be-sufficient" class="md-nav__link">
+  <a href="#setup" class="md-nav__link">
     <span class="md-ellipsis">
-      Solve with GEOPE and perform repeated Geometric smoothing steps (fewer steps would be sufficient)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gaussian-filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      Gaussian filter
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#plot-results" class="md-nav__link">
-    <span class="md-ellipsis">
-      Plot results
+      Setup
     </span>
   </a>
   
@@ -805,17 +769,21 @@
 
 
 
-<div class="highlight"><pre><span></span><code><span class="o">%</span><span class="n">load_ext</span> <span class="n">autoreload</span>
-<span class="o">%</span><span class="n">autoreload</span> <span class="mi">2</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>The autoreload extension is already loaded. To reload it, use:
-  %reload_ext autoreload
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geope</span>
-</code></pre></div>
+<h1 id="pulse-smoothing-with-geope">Pulse Smoothing with GEOPE<a class="headerlink" href="#pulse-smoothing-with-geope" title="Permanent link">¤</a></h1>
+<p>This notebook demonstrates how to use <strong>GEOPE</strong> (Geodesic Pulse Engineering) to synthesise piecewise-constant quantum control pulses and then smooth them using two different strategies:</p>
+<ol>
+<li><strong>Geometric smoothing</strong> — iteratively projects parameter updates into the null space of the Jacobian so that fidelity is preserved while neighbouring pulse segments are brought closer together.</li>
+<li><strong>Gaussian filtering</strong> — a simple signal-processing baseline that convolves the pulse with a Gaussian kernel, then re-optimises to recover lost fidelity.</li>
+</ol>
+<p>We target the <strong>controlled-Z (CZ)</strong> gate on two qubits under an Ising-type Hamiltonian with time-dependent transverse-field controls.</p>
+<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">¤</a></h2>
+<p>Load the required libraries. <strong>GEOPE</strong> is built on JAX for automatic differentiation and JIT compilation. We also use SciPy for signal processing and Matplotlib (with the <code>scienceplots</code> style) for publication-quality figures.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 
 <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;../&quot;</span><span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">geope.geope</span><span class="w"> </span><span class="kn">import</span> <span class="n">Geope</span><span class="p">,</span> <span class="n">GeopeEngine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">geope.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">construct_full_pauli_basis</span><span class="p">,</span> <span class="n">construct_restricted_pauli_basis</span><span class="p">,</span> <span class="n">qft_unitary</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
@@ -837,32 +805,39 @@
 <h1 id="cz-with-h_1t-control">CZ with <span class="arithmatex">\(h_1(t)\)</span> control<a class="headerlink" href="#cz-with-h_1t-control" title="Permanent link">¤</a></h1>
 <p>With Hamiltonian model: <span class="arithmatex">\(H = \sigma^z_1 \sigma^z_2 + h_1(t)\sigma^x_1\)</span> </p>
 <h3 id="solve-with-geope-and-perform-repeated-geometric-smoothing-steps-fewer-steps-would-be-sufficient">Solve with GEOPE and perform repeated Geometric smoothing steps (fewer steps would be sufficient)<a class="headerlink" href="#solve-with-geope-and-perform-repeated-geometric-smoothing-steps-fewer-steps-would-be-sufficient" title="Permanent link">¤</a></h3>
+<p>We construct the CZ gate as a 2-qubit target unitary and set up the Lie algebra bases:</p>
+<ul>
+<li><strong>Full basis</strong> — the complete 15-element Pauli basis for 2 qubits.</li>
+<li><strong>Drift basis</strong> — the fixed <span class="arithmatex">\(\sigma^z_1 \sigma^z_2\)</span> interaction that is always on.</li>
+<li><strong>Projected (control) basis</strong> — only <span class="arithmatex">\(\sigma^x_1\)</span>, the single controllable field <span class="arithmatex">\(h_1(t)\)</span>.</li>
+</ul>
+<p>Two <code>GeopeEngine</code> instances are created: one for geometric smoothing and one for the Gaussian filter comparison. The optimisation loop runs GEOPE for up to 6 rounds, doubling the number of piecewise-constant segments and applying geometric smoothing after each round until the pulse-difference cost drops below the tolerance.</p>
 <div class="highlight"><pre><span></span><code><span class="n">nqubits</span> <span class="o">=</span> <span class="mi">2</span>
 
 <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mf">1.</span><span class="n">j</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mf">1.</span><span class="n">j</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]])</span>
 <span class="n">gates</span> <span class="o">=</span> <span class="mi">4</span>
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">)</span>
+<span class="n">basis</span> <span class="o">=</span> <span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">)</span>
 <span class="n">max_step_size</span> <span class="o">=</span> <span class="mf">0.1</span>
 
-<span class="n">drift</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">])</span>
-<span class="n">restriction</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]})</span>
+<span class="n">drift</span> <span class="o">=</span> <span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">])</span>
+<span class="n">restriction</span> <span class="o">=</span> <span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]})</span>
 
 
 <span class="n">drift_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.</span><span class="p">]</span>
 
-<span class="n">geope_engine</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">GeopeEngine</span><span class="p">(</span><span class="n">target_unitary</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
+<span class="n">geope_engine</span> <span class="o">=</span> <span class="n">GeopeEngine</span><span class="p">(</span><span class="n">target_unitary</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
                            <span class="n">full_basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
                            <span class="n">projected_basis</span><span class="o">=</span><span class="n">restriction</span><span class="p">,</span>
                            <span class="n">drift_basis</span><span class="o">=</span><span class="n">drift</span><span class="p">,</span>
                            <span class="n">gates</span><span class="o">=</span><span class="n">gates</span><span class="p">)</span>
 
-<span class="n">geope_engine_gf</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">GeopeEngine</span><span class="p">(</span><span class="n">target_unitary</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
+<span class="n">geope_engine_gf</span> <span class="o">=</span> <span class="n">GeopeEngine</span><span class="p">(</span><span class="n">target_unitary</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
                               <span class="n">full_basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
                               <span class="n">projected_basis</span><span class="o">=</span><span class="n">restriction</span><span class="p">,</span>
                               <span class="n">drift_basis</span><span class="o">=</span><span class="n">drift</span><span class="p">,</span>
                               <span class="n">gates</span><span class="o">=</span><span class="n">gates</span><span class="p">)</span>
 
-<span class="n">opt_geope</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">geope_engine</span><span class="p">,</span> 
+<span class="n">opt_geope</span> <span class="o">=</span> <span class="n">Geope</span><span class="p">(</span><span class="n">geope_engine</span><span class="p">,</span> 
                   <span class="n">drift_parameters</span> <span class="o">=</span> <span class="n">drift_parameters</span><span class="p">,</span>
                   <span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
                   <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span> 
@@ -876,7 +851,7 @@
 <span class="k">while</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="mi">6</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
     <span class="n">opt_geope</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">extra_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">c</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
-        <span class="n">opt_geope_gf</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">geope_engine_gf</span><span class="p">,</span> 
+        <span class="n">opt_geope_gf</span> <span class="o">=</span> <span class="n">Geope</span><span class="p">(</span><span class="n">geope_engine_gf</span><span class="p">,</span> 
                               <span class="n">drift_parameters</span> <span class="o">=</span> <span class="n">drift_parameters</span><span class="p">,</span>
                               <span class="n">init_parameters</span><span class="o">=</span><span class="n">opt_geope</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
                               <span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
@@ -890,22 +865,29 @@
 <span class="n">opt_geope</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">extra_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Finished optimising.&quot;</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>[47/200] [Fidelity = 0.999999999999963] A solution!                                                                       
-[500/500] [Fidelity = 0.9999999999440616] Smoothing : cost = 0.5551969570292985 (aim = 1e-05)                        
+<div class="highlight"><pre><span></span><code>[47/200] [Fidelity = 0.9999999999993855] A solution!                                                                      
+[500/500] [Fidelity = 0.999999999892188] Smoothing : cost = 0.6241215575277288 (aim = 1e-05)                        
 
-[500/500] [Fidelity = 0.9999999848474914] Smoothing : cost = 0.07468331406078317 (aim = 1e-05)                        
+[500/500] [Fidelity = 0.9999999963041594] Smoothing : cost = 0.07466517407061818 (aim = 1e-05)                        
 
-[500/500] [Fidelity = 0.9999996693789848] Smoothing : cost = 0.00959246483409428 (aim = 1e-05)                        
-[51/500] [Fidelity = 0.999999999984137] A solution!                                                                     
-[500/500] [Fidelity = 0.9999877455629671] Smoothing : cost = 0.0012002608200416514 (aim = 1e-05)                        
-[53/600] [Fidelity = 0.9999999999683997] A solution!                                                                     
-[500/500] [Fidelity = 0.9998287035886576] Smoothing : cost = 0.00014586542860303535 (aim = 1e-05)                        
-[55/700] [Fidelity = 0.9999999940721339] A solution!                                                                     
-[500/500] [Fidelity = 0.9962544025721869] Smoothing : cost = 1.547759395275952e-05 (aim = 1e-05)                        
-[59/800] [Fidelity = 0.9999999988081915] A solution!                                                                     
+[500/500] [Fidelity = 0.9999995626780503] Smoothing : cost = 0.009589935098381531 (aim = 1e-05)                        
+[51/500] [Fidelity = 0.9999999999747118] A solution!                                                                     
+[500/500] [Fidelity = 0.9999885767979315] Smoothing : cost = 0.0012006663522884122 (aim = 1e-05)                        
+[53/600] [Fidelity = 0.9999999999040152] A solution!                                                                     
+[500/500] [Fidelity = 0.9997893111268338] Smoothing : cost = 0.00014507039371467354 (aim = 1e-05)                        
+[55/700] [Fidelity = 0.9999999913440374] A solution!                                                                     
+[500/500] [Fidelity = 0.9961199785692376] Smoothing : cost = 1.5436620164990185e-05 (aim = 1e-05)                        
+[59/800] [Fidelity = 0.9999999981473346] A solution!                                                                     
 Finished optimising.
 </code></pre></div>
 <h3 id="gaussian-filter">Gaussian filter<a class="headerlink" href="#gaussian-filter" title="Permanent link">¤</a></h3>
+<p>As an alternative to geometric smoothing, we apply a <strong>Gaussian filter</strong> (from <code>scipy.ndimage</code>) to the piecewise-constant pulse. The steps are:</p>
+<ol>
+<li>Subdivide the pulse into many fine segments (factor of 64).</li>
+<li>Pad each control channel with zeros, convolve with a Gaussian kernel (<span class="arithmatex">\(\sigma = 8\)</span>), and trim.</li>
+<li>Replace the parameters with the smoothed version and re-evaluate the fidelity before and after filtering.</li>
+<li>Re-optimise with GEOPE to recover any fidelity lost from the filtering.</li>
+</ol>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">scipy.ndimage</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">spnimag</span>
 
 <span class="n">new_params</span> <span class="o">=</span> <span class="p">[]</span>
@@ -938,15 +920,15 @@ Finished optimising.
 <span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">extra_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>[0/0] [Fidelity = 0] Smoothing : cost = inf (aim = 0.01)                        
-Before: 0.9999999999999658
-After: 0.9979758692964357
-[3/200] [Fidelity = 0.9999999982380883] A solution!
+Before: 0.9999999999993886
+After: 0.9997522986573032
+[2/200] [Fidelity = 0.9999999525937958] A solution!
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>True
 </code></pre></div>
 <h3 id="plot-results">Plot results<a class="headerlink" href="#plot-results" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># savefig = &quot;plots/smoothing/gaussian_filter_vs_geometric_smoothing_cz_ising_x1.pdf&quot;</span>
-<span class="n">savefig</span> <span class="o">=</span> <span class="kc">None</span>
+<p>We compare the two smoothing strategies side-by-side. The left panel shows the original piecewise pulse (black) overlaid with the Gaussian-filtered result (blue). The right panel shows the same original pulse overlaid with the geometrically smoothed result (green). Both methods reduce high-frequency discontinuities, but geometric smoothing preserves fidelity by construction.</p>
+<div class="highlight"><pre><span></span><code><span class="n">savefig</span> <span class="o">=</span> <span class="s2">&quot;plots/smoothing/gaussian_filter_vs_geometric_smoothing_cz_ising_x1.pdf&quot;</span>
 
 <span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span>
 <span class="n">y_limits</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">8.5</span><span class="p">]</span>
@@ -1039,30 +1021,31 @@ After: 0.9979758692964357
     <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">savefig</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
-<p><img alt="img" src="../_data/0b6247acca6a49f58ad56651e39f482e.png" /></p>
+<p><img alt="img" src="../_data/6823042a8ce0476fbe9c39228ec25a94.png" /></p>
 <h1 id="cz-with-h_1t-and-h_2t-control">CZ with <span class="arithmatex">\(h_1(t)\)</span> and <span class="arithmatex">\(h_2(t)\)</span> control<a class="headerlink" href="#cz-with-h_1t-and-h_2t-control" title="Permanent link">¤</a></h1>
 <p>With Hamiltonian model: <span class="arithmatex">\(H = \sigma^z_1 \sigma^z_2 + h_1(t)\sigma^x_1 + h_2(t)\sigma^x_2\)</span> </p>
 <h3 id="solve-with-geope-and-then-repeated-geometric-smoothing">Solve with GEOPE and then repeated geometric smoothing<a class="headerlink" href="#solve-with-geope-and-then-repeated-geometric-smoothing" title="Permanent link">¤</a></h3>
+<p>We now repeat the experiment with <strong>two independent controls</strong>, <span class="arithmatex">\(h_1(t)\sigma^x_1\)</span> and <span class="arithmatex">\(h_2(t)\sigma^x_2\)</span>, while keeping the same <span class="arithmatex">\(\sigma^z_1\sigma^z_2\)</span> drift. Having more control degrees of freedom generally makes the optimisation landscape more favourable for convergence.</p>
 <div class="highlight"><pre><span></span><code><span class="n">nqubits</span> <span class="o">=</span> <span class="mi">2</span>
 
 <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mf">1.</span><span class="n">j</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mf">1.</span><span class="n">j</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]])</span>
 <span class="n">gates</span> <span class="o">=</span> <span class="mi">4</span>
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">)</span>
+<span class="n">basis</span> <span class="o">=</span> <span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">)</span>
 <span class="n">max_step_size</span> <span class="o">=</span> <span class="mf">0.1</span>
 
-<span class="n">drift</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">])</span>
-<span class="n">restriction</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]})</span>
+<span class="n">drift</span> <span class="o">=</span> <span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">])</span>
+<span class="n">restriction</span> <span class="o">=</span> <span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]})</span>
 
 
 <span class="n">drift_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.</span><span class="p">]</span>
 
-<span class="n">engine</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">GeopeEngine</span><span class="p">(</span><span class="n">target_unitary</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="n">GeopeEngine</span><span class="p">(</span><span class="n">target_unitary</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
                            <span class="n">full_basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
                            <span class="n">projected_basis</span><span class="o">=</span><span class="n">restriction</span><span class="p">,</span>
                            <span class="n">drift_basis</span><span class="o">=</span><span class="n">drift</span><span class="p">,</span>
                            <span class="n">gates</span><span class="o">=</span><span class="n">gates</span><span class="p">)</span>
 
-<span class="n">opt</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> 
+<span class="n">opt</span> <span class="o">=</span> <span class="n">Geope</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> 
               <span class="n">drift_parameters</span> <span class="o">=</span> <span class="n">drift_parameters</span><span class="p">,</span>
               <span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
               <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span> 
@@ -1081,26 +1064,24 @@ After: 0.9979758692964357
 <span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">extra_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Finished optimising.&quot;</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>[53/200] [Fidelity = 0.9999999999893321] A solution!                                                                      
-[500/500] [Fidelity = 0.9999999996223878] Smoothing : cost = 0.7106076293671505 (aim = 1e-05)                        
+<div class="highlight"><pre><span></span><code>[46/200] [Fidelity = 0.9999999815404588] A solution!                                                                      
+[500/500] [Fidelity = 0.999999982018949] Smoothing : cost = 0.573877544865765 (aim = 1e-05)                        
 
-[500/500] [Fidelity = 0.9999999176585297] Smoothing : cost = 0.07470720988838139 (aim = 1e-05)                        
+[500/500] [Fidelity = 0.9999999684720933] Smoothing : cost = 0.07467538831456612 (aim = 1e-05)                        
 
-[500/500] [Fidelity = 0.9999997566757337] Smoothing : cost = 0.009595870908950008 (aim = 1e-05)                        
-[57/500] [Fidelity = 0.9999999999115585] A solution!                                                                     
-[500/500] [Fidelity = 0.9999876572536599] Smoothing : cost = 0.0012004767237150764 (aim = 1e-05)                        
-[59/600] [Fidelity = 0.9999999998481689] A solution!                                                                     
-[500/500] [Fidelity = 0.9997978290185139] Smoothing : cost = 0.0001453001922655677 (aim = 1e-05)                        
-[61/700] [Fidelity = 0.9999999919202979] A solution!                                                                     
-[500/500] [Fidelity = 0.9961981091173558] Smoothing : cost = 1.5459474287008934e-05 (aim = 1e-05)                        
-[65/800] [Fidelity = 0.9999999984937665] A solution!                                                                     
+[500/500] [Fidelity = 0.9999992099301154] Smoothing : cost = 0.009591332856464223 (aim = 1e-05)                        
+[50/500] [Fidelity = 0.999999999790611] A solution!                                                                     
+[500/500] [Fidelity = 0.9999870968493517] Smoothing : cost = 0.0012002537783423056 (aim = 1e-05)                        
+[52/600] [Fidelity = 0.9999999997577187] A solution!                                                                     
+[500/500] [Fidelity = 0.9997854149111107] Smoothing : cost = 0.00014500395023076424 (aim = 1e-05)                        
+[54/700] [Fidelity = 0.9999999911843583] A solution!                                                                     
+[500/500] [Fidelity = 0.9961464582431528] Smoothing : cost = 1.5441403128269048e-05 (aim = 1e-05)                        
+[58/800] [Fidelity = 0.9999999953550597] A solution!                                                                     
 Finished optimising.
 </code></pre></div>
 <h3 id="plot">Plot<a class="headerlink" href="#plot" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># savefig = &quot;plots/smoothing/geometric_smoothing_transverse_ising_with_h1_h2.pdf&quot;</span>
-<span class="n">savefig</span> <span class="o">=</span> <span class="kc">None</span>
-
-<span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.05</span>
+<p>Each subplot shows one control channel. The black step function is the initial (unsmoothed) pulse; the green step function is the geometrically smoothed result. Both panels share the same time axis.</p>
+<div class="highlight"><pre><span></span><code><span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.05</span>
 <span class="n">y_limits</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">8.5</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">init_step</span> <span class="o">=</span> <span class="n">steps_2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="n">smoothed_step</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
@@ -1155,64 +1136,10 @@ Finished optimising.
 <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$h_</span><span class="se">{{</span><span class="s2">2</span><span class="se">}}</span><span class="s2">(t)$&quot;</span><span class="p">)</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
-<span class="k">if</span> <span class="n">savefig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">savefig</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;plots/smoothing/geometric_smoothing_transverse_ising_with_h1_h2.pdf&quot;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
-<p><img alt="img" src="../_data/bbd53611cb414818aa2544dd87bc0027.png" /></p>
-<div class="highlight"><pre><span></span><code><span class="n">square_factor</span><span class="o">=</span><span class="mi">10</span>
-<span class="n">orig_scaling</span> <span class="o">=</span> <span class="n">square_factor</span> <span class="o">*</span> <span class="n">opt_geope</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">steps</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">smoothed_scaling</span> <span class="o">=</span> <span class="n">opt_geope</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">gf_scaling</span> <span class="o">=</span> <span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-<span class="n">orig_gates</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">/</span><span class="n">orig_scaling</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">orig_scaling</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span>
-<span class="n">smoothed_gates</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">/</span><span class="n">smoothed_scaling</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothed_scaling</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span>
-<span class="n">gf_gates</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">/</span><span class="n">gf_scaling</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">gf_scaling</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span>
-
-<span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">),</span> <span class="n">sharex</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">strength</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">opt_geope</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">steps</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">T</span><span class="p">):</span>
-    <span class="n">strength</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">strength</span><span class="p">,</span> <span class="n">square_factor</span><span class="p">)</span>
-    <span class="n">strength</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="o">*</span><span class="n">orig_scaling</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">strength</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">opt_geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">full_basis</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="n">opt_geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">projected_basis</span><span class="o">.</span><span class="n">labels</span><span class="p">:</span>
-        <span class="n">pulse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">strength</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">])))</span>
-        <span class="n">spectral_density</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">periodogram</span><span class="p">(</span><span class="n">pulse</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">)</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">orig_gates</span><span class="p">,</span> <span class="n">pulse</span><span class="p">)</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">spectral_density</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">spectral_density</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
-
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">strength</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">):</span>
-    <span class="n">strength</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="o">*</span><span class="n">gf_scaling</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">strength</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">full_basis</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">projected_basis</span><span class="o">.</span><span class="n">labels</span><span class="p">:</span>
-        <span class="n">pulse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">strength</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">])))</span>
-        <span class="n">spectral_density</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">periodogram</span><span class="p">(</span><span class="n">pulse</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">)</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">gf_gates</span><span class="p">,</span> <span class="n">pulse</span><span class="p">)</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">spectral_density</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">spectral_density</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
-
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">strength</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">opt_geope</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">):</span>
-    <span class="n">strength</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="o">*</span><span class="n">smoothed_scaling</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">strength</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">opt_geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">full_basis</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="n">opt_geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">projected_basis</span><span class="o">.</span><span class="n">labels</span><span class="p">:</span>
-        <span class="n">pulse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">strength</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">])))</span>
-        <span class="n">spectral_density</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">periodogram</span><span class="p">(</span><span class="n">pulse</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">)</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">smoothed_gates</span><span class="p">,</span> <span class="n">pulse</span><span class="p">)</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">spectral_density</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">spectral_density</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
-
-<span class="c1"># axs[0].set_title(f&quot;(a) Gaussian filter&quot;)</span>
-<span class="c1"># axs[1].set_title(f&quot;(b) Geometric smoothing&quot;)</span>
-
-<span class="c1"># axs[0].set_xlabel(&quot;Unit time, $t$&quot;)</span>
-<span class="c1"># axs[1].set_xlabel(&quot;Unit time, $t$&quot;)</span>
-<span class="c1"># axs[0].set_ylabel(f&quot;$h_1(t)$&quot;)</span>
-<span class="c1"># axs[1].set_ylabel(f&quot;$h_1(t)$&quot;)</span>
-
-<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-</code></pre></div>
-<p><img alt="img" src="../_data/43520212a19b4eaabe847b46891568fc.png" /></p>
-<div class="highlight"><pre><span></span><code>
-</code></pre></div>
+<p><img alt="img" src="../_data/2dc656c971aa4d2fa5de84e73f44c8ec.png" /></p>
 
 
 
