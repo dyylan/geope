@@ -95,6 +95,7 @@ nav:
         - "index.md"
         - "install.md"
     - Examples:
+        - "examples/getting_started.ipynb"
         - "examples/pulse_smoothing.ipynb"
     - API Reference:
         - "api/index.md"

@@ -1,6 +1,6 @@
 # geope.engine
 
-::: geope.engine.Engine
+<!-- ::: geope.engine.Engine -->
 
 ::: geope.engine.fidelity
 

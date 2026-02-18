@@ -202,8 +202,8 @@ class Geope:
                 self.init_parameters[:, self.engine.projected_indices] = np.array(init_parameters)
             else:
                 raise ValueError("Initial parameters must be of shape (full_basis.lie_algebra_dim,) or (full_basis.lie_algebra_dim, piecewise_steps) or (projected_basis.lie_algebra_dim,) or (piecewise_steps, projected_basis.lie_algebra_dim)")
-            # assert self.engine.full_basis.lie_algebra_dim == self.init_parameters.shape[0], \
-            #     "Drift parameters must be the same length as the size of the drift basis."
+        if drift_parameters is not None and self.engine.drift_basis is None:
+            raise ValueError("Drift parameters are set but no drift basis is defined.")
         if self.engine.drift_basis is not None:
             if drift_parameters is None:
                 self.drift_parameters = np.ones(self.engine.drift_basis.lie_algebra_dim)
@@ -211,8 +211,9 @@ class Geope:
                 self.drift_parameters = np.array(drift_parameters)
                 assert self.engine.drift_basis.lie_algebra_dim == self.drift_parameters.shape[0], \
                     "Drift parameters must be the same length as the size of the drift basis."
-
             self.init_parameters[:, self.engine.drift_indices] = np.tile(self.drift_parameters, (self.engine.piecewise_steps, 1))
+        else:
+            self.drift_parameters = None
         self.parameters = [self.init_parameters]
         free_params = jnp.array([p[self.engine.proj_drift_indices] for p in self.parameters[-1]]).astype(np.complex128)
         self.fidelities = [self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))]

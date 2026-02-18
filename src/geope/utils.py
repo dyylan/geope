@@ -588,6 +588,21 @@ def multikron(matrices: list[np.ndarray]) -> np.ndarray:
     return product
 
 
+def multimatmul(matrices: list[np.ndarray]) -> np.ndarray:
+    """Compute the matrix multiplication of a list of matrices.
+
+    Args:
+        matrices: List of 2-D arrays.
+
+    Returns:
+        The iterated matrix multiplication.
+    """
+    matmul = matrices[0]
+    for mat in matrices[1:]:
+        matmul = np.matmul(matmul, mat)
+    return matmul
+
+
 def multicontrol_unitary(local_unitary: np.ndarray, num_controls: int) -> np.ndarray:
     """Embed a single-qubit unitary as a multi-controlled gate.
 
