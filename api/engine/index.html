@@ -250,7 +250,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../examples/pulse_smoothing/" class="md-tabs__link">
+        <a href="../../examples/getting_started/" class="md-tabs__link">
           
   
   
@@ -474,6 +474,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting Started with GEOPE
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/pulse_smoothing/" class="md-nav__link">
         
   
@@ -648,15 +671,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.engine.Engine" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Engine
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#geope.engine.fidelity" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;fidelity
@@ -754,15 +768,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.engine.Engine" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Engine
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#geope.engine.fidelity" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;fidelity
@@ -788,406 +793,9 @@
 
 
 <h1 id="geopeengine">geope.engine<a class="headerlink" href="#geopeengine" title="Permanent link">¤</a></h1>
+<!-- ::: geope.engine.Engine -->
 
 
-<div class="doc doc-object doc-class">
-
-
-
-<h4 id="geope.engine.Engine" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.engine.Engine</code>
-
-
-<a href="#geope.engine.Engine" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-
-
-        <p>Base engine for compiling quantum unitaries using Lie-algebraic methods.</p>
-<p>The Engine sets up the algebraic infrastructure for quantum gate synthesis,
-including projected and drift basis indices, and JIT-compiled JAX functions
-for computing unitaries and fidelities.</p>
-
-
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.full_basis">full_basis</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The full Lie algebra basis.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.projected_basis">projected_basis</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The projected (controllable) subalgebra basis.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.drift_basis">drift_basis</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The drift (uncontrollable) subalgebra basis, if any.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.piecewise_steps">piecewise_steps</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of piecewise-constant gate segments.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.projected_indices">projected_indices</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Boolean mask for projected basis elements in the full basis.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.drift_indices">drift_indices</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Boolean mask for drift basis elements in the full basis.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.proj_drift_indices">proj_drift_indices</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Combined boolean mask for projected and drift elements.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.proj_drift_basis">proj_drift_basis</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Combined projected-and-drift <code>Basis</code> object.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.proj_indices_projdrift_basis">proj_indices_projdrift_basis</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Projected indices within the combined basis.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.drift_indices_projdrift_basis">drift_indices_projdrift_basis</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Drift indices within the combined basis.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.compute_U_fn">compute_U_fn</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JIT-compiled function to compute the unitary from parameters.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.engine.Engine.fid_U_fn">fid_U_fn</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JIT-compiled function to compute fidelity against the target unitary.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.engine.Engine.__dict__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.engine.Engine.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.engine.Engine.__doc__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.engine.Engine.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.engine.Engine.__module__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.engine.Engine.__module__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.engine.Engine.__weakref__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.engine.Engine.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>list of weak references to the object</p>
-
-    </div>
-
-</div>
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.engine.Engine.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
-
-<a href="#geope.engine.Engine.__init__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Initialise the Engine.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>target_unitary</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The target unitary matrix as <code>np.ndarray</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>full_basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The full Lie algebra <code>Basis</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>projected_basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The projected (controllable) subalgebra <code>Basis</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>drift_basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The drift (uncontrollable) subalgebra <code>Basis</code>.
-Defaults to <code>None</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>piecewise_steps</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of piecewise-constant gate segments. Defaults to 1.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
 
 <div class="doc doc-object doc-function">
 
