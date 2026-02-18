@@ -27,13 +27,13 @@ theme:
     logo: "_static/geope_logo.png"
     favicon: "_static/geope_logo.png"
 
-site_name: GEOPE
+site_name: Geodesic Pulse Engineering (GEOPE)
 site_description: The documentation for the GEOPE software library.
 site_author: Dylan Lewis and Roeland Wiersema
 site_url: https://dyylan.github.io/geope
 
 repo_url: https://github.com/dyylan/geope
-repo_name: dyylan/geope
+repo_name: GEOPE
 edit_uri: ""
 
 strict: true # Don't allow warnings during the build process
@@ -94,15 +94,15 @@ nav:
     - Home:
         - "index.md"
         - "install.md"
-    # - Examples:
-        # - "examples/notebook.ipynb"
-    - API:
+    - Examples:
+        - "examples/pulse_smoothing.ipynb"
+    - API Reference:
         - "api/index.md"
         - "api/geope.md"
         - "api/engine.md"
         - "api/lie.md"
-        - "api/dexpm.md"
-        - "api/logm.md"
-        - "api/jacobian_manual.md"
-        - "api/pauli_projector.md"
+        # - "api/dexpm.md"
+        # - "api/logm.md"
+        # - "api/jacobian_manual.md"
+        # - "api/pauli_projector.md"
         - "api/utils.md"
