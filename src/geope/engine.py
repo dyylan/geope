@@ -25,7 +25,7 @@ class Engine:
         full_basis: The full Lie algebra basis.
         projected_basis: The projected (controllable) subalgebra basis.
         drift_basis: The drift (uncontrollable) subalgebra basis, if any.
-        gates: Number of piecewise-constant gate segments.
+        piecewise_steps: Number of piecewise-constant gate segments.
         projected_indices: Boolean mask for projected basis elements in the full basis.
         drift_indices: Boolean mask for drift basis elements in the full basis.
         proj_drift_indices: Combined boolean mask for projected and drift elements.
@@ -41,7 +41,7 @@ class Engine:
                  full_basis: Basis,
                  projected_basis: Basis,
                  drift_basis: Basis | None = None,
-                 gates: int = 1) -> None:
+                 piecewise_steps: int = 1) -> None:
         """Initialise the Engine.
 
         Args:
@@ -50,12 +50,12 @@ class Engine:
             projected_basis: The projected (controllable) subalgebra ``Basis``.
             drift_basis: The drift (uncontrollable) subalgebra ``Basis``.
                 Defaults to ``None``.
-            gates: Number of piecewise-constant gate segments. Defaults to 1.
+            piecewise_steps: Number of piecewise-constant gate segments. Defaults to 1.
         """
         self.full_basis = full_basis
         self.projected_basis = projected_basis
         self.drift_basis = drift_basis
-        self.gates = gates
+        self.piecewise_steps = piecewise_steps
 
         # Get the projected indices in the full space
         self.projected_indices = np.array(projected_basis.overlap(full_basis), dtype=bool)
@@ -113,7 +113,7 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
     and accumulates the product unitary via `jax.lax.scan`.
 
     Args:
-        params_list: ``Array`` of shape ``(gates, K)`` where each row
+        params_list: ``Array`` of shape ``(piecewise_steps, K)`` where each row
             contains the Lie-algebra coefficients for one gate segment.
         basis: ``Array`` of shape ``(K, d, d)`` of Hermitian basis matrices.
 

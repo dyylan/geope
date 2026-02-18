@@ -4,7 +4,7 @@
 
 ::: geope.geope.Geope
 
-::: geope.geope.linear_comb_projected_coeffs_multigate
+<!-- ::: geope.geope.linear_comb_projected_coeffs_multigate
 
 ::: geope.geope.geodesic_hamiltonian
 
@@ -18,4 +18,4 @@
 
 ::: geope.geope.piecewise_bounding_mp
 
-::: geope.geope.piecewise_bounding_pg
+::: geope.geope.piecewise_bounding_pg -->

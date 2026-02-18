@@ -38,7 +38,7 @@ class GeopeEngine(Engine):
                  full_basis: Basis,
                  projected_basis: Basis,
                  drift_basis: Basis | None = None,
-                 gates: int = 1,
+                 piecewise_steps: int = 1,
                  batch_size: int | None = None) -> None:
         """Initialise the GeopeEngine.
 
@@ -48,11 +48,11 @@ class GeopeEngine(Engine):
             projected_basis: The projected (controllable) subalgebra ``Basis``.
             drift_basis: The drift (uncontrollable) subalgebra ``Basis``.
                 Defaults to ``None``.
-            gates: Number of piecewise-constant gate segments. Defaults to 1.
+            piecewise_steps: Number of piecewise-constant gate segments. Defaults to 1.
             batch_size: Optional batch size for on-the-fly omega projection
                 when the number of qubits exceeds 5.
         """
-        super(GeopeEngine, self).__init__(target_unitary, full_basis, projected_basis, drift_basis, gates)
+        super(GeopeEngine, self).__init__(target_unitary, full_basis, projected_basis, drift_basis, piecewise_steps)
         if full_basis.n > 5:
             # TODO: We will probably have to batch the jacobian function here as well
             # We should calculate the jacobians of the expms and stitch together the
@@ -188,14 +188,20 @@ class Geope:
             self.init_parameters = np.array([prepare_random_parameters(self.engine.projected_indices,
                                                                        expander=self.constraint_expander,
                                                                        spread=self.init_parameters_spread,
-                                                                       seed=seed) for _ in range(self.engine.gates)])
+                                                                       seed=seed) for _ in range(self.engine.piecewise_steps)])
         else:
             if np.array(init_parameters).shape == (self.engine.full_basis.lie_algebra_dim,):
-                self.init_parameters = np.array([init_parameters] * self.engine.gates)
-            elif np.array(init_parameters).shape == (self.engine.gates, self.engine.full_basis.lie_algebra_dim):
+                self.init_parameters = np.array([init_parameters] * self.engine.piecewise_steps)
+            elif np.array(init_parameters).shape == (self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim):
                 self.init_parameters = np.array(init_parameters)
+            elif np.array(init_parameters).shape == (self.engine.projected_basis.lie_algebra_dim,):
+                self.init_parameters = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
+                self.init_parameters[:, self.engine.projected_indices] = np.array(init_parameters)
+            elif np.array(init_parameters).shape == (self.engine.piecewise_steps, self.engine.projected_basis.lie_algebra_dim):
+                self.init_parameters = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
+                self.init_parameters[:, self.engine.projected_indices] = np.array(init_parameters)
             else:
-                raise ValueError("Initial parameters must be of shape (projected_basis.lie_algebra_dim,) or (gates, projected_basis.lie_algebra_dim)")
+                raise ValueError("Initial parameters must be of shape (full_basis.lie_algebra_dim,) or (full_basis.lie_algebra_dim, piecewise_steps) or (projected_basis.lie_algebra_dim,) or (piecewise_steps, projected_basis.lie_algebra_dim)")
             # assert self.engine.full_basis.lie_algebra_dim == self.init_parameters.shape[0], \
             #     "Drift parameters must be the same length as the size of the drift basis."
         if self.engine.drift_basis is not None:
@@ -206,7 +212,7 @@ class Geope:
                 assert self.engine.drift_basis.lie_algebra_dim == self.drift_parameters.shape[0], \
                     "Drift parameters must be the same length as the size of the drift basis."
 
-            self.init_parameters[:, self.engine.drift_indices] = np.tile(self.drift_parameters, (self.engine.gates, 1))
+            self.init_parameters[:, self.engine.drift_indices] = np.tile(self.drift_parameters, (self.engine.piecewise_steps, 1))
         self.parameters = [self.init_parameters]
         free_params = jnp.array([p[self.engine.proj_drift_indices] for p in self.parameters[-1]]).astype(np.complex128)
         self.fidelities = [self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))]
@@ -231,7 +237,7 @@ class Geope:
         while (self.fidelities[-1] < self.precision) and (step < self.max_steps + extra_steps):
             step += 1
             free_params = self.parameters[-1][:, self.engine.proj_drift_indices].astype(jnp.complex128)
-            coeffs, new_params_update, fidelity, step_size = self.update_step(free_params, self.parameters[-1], self.engine.gates)
+            coeffs, new_params_update, fidelity, step_size = self.update_step(free_params, self.parameters[-1], self.engine.piecewise_steps)
 
             if fidelity > self.precision:
                 if self.verbose:
@@ -282,17 +288,17 @@ class Geope:
         Returns:
             The fidelity of the new parameter set.
         """
-        if params.shape == (self.engine.gates, self.engine.full_basis.lie_algebra_dim):
-            new_params = np.zeros((self.engine.gates, self.engine.full_basis.lie_algebra_dim))
+        if params.shape == (self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim):
+            new_params = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
             new_params = params
-        elif params.shape == (self.engine.gates, self.engine.proj_drift_basis.lie_algebra_dim):
-            new_params = np.zeros((self.engine.gates, self.engine.full_basis.lie_algebra_dim))
+        elif params.shape == (self.engine.piecewise_steps, self.engine.proj_drift_basis.lie_algebra_dim):
+            new_params = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
             new_params[:, self.engine.proj_drift_indices] = params
-        elif params.shape == (self.engine.gates, self.engine.projected_basis.lie_algebra_dim):
-            new_params = np.zeros((self.engine.gates, self.engine.full_basis.lie_algebra_dim))
+        elif params.shape == (self.engine.piecewise_steps, self.engine.projected_basis.lie_algebra_dim):
+            new_params = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
             new_params[:, self.engine.projected_indices] = params
             if self.engine.drift_basis is not None:
-                new_params[:, self.engine.drift_indices] = jnp.tile(self.drift_parameters, (self.engine.gates, 1))
+                new_params[:, self.engine.drift_indices] = jnp.tile(self.drift_parameters, (self.engine.piecewise_steps, 1))
         else:
             ValueError("Parameter shape does not match with full basis, projected & drift basis, or projected basis.")
         self.parameters.append(new_params)
@@ -375,7 +381,7 @@ class Geope:
         """
         self.parameter_bounds = parameter_bounds
         bounds = self.engine.proj_drift_basis.generate_bounds(self.parameter_bounds, 
-                                                              self.engine.gates)
+                                                              self.engine.piecewise_steps)
         self.lower_bounds = jnp.array(bounds[0], dtype=jnp.float64)
         self.upper_bounds = jnp.array(bounds[1], dtype=jnp.float64)
 
@@ -412,10 +418,10 @@ class Geope:
         proj_c = np.array(
             [prepare_random_parameters(self.engine.projected_indices, self.constraint_expander)[
                  self.engine.proj_drift_indices] for _ in
-             range(self.engine.gates)])
+             range(self.engine.piecewise_steps)])
         if self.engine.drift_basis is not None:
             proj_c[:, self.engine.drift_indices_projdrift_basis] = jnp.tile(self.drift_parameters,
-                                                                            (self.engine.gates, 1))
+                                                                            (self.engine.piecewise_steps, 1))
         proj_c_con = np.concatenate(proj_c, axis=0)
         coeffs_con = np.concatenate(coeffs, axis=0)
 
@@ -568,13 +574,13 @@ class Geope:
 
             gammaU_params, omegas_steps_phis = self.gammas_and_omegas(free_params)
 
-            expander_gates = jnp.kron(jnp.eye(self.engine.gates),
+            expander_gates = jnp.kron(jnp.eye(self.engine.piecewise_steps),
                                       self.constraint_expander) if self.constraint_expander is not None else None
             
             sol = linear_comb_projected_coeffs_multigate(omegas_steps_phis, gammaU_params, expander_gates)
 
             # Expand the coefficients
-            coeffs = jnp.zeros((self.engine.gates, self.engine.proj_drift_basis.lie_algebra_dim))
+            coeffs = jnp.zeros((self.engine.piecewise_steps, self.engine.proj_drift_basis.lie_algebra_dim))
             coeffs = coeffs.at[:, self.engine.proj_indices_projdrift_basis].set(sol)
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
 
@@ -597,7 +603,7 @@ class Geope:
 
         @jax.jit
         def update_free_params_smoothing(proj_params, params):
-            free_params = jnp.zeros((self.engine.gates, self.engine.proj_drift_basis.lie_algebra_dim),
+            free_params = jnp.zeros((self.engine.piecewise_steps, self.engine.proj_drift_basis.lie_algebra_dim),
                                     dtype=jnp.complex128)
             free_params = free_params.at[:, self.engine.proj_indices_projdrift_basis].set(proj_params)
             free_params = free_params.at[:, self.engine.drift_indices_projdrift_basis].set(
@@ -627,7 +633,7 @@ class Geope:
         @jax.jit
         def bound_parameters(params, offset):
             basis = self.engine.proj_drift_basis
-            bounds = basis.generate_bounds(self.parameter_bounds, self.engine.gates)
+            bounds = basis.generate_bounds(self.parameter_bounds, self.engine.piecewise_steps)
             new_params = jnp.clip(params.astype(jnp.float64), 
                                   jnp.array(bounds[0], dtype=jnp.float64) + offset, 
                                   jnp.array(bounds[1], dtype=jnp.float64) - offset)
@@ -667,8 +673,8 @@ class Geope:
             A tuple ``(success, iters)`` where `success` is ``True`` if
             `diff_tol` was reached.
         """
-        # Double the number of gates and initialise new parameters
-        self.engine.gates = self.engine.gates * piecewise_steps_multiplier
+        # Update the number of piecewise steps and initialise new parameters
+        self.engine.piecewise_steps = self.engine.piecewise_steps * piecewise_steps_multiplier
 
         new_parameters = [list(np.copy(self.parameters[-1])) for _ in range(piecewise_steps_multiplier)]
         self.parameters.append(
@@ -680,7 +686,7 @@ class Geope:
 
         c = 0
         diff = np.inf
-        expander = jnp.kron(jnp.eye(self.engine.gates), jnp.array(self.constraint_expander)) if self.constraint_expander is not None else None
+        expander = jnp.kron(jnp.eye(self.engine.piecewise_steps), jnp.array(self.constraint_expander)) if self.constraint_expander is not None else None
         fid=0
         while (diff > diff_tol) and (c < max_steps):
             _, omegas_steps_phis = self.gammas_and_omegas(free_params)
@@ -721,12 +727,12 @@ def linear_comb_projected_coeffs_multigate(
 
     Args:
         combination_vectors: ``Array`` of omega vectors with shape
-            ``(gates, K_proj, K_full)``.
+            ``(piecewise_steps, K_proj, K_full)``.
         target_vector: The target geodesic direction ``Array``.
         expander: Optional constraint expansion ``Array``, or ``None``.
 
     Returns:
-        Solution ``Array`` of shape ``(gates, K_proj)``.
+        Solution ``Array`` of shape ``(piecewise_steps, K_proj)``.
     """
     comb_vecs = jnp.concatenate(combination_vectors, axis=0)
     comb_vecs_T = comb_vecs.T @ expander if expander is not None else comb_vecs.T
@@ -835,7 +841,7 @@ def piecewise_smoothing(
 
     Args:
         phi: Current projected parameter ``Array`` of shape
-            ``(gates, K_proj)``.
+            ``(piecewise_steps, K_proj)``.
         null_space: Null-space basis ``Array``.
         expander: Optional constraint expansion ``Array``, or ``None``.
         smoothing_rate: Learning rate scaling the update. Defaults to 0.01.

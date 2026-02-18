@@ -111,7 +111,7 @@ def engine_2q(cnot, full_basis_2q, projected_basis_2q):
         target_unitary=cnot,
         full_basis=full_basis_2q,
         projected_basis=projected_basis_2q,
-        gates=1,
+        piecewise_steps=1,
     )
 
 
@@ -642,7 +642,7 @@ class TestGeopeEngine:
             assert hasattr(engine_2q, attr), f"Missing attribute: {attr}"
 
     def test_gates_stored(self, engine_2q):
-        assert engine_2q.gates == 1
+        assert engine_2q.piecewise_steps == 1
 
     def test_projected_indices_shape(self, engine_2q, full_basis_2q, projected_basis_2q):
         assert engine_2q.projected_indices.shape == (full_basis_2q.lie_algebra_dim,)
@@ -715,7 +715,7 @@ class TestGeopeEngine:
             full_basis=full_basis_2q,
             projected_basis=projected_basis_2q,
             drift_basis=drift_basis,
-            gates=1,
+            piecewise_steps=1,
         )
         assert np.any(eng.drift_indices)
         assert eng.drift_basis is not None
@@ -725,9 +725,9 @@ class TestGeopeEngine:
             target_unitary=cnot,
             full_basis=full_basis_2q,
             projected_basis=projected_basis_2q,
-            gates=3,
+            piecewise_steps=3,
         )
-        assert eng.gates == 3
+        assert eng.piecewise_steps == 3
 
 
 # ---------------------------------------------------------------------------
@@ -765,7 +765,7 @@ class TestGeope:
             target_unitary=cnot,
             full_basis=full_basis_2q,
             projected_basis=projected_basis_2q,
-            gates=2,
+            piecewise_steps=2,
         )
         n = full_basis_2q.lie_algebra_dim
         init = np.zeros((2, n))
@@ -865,7 +865,7 @@ class TestGeope:
     def test_add_parameters_full_shape(self, engine_2q):
         g = Geope(engine=engine_2q, max_steps=1, seed=42)
         n = engine_2q.full_basis.lie_algebra_dim
-        new_params = np.zeros((engine_2q.gates, n))
+        new_params = np.zeros((engine_2q.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
         assert len(g.parameters) == 2
@@ -873,21 +873,21 @@ class TestGeope:
     def test_add_parameters_proj_drift_shape(self, engine_2q):
         g = Geope(engine=engine_2q, max_steps=1, seed=42)
         n = engine_2q.proj_drift_basis.lie_algebra_dim
-        new_params = np.zeros((engine_2q.gates, n))
+        new_params = np.zeros((engine_2q.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
 
     def test_add_parameters_projected_shape(self, engine_2q):
         g = Geope(engine=engine_2q, max_steps=1, seed=42)
         n = engine_2q.projected_basis.lie_algebra_dim
-        new_params = np.zeros((engine_2q.gates, n))
+        new_params = np.zeros((engine_2q.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
 
     def test_add_parameters_with_fidelity(self, engine_2q):
         g = Geope(engine=engine_2q, max_steps=1, seed=42)
         n = engine_2q.full_basis.lie_algebra_dim
-        new_params = np.zeros((engine_2q.gates, n))
+        new_params = np.zeros((engine_2q.piecewise_steps, n))
         g.add_parameters(new_params, fidelity=0.75, step_size=0.1)
         assert g.fidelities[-1] == 0.75
         assert g.step_sizes[-1] == 0.1
@@ -896,7 +896,7 @@ class TestGeope:
         g = Geope(engine=engine_2q, max_steps=1, seed=42)
         n = engine_2q.full_basis.lie_algebra_dim
         for _ in range(3):
-            g.add_parameters(np.zeros((engine_2q.gates, n)))
+            g.add_parameters(np.zeros((engine_2q.piecewise_steps, n)))
         assert len(g.parameters) == 4  # initial + 3
         assert g.steps[-1] == 3
 
@@ -929,7 +929,7 @@ class TestGeope:
             full_basis=full_basis_2q,
             projected_basis=projected_basis_2q,
             drift_basis=drift_basis,
-            gates=1,
+            piecewise_steps=1,
         )
         g = Geope(engine=eng, max_steps=3, seed=42)
         assert len(g.fidelities) == 1
@@ -945,7 +945,7 @@ class TestGeope:
             full_basis=full_basis_2q,
             projected_basis=projected_basis_2q,
             drift_basis=drift_basis,
-            gates=1,
+            piecewise_steps=1,
         )
         g = Geope(engine=eng, max_steps=1, drift_parameters=[0.5, 0.5], seed=42)
         assert np.allclose(g.drift_parameters, [0.5, 0.5])

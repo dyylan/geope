@@ -206,7 +206,7 @@ class TestEngine:
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
         assert eng.full_basis is full_basis_2q
         assert eng.projected_basis is projected_basis_2q
-        assert eng.gates == 1
+        assert eng.piecewise_steps == 1
 
     def test_projected_indices_shape(self, cnot, full_basis_2q, projected_basis_2q):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
@@ -244,8 +244,8 @@ class TestEngine:
         assert eng.proj_drift_basis.lie_algebra_dim >= projected_basis_2q.lie_algebra_dim
 
     def test_gates_stored(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q, gates=4)
-        assert eng.gates == 4
+        eng = Engine(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=4)
+        assert eng.piecewise_steps == 4
 
     def test_compute_U_fn_is_callable(self, cnot, full_basis_2q, projected_basis_2q):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
