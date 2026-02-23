@@ -390,6 +390,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    GEOPE
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="." class="md-nav__link md-nav__link--active">
         
   
@@ -401,6 +414,52 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      The problem
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-geope-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      The GEOPE algorithm
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#library-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Library overview
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -718,6 +777,41 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      The problem
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-geope-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      The GEOPE algorithm
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#library-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Library overview
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -733,6 +827,70 @@
 
 
 <h1 id="geope">GEOPE<a class="headerlink" href="#geope" title="Permanent link">¤</a></h1>
+<p><strong>GEOPE</strong> (Geodesic Pulse Engineering) is a Python library for quantum optimal control and gate synthesis. It implements a new algorithm that uses geodesics on the Riemannian manifold of <span class="arithmatex">\(SU(2^n)\)</span> and differential programming to design multi-qubit quantum gates with constrained Hamiltonians. Built on <a href="https://github.com/jax-ml/jax">JAX</a>, GEOPE provides JIT-compiled routines for efficient optimisation. </p>
+<p>The package is still in development with many new features and faster implementations on the way soon!</p>
+<p>For the full theoretical background, see the paper:</p>
+<blockquote>
+<p>D. Lewis, R. Wiersema, and S. Bose, <em>Quantum Optimal Control with Geodesic Pulse Engineering</em>, <a href="https://arxiv.org/abs/2508.16029">arXiv:2508.16029</a> (2025).</p>
+</blockquote>
+<hr />
+<h2 id="the-problem">The problem<a class="headerlink" href="#the-problem" title="Permanent link">¤</a></h2>
+<p>Designing multi-qubit quantum logic gates under experimental hardware constraints is a central challenge in quantum computing. Given a target unitary <span class="arithmatex">\(V\)</span> and a set of experimentally accessible Hamiltonian terms <span class="arithmatex">\(\mathcal{H}\)</span>, the goal is to find piecewise-constant control parameters <span class="arithmatex">\(\mathbf{\Phi} = (\phi_1, \dots, \phi_L)\)</span> such that</p>
+<div class="arithmatex">\[U_G(\mathbf{\Phi}) = U(\phi_L)\, U(\phi_{L-1})\, \cdots \, U(\phi_1) \approx V,\]</div>
+<p>where each <span class="arithmatex">\(U(\phi_l) = e^{i H(\phi_l)}\)</span> and <span class="arithmatex">\(H(\phi_l) = \sum_k \phi_{l,k}\, G_k\)</span> is a Hamiltonian restricted to the available interactions <span class="arithmatex">\(G_k \in \mathcal{H}\)</span>.</p>
+<p>The standard approach is GRAPE (Gradient Ascent Pulse Engineering), which performs gradient ascent on the fidelity</p>
+<div class="arithmatex">\[F(\mathbf{\Phi}, V) = \frac{1}{N} \left| \mathrm{Tr}\left\{ U_G^\dagger(\mathbf{\Phi})\, V \right\} \right|.\]</div>
+<h2 id="the-geope-algorithm">The GEOPE algorithm<a class="headerlink" href="#the-geope-algorithm" title="Permanent link">¤</a></h2>
+<p>GEOPE takes a fundamentally different approach. Instead of following the gradient of the fidelity, it directly follows the <strong>geodesic</strong> — the shortest path on the <span class="arithmatex">\(SU(N)\)</span> manifold — from the current unitary <span class="arithmatex">\(U_G(\mathbf{\Phi})\)</span> to the target <span class="arithmatex">\(V\)</span>. </p>
+<p>The geodesic direction is given by:</p>
+<div class="arithmatex">\[\Gamma = -i \log\!\left(U_G(\mathbf{\Phi})^\dagger V\right) \in \mathfrak{su}(N).\]</div>
+<p>At each iteration, GEOPE solves a <strong>convex least-squares</strong> problem to find the parameter update <span class="arithmatex">\(\delta\mathbf{\Phi}\)</span> that best aligns the available control directions (the Jacobian) with the geodesic:</p>
+<div class="arithmatex">\[\mathcal{L}(\delta\mathbf{\Phi}) = \left\| \sum_{l,k} \mathbf{J}_{l,k}(\mathbf{\Phi})\, \delta\phi_{l,k} - i\, U_G(\mathbf{\Phi})\, \Gamma \right\|^2.\]</div>
+<p>A golden-section line search then determines the optimal step size along this direction. When the line search fails to improve fidelity (indicating a local minimum), a Gram-Schmidt procedure steps orthogonally to escape. This strategy gives GEOPE two key advantages over GRAPE:</p>
+<ul>
+<li><strong>Faster convergence</strong>: following the geodesic minimises the distance to the target at each step, rather than merely maximising a local fidelity gradient that may not align with the shortest path.</li>
+<li><strong>Convex sub-problems</strong>: the update at each step is a linear least-squares problem, avoiding the non-convex landscape traps that can slow or stall GRAPE.</li>
+</ul>
+<p>Numerical benchmarks on Rydberg atom platforms show that GEOPE converges to solutions in many times <strong>fewer iterations</strong> than GRAPE across a range of multi-qubit gates (Toffoli, CCZ, QFT), and finds solutions that are out of reach for similar GRAPE implementations.</p>
+<h2 id="library-overview">Library overview<a class="headerlink" href="#library-overview" title="Permanent link">¤</a></h2>
+<p>The library is organised around a few core components:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Basis</code>, <code>Hamiltonian</code>, <code>Unitary</code></td>
+<td>Lie algebraic objects for defining Pauli-string bases, Hamiltonians, and unitaries.</td>
+</tr>
+<tr>
+<td><code>Engine</code></td>
+<td>Base engine that compiles JAX functions for computing unitaries and fidelities from a given basis.</td>
+</tr>
+<tr>
+<td><code>GeopeEngine</code></td>
+<td>Extends <code>Engine</code> with JIT-compiled Jacobian, geodesic, and projection functions.</td>
+</tr>
+<tr>
+<td><code>Geope</code></td>
+<td>Top-level optimiser that runs the full GEOPE algorithm.</td>
+</tr>
+<tr>
+<td><code>utils</code></td>
+<td>Utilities for constructing restricted Pauli bases, Heisenberg and 2-local Hamiltonians, line search, and more.</td>
+</tr>
+</tbody>
+</table>
+<p>A typical workflow is:</p>
+<ol>
+<li>Construct a <code>Basis</code> describing the available Hamiltonian interactions.</li>
+<li>Initialise a <code>GeopeEngine</code> with the target unitary and basis.</li>
+<li>Run the <code>Geope</code> optimiser to find the control parameters.</li>
+</ol>
+<p>See the <a href="examples/getting_started/">Getting Started</a> notebook for a first worked example.</p>
 
 
 
