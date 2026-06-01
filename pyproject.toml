@@ -14,8 +14,8 @@ dependencies = [
     "jax==0.8.0",
     "optax==0.2.4",
     "matplotlib==3.10.7",
-    "numpy==2.3.5",
-    "scipy==1.16.3",
+    "numpy==2.4.6",
+    "scipy==1.17.1",
     "pandas==2.3.3",
     "bayesian-optimization==2.0.4",
 ]

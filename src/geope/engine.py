@@ -105,6 +105,85 @@ def get_fidelity_fn(target_unitary: Array) -> Callable[[Array], Array]:
     return partial(fidelity, target_unitary=target_unitary)
 
 
+def infidelity(unitary: Array, target_unitary: Array) -> Array:
+    """Projective infidelity $1 - F_{\\mathrm{proj}}(U, U_T)$.
+
+    Args:
+        unitary: The unitary ``Array`` to evaluate.
+        target_unitary: The target unitary ``Array``.
+
+    Returns:
+        A scalar infidelity ``Array`` in $[0, 1]$.
+    """
+    return 1 - jnp.abs(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+
+
+def get_infidelity_fn(target_unitary: Array) -> Callable[[Array], Array]:
+    """Create a partial projective-infidelity function with a fixed target.
+
+    Args:
+        target_unitary: The target unitary ``Array`` to bind.
+
+    Returns:
+        A ``Callable[[Array], Array]`` returning $1 - F_{\\mathrm{proj}}$.
+    """
+    return partial(infidelity, target_unitary=target_unitary)
+
+
+def fidelity_full(unitary: Array, target_unitary: Array) -> Array:
+    """Phase-sensitive (non-projective) fidelity.
+
+    $F_{\\mathrm{full}}(U, U_T) = \\mathrm{Re}\\,\\mathrm{Tr}(U_T^\\dagger U) / d$.
+    Unlike the projective fidelity, this is sensitive to a global phase
+    on $U$ and lies in $[-1, 1]$.
+
+    Args:
+        unitary: The unitary ``Array`` to evaluate.
+        target_unitary: The target unitary ``Array``.
+
+    Returns:
+        A scalar fidelity ``Array`` in $[-1, 1]$.
+    """
+    return jnp.real(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+
+
+def get_fidelity_full_fn(target_unitary: Array) -> Callable[[Array], Array]:
+    """Create a partial phase-sensitive fidelity function with a fixed target.
+
+    Args:
+        target_unitary: The target unitary ``Array`` to bind.
+
+    Returns:
+        A ``Callable[[Array], Array]`` returning $F_{\\mathrm{full}}$.
+    """
+    return partial(fidelity_full, target_unitary=target_unitary)
+
+
+def infidelity_full(unitary: Array, target_unitary: Array) -> Array:
+    """Phase-sensitive infidelity $1 - F_{\\mathrm{full}}(U, U_T)$.
+
+    Args:
+        unitary: The unitary ``Array`` to evaluate.
+        target_unitary: The target unitary ``Array``.
+
+    Returns:
+        A scalar infidelity ``Array`` in $[0, 2]$.
+    """
+    return 1 - jnp.real(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+
+
+def get_infidelity_full_fn(target_unitary: Array) -> Callable[[Array], Array]:
+    """Create a partial phase-sensitive infidelity function with a fixed target.
+
+    Args:
+        target_unitary: The target unitary ``Array`` to bind.
+
+    Returns:
+        A ``Callable[[Array], Array]`` returning $1 - F_{\\mathrm{full}}$.
+    """
+    return partial(infidelity_full, target_unitary=target_unitary)
+
+
 def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
     """Compute the product unitary from a list of parameter vectors.
 

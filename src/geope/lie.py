@@ -33,10 +33,11 @@ class Basis:
         shape: Shape of the underlying basis tensor ``(K, d, d)``.
     """
 
-    def __init__(self, 
-                 basis: np.ndarray, 
-                 labels: list[str] | None = None, 
-                 local_dim: int = 2, 
+    def __init__(self,
+                 basis: np.ndarray,
+                 labels: list[str] | None = None,
+                 local_dim: int = 2,
+                 n_qubits: int | None = None,
                  interaction_graph: list[tuple[int, ...]] | None = None,
                  interaction_map: dict[tuple[int, ...], list[str]] | None = None) -> None:
         """Initialise a Basis.
@@ -46,17 +47,20 @@ class Basis:
             labels: Optional list of string labels for each basis element.
                 Defaults to ``None``.
             local_dim: Local Hilbert-space dimension. Defaults to 2.
+            n_qubits: Optional override for the number of qubits. Useful
+                when the Hilbert-space dimension is not $2^n$ (e.g. a
+                direct sum of single-qubit blocks). When ``None`` (the
+                default), $n$ is inferred from ``basis.shape[1]`` as
+                $\\log_2 d$.
             interaction_graph: Optional list of qubit-index tuples restricting
                 which interactions to keep.
             interaction_map: Optional dictionary mapping qubit tuples to lists
                 of interaction labels to keep.
         """
         assert basis.ndim == 3, '`basis` must be a rank 3 tensor'
-        # assert (basis.shape[1] == basis.shape[2]) and (np.emath.logn(local_dim, basis.shape[1]) == int(np.emath.logn(local_dim, basis.shape[1]))), \
-        #     '`basis` must be a tensor of shape (n, 2**n, 2**n), where n corresponds to the matrix dimension, ' \
-        #     f'received {basis.shape}'
         self._basis = basis
         self._labels = labels if labels is not None else []
+        self._n_qubits_override = n_qubits
         self._plot_labels = self._generate_plot_labels()
         self._interaction_labels = self._generate_interaction_labels()
         self._interaction_qubits = self._generate_interaction_qubits()
@@ -65,11 +69,14 @@ class Basis:
         self._local_dim = local_dim
         self._dim = basis.shape[1]
         self._lie_algebra_dim = basis.shape[0]
-        self._n = int(np.log2(basis.shape[1]))
+        if n_qubits is not None:
+            self._n = n_qubits
+        else:
+            self._n = int(np.log2(basis.shape[1]))
         assert self._n
 
     def linear_span(self, parameters: np.ndarray) -> np.ndarray:
-        """Compute the linear combination of basis matrices.
+        r"""Compute the linear combination of basis matrices.
 
         Args:
             parameters: Coefficient ``np.ndarray`` of length ``K``.

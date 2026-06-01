@@ -180,6 +180,64 @@ def restriction_order_function(
     return check 
 
 
+def filter_basis_by_control(basis: lie.Basis, control: dict) -> lie.Basis:
+    """Filter a Basis keeping only operators that match a control dict.
+
+    For each basis element, inspect its label, build the qubit-index key
+    (a single integer for 1-body terms, a tuple for multi-body) and the
+    lower-case interaction label, then keep the element only if
+    ``control[key]`` lists the interaction.
+
+    Args:
+        basis: The full ``Basis`` to filter.
+        control: Dict mapping qubit index (or tuple of indices) to a
+            list of interaction labels, e.g. ``{1: ['x', 'y'], (1, 2): ['xx']}``.
+
+    Returns:
+        A new ``Basis`` containing only the matching operators. The
+        returned basis preserves ``basis._n_qubits_override`` if set.
+    """
+    keep = []
+    for idx, label in enumerate(basis.labels):
+        non_id = [(pos, c.lower()) for pos, c in enumerate(label) if c != 'I']
+        if len(non_id) == 0:
+            continue
+        sites = [pos + 1 for pos, _ in non_id]
+        ops = ''.join(c for _, c in non_id)
+        key = tuple(sites) if len(sites) > 1 else sites[0]
+        allowed = control.get(key)
+        if allowed is not None and ops in allowed:
+            keep.append(idx)
+    b = basis.basis[keep]
+    l = [basis.labels[i] for i in keep]
+    n_qubits = basis._n_qubits_override if basis._n_qubits_override is not None else None
+    return lie.Basis(b, labels=l, n_qubits=n_qubits)
+
+
+def make_per_element_transform(transforms: list[Callable | None]) -> Callable:
+    """Build a ``param_transform`` from per-element callables.
+
+    Each entry of ``transforms`` maps a single experimental parameter
+    to a single basis coefficient. Use ``None`` to mean identity.
+
+    Args:
+        transforms: List of callables (or ``None``), one per basis element.
+
+    Returns:
+        A callable mapping a ``phi`` vector to a coefficients vector,
+        suitable for ``Parameters(param_transform=...)``.
+
+    Example:
+        ``transforms = [lambda x: jnp.exp(1j*x), jnp.cos, None]``.
+    """
+    def param_transform(phi):
+        return jnp.array([
+            f(phi[k]) if f is not None else phi[k]
+            for k, f in enumerate(transforms)
+        ])
+    return param_transform
+
+
 def construct_restricted_pauli_basis(
     n: int, restriction: list[str] | dict[int | tuple[int, ...], list[str]]
 ) -> lie.Basis:
@@ -681,7 +739,8 @@ def golden_section_search_np(
     yd = f(d)
 
     for k in range(n - 1):
-        if yc > yd:
+        if yc < yd:
+            # Minimum is in [a, d]: discard the right portion.
             b = d
             d = c
             yd = yc
@@ -689,6 +748,7 @@ def golden_section_search_np(
             c = a + invphi2 * h
             yc = f(c)
         else:
+            # Minimum is in [c, b]: discard the left portion.
             a = c
             c = d
             yc = yd
@@ -756,6 +816,7 @@ def golden_section_search(
         a, b, x1, x2, f1, f2, i = state
 
         def left_branch(s):
+            # Minimum is in [a, x2]: discard the right portion (b <- x2).
             a, b, x1, x2, f1, f2, i = s
             b_new = x2
             x2_new = x1
@@ -765,6 +826,7 @@ def golden_section_search(
             return (a, b_new, x1_new, x2_new, f1_new, f2_new, i + 1)
 
         def right_branch(s):
+            # Minimum is in [x1, b]: discard the left portion (a <- x1).
             a, b, x1, x2, f1, f2, i = s
             a_new = x1
             x1_new = x2
@@ -773,12 +835,12 @@ def golden_section_search(
             f2_new = f(x2_new)
             return (a_new, b, x1_new, x2_new, f1_new, f2_new, i + 1)
 
-        return jax.lax.cond(f1 > f2, left_branch, right_branch, state)
+        return jax.lax.cond(f1 < f2, left_branch, right_branch, state)
 
     a, b, x1, x2, f1, f2, i = jax.lax.while_loop(cond_fun, body_fun, state0)
 
-    t_best = jnp.where(f1 > f2, x1, x2)
-    f_best = jnp.where(f1 > f2, f1, f2)
+    t_best = jnp.where(f1 < f2, x1, x2)
+    f_best = jnp.where(f1 < f2, f1, f2)
     return t_best, f_best
 
 

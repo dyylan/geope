@@ -8,6 +8,7 @@ For the full theoretical background, see the paper:
 
 > D. Lewis, R. Wiersema, and S. Bose, *Quantum Optimal Control with Geodesic Pulse Engineering*, [arXiv:2508.16029](https://arxiv.org/abs/2508.16029) (2025).
 
+The package is for non-commercial use, see the licence for details. 
 ---
 
 ## The problem
@@ -48,6 +49,7 @@ The library is organised around a few core components:
 | Module | Description |
 |--------|-------------|
 | `Basis`, `Hamiltonian`, `Unitary` | Lie algebraic objects for defining Pauli-string bases, Hamiltonians, and unitaries. |
+| `Parameters` | High-level state object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and `param_transform`. Recommended entry point. |
 | `Engine` | Base engine that compiles JAX functions for computing unitaries and fidelities from a given basis. |
 | `GeopeEngine` | Extends `Engine` with JIT-compiled Jacobian, geodesic, and projection functions. |
 | `Geope` | Top-level optimiser that runs the full GEOPE algorithm. |
@@ -56,7 +58,7 @@ The library is organised around a few core components:
 A typical workflow is:
 
 1. Construct a `Basis` describing the available Hamiltonian interactions.
-2. Initialise a `GeopeEngine` with the target unitary and basis.
-3. Run the `Geope` optimiser to find the control parameters.
+2. Build a `Parameters` object with that basis, the controllable and drift interactions, and the target unitary.
+3. Pass the `Parameters` to `Geope` and call `.optimize()`.
 
-See the [Getting Started](examples/getting_started.ipynb) notebook for a first worked example.
+See the [User Guide](user_guide.md) for a complete walkthrough of `Parameters`, pulse-shape constraints, experimental parameters via `param_transform`, and the auxiliary null-space passes (`smooth`, `smooth_frequency`, `speed`, `length`, `robust`, `bound`). The [Getting Started](examples/getting_started.ipynb) notebook gives a runnable first example.
