@@ -12,9 +12,13 @@
         <meta name="author" content="Dylan Lewis and Roeland Wiersema">
       
       
-        <link rel="canonical" href="https://dyylan.github.io/geope/api/jacobian_manual/">
+        <link rel="canonical" href="https://dyylan.github.io/geope/api/parameters/">
       
       
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../geope/">
       
       
       <link rel="icon" href="../../_static/geope_logo.png">
@@ -22,7 +26,7 @@
     
     
       
-        <title>geope.jacobian_manual - Geodesic Pulse Engineering (GEOPE)</title>
+        <title>geope.parameters - Geodesic Pulse Engineering (GEOPE)</title>
       
     
     
@@ -80,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#geopejacobian_manual" class="md-skip">
+        <a href="#geopeparameters" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              geope.jacobian_manual
+              geope.parameters
             
           </span>
         </div>
@@ -282,10 +286,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../" class="md-tabs__link">
           
   
@@ -611,26 +617,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -643,7 +654,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             API Reference
@@ -677,10 +688,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../parameters/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    geope.parameters
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -691,6 +724,53 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#geope.parameters.Parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Parameters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geope.utils.make_per_element_transform" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;make_per_element_transform
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geope.utils.filter_basis_by_control" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;filter_basis_by_control
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -822,72 +902,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.Ui" class="md-nav__link">
+  <a href="#geope.parameters.Parameters" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;Ui
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Parameters
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.get_Ui_fn" class="md-nav__link">
+  <a href="#geope.utils.make_per_element_transform" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_Ui_fn
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;make_per_element_transform
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.scan_single_switch_matmul" class="md-nav__link">
+  <a href="#geope.utils.filter_basis_by_control" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;scan_single_switch_matmul
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.get_apply_branch" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_apply_branch
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.scan_branch" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;scan_branch
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.get_scan_branch" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_scan_branch
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.manual_jacobian" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;manual_jacobian
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.get_jacobian_manual" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jacobian_manual
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;filter_basis_by_control
     </span>
   </a>
   
@@ -909,21 +944,493 @@
 
 
 
-<h1 id="geopejacobian_manual">geope.jacobian_manual<a class="headerlink" href="#geopejacobian_manual" title="Permanent link">¤</a></h1>
+<h1 id="geopeparameters">geope.parameters<a class="headerlink" href="#geopeparameters" title="Permanent link">¤</a></h1>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="geope.parameters.Parameters" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.parameters.Parameters</code>
+
+
+<a href="#geope.parameters.Parameters" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Central state object for the Basis -&gt; Parameters -&gt; Optimizer pipeline.</p>
+<p>Holds the system description (basis, control/drift Hamiltonians, target),
+optimisation config (constraints, bounds, <code>param_transform</code>), and the
+mutable history (parameters, fidelities) that is written back by
+optimisers such as <code>Geope</code>.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.basis">basis</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Full <code>Basis</code> for the system.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.projected_basis">projected_basis</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The controllable sub-<code>Basis</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.drift_basis">drift_basis</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The drift sub-<code>Basis</code>, or <code>None</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.target">target</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Target unitary as <code>np.ndarray</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.piecewise_steps">piecewise_steps</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of piecewise-constant gate segments.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.fixed_drift">fixed_drift</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether the drift contribution is held fixed.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.control">control</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The control dict used to build <code>projected_basis</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.drift_config">drift_config</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The dict used to build <code>drift_basis</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.pulse_constraints">pulse_constraints</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional pulse-shape constraint config.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.param_transform">param_transform</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional callable mapping experimental params
+to basis coefficients.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.projective">projective</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to optimise with the projective (SU)
+fidelity (<code>True</code>) or the phase-sensitive (U) fidelity.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.n_experimental_params">n_experimental_params</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Length of the experimental-parameter
+vector when <code>param_transform</code> is set.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.constraint_arrays">constraint_arrays</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of linear-equality constraint vectors,
+after merging.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.constraint_expander">constraint_expander</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Expansion matrix that maps free parameters
+into the projected basis under the constraints.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.bounds">bounds</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pre-built bounds, or <code>None</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.init_parameters">init_parameters</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Initial parameter <code>np.ndarray</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.drift_parameters">drift_parameters</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Drift parameter <code>np.ndarray</code>, or <code>None</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.seed">seed</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional random seed.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.init_spread">init_spread</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Half-width of the uniform initial-parameter sampling.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.parameters">parameters</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mutable list of parameter arrays appended by an optimiser.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.fidelities">fidelities</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mutable list of fidelity values appended by an optimiser.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.infidelities">infidelities</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mutable list of infidelity values.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.step_sizes">step_sizes</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mutable list of optimiser step sizes.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.steps">steps</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mutable list of step counters.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.parameters.Parameters.__dict__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.parameters.Parameters.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.parameters.Parameters.__doc__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.parameters.Parameters.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.parameters.Parameters.__module__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.parameters.Parameters.__module__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.parameters.Parameters.__weakref__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.parameters.Parameters.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.parameters.Parameters.best_basis_coefficients" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">best_basis_coefficients</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.parameters.Parameters.best_basis_coefficients" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Best parameters mapped through <code>param_transform</code> if set.</p>
+<p>Returns the induced basis coefficients corresponding to
+<code>self.best_parameters</code>. If <code>param_transform</code> is <code>None</code>
+this is just the best parameters.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.parameters.Parameters.best_fidelity" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">best_fidelity</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.parameters.Parameters.best_fidelity" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Maximum recorded fidelity, or <code>None</code> if no run has happened.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.parameters.Parameters.best_parameters" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">best_parameters</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.parameters.Parameters.best_parameters" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Parameter array at the step of maximum fidelity, or <code>None</code>.</p>
+
+    </div>
+
+</div>
+
+
 
 
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.Ui" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">Ui</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
+<h5 id="geope.parameters.Parameters.__init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.Ui" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.parameters.Parameters.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
-    <div class="doc doc-contents first">
+    <div class="doc doc-contents ">
 
-        <p>Compute a unitary from a linear combination of Hermitian basis matrices.</p>
+        <p>Initialise a Parameters bundle.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -937,32 +1444,372 @@
         </tr>
       </thead>
       <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>x</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Coefficient vector of shape <code>(K,)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
           <tr class="doc-section-item">
             <td>
                 <code>basis</code>
             </td>
             <td>
-                  <code><span title="jax.Array">Array</span></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Full <code>Basis</code>. Required when constructing without
+an explicit external basis. If <code>None</code>, a default
+two-qubit Pauli basis is built.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>control</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dict of allowed controllable interactions, e.g.
+<code>{1: ['x', 'y'], (1, 2): ['xx']}</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>drift</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dict of fixed drift interactions, same format.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>init_values</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | <span title="numpy.ndarray">ndarray</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Initial parameter values. May be a dict in the
+same format as <code>control</code>, or an <code>np.ndarray</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>drift_values</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | <span title="numpy.ndarray">ndarray</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Drift parameter values. May be a dict or array.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>target</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Target unitary.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of piecewise-constant gate segments.
+Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>fixed_drift</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether the drift contribution is held fixed.
+Defaults to <code>True</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>constraints</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional list of linear-equality constraints,
+each either an <code>np.ndarray</code> of size
+<code>projected_basis.lie_algebra_dim</code> or a dict in the
+<code>control</code> format.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pulse_constraints</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | <span title="list">list</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional pulse-shape constraints config
+(forwarded to <code>Geope</code>).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>bounds</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional dict mapping interaction label to
+<code>(min, max)</code> bound tuples.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>init_spread</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Half-width of uniform initialisation. Defaults
+to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional random seed.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>param_transform</code>
+            </td>
+            <td>
+                  <code><span title="typing.Callable">Callable</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional callable mapping experimental
+params to basis coefficients. May take
+<code>(phi,)</code> or <code>(phi, step_index)</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_experimental_params</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of experimental parameters
+when <code>param_transform</code> is set. Defaults to
+<code>projected_basis.lie_algebra_dim</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>projective</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>True</code> (default), use the projective
+(SU) fidelity. If <code>False</code>, use phase-sensitive
+(U) fidelity.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.parameters.Parameters.to_dict" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_dict</span><span class="p">()</span></code>
+
+<a href="#geope.parameters.Parameters.to_dict" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Export the best basis coefficients as a control-style dict.</p>
+<p>Returns a dict keyed by qubit index (or qubit-index tuple) whose
+values are dicts mapping lower-case interaction labels to real
+coefficient values.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.parameters.Parameters.reset_history" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">reset_history</span><span class="p">()</span></code>
+
+<a href="#geope.parameters.Parameters.reset_history" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Clear all mutable run history.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.utils.make_per_element_transform" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">make_per_element_transform</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span></code>
+
+<a href="#geope.utils.make_per_element_transform" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Build a <code>param_transform</code> from per-element callables.</p>
+<p>Each entry of <code>transforms</code> maps a single experimental parameter
+to a single basis coefficient. Use <code>None</code> to mean identity.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>transforms</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="typing.Callable">Callable</span> | None]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of callables (or <code>None</code>), one per basis element.</p>
               </div>
             </td>
             <td>
@@ -984,17 +1831,32 @@
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="jax.Array">Array</span></code>
+                  <code><span title="typing.Callable">Callable</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A unitary matrix of shape <code>(d, d)</code>.</p>
+                <p>A callable mapping a <code>phi</code> vector to a coefficients vector,</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>suitable for <code>Parameters(param_transform=...)</code>.</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
+
+<details class="example" open>
+  <summary>Example</summary>
+  <p><code>transforms = [lambda x: jnp.exp(1j*x), jnp.cos, None]</code>.</p>
+</details>
 
     </div>
 
@@ -1003,15 +1865,19 @@
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.get_Ui_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">get_Ui_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
+<h4 id="geope.utils.filter_basis_by_control" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">filter_basis_by_control</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">control</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.get_Ui_fn" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.utils.filter_basis_by_control" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Create a partial unitary function with a fixed basis.</p>
+        <p>Filter a Basis keeping only operators that match a control dict.</p>
+<p>For each basis element, inspect its label, build the qubit-index key
+(a single integer for 1-body terms, a tuple for multi-body) and the
+lower-case interaction label, then keep the element only if
+<code>control[key]</code> lists the interaction.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1030,11 +1896,28 @@
                 <code>basis</code>
             </td>
             <td>
-                  <code><span title="jax.Array">Array</span></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>The full <code>Basis</code> to filter.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>control</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dict mapping qubit index (or tuple of indices) to a
+list of interaction labels, e.g. <code>{1: ['x', 'y'], (1, 2): ['xx']}</code>.</p>
               </div>
             </td>
             <td>
@@ -1056,583 +1939,21 @@
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A callable that takes a coefficient vector and returns</p>
+                <p>A new <code>Basis</code> containing only the matching operators. The</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>the corresponding unitary.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.jacobian_manual.scan_single_switch_matmul" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">scan_single_switch_matmul</span><span class="p">(</span><span class="n">carry</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></code>
-
-<a href="#geope.jacobian_manual.scan_single_switch_matmul" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Scan body that conditionally applies a Jacobian or a gate matrix.</p>
-<p>Used inside <code>jax.lax.scan</code> to build the product unitary while
-inserting a Jacobian slice at the position indicated by <code>idx</code>.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>carry</code>
-            </td>
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Tuple of <code>(U, jacobian)</code> — the running product
-<code>Array</code> and the Jacobian <code>Array</code> to insert.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>x</code>
-            </td>
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Tuple of <code>(idx, gate)</code> where <code>idx</code> is a boolean
-<code>Array</code> switch and <code>gate</code> is the gate <code>Array</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], None]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Updated carry tuple and <code>None</code> (no stacked output).</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.jacobian_manual.get_apply_branch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">get_apply_branch</span><span class="p">(</span><span class="n">gates</span><span class="p">)</span></code>
-
-<a href="#geope.jacobian_manual.get_apply_branch" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Build a JIT-compiled branch-application function.</p>
-<p>Given pre-computed gate unitaries, returns a function that
-computes the product unitary with one gate replaced by a
-Jacobian slice.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>gates</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>Array</code> of gate unitaries of shape <code>(G, d, d)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A JIT-compiled callable <code>(idx, jac) -&gt; tuple[Array, Array]</code></p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>where <code>idx</code> is a boolean array indicating which gate to</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>replace.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.jacobian_manual.scan_branch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">scan_branch</span><span class="p">(</span><span class="n">jac</span><span class="p">,</span> <span class="n">indices_i</span><span class="p">,</span> <span class="n">branch_fn</span><span class="p">)</span></code>
-
-<a href="#geope.jacobian_manual.scan_branch" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Scan over Jacobian columns and apply the branch function.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>jac</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Jacobian <code>Array</code> with shape <code>(d, d, K)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>indices_i</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Boolean index <code>Array</code> selecting the gate to replace.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>branch_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Branch-application callable from <code>get_apply_branch</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Stacked output <code>Array</code> of shape <code>(d, d, K)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.jacobian_manual.get_scan_branch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">get_scan_branch</span><span class="p">(</span><span class="n">branch_fn</span><span class="p">)</span></code>
-
-<a href="#geope.jacobian_manual.get_scan_branch" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Create a partial scan-branch function.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>branch_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Branch-application function from <code>get_apply_branch</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A callable <code>(jac, indices_i)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.jacobian_manual.manual_jacobian" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">manual_jacobian</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">Ui_fn</span><span class="p">,</span> <span class="n">jac_fn</span><span class="p">)</span></code>
-
-<a href="#geope.jacobian_manual.manual_jacobian" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Compute the full Jacobian of the product unitary manually.</p>
-<p>For each gate segment, evaluates the derivative of the product
-unitary with respect to each parameter by inserting the
-per-gate Jacobian into the product chain.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>params</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Parameter <code>Array</code> of shape <code>(G, K)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>Ui_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Callable mapping a coefficient <code>Array</code> to a unitary <code>Array</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>jac_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Callable computing the per-gate Jacobian <code>Array</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An <code>Array</code> of shape <code>(G, d, d, K)</code> containing the full Jacobian.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.jacobian_manual.get_jacobian_manual" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">get_jacobian_manual</span><span class="p">(</span><span class="n">gate_basis</span><span class="p">)</span></code>
-
-<a href="#geope.jacobian_manual.get_jacobian_manual" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Create a manual Jacobian function for a given gate basis.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>gate_basis</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> that accepts a parameter array</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>of shape <code>(G, K)</code> and returns the Jacobian of shape</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>(G, d, d, K)</code>.</p>
+                <p>returned basis preserves <code>basis._n_qubits_override</code> if set.</p>
               </div>
             </td>
           </tr>

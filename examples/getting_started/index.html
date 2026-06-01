@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://dyylan.github.io/geope/examples/getting_started/">
       
       
-        <link rel="prev" href="../../install/">
+        <link rel="prev" href="../../user_guide/">
       
       
         <link rel="next" href="../pulse_smoothing/">
@@ -246,6 +246,26 @@
   
   
   
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user_guide/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
     
   
   
@@ -428,6 +448,79 @@
       
   
   
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    User Guide
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using GEOPE with Parameters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -449,10 +542,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -465,8 +558,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Examples
           </label>
@@ -665,10 +758,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -681,8 +774,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             API Reference
           </label>
@@ -701,6 +794,29 @@
   
   <span class="md-ellipsis">
     geope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/parameters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.parameters
     
   </span>
   
@@ -934,7 +1050,7 @@
 <p>This notebook walks through a minimal example of using <strong>GEOPE</strong> (Geodesic Pulse Engineering) to synthesise a quantum gate.</p>
 <p>We will:
 1. Define a target unitary (the Hadamard gate on 1 qubit).
-2. Build the Lie-algebra basis.
+2. Build the Lie algebra basis.
 3. Run the GEOPE optimiser.
 4. Check the result.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -1047,7 +1163,7 @@ Final parameters: [[ 1.107527   -0.61167785  1.        ]
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
-<p><img alt="img" src="../_data/439da41ae6c242bcbc419de8a1b98ef6.png" /></p>
+<p><img alt="img" src="../_data/ce24c9b446644744b7ab908316876d71.png" /></p>
 <h3 id="recovered-parameters">Recovered parameters<a class="headerlink" href="#recovered-parameters" title="Permanent link">¤</a></h3>
 <p>The optimised Lie-algebra coefficients <span class="arithmatex">\(\boldsymbol{\phi}\)</span> define the Hamiltonian whose exponential gives the target gate.</p>
 <div class="highlight"><pre><span></span><code><span class="n">final_params</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>

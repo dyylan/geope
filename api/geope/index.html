@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://dyylan.github.io/geope/api/geope/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../parameters/">
       
       
         <link rel="next" href="../engine/">
@@ -250,6 +250,26 @@
     
     
       <li class="md-tabs__item">
+        <a href="../../user_guide/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
         <a href="../../examples/getting_started/" class="md-tabs__link">
           
   
@@ -452,7 +472,7 @@
   
   
   <span class="md-ellipsis">
-    Examples
+    User Guide
     
   </span>
   
@@ -462,6 +482,79 @@
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using GEOPE with Parameters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Examples
           </label>
@@ -545,10 +638,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -561,8 +654,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             API Reference
           </label>
@@ -581,6 +674,29 @@
   
   <span class="md-ellipsis">
     geope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../parameters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.parameters
     
   </span>
   
@@ -1024,7 +1140,7 @@ errors defaults to 'strict'.</p>
 
 
 <h5 id="geope.geope.GeopeEngine.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#geope.geope.GeopeEngine.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1141,6 +1257,25 @@ when the number of qubits exceeds 5.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>projective</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>True</code> (default), use the projective (SU)
+geodesic and <span class="arithmatex">\(F_{\mathrm{proj}} = |\mathrm{Tr}(U_T^\dagger U)|/d\)</span>.
+If <code>False</code>, use the full (U) geodesic and
+<span class="arithmatex">\(F_{\mathrm{full}} = \mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d\)</span>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
             </td>
           </tr>
       </tbody>
@@ -1441,7 +1576,7 @@ errors defaults to 'strict'.</p>
 
 
 <h5 id="geope.geope.Geope.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> <span class="n">drift_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span> <span class="n">init_parameters_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">line_search_method</span><span class="o">=</span><span class="s1">&#39;golden_section&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> <span class="n">drift_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span> <span class="n">init_parameters_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">line_search_method</span><span class="o">=</span><span class="s1">&#39;golden_section&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#geope.geope.Geope.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1449,6 +1584,12 @@ errors defaults to 'strict'.</p>
     <div class="doc doc-contents ">
 
         <p>Initialise the Geope optimiser.</p>
+<p>Accepts either a <code>Parameters</code> object (new high-level API) or a
+<code>GeopeEngine</code> (legacy low-level API). When a <code>Parameters</code> is
+passed, the engine and ancillary state (initial parameters,
+drift, constraints, pulse constraints, seed, init spread,
+projective flag, <code>param_transform</code>) are read from it; the
+legacy keyword arguments are ignored.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1467,11 +1608,14 @@ errors defaults to 'strict'.</p>
                 <code>engine</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.geope.GeopeEngine" href="#geope.geope.GeopeEngine">GeopeEngine</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a> | <a class="autorefs autorefs-internal" title="            geope.geope.GeopeEngine" href="#geope.geope.GeopeEngine">GeopeEngine</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>GeopeEngine</code> instance.</p>
+                <p>Either a <code>GeopeEngine</code> instance (legacy API) or a
+<code>Parameters</code> instance (new high-level API). The
+parameter is named <code>engine</code> for backward compatibility
+with the original keyword call site.</p>
               </div>
             </td>
             <td>
@@ -1487,7 +1631,7 @@ errors defaults to 'strict'.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Fixed drift parameter values. Defaults to ones.</p>
+                <p>Fixed drift parameter values (legacy API only).</p>
               </div>
             </td>
             <td>
@@ -1503,7 +1647,7 @@ errors defaults to 'strict'.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Initial parameter array. Defaults to random.</p>
+                <p>Initial parameter array (legacy API only).</p>
               </div>
             </td>
             <td>
@@ -1519,7 +1663,23 @@ errors defaults to 'strict'.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Linear equality constraints on the parameters.</p>
+                <p>Linear equality constraints (legacy API only).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pulse_constraints</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | <span title="list">list</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pulse-shape constraints (legacy API only).</p>
               </div>
             </td>
             <td>
@@ -1600,8 +1760,8 @@ Defaults to 1.3.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Spread for random initialisation.
-Defaults to 0.1.</p>
+                <p>Spread for random initialisation
+(legacy API only). Defaults to 0.1.</p>
               </div>
             </td>
             <td>
@@ -1650,7 +1810,7 @@ Defaults to <code>'golden_section'</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Random seed for reproducibility. Defaults to None.</p>
+                <p>Random seed (legacy API only).</p>
               </div>
             </td>
             <td>
@@ -2072,6 +2232,761 @@ Defaults to 0.1.</p>
             <td>
               <div class="doc-md-description">
                 <p><code>diff_tol</code> was reached.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geope.Geope.smooth_frequency" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.geope.Geope.smooth_frequency" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Suppress high-frequency spectral power in the pulse.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Factor by which to subdivide
+gate segments. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>smoothing_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_smoothing_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance on the spectral cost.
+Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geope.Geope.filter_frequency" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">filter_frequency</span><span class="p">(</span><span class="n">filter_fn</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.geope.Geope.filter_frequency" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Drive the pulse toward <code>filter_fn(rfft(pulse))</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>filter_fn</code>
+            </td>
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Complex-array filter applied to the rfft of phi.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Factor by which to subdivide
+gate segments. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>smoothing_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_smoothing_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geope.Geope.speed" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.geope.Geope.speed" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Minimise the peak amplitude of selected projected parameters.</p>
+<p>Cost: <span class="arithmatex">\(\max_{g,k\in P}|\phi_k(g)|\)</span>. Minimising it raises the
+gate-speed limit.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_labels</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Projected-basis labels to minimise.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_indices</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="int">int</span>, ...] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Integer indices (alternative to labels).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subdivision factor. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimization_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_optimization_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geope.Geope.length" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">length</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.geope.Geope.length" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Minimise the total pulse length.</p>
+<p>Cost: <span class="arithmatex">\(\sum_g\sqrt{\sum_{k\in P}\phi_k(g)^2 + \|d_g\|^2}\)</span>
+where <span class="arithmatex">\(d_g\)</span> is the per-segment drift contribution.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_labels</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Projected-basis labels to minimise.
+If <code>None</code>, all projected parameters are used.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_indices</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="int">int</span>, ...] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Integer indices (alternative to labels).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subdivision factor. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimization_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_optimization_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geope.Geope.robust" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.geope.Geope.robust" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Maximise the worst-case fidelity over <span class="arithmatex">\(\delta\)</span> perturbations.</p>
+<p>Cost: <span class="arithmatex">\(1 - \min_{\boldsymbol\delta} F(U(\phi+\sum_k \delta_k e_k))\)</span>
+over a Cartesian grid of <code>num_samples</code> evenly-spaced values
+in <span class="arithmatex">\([-\delta, +\delta]\)</span> for each <span class="arithmatex">\(k\in P\)</span>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_labels</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Projected-basis labels to make robust.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_indices</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="int">int</span>, ...] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Integer indices (alternative to labels).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Half-width of the perturbation box. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_samples</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Samples per parameter. Defaults to 5.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subdivision factor. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimization_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_optimization_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
               </div>
             </td>
           </tr>
@@ -2560,7 +3475,7 @@ to each parameter, projected onto the Pauli basis.</p>
 
 
 <h5 id="geope.geope.Geope.get_update_step" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_update_step</span><span class="p">()</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_update_step</span><span class="p">(</span><span class="n">expander_override</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#geope.geope.Geope.get_update_step" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -2570,6 +3485,39 @@ to each parameter, projected onto the Pauli basis.</p>
         <p>Build a JIT-compiled geodesic update step function.</p>
 <p>Computes the optimal linear combination of omegas that matches
 the geodesic direction, then performs a line search.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>expander_override</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional constraint expander to use in
+place of <code>self.constraint_expander</code>'s Kronecker'd
+version. Used by pulse-shape constraints.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
