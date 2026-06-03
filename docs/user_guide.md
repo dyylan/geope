@@ -1,640 +1,593 @@
-# Using GEOPE with `Parameters`
+# GEOPE – Geodesic Pulse Engineering
 
-A guide to the geodesic projective parameter-estimation optimiser for synthesising target unitaries on a Lie-algebraic control model, with practical notes on `Parameters`, experimental parameters via `param_transform`, and pulse-shape constraints.
+## Overview
 
----
-
-## 1. What GEOPE does
-
-### 1.1 The control problem
-
-GEOPE solves the following gate-synthesis problem. You have:
-
-- a target unitary $U_T \in U(d)$;
-- a **full** Lie algebra basis $\{B_k\}_{k=1}^{K}$ of Hermitian generators spanning some subspace of $\mathfrak{u}(d)$ (in `geope`, normally Pauli strings);
-- a **projected** sub-basis $\{B_k\}_{k \in \mathcal{C}}$ — the *controllable* generators, the ones the experimenter can drive;
-- optionally, a **drift** sub-basis $\{B_k\}_{k \in \mathcal{D}}$ — generators with fixed, uncontrollable coefficients;
-- a number of piecewise-constant gate segments $N_g \ge 1$.
-
-The piecewise gate produced from a parameter array $\phi \in \mathbb{R}^{N_g \times K_{\text{pd}}}$ (proj+drift) is
+`geope` finds piecewise-constant control pulses that implement a target quantum gate on an $n$-qubit system. Given a target unitary $U_T$, a set of available control generators (the projected basis), and optionally fixed drift generators, the optimiser searches for real-valued parameters $\phi$ such that
 
 $$
-U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k \in \mathcal{C} \cup \mathcal{D}} \phi_{g,k}\, B_k\Bigr).
+U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
 $$
 
-The goal is to find $\phi$ such that $U(\phi)$ matches $U_T$. "Matches" is measured by a fidelity:
+where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$.
 
-$$
-F_{\text{proj}}(U, U_T) \;=\; \frac{|\mathrm{Tr}(U_T^\dagger U)|}{d}, \qquad
-F_{\text{full}}(U, U_T) \;=\; \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
-$$
+The core algorithm is the **geodesic method**: at each step it computes the shortest path on $U(d)$ from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.
 
-$F_{\text{proj}} \in [0,1]$ is **projective** — invariant under global phase $U \mapsto e^{i\theta}U$; the default. $F_{\text{full}} \in [-1,1]$ is **phase-sensitive**; selected with `projective=False`.
+The entry point is `Parameters` — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, `param_transform`, bounds, init values, seed, projective flag). Pass it to `Geope` and call `.optimize()`. The same `Parameters` object is the destination for the run history (`fidelities`, `parameters`, `best_fidelity`, `to_dict()`, ...).
 
-### 1.2 The geodesic step
+The lower-level classes `Engine` and `GeopeEngine` are still available for inspection and for advanced users who want to build the JIT-compiled functions directly, but `Geope` itself only accepts a `Parameters`.
 
-GEOPE is a first-order method that, at each iterate $U_k$, walks along the **geodesic** on $U(d)$ pointing toward $U_T$, projected onto the controllable directions in parameter space.
+## Class hierarchy
 
-The geodesic generator at $U_k$ is
+```
+Basis, Hamiltonian, Unitary      (lie.py)
 
-$$
-g_k \;=\; -i\,\log\!\bigl(U_k^\dagger U_T\bigr) \;\in\; \mathfrak{u}(d).
-$$
+Engine                           (engine.py)
+  └── GeopeEngine                (geope.py)
 
-In projective mode the trace is removed, giving an $\mathfrak{su}(d)$ generator:
-
-$$
-g_k \;\leftarrow\; g_k - \tfrac{\mathrm{Tr}(g_k)}{d}\,\mathbb{1}.
-$$
-
-The geodesic *tangent* at $U_k$ is $\Gamma_k = U_k g_k$. Its projection onto the basis is
-
-$$
-\boldsymbol{\gamma}_k \;=\; \mathrm{proj}(\Gamma_k)/d \;\in\; \mathbb{R}^{K}.
-$$
-
-For each parameter $\phi_{g,k}$, GEOPE forms the projected partial derivative
-
-$$
-\boldsymbol{\omega}_{g,k} \;=\; \mathrm{proj}\!\bigl(i\,\partial U/\partial\phi_{g,k}\bigr) \;\in\; \mathbb{R}^{K}.
-$$
-
-The parameter step $\delta\phi$ is the least-squares solution to
-
-$$
-\Omega^\top \,\delta\phi \;\approx\; \boldsymbol{\gamma}_k, \qquad \Omega_{:,(g,k)} = \boldsymbol{\omega}_{g,k}.
-$$
-
-`coeffs = sol` is normalised to $\|\boldsymbol{\mathrm{coeffs}}\| = \sqrt{N_g}$. A one-dimensional line search along the ray $\phi + t \cdot \boldsymbol{\mathrm{coeffs}}$ for $t \in [-t_{\max}, 0]$ (the toward-target half-line; see the sign-convention note below) chooses the actual step. The new parameters are appended to the history.
-
-When the geodesic step fails to improve fidelity, the optimiser falls back to a Gram–Schmidt-orthogonalised random direction.
-
-### 1.3 Null-space refinement
-
-After the main optimisation has converged, you can move within the *null space* of the parameter-to-unitary Jacobian to optimise auxiliary objectives without losing fidelity. The geometric picture: at the converged $\phi^\star$,
-
-$$
-\dim \ker J(\phi^\star) \;=\; \dim(\text{parameter space}) - \mathrm{rank}\bigl(J(\phi^\star)\bigr).
-$$
-
-If this kernel is non-trivial (a generically over-parameterised problem), each method projects a gradient of its cost onto $\ker J$ and takes a normalised step. Available costs:
-
-| Method | Cost minimised | Notes |
-| ------ | -------------- | ----- |
-| `smooth(...)` | $\sum_g \|\phi_{g+1} - \phi_g\|^2$ | difference between adjacent segments |
-| `smooth_frequency(...)` | $\sum_{m\ge 1}\|\widehat\phi(m)\|^2$ | high-frequency spectral power |
-| `filter_frequency(filter_fn, ...)` | $\|\widehat\phi - \mathcal{F}(\widehat\phi)\|^2$ | distance to a user filter |
-| `speed(params, ...)` | $\max_{g,k\in P}\|\phi_{g,k}\|$ | peak amplitude (raises gate-speed limit) |
-| `length(params, ...)` | $\sum_g \|\phi_g\|_2$ | pulse length |
-| `robust(params, delta, ...)` | $1 - \min_{|\delta_k|\le \Delta} F$ | worst-case fidelity under δ perturbations |
-| `bound(parameter_bounds, ...)` | $\max(\phi - u_b, l_b - \phi)$ | enforce a box constraint |
-
-These all preserve fidelity to within the rate × number-of-iterations tolerance.
-
-### 1.4 Sign-convention note
-
-The line-search interval is $[-t_{\max}, 0]$, not $[0, t_{\max}]$, because of how `coeffs` is oriented: solving $\Omega^\top \cdot \delta\phi = \boldsymbol\gamma$ yields a $\delta\phi$ such that stepping in **+coeffs** moves *away* from $U_T$, so the toward-target ray is **dt < 0**. The line search minimises the engine's `infid_U_fn` over that interval and reports `fidelity = 1 - infid`. You don't normally need to think about this — the convention is internal — but it's the answer to "why negative dt".
-
----
-
-## 2. Building a `Parameters` object
-
-`Parameters` is the high-level entry point that bundles every input the optimiser needs.
-
-### 2.1 The basis
-
-Pick a Pauli basis with one of the `utils` constructors:
-
-```python
-import geope
-
-basis = geope.construct_full_pauli_basis(n=2)              # all 4^n - 1 Pauli strings
-basis = geope.construct_two_body_pauli_basis(n=4)          # ≤ 2-body terms
-basis = geope.construct_Heisenberg_pauli_basis(n=4)        # single-body + {XX, YY, ZZ}
-basis = geope.construct_restricted_pauli_basis(n=4, restriction=['xx', 'yy'])
+Parameters                       (parameters.py)
+                ↘
+                  Geope          (geope.py)
+                ↗
+GeopeEngine
 ```
 
-Each `Basis` carries:
+## Lie group classes (`lie.py`)
 
-- `basis.basis` — the $(K, d, d)$ tensor of Hermitian matrices.
-- `basis.labels` — Pauli-string labels like `'XI'`, `'ZZ'`.
-- `basis.plot_labels` — LaTeX-formatted labels for plotting.
-- `basis.interaction_qubits` — qubit-index tuples per element.
-- `basis.n`, `basis.dim`, `basis.lie_algebra_dim` — sizes.
+### `Basis`
 
-### 2.2 Control and drift dictionaries
-
-The **control** dict picks the controllable subset of `basis`:
+Represents a set of Lie algebra generators (e.g. Pauli strings) as a rank-3 tensor of shape $(K, d, d)$.
 
 ```python
-control = {
-    1: ['x', 'y', 'z'],         # single-qubit controls on qubit 1
-    2: ['x', 'y'],              # qubit 2: only X, Y
-    (1, 2): ['xx', 'yy'],       # two-qubit coupling: XX, YY on the (1,2) pair
-}
+Basis(basis, labels=None, local_dim=2, n_qubits=None,
+      interaction_graph=None, interaction_map=None)
 ```
 
-Keys are 1-indexed qubit identifiers (or tuples for multi-qubit interactions); values are lower-case interaction labels. Anything matching the dict is added to the projected basis.
+| Parameter | Description |
+|-----------|-------------|
+| `basis` | `np.ndarray` of shape `(K, 2ⁿ, 2ⁿ)` — Hermitian generators |
+| `labels` | list of Pauli-string labels, e.g. `["XI", "IX", "ZZ"]` |
+| `local_dim` | local Hilbert-space dimension, default 2 |
+| `n_qubits` | override for qubit count when $d \neq 2^n$ |
+| `interaction_graph` | list of qubit tuples to keep, e.g. `[(1,2), (2,3)]` |
+| `interaction_map` | dict of qubit-tuple → allowed interaction labels |
 
-The **drift** dict has the same format but selects generators with fixed coefficients:
+Key properties:
+
+| Property | Description |
+|----------|-------------|
+| `basis` | the `(K, d, d)` tensor |
+| `lie_algebra_dim` | $K$ — number of generators |
+| `dim` | $d$ — matrix dimension |
+| `n` | number of qubits |
+| `labels` | string labels |
+| `plot_labels` | LaTeX strings, e.g. `"$X_{1}Z_{2}$"` |
+| `interaction_qubits` | tuple of qubit indices for each generator |
+| `interaction_graph`, `interaction_map` | as above |
+
+Key methods:
+
+- `overlap(other)` — boolean mask over `other`'s basis, true where there is nonzero trace overlap with `self`. Used by `Engine` to build index masks.
+- `verify()` — orthogonality check under the trace inner product.
+- `linear_span(parameters)` — $\sum_i \phi_i G_i$.
+- `generate_parameter_list(parameter_map)` — converts a dict like `{1: {"x": 0.5}, (1,2): {"zz": 0.3}}` to a flat parameter array.
+- `generate_bounds(bounds_map, piecewise_steps)` — converts `{"x": (-1, 1)}` to `(lower, upper)` arrays.
+- `apply_interaction_graph(graph)` / `apply_interaction_map(map)` — prune to hardware connectivity.
+
+### `Hamiltonian`
+
+Represents $H = \sum_i \phi_i G_i$ and its unitary $U = e^{iH}$.
 
 ```python
-drift = {(1, 2): ['zz']}   # an always-on ZZ coupling between qubits 1 and 2
+Hamiltonian(basis, parameters)
 ```
 
-If you don't pass `drift_values`, drift coefficients default to ones.
+| Attribute | Description |
+|-----------|-------------|
+| `basis` | the `Basis` object |
+| `parameters` | coefficient vector $\phi$ |
+| `matrix` | $\sum_i \phi_i G_i$ |
+| `unitary` | `Unitary(expm(i·matrix))` |
 
-### 2.3 The target
+Methods:
 
-`target` is just an `np.ndarray` of shape $(d,d)$:
+- `geodesic_hamiltonian(target_unitary)` — a `Hamiltonian` whose parameters are the geodesic direction $-i\log(U^\dagger U_T)$ decomposed in the basis.
+- `fidelity(unitary_matrix)` — $|\mathrm{Tr}(U^\dagger V)|/d$.
+- `parameters_from_hamiltonian(H, basis)` (static) — coefficients via $\mathrm{Re}\,\mathrm{Tr}(G_i H)/d$.
+
+### `Unitary`
+
+Wraps a unitary matrix with validation. Validates $UU^\dagger = I$ on construction.
+
+- `parameters(basis)` — Lie-algebra coefficients via the principal `logm`.
+- `fidelity(other)`.
+- `geodesic_hamiltonian(basis, target)`.
+
+## Basis construction utilities (`utils.py`)
+
+| Function | Description |
+|----------|-------------|
+| `construct_full_pauli_basis(n)` | all $4^n - 1$ non-identity Pauli strings |
+| `construct_two_body_pauli_basis(n)` | 1-body and 2-body terms only |
+| `construct_Heisenberg_pauli_basis(n)` | 1-body + same-type 2-body (XX, YY, ZZ) |
+| `construct_restricted_pauli_basis(n, restriction)` | custom restriction (list or dict) |
+| `construct_full_spin_boson_basis(n_spins, n_bosons, truncation)` | spin-boson hybrid |
+| `construct_restricted_spin_boson_basis(...)` | restricted spin-boson |
+| `filter_basis_by_control(basis, control)` | filter an existing `Basis` by a control dict (handy when $d \neq 2^n$) |
+
+### Restriction formats
+
+`construct_restricted_pauli_basis` accepts two formats.
+
+**List** — allowed interaction types as lower-case strings:
 
 ```python
-import numpy as np
-H = (1/np.sqrt(2)) * np.array([[1, 1], [1, -1]], dtype=complex)
+control = geope.construct_restricted_pauli_basis(2, ['x', 'z'])
+control = geope.construct_restricted_pauli_basis(3, ['x', 'y', 'z'])
+drift   = geope.construct_restricted_pauli_basis(3, ['zz'])
 ```
 
-### 2.4 Piecewise gates and initial values
+**Dict** — allowed interactions per qubit or qubit pair (1-indexed):
 
 ```python
+control = geope.construct_restricted_pauli_basis(2, {1: ['x'], 2: ['x'], (1,2): ['zz']})
+```
+
+### Drift parameter values
+
+Drift coefficients are specified via `generate_parameter_list` on the drift basis (or passed directly through `Parameters(drift_values=...)`):
+
+```python
+drift_basis = geope.construct_restricted_pauli_basis(3, ['zz'])
+drift_values = drift_basis.generate_parameter_list({
+    (1, 2): {"zz": 1.0},
+    (2, 3): {"zz": 1.0},
+    (1, 3): {"zz": 1.0},
+})
+# → [1.0, 1.0, 1.0] matching basis order ["ZZI", "ZIZ", "IZZ"]
+```
+
+### Linear equality constraints (global controls)
+
+Constraints enforce that selected projected parameters maintain fixed ratios. Use `generate_parameter_list` to build constraint vectors:
+
+```python
+control = geope.construct_restricted_pauli_basis(3, ['x', 'z'])
+
+global_x = control.generate_parameter_list({1: {"x": 1}, 2: {"x": 1}, 3: {"x": 1}})
+# → ties X₁ = X₂ = X₃
+
+global_z = control.generate_parameter_list({1: {"z": 1}, 2: {"z": 1}, 3: {"z": 1}})
+# → ties Z₁ = Z₂ = Z₃
+```
+
+Pass via `Parameters(constraints=[global_x, global_z], ...)`.
+
+### Pulse-shape constraints
+
+Pulse constraints fix the relative values of specified parameters across piecewise steps — the temporal shape is frozen while the overall scale is optimised. This is an alternative to the `drift_basis` + `drift_values` route when you want a drift-like term whose amplitude is still tuned by the optimiser.
+
+```python
+projected = geope.construct_restricted_pauli_basis(3, ['x', 'z', 'zz'])
 params = geope.Parameters(
-    basis=basis,
-    control=control,
-    drift=drift,
-    target=H,
-    piecewise_steps=8,
-    init_values=None,         # → random in (-init_spread*π, init_spread*π)
-    drift_values=None,        # → ones
-    init_spread=0.1,
-    seed=0,
+    basis=geope.construct_full_pauli_basis(3),
+    control={1: ['x', 'z'], 2: ['x', 'z'], 3: ['x', 'z'],
+             (1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']},
+    target=U_T,
+    piecewise_steps=10,
+    pulse_constraints=["ZZI", "ZIZ", "IZZ"],
 )
 ```
 
-`init_values` can be:
+| Approach | Use case |
+|----------|----------|
+| `drift_basis` + `drift_values` | drift is truly fixed and not optimised |
+| `pulse_constraints` on projected params | drift-like terms whose amplitude is optimised but whose temporal profile is fixed |
 
-- `None` — random uniform.
-- A dict in the same format as `control`, listing concrete starting amplitudes (broadcast across all $N_g$ segments).
-- An `np.ndarray` of shape $(N_g, K_{\text{full}})$.
+Other utilities:
 
-### 2.5 Linear equality constraints
+- `prepare_random_parameters(proj_indices, expander, spread, seed)` — random initial parameters respecting constraints.
+- `golden_section_search(f, a, b, tol)` — JIT-compatible 1-D **minimiser** (used internally by the line search).
+- `merge_constraints(constraints)` — merges overlapping linear constraints.
+- `qft_unitary(n)`, `multicontrol_unitary(U, n_controls)` — common target unitaries.
+- `make_per_element_transform(transforms)` — helper to build a `param_transform` from per-element callables.
 
-`constraints` accepts either a list of `np.ndarray` vectors $c$ (length $K_{\text{proj}}$) representing $c \cdot \phi^{\text{proj}} = 0$, or a list of control-style dicts that are converted into such vectors. Internally `merge_constraints` resolves overlapping constraints before they are turned into an expander matrix that re-parameterises the projected space.
+## The `Parameters` object
 
-Use this to enforce, e.g., that two parameters share the same value across all gate segments.
-
-### 2.6 Bounds
-
-```python
-params = geope.Parameters(
-    ...,
-    bounds={'x': (-0.5, 0.5), 'y': (-0.5, 0.5)},
-)
-```
-
-This is only consumed by `Geope.bound(...)`, not the main GEOPE loop. See Section 4.
-
-### 2.7 Phase-sensitive vs projective
-
-Set `projective=False` to use $F_{\text{full}}$ rather than $F_{\text{proj}}$. Use this only when the global phase of $U_T$ is physically meaningful (e.g. matching a specific representative for downstream composition).
-
-> **Caveat.** Phase-sensitive optimisation has a known pathology when $\mathrm{Tr}(U_T) = 0$: the gradient of $\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)$ vanishes at the identity in every basis direction, so a random init close to $I$ may have no descent direction. Use a larger `init_spread` (≥ 0.5) or a non-zero `init_values` dict to break the symmetry.
-
----
-
-## 3. Running the optimisation
-
-The minimal three-line pattern:
+`Parameters` is the recommended entry point.
 
 ```python
-params = geope.Parameters(basis=basis, control=control, target=U_T,
-                          piecewise_steps=8, seed=0)
-result = geope.Geope(params, max_steps=500, precision=1 - 1e-7).optimize()
-print(result.best_fidelity)
+Parameters(basis=None, control=None, drift=None,
+           init_values=None, drift_values=None,
+           target=None, piecewise_steps=1, fixed_drift=True,
+           constraints=None, pulse_constraints=None, bounds=None,
+           init_spread=0.1, seed=None,
+           param_transform=None, n_experimental_params=None,
+           projective=True)
 ```
 
-After `optimize()`, the `result` (which is the same `Parameters` instance) has its mutable history populated:
+| Parameter | Description |
+|-----------|-------------|
+| `basis` | the full `Basis`; defaults to 2-qubit full Pauli basis if `None` |
+| `control` | dict picking the projected (controllable) subset |
+| `drift` | dict picking the drift subset |
+| `init_values` | dict in `control` format, or `ndarray` of full-basis shape, or `None` (random) |
+| `drift_values` | dict, `ndarray`, or `None` (ones) |
+| `target` | target unitary as `ndarray` |
+| `piecewise_steps` | number of gate segments $N_g$ |
+| `fixed_drift` | whether drift is held fixed during optimisation |
+| `constraints` | list of constraint vectors / dicts |
+| `pulse_constraints` | list (or dict; values ignored) of projected-basis labels whose time-shape is fixed |
+| `bounds` | dict `{label: (lo, hi)}` — consumed by `Geope.bound(...)`, not by the main loop |
+| `init_spread` | half-width of uniform random init, in units of $\pi$ |
+| `seed` | random seed |
+| `param_transform` | callable mapping experimental params to basis coefficients |
+| `n_experimental_params` | length of the experimental input; defaults to `projected_basis.lie_algebra_dim` |
+| `projective` | `True` (default) for projective fidelity, `False` for phase-sensitive |
 
-- `result.parameters` — list of $(N_g, K_{\text{full}})$ arrays, one per recorded step.
-- `result.fidelities`, `result.infidelities` — per-step scalars.
-- `result.step_sizes`, `result.steps` — step magnitudes and counters.
-- `result.best_fidelity`, `result.best_parameters` — convenience accessors.
-- `result.best_basis_coefficients` — best params mapped through `param_transform` if set.
-- `result.to_dict()` — best solution as a human-readable control-style dict.
+Attributes populated after construction:
 
-### 3.1 Optimiser knobs
+| Attribute | Description |
+|-----------|-------------|
+| `basis`, `projected_basis`, `drift_basis` | the three `Basis` objects |
+| `target` | the target |
+| `init_parameters` | initial parameter array, shape `(N_g, K_{full})` |
+| `drift_parameters` | drift coefficients (or `None`) |
+| `constraint_arrays`, `constraint_expander` | merged constraints and reduced-space mapping |
+| `bounds` | pre-built bounds tuple (or `None`) |
 
-These are on `Geope.__init__`, not on `Parameters`:
+Mutable history written back by `Geope`:
+
+| Attribute | Description |
+|-----------|-------------|
+| `parameters` | list of parameter arrays, shape `(N_g, K_{full})` per entry |
+| `fidelities`, `infidelities`, `step_sizes`, `steps` | history scalars |
+| `best_fidelity` | `max(fidelities)` |
+| `best_parameters` | parameters at the highest-fidelity step |
+| `best_basis_coefficients` | best parameters mapped through `param_transform` if set |
+| `to_dict()` | best solution as a control-style dict |
+
+## Engine and optimiser
+
+### `Engine` (`engine.py`)
 
 ```python
-geope.Geope(
-    params,
-    max_steps=500,                       # cap on iterations
-    precision=1 - 1e-7,                  # stopping fidelity
-    max_step_size=0.9,                   # line-search clip
-    gram_schmidt_step_size=1.3,          # fallback step magnitude
-    line_search_method='golden_section', # or 'difference_step'
-    verbose=False,
-)
+Engine(target_unitary, full_basis, projected_basis,
+       drift_basis=None, piecewise_steps=1)
 ```
 
-### 3.2 Auxiliary passes
+Computes index masks between the three bases and JIT-compiles the unitary and fidelity functions.
 
-Post-convergence refinement does not require re-building the optimiser:
+Index masks (boolean arrays):
+
+- `projected_indices` — shape $(K_{\text{full}},)$, which full-basis elements are controllable (`projected_basis.overlap(full_basis)`).
+- `drift_indices` — shape $(K_{\text{full}},)$, which are fixed drift.
+- `proj_drift_indices` = `projected_indices | drift_indices`.
+- `proj_indices_projdrift_basis` — projected mask within the proj+drift subspace, shape $(K_{\text{pd}},)$.
+- `drift_indices_projdrift_basis` — drift mask within the proj+drift subspace.
+
+Derived basis:
+
+- `proj_drift_basis` — `Basis` containing only the projected + drift elements; used for all JIT computations.
+
+JIT functions:
+
+- `compute_U_fn(params_list)` — scans over piecewise steps via `jax.lax.scan`:
+  $\,U = \prod_g \exp\!\bigl(i \sum_i \phi_{g,i}\,G_i\bigr).$
+  Input shape: $(N_g, K_{\text{pd}})$.
+- `fid_U_fn(U)` — $|\mathrm{Tr}(U_T^\dagger U)|/d$ when `projective=True`, $\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d$ when `projective=False`.
+
+### `GeopeEngine` (`geope.py`)
 
 ```python
-g = geope.Geope(params, max_steps=500, precision=1 - 1e-7)
-g.optimize()
-g.smooth(piecewise_steps_multiplier=2, smoothing_rate=0.05, diff_tol=1e-3)
-g.smooth_frequency(smoothing_rate=0.05, diff_tol=1e-3)
-g.speed(parameter_labels=['X'], optimization_rate=0.05)
-g.length(optimization_rate=0.01)
-g.robust(parameter_labels=['X'], delta=0.02, num_samples=5)
-g.bound({'X': (-0.5, 0.5)}, method='projected_gradient')
+GeopeEngine(target_unitary, full_basis, projected_basis,
+            drift_basis=None, piecewise_steps=1,
+            batch_size=None, projective=True)
 ```
 
-Each returns `(success, iters)`. `piecewise_steps_multiplier > 1` subdivides each existing gate segment into that many smaller ones (interpolating linearly), giving more degrees of freedom for the null-space pass to use.
+Extends `Engine` with geodesic-specific JIT functions:
 
----
+- `project_omegas_fn` — projects matrices onto the full Pauli basis via trace inner products $\mathrm{Tr}(G_i M)$. For $n > 5$ uses on-the-fly batched projection (`batch_size`) to manage memory.
+- `jac_fn` — Jacobian $\partial U/\partial\phi_{g,k}$. For $n \le 5$, JAX autodiff with `holomorphic=True`. For $n > 5$, manual block-exponential derivative via `dexpm.py`.
+- `geo_fn` — geodesic tangent at $U$: $U \cdot \bigl(-i\log(U^\dagger U_T)\bigr)$, with the global-phase generator subtracted when `projective=True`.
+- `infid_U_fn` — bound to $1 - F_{\text{proj}}$ or $1 - F_{\text{full}}$ to match `projective`.
+- `infid_fn`, `grad_fn` — infidelity of $\phi$ and its gradient (used by fallback methods and by the line search).
 
-## 4. Pulse-shape constraints (`pulse_constraints`)
+### `Geope` (`geope.py`)
 
-### 4.1 What they enforce
+```python
+Geope(params,
+      max_steps=1000, precision=0.9999999,
+      max_step_size=0.9, gram_schmidt_step_size=1.3,
+      line_search_method="golden_section",
+      verbose=False)
+```
 
-A pulse constraint on parameter $k$ forces the time profile $\phi_k(g)$, $g=0,\dots,N_g-1$, to lie on a one-dimensional subspace spanned by a fixed unit template $t_k$:
+`Geope` requires a `Parameters` object as its single positional argument. The engine, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and `param_transform` are all read from `params`. Passing a raw `GeopeEngine` raises `TypeError`.
+
+| Parameter | Description |
+|-----------|-------------|
+| `params` | a `Parameters` instance bundling all inputs |
+| `max_steps` | iteration cap |
+| `precision` | target fidelity |
+| `max_step_size` | maximum line-search step |
+| `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback |
+| `line_search_method` | `"golden_section"` or `"difference_step"` |
+| `verbose` | print per-step progress |
+| `seed` | random seed (legacy API) |
+
+State tracked across iterations:
+
+- `parameters` — list of arrays of shape $(N_g, K_{\text{full}})$.
+- `fidelities`, `infidelities`, `step_sizes`, `steps` — history lists.
+
+These lists are mirrored onto the `Parameters` object after every `optimize()`, and `optimize()` returns the `Parameters` instance itself — so the user has a single handle for both inputs and outputs.
+
+## Core algorithm: `optimize()`
+
+```
+for each step:
+    1. Extract free_params = parameters[:, proj_drift_indices]
+
+    2. Compute the geodesic direction:
+       U  = compute_U_fn(free_params)
+       g  = -i · logm(U† U_T)                       # generator in u(d)
+       g  = g - Tr(g)/d · I        if projective    # drop global-phase generator
+       Γ  = U · g                                   # geodesic tangent
+       γ  = project(Γ) / d                          # coefficients in basis
+
+    3. Compute the Jacobian projections:
+       ω[g, k] = project(i · ∂U/∂φ_{g,k})
+
+    4. Solve the constrained least-squares problem:
+       sol = argmin ||ω^T · sol - γ||
+       (optionally through a constraint+pulse expander E)
+
+    5. Normalise and line-search:
+       coeffs = sol · sqrt(N_g) / ||sol||
+       dt     = argmin infid(φ + t · coeffs)        # over t ∈ [-t_max, 0]
+       φ_new  = φ + dt · coeffs
+
+    6. If fidelity decreased, Gram–Schmidt fallback:
+       proj_c = random_direction ⊥ coeffs
+       try ±proj_c, keep the side with higher fidelity
+```
+
+The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under the algorithm's sign convention: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ orients `coeffs` such that negative `dt` reduces infidelity. The minimiser operates on `infid_U_fn`, which is always non-negative, so the search is well-defined in both `projective=True` and `projective=False` modes. `Geope` reports `fidelity = 1 - infid` at the chosen step.
+
+### Key functions
+
+- **`gammas_and_omegas(free_params)`** — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection $\gamma$, the full Jacobian $\partial U/\partial\phi$, and the per-parameter projections $\omega$. Returns $(\gamma, \omega)$.
+- **`linear_comb_projected_coeffs_multigate(ω, γ, E)`** — least-squares solve, optionally through a constraint expander $E$.
+- **`update_linesearch(params, coeffs, piecewise_steps)`** — golden-section minimisation of $\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})$ over $t \in [-t_{\max}, 0]$.
+
+## Constraints
+
+### Linear equality constraints
+
+`constraints` (or `Parameters.constraints`) takes a list of vectors $c$ of length $K_{\text{proj}}$ enforcing $c \cdot \phi^{\text{proj}} = 0$, or dicts in `control` format that are converted into such vectors. Internally, overlapping constraints are merged via an expander matrix $C$ that maps free parameters to the full projected space, and the least-squares solve becomes $\min \|\omega^\top C \tilde c - \gamma\|$ with $c = C \tilde c$.
+
+### Pulse-shape constraints
+
+`pulse_constraints` fixes the relative shape of selected parameters across piecewise steps. For each constrained label $k$ the time profile $\phi_k(g)$ is constrained to a one-dimensional subspace:
 
 $$
 \phi_k(g) \;=\; \alpha_k\, t_k(g), \qquad \|t_k\| = 1, \quad \alpha_k \in \mathbb{R}.
 $$
 
-After every GEOPE iteration (and every null-space update), the time profile is re-projected:
+The template $t_k$ is read off the current solution at the moment `optimize()` is called (or the flat template $\mathbf{1}/\sqrt{N_g}$ if the column is empty), and after every iteration $\phi_k$ is re-projected:
 
 $$
-\phi_k \;\leftarrow\; \bigl(\phi_k \cdot t_k\bigr)\, t_k.
+\phi_k \;\leftarrow\; \bigl(\phi_k \cdot t_k\bigr) t_k.
 $$
 
-This is what makes the constraint *strict* in practice rather than soft.
+Formally, the flat parameter vector $\Phi \in \mathbb{R}^{N_g K_{\text{proj}}}$ is replaced by free parameters $\psi$ via $\Phi = E\,\psi$, where $E$ has $N_g$ identity columns for each unconstrained $k$ and a single template column for each constrained $k$. When combined with a linear-equality expander $C$, the combined expander is $E_{\text{comb}} = (I_{N_g} \otimes C)\,(I_{N_g} \otimes C)^{+}\,E$.
 
-### 4.2 The expander
+With `param_transform`, pulse constraints reference parameter **indices** in $\phi^{\text{exp}}$ rather than projected-basis labels.
 
-Concretely, the flat parameter vector $\Phi \in \mathbb{R}^{N_g K_{\text{proj}}}$ is replaced by free parameters $\psi \in \mathbb{R}^{n_{\text{free}}}$ via
+## Experimental parameters (`param_transform`)
 
-$$
-\Phi \;=\; E \psi, \qquad
-n_{\text{free}} = N_g(K_{\text{proj}} - |P|) \;+\; |P|,
-$$
-
-where $P$ is the set of constrained indices and:
-
-- each unconstrained $k$ contributes $N_g$ columns to $E$ (the identity on its time profile);
-- each constrained $k \in P$ contributes a single column equal to $t_k$ down its $N_g$ rows.
-
-When you also have linear-equality `constraints` with expander $C$, the combined expander used by the geodesic step is
-
-$$
-E_{\text{comb}} \;=\; (I_{N_g}\!\otimes\!C)\,\bigl(I_{N_g}\!\otimes\!C\bigr)^{+}\,E,
-$$
-
-i.e. $E$ projected onto the column space of the Kronecker-lifted $C$.
-
-### 4.3 Template choice
-
-The template $t_k$ is derived from the *current* solution at the moment `optimize()` is called:
-
-- if the column $\phi_k$ from `self.parameters[-1]` has $\|\phi_k\| > 10^{-12}$, use $t_k = \phi_k / \|\phi_k\|$;
-- otherwise fall back to the flat template $t_k = \mathbf{1}/\sqrt{N_g}$ (a square pulse).
-
-So the typical pattern is to first run an unconstrained optimisation, inspect the pulse shape, decide which parameters should respect that shape, and *then* re-run with `pulse_constraints` to lock the shape in while allowing further refinement. Or to specify a desired template via `init_values` directly.
-
-### 4.4 Specifying constraints
-
-```python
-params = geope.Parameters(
-    ...,
-    pulse_constraints={'X': True, 'Y': True},   # dict: keys are projected-basis labels
-)
-# or equivalently:
-params = geope.Parameters(..., pulse_constraints=['X', 'Y'])
-```
-
-The values in the dict are ignored — only the keys matter. The label format follows the `Basis.labels` convention (e.g. `'X'`, `'YI'`, `'XX'`).
-
-### 4.5 Worked example: flat X, free Y
-
-```python
-import numpy as np
-import geope
-
-# Single-qubit, target = Hadamard, piecewise gate over 8 segments
-basis = geope.construct_full_pauli_basis(1)
-H = (1/np.sqrt(2)) * np.array([[1, 1], [1, -1]], dtype=complex)
-
-params = geope.Parameters(
-    basis=basis,
-    control={1: ['x', 'y']},        # only X and Y controllable
-    target=H,
-    piecewise_steps=8,
-    pulse_constraints={'X': True},  # X must be a single scalar × time shape
-    seed=0,
-)
-result = geope.Geope(params, max_steps=400, precision=1 - 1e-6).optimize()
-
-X_profile = result.best_parameters[:, basis.labels.index('X')]
-print("X profile:", X_profile.real)
-print("X profile / norm:", X_profile.real / np.linalg.norm(X_profile.real))
-print("best fidelity:", float(result.best_fidelity))
-```
-
-After convergence the X column will be a single template repeated across segments; only the Y column has independent values per segment.
-
----
-
-## 5. Experimental parameters (`param_transform`)
-
-### 5.1 When to use
-
-GEOPE's "native" parameters are basis coefficients $\phi^{\text{proj}}_{g,k}$ — pure real numbers indexing $\sum_k \phi_{g,k} B_k$. But in practice, the **experimentally controllable** quantities are often different:
-
-- a single drive amplitude that couples to multiple basis elements through a $\sin$/$\cos$ phase;
-- a pulse parametrised by a small number of shape coefficients (Gaussian, Slepian, etc.);
-- a calibration map $\phi^{\text{proj}} = f(\text{voltage}, \text{frequency})$ with $f$ non-linear.
-
-You want to optimise directly over those experimental knobs $\phi^{\text{exp}}$, with the algorithm internally seeing the corresponding basis coefficients through a user-supplied callable $\tau$:
+GEOPE's native parameters are basis coefficients $\phi^{\text{proj}}_{g,k}$. In practice the **experimentally controllable** quantities are often different — an amplitude–phase pair driving two basis elements through $\cos/\sin$, a small set of pulse-shape coefficients, a calibration map $\phi^{\text{proj}} = f(\text{voltage}, \text{frequency})$. `param_transform` lets you optimise directly over those experimental knobs $\phi^{\text{exp}}$:
 
 $$
 \phi^{\text{proj}}_{g,\cdot} \;=\; \tau\bigl(\phi^{\text{exp}}_{g,\cdot}\bigr) \;\;\;\text{or}\;\;\; \tau\bigl(\phi^{\text{exp}}_{g,\cdot},\, g\bigr).
 $$
 
-### 5.2 The callable contract
+### Contract
 
-`param_transform` must be a JAX-traceable callable. Two signatures are accepted:
+`param_transform` must be a JAX-traceable callable. Accepted signatures:
 
-- **Step-independent**: `tau(phi)` where `phi.shape == (n_experimental_params,)`.
-- **Step-dependent**: `tau(phi, step_index)` where `step_index` is a scalar `int32`.
+- **Step-independent**: `tau(phi)` with `phi.shape == (n_experimental_params,)`.
+- **Step-dependent**: `tau(phi, step_index)` with a scalar `int32` step index.
 
-The output must be a 1-D array. Its length is either:
+The output is a 1-D array whose length is either:
 
-- equal to `projected_basis.lie_algebra_dim` — the coefficients are taken as the projected-basis coefficients directly; or
-- equal to `basis.lie_algebra_dim` — the relevant projected entries are extracted automatically via `projected_basis.overlap(basis)`.
+- `projected_basis.lie_algebra_dim` — taken as projected-basis coefficients;
+- `basis.lie_algebra_dim` — relevant projected entries extracted automatically via `projected_basis.overlap(basis)`.
 
-`Parameters.n_experimental_params` controls the input dimension; if you don't pass it, it defaults to `projected_basis.lie_algebra_dim`.
+`Parameters.n_experimental_params` sets the input dimension. When `param_transform` is set, the engine's `compute_U_fn` is wrapped to apply `vmap(τ)` over the gate axis, embed the result into the proj+drift slots, broadcast drift coefficients, and delegate to the unitary-product code. The Jacobian is replaced by a split-real-imaginary version (real intermediates in `τ` would otherwise drop the imaginary part under holomorphic autodiff).
 
-### 5.3 Helper: `make_per_element_transform`
+### Helper: `make_per_element_transform`
 
-For the common case where each experimental parameter maps to one basis coefficient through an independent scalar function:
+For element-wise transforms:
 
 ```python
 import jax.numpy as jnp
-import geope
 
 tau = geope.make_per_element_transform([
-    jnp.cos,                       # phi[0] → cos(phi[0])    (e.g. X coefficient)
-    jnp.sin,                       # phi[1] → sin(phi[1])    (e.g. Y coefficient)
-    lambda x: 0.5 * x,             # phi[2] → 0.5 * phi[2]  (e.g. Z coefficient)
-    None,                          # phi[3] passes through unchanged
+    jnp.cos,                 # phi[0] → cos(phi[0])
+    jnp.sin,                 # phi[1] → sin(phi[1])
+    lambda x: 0.5 * x,       # phi[2] → 0.5 * phi[2]
+    None,                    # phi[3] passes through
 ])
 ```
 
-### 5.4 Worked example: Rabi rotation in $(A, \varphi)$
-
-A common Rabi-drive parametrisation is one amplitude $A$ and one phase $\varphi$, coupling to the $(X, Y)$ generators as
-
-$$
-H_{\text{drive}}(t) = A \,\cos(\varphi)\, X \;+\; A \,\sin(\varphi)\, Y.
-$$
+### Worked example: Rabi rotation in $(A, \varphi)$
 
 ```python
 import numpy as np
 import jax.numpy as jnp
 import geope
 
-basis = geope.construct_full_pauli_basis(1)   # K_proj = 3 (X, Y, Z labelled XI/YI/ZI? no, just X,Y,Z)
+basis = geope.construct_full_pauli_basis(1)
 
-def rabi_transform(phi):                        # phi = (A, varphi)
+def rabi(phi):                                   # phi = (A, varphi)
     A, varphi = phi[0], phi[1]
-    return jnp.array([A * jnp.cos(varphi),      # X coefficient
-                      A * jnp.sin(varphi),      # Y coefficient
-                      0.0])                     # Z coefficient
+    return jnp.array([A * jnp.cos(varphi),       # X coefficient
+                      A * jnp.sin(varphi),       # Y coefficient
+                      0.0])                      # Z coefficient
 
 theta = np.pi / 3
 RX = np.array([[np.cos(theta/2), -1j*np.sin(theta/2)],
                [-1j*np.sin(theta/2),  np.cos(theta/2)]], dtype=complex)
 
 params = geope.Parameters(
-    basis=basis,
-    control={1: ['x', 'y', 'z']},
-    target=RX,
+    basis=basis, control={1: ['x', 'y', 'z']}, target=RX,
     piecewise_steps=4,
-    param_transform=rabi_transform,
-    n_experimental_params=2,                    # phi has 2 entries per segment
-    init_spread=0.3,
-    seed=0,
+    param_transform=rabi, n_experimental_params=2,
+    init_spread=0.3, seed=0,
 )
-
-result = geope.Geope(params, max_steps=300, precision=1 - 1e-7).optimize()
-print("final fidelity:", float(result.best_fidelity))
-print("best (A, varphi) per segment:\n", result.best_parameters)
-print("induced basis coefficients:\n", result.best_basis_coefficients)
+geope.Geope(params, max_steps=300, precision=1 - 1e-7).optimize()
+print(float(params.best_fidelity))
+print(params.best_basis_coefficients)
 ```
 
-### 5.5 Internal consequences
+### Practical implications
 
-When `param_transform` is set, the engine's `compute_U_fn` is wrapped to apply $\tau$ via `jax.vmap` over the gate axis, then embed into the proj+drift parameter slots before delegating to the original unitary-product code. The Jacobian is replaced by a split-real-imaginary version because user-supplied $\tau$ functions often carry real-valued intermediates that lose imaginary parts under the usual holomorphic Jacobian. Engine index masks are overridden so the rest of `Geope` (line search, Gram–Schmidt fallback, null-space passes) operate uniformly over $\phi^{\text{exp}}$.
+- Null-space methods (`speed`, `length`, `robust`) must use `parameter_indices`, not `parameter_labels`, when `param_transform` is set — labels no longer correspond to optimised parameters. `Geope` raises `ValueError` otherwise.
+- Internally `param_transform` mode uses `float64`; basis-coefficient mode uses `complex128`. Tolerances and bounds you supply should match.
 
-You don't need to think about any of this; it's all transparent. But it has two practical implications:
+## Phase-sensitive vs projective
 
-- **No `parameter_labels` argument in null-space methods.** When `param_transform` is set, the projected basis labels no longer correspond to the indices of the optimised parameters. Pass `parameter_indices` (integers into $\phi^{\text{exp}}$) instead. `Geope` raises a clear `ValueError` otherwise.
-- **dtype.** Internally, experimental parameters are `float64`; basis-coefficient mode uses `complex128`. Tolerances and bounds you supply should match.
-
----
-
-## 6. Auxiliary null-space methods in detail
-
-All five methods follow the same template:
-
-1. Compute the omega tensor and its null space `ker(Ω) ≈ I - Ω^+ Ω`.
-2. Form the cost gradient $\nabla C(\phi)$ via `jax.value_and_grad`.
-3. Project $-\nabla C$ onto $\ker(\Omega)$ via a least-squares solve.
-4. Take a normalised step `rate * x / ||x||` along the projection.
-
-Because the step stays in the null space, fidelity is preserved to first order at each iteration. Over many iterations small drift accumulates, so the auxiliary passes run with `diff_tol` rather than a precise fidelity guard — they stop when the auxiliary cost stops improving, not when fidelity drops below threshold.
-
-### 6.1 `smooth_frequency`
-
-```python
-g.smooth_frequency(smoothing_rate=0.05, max_smoothing_steps=200, diff_tol=1e-3)
-```
-
-Cost is the mean spectral power above DC,
+The two fidelities differ in how the trace is taken:
 
 $$
-C(\phi) = \frac{1}{(N_g/2)\,K_{\text{proj}}}\sum_{m \ge 1, k} \bigl|\widehat{\phi_k}(m)\bigr|^2,
+F_{\text{proj}}(U, U_T) = \frac{|\mathrm{Tr}(U_T^\dagger U)|}{d}, \qquad
+F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 $$
 
-with $\widehat{\phi_k} = \mathrm{rfft}_g \phi_k$ along the gate axis. DC ($m=0$) is excluded so the average amplitude is not penalised — only the *variation* is.
+$F_{\text{proj}} \in [0,1]$ is invariant under $U \mapsto e^{i\theta}U$ (the global phase is unobservable). $F_{\text{full}} \in [-1,1]$ is not. Use `projective=False` only when the absolute phase matters — for example, when the gate is a sub-block of a larger coherent unitary, or when stitching multiple gates whose relative phase enters the composite fidelity.
 
-### 6.2 `filter_frequency`
+Two pathologies to keep in mind for phase-sensitive mode:
 
-```python
-def low_pass(rfft_array):           # rfft_array.shape = (N_g//2 + 1, K_proj)
-    cutoff = 2
-    mask = jnp.arange(rfft_array.shape[0]) < cutoff
-    return rfft_array * mask[:, None]
+- **Traceless targets** (Hadamard, single-qubit $X/Y/Z$, etc.) make the gradient of $F_{\text{full}}$ vanish at $U = I$ in every direction; a random init near identity has no descent direction. Use larger `init_spread` or non-zero `init_values`.
+- **Stopping criterion**. `precision = 0.9999999` is meaningful for $F_{\text{proj}}$. For $F_{\text{full}}$ the same threshold is valid near the optimum (both fidelities agree as $U \to U_T$), but the optimiser may transit negative-fidelity regions on its way — that's geometry, not a bug.
 
-g.filter_frequency(low_pass, smoothing_rate=0.05, diff_tol=1e-3)
+## Null-space optimisation
+
+After the main GEOPE loop has converged, the null space of the Jacobian $\omega$ represents directions in parameter space that don't change the unitary to first order. Stepping along these lets you optimise secondary objectives while preserving fidelity.
+
+### Available objectives
+
+| Method | Cost minimised | Purpose |
+|--------|----------------|---------|
+| `smooth(...)` | $\sum_g \|\phi_{g+1} - \phi_g\|^2$ | reduce variation across segments |
+| `smooth_frequency(...)` | $\sum_{m \ge 1, k}|\widehat{\phi_k}(m)|^2$ | suppress high-frequency content (DC excluded) |
+| `filter_frequency(filter_fn, ...)` | $\|\widehat\phi - \mathcal{F}(\widehat\phi)\|^2$ | drive $\phi$ toward a user-defined filtered version (= $L^2$ distance by Parseval) |
+| `speed(parameter_*, ...)` | $\max_{g, k \in P}|\phi_{g,k}|$ | reduce peak control amplitude |
+| `length(parameter_*, ...)` | $\sum_g \sqrt{\sum_{k \in P}\phi_{g,k}^2 + \|d_g\|^2}$ | reduce total pulse length (drift contribution included) |
+| `robust(parameter_*, delta, num_samples, ...)` | $1 - \min_{\delta \in [-\Delta,+\Delta]^{|P|}} F$ | maximise worst-case fidelity under uniform δ perturbations |
+| `bound(bounds, method, ...)` | $\max(\phi - u_b, l_b - \phi)$ | enforce a box constraint via `'projected_gradient'` / `'pg'` or `'mid_point'` / `'mp'` |
+
+Each returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.
+
+### Null-space algorithm: `_null_space_optimisation()`
+
+```
+1. Optionally subdivide piecewise steps (piecewise_steps_multiplier)
+2. Build the combined expander (pulse × linear-equality)
+3. For each iteration:
+   a. Compute Jacobian projections ω
+   b. SVD of ω → null-space basis N (right-singular vectors below the rank)
+   c. Compute the cost gradient ∇C(φ)
+   d. Project the negative gradient onto the null space:
+        x = lstsq(N, -∇C)
+   e. Step: φ ← φ + rate · N·x / ||x||
+   f. Enforce pulse templates if applicable
+   g. Recompute fidelity (preserved to first order)
 ```
 
-Cost is $\|\widehat\phi - \mathcal{F}(\widehat\phi)\|^2$. By Parseval this equals the time-domain $L^2$ distance to the filtered pulse, so minimising it drives $\phi$ toward its filtered version while preserving fidelity.
+## Parameter spaces and index mappings
 
-### 6.3 `speed`, `length`
+The codebase uses three basis spaces with boolean masks mapping between them:
 
-`speed` minimises $\max_{g, k \in P}|\phi_{g,k}|$ — the peak control amplitude. `length` minimises $\sum_g \sqrt{\sum_{k\in P}\phi_{g,k}^2 + \|d_g\|^2}$ — the total pulse length, including a constant drift contribution. Both reduce the energy you have to put into the gate.
+```
+full_basis  (dim K_full)         — all generators
+  ├── projected_indices          — shape (K_full,)
+  ├── drift_indices              — shape (K_full,)
+  └── proj_drift_indices         — projected | drift
 
-```python
-g.speed(parameter_labels=['X', 'Y'], optimization_rate=0.05, diff_tol=1e-3)
-g.length(optimization_rate=0.01, diff_tol=1e-3)
+proj_drift_basis  (dim K_pd)     — only projected + drift elements
+  ├── proj_indices_projdrift_basis    — shape (K_pd,)
+  └── drift_indices_projdrift_basis   — shape (K_pd,)
+
+projected_basis  (dim K_proj)    — only the controllable elements
 ```
 
-### 6.4 `robust`
+Parameters are stored in full-basis space $(N_g, K_{\text{full}})$. JIT functions operate on the proj+drift subspace $(N_g, K_{\text{pd}})$. With `param_transform`, the engine indices are overridden so the optimisation runs uniformly on $\phi^{\text{exp}} \in \mathbb{R}^{N_g \times n_{\text{exp}}}$.
 
-```python
-g.robust(parameter_labels=['X'], delta=0.02, num_samples=5,
-         optimization_rate=0.05, diff_tol=1e-3)
-```
-
-Cost is $1 - \min_{\boldsymbol{\delta} \in \mathcal{S}} F\bigl(U(\phi + \sum_k \delta_k e_k)\bigr)$, where $\mathcal{S}$ is the Cartesian grid of `num_samples` evenly-spaced values in $[-\Delta, +\Delta]$ for each parameter in $P$. Minimising this maximises the worst-case fidelity over that perturbation box. Each $\delta_k$ is applied **uniformly** to all gate segments (so it models a systematic calibration error, not per-segment noise). The total grid is $\text{num\_samples}^{|P|}$ points — keep $|P|$ small.
-
-### 6.5 `bound`
-
-```python
-g.bound({'X': (-0.5, 0.5)}, method='projected_gradient', bounding_rate=0.05)
-```
-
-Two methods:
-
-- `'mid_point'` / `'mp'` — pulls parameters toward the centre of the feasible box via a least-squares projection.
-- `'projected_gradient'` / `'pg'` — gradient of the maximum-violation $\max(\phi - u_b, l_b - \phi)$, projected onto the null space.
-
-`pg` typically converges faster when most parameters are already feasible; `mp` is gentler and more useful when starting from a heavily-violating point.
-
----
-
-## 7. Phase-sensitive vs projective
-
-The default `projective=True` should be your first choice. Use `projective=False` only when:
-
-- you need the absolute phase of the gate (e.g. matching a stored reference rather than an equivalence class);
-- the gate is a sub-block of a larger, coherent unitary so global phase becomes a relative phase against spectators;
-- you're stitching several gates and the inter-gate phases enter the composite fidelity.
-
-The two are coupled internally: `projective=False` activates the U-geodesic (no trace subtraction) **and** rebinds `infid_U_fn` to $1 - F_{\text{full}}$. The line search is correct for both modes (it minimises infidelity, which is always non-negative). The two pathologies to watch out for:
-
-- **Traceless targets.** When $\mathrm{Tr}(U_T) = 0$ (e.g. Hadamard, single-qubit Pauli $X$, $Y$, $Z$, etc.), $F_{\text{full}}$ has a vanishing gradient at $U = I$ in every controllable direction. A random initialisation near the identity will have no descent direction. Use larger `init_spread` (≥ 0.5) or seed `init_values` away from zero.
-- **Stopping criterion.** `precision = 0.9999999` makes sense for $F_{\text{proj}} \in [0,1]$. For $F_{\text{full}}$ the same number still works *near the optimum* (both fidelities agree as $U \to U_T$), but the optimiser may pass through negative-fidelity regions on the way. That's fine — it isn't a stopping criterion failure, just the geometry of the cost surface.
-
----
-
-## 8. Full worked example
-
-A two-qubit XX-coupled chain, controllable only on $\{X_i, Y_i, ZZ\}$, with `param_transform` to drive XY rotations by a single amplitude and phase per qubit, pulse-shape constraint on the coupling, post-optimisation smoothing and robustness.
+## Usage
 
 ```python
 import numpy as np
-import jax.numpy as jnp
 import geope
 
-# --- 1. Target: SWAP gate
-SWAP = np.array([
-    [1, 0, 0, 0],
-    [0, 0, 1, 0],
-    [0, 1, 0, 0],
-    [0, 0, 0, 1],
-], dtype=complex)
+# Bases
+full    = geope.construct_full_pauli_basis(3)
+control = {1: ['x', 'z'], 2: ['x', 'z'], 3: ['x', 'z']}
+drift   = {(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']}
 
-# --- 2. Basis: full 2-qubit Pauli
-basis = geope.construct_full_pauli_basis(2)
+# Target: Toffoli
+target = geope.multicontrol_unitary(np.array([[0, 1], [1, 0]]), 2)
 
-# --- 3. Controllable subset: single-qubit XY drives + a tunable ZZ coupling
-control = {
-    1:      ['x', 'y'],
-    2:      ['x', 'y'],
-    (1, 2): ['zz'],
-}
-
-# --- 4. (No drift in this example)
-# --- 5. Experimental parametrisation:
-#     phi^exp per segment = (A1, varphi1, A2, varphi2, J_zz)  →  basis coefficients
-
-def tau(phi):
-    A1, p1, A2, p2, Jzz = phi
-    out = jnp.zeros(5)                  # 5 controllable basis elements
-    # The projected basis ordering follows basis.labels, filtered by `control`.
-    # In this example the order happens to be (X1, Y1, X2, Y2, ZZ).
-    out = out.at[0].set(A1 * jnp.cos(p1))   # X on qubit 1
-    out = out.at[1].set(A1 * jnp.sin(p1))   # Y on qubit 1
-    out = out.at[2].set(A2 * jnp.cos(p2))   # X on qubit 2
-    out = out.at[3].set(A2 * jnp.sin(p2))   # Y on qubit 2
-    out = out.at[4].set(Jzz)                # ZZ
-    return out
-
-# --- 6. Build Parameters with the experimental parametrisation
+# Bundle everything in a Parameters object
 params = geope.Parameters(
-    basis=basis,
+    basis=full,
     control=control,
-    target=SWAP,
-    piecewise_steps=12,
-    param_transform=tau,
-    n_experimental_params=5,
-    pulse_constraints=[4],          # by INDEX (not label) — required with param_transform
-    init_spread=0.3,
+    drift=drift,
+    drift_values={(1, 2): {"zz": 1.0},
+                  (2, 3): {"zz": 1.0},
+                  (1, 3): {"zz": 1.0}},
+    target=target,
+    piecewise_steps=20,
     seed=0,
 )
 
-# --- 7. Optimise
-g = geope.Geope(params, max_steps=2000, precision=1 - 1e-7, verbose=False)
-g.optimize()
-print(f"main optimisation: F = {float(params.best_fidelity):.7f}")
+# Run — populates params history in place; returns the same Parameters
+result = geope.Geope(params, max_steps=1000, precision=0.9999).optimize()
+print(result.best_fidelity)
+print(result.to_dict())
 
-# --- 8. Post-process: smooth in time, then enforce robustness on the
-#       Rabi amplitudes (parameter indices 0 and 2).
+# Null-space passes — fidelity preserved
+g = geope.Geope(params, max_steps=0, precision=0.9999)
 g.smooth(piecewise_steps_multiplier=2, smoothing_rate=0.05, diff_tol=1e-3)
-print(f"after smoothing:  F = {float(params.best_fidelity):.7f}")
-
-g.robust(parameter_indices=(0, 2), delta=0.02, num_samples=5,
-         optimization_rate=0.05, diff_tol=1e-3)
-print(f"after robustness: F = {float(params.best_fidelity):.7f}")
-
-# --- 9. Inspect the final solution
-print("Best (A1, varphi1, A2, varphi2, Jzz) per segment:")
-print(np.round(params.best_parameters, 4))
+g.smooth_frequency(smoothing_rate=0.05, diff_tol=1e-3)
+g.bound({"x": (-1, 1), "z": (-1, 1)}, method='projected_gradient')
+g.robust(parameter_labels=["XII", "IXI", "IIX"], delta=0.01)
+g.speed(parameter_labels=["XII", "IXI", "IIX"])
+g.length()
 ```
 
-The patterns to take from this example:
+### Building a `Parameters` from pre-built bases
 
-- The experimental parametrisation lives entirely in `tau`. Optimisation never sees the raw basis coefficients on the input side.
-- Pulse constraints reference parameter **indices** (not labels) because labels don't make sense in experimental space.
-- Robustness, smoothing, and other auxiliaries also reference indices and otherwise look identical to the non-`param_transform` case.
-- `params.best_basis_coefficients` gives you the induced basis coefficients $\tau(\phi^{\text{exp}})$ across all gate segments, in case you want them for downstream analysis (e.g. computing the realised Hamiltonian).
+If you've already constructed `Basis` objects (e.g. via `construct_restricted_pauli_basis`) and don't want to re-express them as `control` / `drift` dicts, pass them directly via the `projected_basis` and `drift_basis` kwargs:
 
----
+```python
+projected = geope.construct_restricted_pauli_basis(3, ['x', 'z'])
+drift_b   = geope.construct_restricted_pauli_basis(3, ['zz'])
 
-## 9. Cheat sheet
+params = geope.Parameters(
+    basis=full,
+    projected_basis=projected,
+    drift_basis=drift_b,
+    drift_values=drift_b.generate_parameter_list({
+        (1, 2): {"zz": 1.0},
+        (2, 3): {"zz": 1.0},
+        (1, 3): {"zz": 1.0},
+    }),
+    target=target,
+    piecewise_steps=20,
+    seed=0,
+)
+```
 
-| Task | Code |
-| ---- | ---- |
-| All Pauli strings on n qubits | `geope.construct_full_pauli_basis(n)` |
-| Only ≤2-body terms | `geope.construct_two_body_pauli_basis(n)` |
-| Heisenberg (single + XX/YY/ZZ) | `geope.construct_Heisenberg_pauli_basis(n)` |
-| Build Parameters | `geope.Parameters(basis=..., control=..., target=..., piecewise_steps=...)` |
-| Run | `geope.Geope(params, max_steps=..., precision=...).optimize()` |
-| Best fidelity | `params.best_fidelity` |
-| Best parameters | `params.best_parameters` |
-| Solution as a dict | `params.to_dict()` |
-| Phase-sensitive | `Parameters(..., projective=False)` |
-| Pulse-shape constraint | `Parameters(..., pulse_constraints=['X','Y'])` |
-| Experimental parameters | `Parameters(..., param_transform=tau, n_experimental_params=K)` |
-| Smooth in time | `Geope(...).smooth(...)` |
-| Suppress high frequencies | `Geope(...).smooth_frequency(...)` |
-| Apply a frequency filter | `Geope(...).filter_frequency(filter_fn, ...)` |
-| Limit peak amplitude | `Geope(...).speed(parameter_labels=[...], ...)` |
-| Limit total pulse length | `Geope(...).length(parameter_labels=[...], ...)` |
-| Robustness to δ noise | `Geope(...).robust(parameter_labels=[...], delta=..., ...)` |
-| Enforce box bounds | `Geope(...).bound({label: (lo, hi)}, ...)` |
+This is the escape hatch for cases where the projected subset can't be expressed as a control dict. `projected_basis` and `control` are mutually exclusive; same for `drift_basis` and `drift`.

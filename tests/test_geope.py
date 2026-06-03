@@ -44,12 +44,43 @@ from geope.geope import (
     piecewise_bounding_mp,
     piecewise_bounding_pg,
 )
+from geope.parameters import Parameters
 from geope.lie import Basis, Hamiltonian, Unitary
 from geope.engine import Engine, fidelity
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
 )
+
+
+def _params_2q(cnot, full_basis_2q, projected_basis_2q, *,
+               drift_basis=None, drift_values=None,
+               init_values=None, constraints=None,
+               piecewise_steps=1, seed=42, init_spread=0.1,
+               pulse_constraints=None, projective=True,
+               param_transform=None, n_experimental_params=None):
+    """Build a Parameters bundle from the raw test fixtures.
+
+    Helper for tests that need to construct a ``Geope`` from the
+    Heisenberg / full Pauli basis fixtures rather than from a
+    control dict.
+    """
+    return Parameters(
+        basis=full_basis_2q,
+        projected_basis=projected_basis_2q,
+        drift_basis=drift_basis,
+        drift_values=drift_values,
+        init_values=init_values,
+        target=cnot,
+        piecewise_steps=piecewise_steps,
+        constraints=constraints,
+        pulse_constraints=pulse_constraints,
+        init_spread=init_spread,
+        seed=seed,
+        projective=projective,
+        param_transform=param_transform,
+        n_experimental_params=n_experimental_params,
+    )
 from geope.jacobian_manual import (
     Ui,
     get_Ui_fn,
@@ -116,12 +147,16 @@ def engine_2q(cnot, full_basis_2q, projected_basis_2q):
 
 
 @pytest.fixture
-def geope_2q(engine_2q):
+def params_2q(cnot, full_basis_2q, projected_basis_2q):
+    return _params_2q(cnot, full_basis_2q, projected_basis_2q)
+
+
+@pytest.fixture
+def geope_2q(params_2q):
     return Geope(
-        engine=engine_2q,
+        params_2q,
         max_steps=5,
         precision=0.9999,
-        seed=42,
     )
 
 
@@ -737,71 +772,75 @@ class TestGeopeEngine:
 class TestGeope:
     # --- initialisation ---------------------------------------------------
 
-    def test_init_default(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=3, seed=42)
+    def test_init_default(self, params_2q):
+        g = Geope(params_2q, max_steps=3)
         assert len(g.parameters) == 1
         assert len(g.fidelities) == 1
         assert len(g.infidelities) == 1
         assert len(g.step_sizes) == 1
         assert len(g.steps) == 1
 
-    def test_init_fidelity_in_range(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=3, seed=42)
+    def test_init_fidelity_in_range(self, params_2q):
+        g = Geope(params_2q, max_steps=3)
         assert 0 <= g.fidelities[0] <= 1
 
-    def test_init_infidelity_complement(self, engine_2q):
+    def test_init_infidelity_complement(self, params_2q):
         """infidelity = 1 − fidelity."""
-        g = Geope(engine=engine_2q, max_steps=3, seed=42)
+        g = Geope(params_2q, max_steps=3)
         assert jnp.isclose(g.fidelities[0] + g.infidelities[0], 1.0, atol=1e-10)
 
-    def test_init_with_custom_params(self, engine_2q, full_basis_2q):
+    def test_init_with_custom_params(self, cnot, full_basis_2q, projected_basis_2q):
         n = full_basis_2q.lie_algebra_dim
         init = np.zeros(n)
-        g = Geope(engine=engine_2q, init_parameters=init, max_steps=3, seed=42)
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, init_values=init)
+        g = Geope(p, max_steps=3)
         assert g.parameters[0].shape == (1, n)
 
     def test_init_with_gate_shaped_params(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = GeopeEngine(
-            target_unitary=cnot,
-            full_basis=full_basis_2q,
-            projected_basis=projected_basis_2q,
-            piecewise_steps=2,
-        )
         n = full_basis_2q.lie_algebra_dim
         init = np.zeros((2, n))
-        g = Geope(engine=eng, init_parameters=init, max_steps=3, seed=42)
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
+                       piecewise_steps=2, init_values=init)
+        g = Geope(p, max_steps=3)
         assert g.parameters[0].shape == (2, n)
 
-    def test_init_bad_params_shape_raises(self, engine_2q):
+    def test_init_bad_params_shape_raises(self, cnot, full_basis_2q, projected_basis_2q):
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
+                       init_values=np.zeros((5, 5, 5)))
         with pytest.raises(ValueError):
-            Geope(engine=engine_2q, init_parameters=np.zeros((5, 5, 5)), max_steps=1)
+            Geope(p, max_steps=1)
 
-    def test_precision_stored(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, precision=0.999, seed=42)
+    def test_precision_stored(self, params_2q):
+        g = Geope(params_2q, max_steps=1, precision=0.999)
         assert g.precision == 0.999
 
-    def test_max_steps_stored(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=7, seed=42)
+    def test_max_steps_stored(self, params_2q):
+        g = Geope(params_2q, max_steps=7)
         assert g.max_steps == 7
 
-    def test_verbose_flag(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, verbose=True, seed=42)
+    def test_verbose_flag(self, params_2q):
+        g = Geope(params_2q, max_steps=1, verbose=True)
         assert g.verbose is True
 
-    def test_line_search_method(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, line_search_method="golden_section", seed=42)
+    def test_line_search_method(self, params_2q):
+        g = Geope(params_2q, max_steps=1, line_search_method="golden_section")
         assert g.line_search_method == "golden_section"
+
+    def test_engine_arg_rejected(self, engine_2q):
+        """Passing a raw GeopeEngine must raise TypeError now."""
+        with pytest.raises(TypeError):
+            Geope(engine_2q, max_steps=1)
 
     # --- reinit -----------------------------------------------------------
 
-    def test_reinit_resets(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=3, seed=42)
+    def test_reinit_resets(self, params_2q):
+        g = Geope(params_2q, max_steps=3)
         g.init(seed=99)
         assert len(g.fidelities) == 1
         assert len(g.parameters) == 1
 
-    def test_reinit_different_seed(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=3, seed=42)
+    def test_reinit_different_seed(self, params_2q):
+        g = Geope(params_2q, max_steps=3)
         params_42 = np.array(g.parameters[0])
         g.init(seed=99)
         params_99 = np.array(g.parameters[0])
@@ -810,51 +849,65 @@ class TestGeope:
 
     # --- optimize ---------------------------------------------------------
 
-    def test_optimize_runs(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=3, seed=42)
+    def test_optimize_runs(self, params_2q):
+        g = Geope(params_2q, max_steps=3)
         result = g.optimize()
-        assert isinstance(result, bool)
+        # optimize() returns the bound Parameters object
+        assert result is params_2q
 
-    def test_optimize_increases_steps(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=3, seed=42)
+    def test_optimize_increases_steps(self, params_2q):
+        g = Geope(params_2q, max_steps=3)
         g.optimize()
         assert len(g.fidelities) > 1
         assert len(g.steps) > 1
 
-    def test_optimize_fidelity_tracking(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=5, seed=42)
+    def test_optimize_fidelity_tracking(self, params_2q):
+        g = Geope(params_2q, max_steps=5)
         g.optimize()
         assert len(g.fidelities) == len(g.steps)
         assert len(g.infidelities) == len(g.steps)
         assert len(g.step_sizes) == len(g.steps)
 
-    def test_optimize_all_fidelities_valid(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=5, seed=42)
+    def test_optimize_all_fidelities_valid(self, params_2q):
+        g = Geope(params_2q, max_steps=5)
         g.optimize()
         for f in g.fidelities:
             assert 0 <= f <= 1
 
-    def test_optimize_infidelity_consistency(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=5, seed=42)
+    def test_optimize_infidelity_consistency(self, params_2q):
+        g = Geope(params_2q, max_steps=5)
         g.optimize()
         for f, inf in zip(g.fidelities, g.infidelities):
             assert jnp.isclose(f + inf, 1.0, atol=1e-10)
 
-    def test_optimize_returns_true_when_converged(self, engine_2q):
-        """With precision=0, any fidelity satisfies ⇒ should return True immediately."""
-        g = Geope(engine=engine_2q, max_steps=1, precision=0.0, seed=42)
-        assert g.optimize() is True
+    def test_optimize_history_mirrored(self, params_2q):
+        """Geope.optimize() mirrors history onto the Parameters object."""
+        # precision=0.0 → converges immediately without running the geodesic step,
+        # so we exercise just the history-sync behaviour.
+        g = Geope(params_2q, max_steps=1, precision=0.0)
+        g.optimize()
+        assert params_2q.fidelities is g.fidelities
+        assert params_2q.parameters is g.parameters
+        assert params_2q.best_fidelity == max(g.fidelities)
 
-    def test_optimize_extra_steps(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=2, seed=42)
+    def test_optimize_returns_params_when_converged(self, params_2q):
+        """With precision=0, optimize converges immediately and returns the Parameters."""
+        g = Geope(params_2q, max_steps=1, precision=0.0)
+        result = g.optimize()
+        assert result is params_2q
+        assert result.best_fidelity is not None
+
+    def test_optimize_extra_steps(self, params_2q):
+        g = Geope(params_2q, max_steps=2)
         g.optimize()
         n1 = len(g.fidelities)
         g.optimize(extra_steps=2)
         n2 = len(g.fidelities)
         assert n2 >= n1
 
-    def test_optimize_verbose(self, engine_2q, capsys):
-        g = Geope(engine=engine_2q, max_steps=2, verbose=True, seed=42)
+    def test_optimize_verbose(self, cnot, full_basis_2q, projected_basis_2q, capsys):
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
+        g = Geope(p, max_steps=2, verbose=True)
         g.optimize()
         captured = capsys.readouterr()
         # verbose mode prints progress lines
@@ -862,59 +915,61 @@ class TestGeope:
 
     # --- add_parameters ---------------------------------------------------
 
-    def test_add_parameters_full_shape(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, seed=42)
-        n = engine_2q.full_basis.lie_algebra_dim
-        new_params = np.zeros((engine_2q.piecewise_steps, n))
+    def test_add_parameters_full_shape(self, params_2q):
+        g = Geope(params_2q, max_steps=1)
+        n = g.engine.full_basis.lie_algebra_dim
+        new_params = np.zeros((g.engine.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
         assert len(g.parameters) == 2
 
-    def test_add_parameters_proj_drift_shape(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, seed=42)
-        n = engine_2q.proj_drift_basis.lie_algebra_dim
-        new_params = np.zeros((engine_2q.piecewise_steps, n))
+    def test_add_parameters_proj_drift_shape(self, params_2q):
+        g = Geope(params_2q, max_steps=1)
+        n = g.engine.proj_drift_basis.lie_algebra_dim
+        new_params = np.zeros((g.engine.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
 
-    def test_add_parameters_projected_shape(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, seed=42)
-        n = engine_2q.projected_basis.lie_algebra_dim
-        new_params = np.zeros((engine_2q.piecewise_steps, n))
+    def test_add_parameters_projected_shape(self, params_2q):
+        g = Geope(params_2q, max_steps=1)
+        n = g.engine.projected_basis.lie_algebra_dim
+        new_params = np.zeros((g.engine.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
 
-    def test_add_parameters_with_fidelity(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, seed=42)
-        n = engine_2q.full_basis.lie_algebra_dim
-        new_params = np.zeros((engine_2q.piecewise_steps, n))
+    def test_add_parameters_with_fidelity(self, params_2q):
+        g = Geope(params_2q, max_steps=1)
+        n = g.engine.full_basis.lie_algebra_dim
+        new_params = np.zeros((g.engine.piecewise_steps, n))
         g.add_parameters(new_params, fidelity=0.75, step_size=0.1)
         assert g.fidelities[-1] == 0.75
         assert g.step_sizes[-1] == 0.1
 
-    def test_add_parameters_step_tracking(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, seed=42)
-        n = engine_2q.full_basis.lie_algebra_dim
+    def test_add_parameters_step_tracking(self, params_2q):
+        g = Geope(params_2q, max_steps=1)
+        n = g.engine.full_basis.lie_algebra_dim
         for _ in range(3):
-            g.add_parameters(np.zeros((engine_2q.piecewise_steps, n)))
+            g.add_parameters(np.zeros((g.engine.piecewise_steps, n)))
         assert len(g.parameters) == 4  # initial + 3
         assert g.steps[-1] == 3
 
     # --- constraints ------------------------------------------------------
 
-    def test_init_with_constraints(self, engine_2q):
-        n_proj = engine_2q.projected_basis.lie_algebra_dim
+    def test_init_with_constraints(self, cnot, full_basis_2q, projected_basis_2q):
+        n_proj = projected_basis_2q.lie_algebra_dim
         constraint = np.zeros(n_proj)
         constraint[0] = 1
         constraint[1] = 1
-        g = Geope(engine=engine_2q, max_steps=1, constraints=[constraint], seed=42)
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
+                       constraints=[constraint])
+        g = Geope(p, max_steps=1)
         assert g.constraint_expander is not None
         assert g.constraint_expander.shape[0] == n_proj
         # One constraint merges two params ⇒ one fewer column
         assert g.constraint_expander.shape[1] == n_proj - 1
 
-    def test_no_constraint_expander_is_none(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, seed=42)
+    def test_no_constraint_expander_is_none(self, params_2q):
+        g = Geope(params_2q, max_steps=1)
         assert g.constraint_expander is None
 
     # --- with drift -------------------------------------------------------
@@ -924,14 +979,9 @@ class TestGeope:
         I2 = np.eye(2, dtype=complex)
         drift_basis = Basis(np.stack([np.kron(Z, I2), np.kron(I2, Z)]),
                             labels=["ZI", "IZ"])
-        eng = GeopeEngine(
-            target_unitary=cnot,
-            full_basis=full_basis_2q,
-            projected_basis=projected_basis_2q,
-            drift_basis=drift_basis,
-            piecewise_steps=1,
-        )
-        g = Geope(engine=eng, max_steps=3, seed=42)
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
+                       drift_basis=drift_basis)
+        g = Geope(p, max_steps=3)
         assert len(g.fidelities) == 1
         assert 0 <= g.fidelities[0] <= 1
 
@@ -940,30 +990,25 @@ class TestGeope:
         I2 = np.eye(2, dtype=complex)
         drift_basis = Basis(np.stack([np.kron(Z, I2), np.kron(I2, Z)]),
                             labels=["ZI", "IZ"])
-        eng = GeopeEngine(
-            target_unitary=cnot,
-            full_basis=full_basis_2q,
-            projected_basis=projected_basis_2q,
-            drift_basis=drift_basis,
-            piecewise_steps=1,
-        )
-        g = Geope(engine=eng, max_steps=1, drift_parameters=[0.5, 0.5], seed=42)
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
+                       drift_basis=drift_basis, drift_values=[0.5, 0.5])
+        g = Geope(p, max_steps=1)
         assert np.allclose(g.drift_parameters, [0.5, 0.5])
 
     # --- gram_schmidt (via optimize when geodesic gives negative update) --
 
-    def test_gram_schmidt_step_size_attribute(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, gram_schmidt_step_size=1.5, seed=42)
+    def test_gram_schmidt_step_size_attribute(self, params_2q):
+        g = Geope(params_2q, max_steps=1, gram_schmidt_step_size=1.5)
         assert g.gram_schmidt_step_size == 1.5
 
     # --- smooth / bound exist --------------------------------------------
 
-    def test_smooth_is_callable(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, seed=42)
+    def test_smooth_is_callable(self, params_2q):
+        g = Geope(params_2q, max_steps=1)
         assert callable(g.smooth)
 
-    def test_bound_is_callable(self, engine_2q):
-        g = Geope(engine=engine_2q, max_steps=1, seed=42)
+    def test_bound_is_callable(self, params_2q):
+        g = Geope(params_2q, max_steps=1)
         assert callable(g.bound)
 
     # --- get_update_linesearch (internal helper exposed on instance) ------

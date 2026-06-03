@@ -49,10 +49,10 @@ The library is organised around a few core components:
 | Module | Description |
 |--------|-------------|
 | `Basis`, `Hamiltonian`, `Unitary` | Lie algebraic objects for defining Pauli-string bases, Hamiltonians, and unitaries. |
-| `Parameters` | High-level state object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and `param_transform`. Recommended entry point. |
+| `Parameters` | State object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and `param_transform`. The single user-facing entry point. |
 | `Engine` | Base engine that compiles JAX functions for computing unitaries and fidelities from a given basis. |
-| `GeopeEngine` | Extends `Engine` with JIT-compiled Jacobian, geodesic, and projection functions. |
-| `Geope` | Top-level optimiser that runs the full GEOPE algorithm. |
+| `GeopeEngine` | Extends `Engine` with JIT-compiled Jacobian, geodesic, and projection functions. Built internally by `Geope`. |
+| `Geope` | Top-level optimiser that runs the full GEOPE algorithm; requires a `Parameters` object. |
 | `utils` | Utilities for constructing restricted Pauli bases, Heisenberg and 2-local Hamiltonians, line search, and more. |
 
 A typical workflow is:

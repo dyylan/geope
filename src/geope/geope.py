@@ -95,12 +95,13 @@ class Geope:
     controllable subalgebra.
 
     Attributes:
-        engine: The underlying `GeopeEngine`.
+        params: The bound `Parameters` object (the single source of truth
+            for all configuration and the destination for the run history).
+        engine: The internal `GeopeEngine` constructed from ``params``.
         max_steps: Maximum number of optimisation iterations.
         precision: Target fidelity threshold.
         max_step_size: Maximum line-search step size.
         gram_schmidt_step_size: Step size for Gram-Schmidt fallback moves.
-        init_parameters_spread: Spread of random initial parameters.
         line_search_method: Line-search strategy (``'golden_section'`` or
             ``'difference_step'``).
         parameters: History of parameter arrays.
@@ -111,91 +112,76 @@ class Geope:
     """
 
     def __init__(self,
-                 engine: "Parameters | GeopeEngine",
-                 drift_parameters: np.ndarray | None = None,
-                 init_parameters: np.ndarray | None = None,
-                 constraints: list[np.ndarray] | np.ndarray | None = None,
-                 pulse_constraints: dict | list | None = None,
+                 params: Parameters,
                  max_steps: int = 1000,
                  precision: float = 0.9999999,
                  max_step_size: float = 0.9,
                  gram_schmidt_step_size: float = 1.3,
-                 init_parameters_spread: float = 0.1,
                  line_search_method: str = "golden_section",
-                 verbose: bool = False,
-                 seed: int | None = None) -> None:
+                 verbose: bool = False) -> None:
         """Initialise the Geope optimiser.
 
-        Accepts either a `Parameters` object (new high-level API) or a
-        `GeopeEngine` (legacy low-level API). When a ``Parameters`` is
-        passed, the engine and ancillary state (initial parameters,
-        drift, constraints, pulse constraints, seed, init spread,
-        projective flag, ``param_transform``) are read from it; the
-        legacy keyword arguments are ignored.
+        ``Geope`` requires a `Parameters` object — the engine, initial
+        parameters, drift, constraints, pulse constraints, seed,
+        initialisation spread, projective flag and ``param_transform`` are
+        all read from it. To construct one, use :class:`Parameters`.
 
         Args:
-            engine: Either a `GeopeEngine` instance (legacy API) or a
-                `Parameters` instance (new high-level API). The
-                parameter is named ``engine`` for backward compatibility
-                with the original keyword call site.
-            drift_parameters: Fixed drift parameter values (legacy API only).
-            init_parameters: Initial parameter array (legacy API only).
-            constraints: Linear equality constraints (legacy API only).
-            pulse_constraints: Pulse-shape constraints (legacy API only).
+            params: A `Parameters` instance bundling every input the
+                optimiser needs.
             max_steps: Maximum optimisation steps. Defaults to 1000.
             precision: Target fidelity. Defaults to 0.9999999.
             max_step_size: Maximum line-search step. Defaults to 0.9.
             gram_schmidt_step_size: Step size for Gram-Schmidt moves.
                 Defaults to 1.3.
-            init_parameters_spread: Spread for random initialisation
-                (legacy API only). Defaults to 0.1.
             line_search_method: ``'golden_section'`` or ``'difference_step'``.
                 Defaults to ``'golden_section'``.
             verbose: Whether to print progress. Defaults to False.
-            seed: Random seed (legacy API only).
+
+        Raises:
+            TypeError: If ``params`` is not a `Parameters` instance.
+                The legacy ``Geope(engine=...)`` call site is no longer
+                supported; build a ``Parameters`` object instead.
         """
-        if isinstance(engine, Parameters):
-            # --- New API: construct GeopeEngine from Parameters ---
-            params = engine
-            self.params = params
-            _engine = GeopeEngine(
-                target_unitary=params.target,
-                full_basis=params.basis,
-                projected_basis=params.projected_basis,
-                drift_basis=params.drift_basis,
-                piecewise_steps=params.piecewise_steps,
-                projective=params.projective,
+        if not isinstance(params, Parameters):
+            raise TypeError(
+                "Geope requires a Parameters object as its first argument. "
+                "The legacy `Geope(engine=...)` call site has been removed. "
+                "Build a Parameters object with `geope.Parameters(basis=..., "
+                "control=..., target=..., ...)` and pass that in."
             )
 
-            # Wrap compute_U_fn if param_transform is set
-            if params.param_transform is not None:
-                self._wrap_param_transform(_engine, params)
-                init_parameters = self._init_for_param_transform(_engine, params)
-                drift_parameters = None
-                constraints = None
-            else:
-                init_parameters = params.init_parameters
-                drift_parameters = params.drift_parameters
-                constraints = params.constraint_arrays
+        self.params = params
+        engine = GeopeEngine(
+            target_unitary=params.target,
+            full_basis=params.basis,
+            projected_basis=params.projected_basis,
+            drift_basis=params.drift_basis,
+            piecewise_steps=params.piecewise_steps,
+            projective=params.projective,
+        )
 
-            self.engine = _engine
-            self._real_params = params.param_transform is not None
-            pulse_constraints = params.pulse_constraints
-            seed = params.seed
-            init_parameters_spread = params.init_spread
+        # Wrap compute_U_fn if param_transform is set
+        if params.param_transform is not None:
+            self._wrap_param_transform(engine, params)
+            init_parameters = self._init_for_param_transform(engine, params)
+            drift_parameters = None
+            constraints = None
         else:
-            # --- Legacy API: engine is a GeopeEngine ---
-            self.engine = engine
-            self.params = None
-            self._real_params = False
+            init_parameters = params.init_parameters
+            drift_parameters = params.drift_parameters
+            constraints = params.constraint_arrays
+
+        self.engine = engine
+        self._real_params = params.param_transform is not None
 
         self.max_steps = max_steps
         self.precision = precision
         self.max_step_size = max_step_size
         self.gram_schmidt_step_size = gram_schmidt_step_size
-        self.init_parameters_spread = init_parameters_spread
+        self.init_parameters_spread = params.init_spread
         self.line_search_method = line_search_method
-        self.pulse_constraints = pulse_constraints
+        self.pulse_constraints = params.pulse_constraints
 
         # Get update steps
         self.gammas_and_omegas = self.get_gammas_and_omegas(self.engine.project_omegas_fn,
@@ -206,11 +192,11 @@ class Geope:
         self.update_linesearch = self.get_update_linesearch(self.engine.fid_U_fn,
                                                             self.engine.compute_U_fn)
         self.bound_parameters = self.get_bound_parameters(self.engine.fid_U_fn,
-                                                                    self.engine.compute_U_fn)
-        
+                                                          self.engine.compute_U_fn)
+
         self.verbose = verbose
         # Initialize parameters
-        self.init(init_parameters, drift_parameters, constraints, seed)
+        self.init(init_parameters, drift_parameters, constraints, params.seed)
 
     def _wrap_param_transform(self, engine: GeopeEngine, params: Parameters) -> None:
         """Replace ``engine.compute_U_fn`` and ``engine.jac_fn`` to honour
@@ -417,7 +403,7 @@ class Geope:
         self.step_sizes = [0]
         self.steps = [0]
 
-    def optimize(self, extra_steps: int = 0) -> bool:
+    def optimize(self, extra_steps: int = 0) -> Parameters:
         """Run the GEOPE optimisation loop.
 
         Iterates geodesic update steps until the fidelity exceeds
@@ -428,7 +414,9 @@ class Geope:
                 Defaults to 0.
 
         Returns:
-            ``True`` if the target precision was reached, ``False`` otherwise.
+            The bound `Parameters` instance, with its mutable history
+            populated. Call ``params.best_fidelity``, ``params.best_parameters``
+            or ``params.to_dict()`` to read the solution.
         """
         # Build pulse-constrained update step if needed
         pulse_templates = None
@@ -473,17 +461,13 @@ class Geope:
         self.max_steps += extra_steps
         if self.verbose:
             print("")
-        # Sync history to Parameters object if using new API
-        if self.params is not None:
-            self.params.parameters = self.parameters
-            self.params.fidelities = self.fidelities
-            self.params.infidelities = self.infidelities
-            self.params.step_sizes = self.step_sizes
-            self.params.steps = self.steps
-        if self.fidelities[-1] >= self.precision:
-            return True
-        else:
-            return False
+        # Sync history to Parameters object (always)
+        self.params.parameters = self.parameters
+        self.params.fidelities = self.fidelities
+        self.params.infidelities = self.infidelities
+        self.params.step_sizes = self.step_sizes
+        self.params.steps = self.steps
+        return self.params
 
     def add_parameters(
         self,

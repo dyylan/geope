@@ -57,6 +57,8 @@ class Parameters:
                  basis: Basis | None = None,
                  control: dict | None = None,
                  drift: dict | None = None,
+                 projected_basis: Basis | None = None,
+                 drift_basis: Basis | None = None,
                  init_values: dict | np.ndarray | None = None,
                  drift_values: dict | np.ndarray | None = None,
                  target: np.ndarray | None = None,
@@ -77,8 +79,15 @@ class Parameters:
                 an explicit external basis. If ``None``, a default
                 two-qubit Pauli basis is built.
             control: Dict of allowed controllable interactions, e.g.
-                ``{1: ['x', 'y'], (1, 2): ['xx']}``.
+                ``{1: ['x', 'y'], (1, 2): ['xx']}``. Mutually exclusive
+                with ``projected_basis``.
             drift: Dict of fixed drift interactions, same format.
+                Mutually exclusive with ``drift_basis``.
+            projected_basis: Pre-built projected ``Basis``. Used as an
+                escape hatch when the projected subset can't be expressed
+                as a ``control`` dict. Mutually exclusive with ``control``.
+            drift_basis: Pre-built drift ``Basis``. Mutually exclusive
+                with ``drift``.
             init_values: Initial parameter values. May be a dict in the
                 same format as ``control``, or an ``np.ndarray``.
             drift_values: Drift parameter values. May be a dict or array.
@@ -115,7 +124,11 @@ class Parameters:
         self.basis = basis
 
         # --- Projected (control) basis ---
-        if control is not None:
+        if control is not None and projected_basis is not None:
+            raise ValueError("Pass either `control` or `projected_basis`, not both.")
+        if projected_basis is not None:
+            self.projected_basis = projected_basis
+        elif control is not None:
             if basis.dim != 2 ** basis.n:
                 self.projected_basis = filter_basis_by_control(basis, control)
             else:
@@ -124,7 +137,11 @@ class Parameters:
             self.projected_basis = basis
 
         # --- Drift basis ---
-        if drift is not None:
+        if drift is not None and drift_basis is not None:
+            raise ValueError("Pass either `drift` or `drift_basis`, not both.")
+        if drift_basis is not None:
+            self.drift_basis = drift_basis
+        elif drift is not None:
             if basis.dim != 2 ** basis.n:
                 self.drift_basis = filter_basis_by_control(basis, drift)
             else:
