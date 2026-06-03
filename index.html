@@ -580,7 +580,7 @@
   
   
   <span class="md-ellipsis">
-    Using GEOPE with Parameters
+    GEOPE – Geodesic Pulse Engineering
     
   </span>
   
@@ -1002,7 +1002,7 @@
 </tr>
 <tr>
 <td><code>Parameters</code></td>
-<td>High-level state object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and <code>param_transform</code>. Recommended entry point.</td>
+<td>State object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and <code>param_transform</code>. The single user-facing entry point.</td>
 </tr>
 <tr>
 <td><code>Engine</code></td>
@@ -1010,11 +1010,11 @@
 </tr>
 <tr>
 <td><code>GeopeEngine</code></td>
-<td>Extends <code>Engine</code> with JIT-compiled Jacobian, geodesic, and projection functions.</td>
+<td>Extends <code>Engine</code> with JIT-compiled Jacobian, geodesic, and projection functions. Built internally by <code>Geope</code>.</td>
 </tr>
 <tr>
 <td><code>Geope</code></td>
-<td>Top-level optimiser that runs the full GEOPE algorithm.</td>
+<td>Top-level optimiser that runs the full GEOPE algorithm; requires a <code>Parameters</code> object.</td>
 </tr>
 <tr>
 <td><code>utils</code></td>

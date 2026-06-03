@@ -26,7 +26,7 @@
     
     
       
-        <title>Using GEOPE with Parameters - Geodesic Pulse Engineering (GEOPE)</title>
+        <title>GEOPE – Geodesic Pulse Engineering - Geodesic Pulse Engineering (GEOPE)</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#using-geope-with-parameters" class="md-skip">
+        <a href="#geope-geodesic-pulse-engineering" class="md-skip">
           Skip to content
         </a>
       
@@ -117,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Using GEOPE with Parameters
+              GEOPE – Geodesic Pulse Engineering
             
           </span>
         </div>
@@ -513,7 +513,7 @@
   
   
   <span class="md-ellipsis">
-    Using GEOPE with Parameters
+    GEOPE – Geodesic Pulse Engineering
     
   </span>
   
@@ -526,7 +526,7 @@
   
   
   <span class="md-ellipsis">
-    Using GEOPE with Parameters
+    GEOPE – Geodesic Pulse Engineering
     
   </span>
   
@@ -549,46 +549,55 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-what-geope-does" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
-      1. What GEOPE does
+      Overview
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="1. What GEOPE does">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#class-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Class hierarchy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lie-group-classes-liepy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Lie group classes (lie.py)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lie group classes (lie.py)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#11-the-control-problem" class="md-nav__link">
+  <a href="#basis" class="md-nav__link">
     <span class="md-ellipsis">
-      1.1 The control problem
+      Basis
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#12-the-geodesic-step" class="md-nav__link">
+  <a href="#hamiltonian" class="md-nav__link">
     <span class="md-ellipsis">
-      1.2 The geodesic step
+      Hamiltonian
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#13-null-space-refinement" class="md-nav__link">
+  <a href="#unitary" class="md-nav__link">
     <span class="md-ellipsis">
-      1.3 Null-space refinement
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#14-sign-convention-note" class="md-nav__link">
-    <span class="md-ellipsis">
-      1.4 Sign-convention note
+      Unitary
     </span>
   </a>
   
@@ -600,73 +609,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-building-a-parameters-object" class="md-nav__link">
+  <a href="#basis-construction-utilities-utilspy" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Building a Parameters object
+      Basis construction utilities (utils.py)
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Building a Parameters object">
+    <nav class="md-nav" aria-label="Basis construction utilities (utils.py)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#21-the-basis" class="md-nav__link">
+  <a href="#restriction-formats" class="md-nav__link">
     <span class="md-ellipsis">
-      2.1 The basis
+      Restriction formats
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#22-control-and-drift-dictionaries" class="md-nav__link">
+  <a href="#drift-parameter-values" class="md-nav__link">
     <span class="md-ellipsis">
-      2.2 Control and drift dictionaries
+      Drift parameter values
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#23-the-target" class="md-nav__link">
+  <a href="#linear-equality-constraints-global-controls" class="md-nav__link">
     <span class="md-ellipsis">
-      2.3 The target
+      Linear equality constraints (global controls)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#24-piecewise-gates-and-initial-values" class="md-nav__link">
+  <a href="#pulse-shape-constraints" class="md-nav__link">
     <span class="md-ellipsis">
-      2.4 Piecewise gates and initial values
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#25-linear-equality-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      2.5 Linear equality constraints
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#26-bounds" class="md-nav__link">
-    <span class="md-ellipsis">
-      2.6 Bounds
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#27-phase-sensitive-vs-projective" class="md-nav__link">
-    <span class="md-ellipsis">
-      2.7 Phase-sensitive vs projective
+      Pulse-shape constraints
     </span>
   </a>
   
@@ -678,28 +660,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-running-the-optimisation" class="md-nav__link">
+  <a href="#the-parameters-object" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Running the optimisation
+      The Parameters object
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="3. Running the optimisation">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#engine-and-optimiser" class="md-nav__link">
+    <span class="md-ellipsis">
+      Engine and optimiser
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Engine and optimiser">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#31-optimiser-knobs" class="md-nav__link">
+  <a href="#engine-enginepy" class="md-nav__link">
     <span class="md-ellipsis">
-      3.1 Optimiser knobs
+      Engine (engine.py)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#32-auxiliary-passes" class="md-nav__link">
+  <a href="#geopeengine-geopepy" class="md-nav__link">
     <span class="md-ellipsis">
-      3.2 Auxiliary passes
+      GeopeEngine (geope.py)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope-geopepy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Geope (geope.py)
     </span>
   </a>
   
@@ -711,55 +711,19 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-pulse-shape-constraints-pulse_constraints" class="md-nav__link">
+  <a href="#core-algorithm-optimize" class="md-nav__link">
     <span class="md-ellipsis">
-      4. Pulse-shape constraints (pulse_constraints)
+      Core algorithm: optimize()
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="4. Pulse-shape constraints (pulse_constraints)">
+    <nav class="md-nav" aria-label="Core algorithm: optimize()">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#41-what-they-enforce" class="md-nav__link">
+  <a href="#key-functions" class="md-nav__link">
     <span class="md-ellipsis">
-      4.1 What they enforce
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#42-the-expander" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.2 The expander
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#43-template-choice" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.3 Template choice
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#44-specifying-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.4 Specifying constraints
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#45-worked-example-flat-x-free-y" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.5 Worked example: flat X, free Y
+      Key functions
     </span>
   </a>
   
@@ -771,55 +735,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-experimental-parameters-param_transform" class="md-nav__link">
+  <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
-      5. Experimental parameters (param_transform)
+      Constraints
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="5. Experimental parameters (param_transform)">
+    <nav class="md-nav" aria-label="Constraints">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#51-when-to-use" class="md-nav__link">
+  <a href="#linear-equality-constraints" class="md-nav__link">
     <span class="md-ellipsis">
-      5.1 When to use
+      Linear equality constraints
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#52-the-callable-contract" class="md-nav__link">
+  <a href="#pulse-shape-constraints_1" class="md-nav__link">
     <span class="md-ellipsis">
-      5.2 The callable contract
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#53-helper-make_per_element_transform" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.3 Helper: make_per_element_transform
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#54-worked-example-rabi-rotation-in-a-varphi" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.4 Worked example: Rabi rotation in \((A, \varphi)\)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#55-internal-consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.5 Internal consequences
+      Pulse-shape constraints
     </span>
   </a>
   
@@ -831,55 +768,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-auxiliary-null-space-methods-in-detail" class="md-nav__link">
+  <a href="#experimental-parameters-param_transform" class="md-nav__link">
     <span class="md-ellipsis">
-      6. Auxiliary null-space methods in detail
+      Experimental parameters (param_transform)
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="6. Auxiliary null-space methods in detail">
+    <nav class="md-nav" aria-label="Experimental parameters (param_transform)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#61-smooth_frequency" class="md-nav__link">
+  <a href="#contract" class="md-nav__link">
     <span class="md-ellipsis">
-      6.1 smooth_frequency
+      Contract
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#62-filter_frequency" class="md-nav__link">
+  <a href="#helper-make_per_element_transform" class="md-nav__link">
     <span class="md-ellipsis">
-      6.2 filter_frequency
+      Helper: make_per_element_transform
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#63-speed-length" class="md-nav__link">
+  <a href="#worked-example-rabi-rotation-in-a-varphi" class="md-nav__link">
     <span class="md-ellipsis">
-      6.3 speed, length
+      Worked example: Rabi rotation in \((A, \varphi)\)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#64-robust" class="md-nav__link">
+  <a href="#practical-implications" class="md-nav__link">
     <span class="md-ellipsis">
-      6.4 robust
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#65-bound" class="md-nav__link">
-    <span class="md-ellipsis">
-      6.5 bound
+      Practical implications
     </span>
   </a>
   
@@ -891,29 +819,77 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#7-phase-sensitive-vs-projective" class="md-nav__link">
+  <a href="#phase-sensitive-vs-projective" class="md-nav__link">
     <span class="md-ellipsis">
-      7. Phase-sensitive vs projective
+      Phase-sensitive vs projective
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#8-full-worked-example" class="md-nav__link">
+  <a href="#null-space-optimisation" class="md-nav__link">
     <span class="md-ellipsis">
-      8. Full worked example
+      Null-space optimisation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Null-space optimisation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#available-objectives" class="md-nav__link">
+    <span class="md-ellipsis">
+      Available objectives
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#null-space-algorithm-_null_space_optimisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Null-space algorithm: _null_space_optimisation()
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-spaces-and-index-mappings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameter spaces and index mappings
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#9-cheat-sheet" class="md-nav__link">
+  <a href="#usage" class="md-nav__link">
     <span class="md-ellipsis">
-      9. Cheat sheet
+      Usage
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#building-a-parameters-from-pre-built-bases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building a Parameters from pre-built bases
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1244,46 +1220,55 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-what-geope-does" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
-      1. What GEOPE does
+      Overview
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="1. What GEOPE does">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#class-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Class hierarchy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lie-group-classes-liepy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Lie group classes (lie.py)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lie group classes (lie.py)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#11-the-control-problem" class="md-nav__link">
+  <a href="#basis" class="md-nav__link">
     <span class="md-ellipsis">
-      1.1 The control problem
+      Basis
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#12-the-geodesic-step" class="md-nav__link">
+  <a href="#hamiltonian" class="md-nav__link">
     <span class="md-ellipsis">
-      1.2 The geodesic step
+      Hamiltonian
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#13-null-space-refinement" class="md-nav__link">
+  <a href="#unitary" class="md-nav__link">
     <span class="md-ellipsis">
-      1.3 Null-space refinement
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#14-sign-convention-note" class="md-nav__link">
-    <span class="md-ellipsis">
-      1.4 Sign-convention note
+      Unitary
     </span>
   </a>
   
@@ -1295,73 +1280,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-building-a-parameters-object" class="md-nav__link">
+  <a href="#basis-construction-utilities-utilspy" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Building a Parameters object
+      Basis construction utilities (utils.py)
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Building a Parameters object">
+    <nav class="md-nav" aria-label="Basis construction utilities (utils.py)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#21-the-basis" class="md-nav__link">
+  <a href="#restriction-formats" class="md-nav__link">
     <span class="md-ellipsis">
-      2.1 The basis
+      Restriction formats
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#22-control-and-drift-dictionaries" class="md-nav__link">
+  <a href="#drift-parameter-values" class="md-nav__link">
     <span class="md-ellipsis">
-      2.2 Control and drift dictionaries
+      Drift parameter values
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#23-the-target" class="md-nav__link">
+  <a href="#linear-equality-constraints-global-controls" class="md-nav__link">
     <span class="md-ellipsis">
-      2.3 The target
+      Linear equality constraints (global controls)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#24-piecewise-gates-and-initial-values" class="md-nav__link">
+  <a href="#pulse-shape-constraints" class="md-nav__link">
     <span class="md-ellipsis">
-      2.4 Piecewise gates and initial values
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#25-linear-equality-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      2.5 Linear equality constraints
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#26-bounds" class="md-nav__link">
-    <span class="md-ellipsis">
-      2.6 Bounds
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#27-phase-sensitive-vs-projective" class="md-nav__link">
-    <span class="md-ellipsis">
-      2.7 Phase-sensitive vs projective
+      Pulse-shape constraints
     </span>
   </a>
   
@@ -1373,28 +1331,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-running-the-optimisation" class="md-nav__link">
+  <a href="#the-parameters-object" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Running the optimisation
+      The Parameters object
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="3. Running the optimisation">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#engine-and-optimiser" class="md-nav__link">
+    <span class="md-ellipsis">
+      Engine and optimiser
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Engine and optimiser">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#31-optimiser-knobs" class="md-nav__link">
+  <a href="#engine-enginepy" class="md-nav__link">
     <span class="md-ellipsis">
-      3.1 Optimiser knobs
+      Engine (engine.py)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#32-auxiliary-passes" class="md-nav__link">
+  <a href="#geopeengine-geopepy" class="md-nav__link">
     <span class="md-ellipsis">
-      3.2 Auxiliary passes
+      GeopeEngine (geope.py)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope-geopepy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Geope (geope.py)
     </span>
   </a>
   
@@ -1406,55 +1382,19 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-pulse-shape-constraints-pulse_constraints" class="md-nav__link">
+  <a href="#core-algorithm-optimize" class="md-nav__link">
     <span class="md-ellipsis">
-      4. Pulse-shape constraints (pulse_constraints)
+      Core algorithm: optimize()
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="4. Pulse-shape constraints (pulse_constraints)">
+    <nav class="md-nav" aria-label="Core algorithm: optimize()">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#41-what-they-enforce" class="md-nav__link">
+  <a href="#key-functions" class="md-nav__link">
     <span class="md-ellipsis">
-      4.1 What they enforce
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#42-the-expander" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.2 The expander
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#43-template-choice" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.3 Template choice
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#44-specifying-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.4 Specifying constraints
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#45-worked-example-flat-x-free-y" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.5 Worked example: flat X, free Y
+      Key functions
     </span>
   </a>
   
@@ -1466,55 +1406,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-experimental-parameters-param_transform" class="md-nav__link">
+  <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
-      5. Experimental parameters (param_transform)
+      Constraints
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="5. Experimental parameters (param_transform)">
+    <nav class="md-nav" aria-label="Constraints">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#51-when-to-use" class="md-nav__link">
+  <a href="#linear-equality-constraints" class="md-nav__link">
     <span class="md-ellipsis">
-      5.1 When to use
+      Linear equality constraints
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#52-the-callable-contract" class="md-nav__link">
+  <a href="#pulse-shape-constraints_1" class="md-nav__link">
     <span class="md-ellipsis">
-      5.2 The callable contract
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#53-helper-make_per_element_transform" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.3 Helper: make_per_element_transform
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#54-worked-example-rabi-rotation-in-a-varphi" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.4 Worked example: Rabi rotation in \((A, \varphi)\)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#55-internal-consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.5 Internal consequences
+      Pulse-shape constraints
     </span>
   </a>
   
@@ -1526,55 +1439,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-auxiliary-null-space-methods-in-detail" class="md-nav__link">
+  <a href="#experimental-parameters-param_transform" class="md-nav__link">
     <span class="md-ellipsis">
-      6. Auxiliary null-space methods in detail
+      Experimental parameters (param_transform)
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="6. Auxiliary null-space methods in detail">
+    <nav class="md-nav" aria-label="Experimental parameters (param_transform)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#61-smooth_frequency" class="md-nav__link">
+  <a href="#contract" class="md-nav__link">
     <span class="md-ellipsis">
-      6.1 smooth_frequency
+      Contract
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#62-filter_frequency" class="md-nav__link">
+  <a href="#helper-make_per_element_transform" class="md-nav__link">
     <span class="md-ellipsis">
-      6.2 filter_frequency
+      Helper: make_per_element_transform
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#63-speed-length" class="md-nav__link">
+  <a href="#worked-example-rabi-rotation-in-a-varphi" class="md-nav__link">
     <span class="md-ellipsis">
-      6.3 speed, length
+      Worked example: Rabi rotation in \((A, \varphi)\)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#64-robust" class="md-nav__link">
+  <a href="#practical-implications" class="md-nav__link">
     <span class="md-ellipsis">
-      6.4 robust
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#65-bound" class="md-nav__link">
-    <span class="md-ellipsis">
-      6.5 bound
+      Practical implications
     </span>
   </a>
   
@@ -1586,29 +1490,77 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#7-phase-sensitive-vs-projective" class="md-nav__link">
+  <a href="#phase-sensitive-vs-projective" class="md-nav__link">
     <span class="md-ellipsis">
-      7. Phase-sensitive vs projective
+      Phase-sensitive vs projective
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#8-full-worked-example" class="md-nav__link">
+  <a href="#null-space-optimisation" class="md-nav__link">
     <span class="md-ellipsis">
-      8. Full worked example
+      Null-space optimisation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Null-space optimisation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#available-objectives" class="md-nav__link">
+    <span class="md-ellipsis">
+      Available objectives
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#null-space-algorithm-_null_space_optimisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Null-space algorithm: _null_space_optimisation()
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-spaces-and-index-mappings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameter spaces and index mappings
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#9-cheat-sheet" class="md-nav__link">
+  <a href="#usage" class="md-nav__link">
     <span class="md-ellipsis">
-      9. Cheat sheet
+      Usage
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#building-a-parameters-from-pre-built-bases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building a Parameters from pre-built bases
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1628,592 +1580,775 @@
 
 
 
-<h1 id="using-geope-with-parameters">Using GEOPE with <code>Parameters</code><a class="headerlink" href="#using-geope-with-parameters" title="Permanent link">¤</a></h1>
-<p>A guide to the geodesic projective parameter-estimation optimiser for synthesising target unitaries on a Lie-algebraic control model, with practical notes on <code>Parameters</code>, experimental parameters via <code>param_transform</code>, and pulse-shape constraints.</p>
-<hr />
-<h2 id="1-what-geope-does">1. What GEOPE does<a class="headerlink" href="#1-what-geope-does" title="Permanent link">¤</a></h2>
-<h3 id="11-the-control-problem">1.1 The control problem<a class="headerlink" href="#11-the-control-problem" title="Permanent link">¤</a></h3>
-<p>GEOPE solves the following gate-synthesis problem. You have:</p>
-<ul>
-<li>a target unitary <span class="arithmatex">\(U_T \in U(d)\)</span>;</li>
-<li>a <strong>full</strong> Lie algebra basis <span class="arithmatex">\(\{B_k\}_{k=1}^{K}\)</span> of Hermitian generators spanning some subspace of <span class="arithmatex">\(\mathfrak{u}(d)\)</span> (in <code>geope</code>, normally Pauli strings);</li>
-<li>a <strong>projected</strong> sub-basis <span class="arithmatex">\(\{B_k\}_{k \in \mathcal{C}}\)</span> — the <em>controllable</em> generators, the ones the experimenter can drive;</li>
-<li>optionally, a <strong>drift</strong> sub-basis <span class="arithmatex">\(\{B_k\}_{k \in \mathcal{D}}\)</span> — generators with fixed, uncontrollable coefficients;</li>
-<li>a number of piecewise-constant gate segments <span class="arithmatex">\(N_g \ge 1\)</span>.</li>
-</ul>
-<p>The piecewise gate produced from a parameter array <span class="arithmatex">\(\phi \in \mathbb{R}^{N_g \times K_{\text{pd}}}\)</span> (proj+drift) is</p>
+<h1 id="geope-geodesic-pulse-engineering">GEOPE – Geodesic Pulse Engineering<a class="headerlink" href="#geope-geodesic-pulse-engineering" title="Permanent link">¤</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h2>
+<p><code>geope</code> finds piecewise-constant control pulses that implement a target quantum gate on an <span class="arithmatex">\(n\)</span>-qubit system. Given a target unitary <span class="arithmatex">\(U_T\)</span>, a set of available control generators (the projected basis), and optionally fixed drift generators, the optimiser searches for real-valued parameters <span class="arithmatex">\(\phi\)</span> such that</p>
 <div class="arithmatex">\[
-U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k \in \mathcal{C} \cup \mathcal{D}} \phi_{g,k}\, B_k\Bigr).
+U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
 \]</div>
-<p>The goal is to find <span class="arithmatex">\(\phi\)</span> such that <span class="arithmatex">\(U(\phi)\)</span> matches <span class="arithmatex">\(U_T\)</span>. "Matches" is measured by a fidelity:</p>
-<div class="arithmatex">\[
-F_{\text{proj}}(U, U_T) \;=\; \frac{|\mathrm{Tr}(U_T^\dagger U)|}{d}, \qquad
-F_{\text{full}}(U, U_T) \;=\; \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
-\]</div>
-<p><span class="arithmatex">\(F_{\text{proj}} \in [0,1]\)</span> is <strong>projective</strong> — invariant under global phase <span class="arithmatex">\(U \mapsto e^{i\theta}U\)</span>; the default. <span class="arithmatex">\(F_{\text{full}} \in [-1,1]\)</span> is <strong>phase-sensitive</strong>; selected with <code>projective=False</code>.</p>
-<h3 id="12-the-geodesic-step">1.2 The geodesic step<a class="headerlink" href="#12-the-geodesic-step" title="Permanent link">¤</a></h3>
-<p>GEOPE is a first-order method that, at each iterate <span class="arithmatex">\(U_k\)</span>, walks along the <strong>geodesic</strong> on <span class="arithmatex">\(U(d)\)</span> pointing toward <span class="arithmatex">\(U_T\)</span>, projected onto the controllable directions in parameter space.</p>
-<p>The geodesic generator at <span class="arithmatex">\(U_k\)</span> is</p>
-<div class="arithmatex">\[
-g_k \;=\; -i\,\log\!\bigl(U_k^\dagger U_T\bigr) \;\in\; \mathfrak{u}(d).
-\]</div>
-<p>In projective mode the trace is removed, giving an <span class="arithmatex">\(\mathfrak{su}(d)\)</span> generator:</p>
-<div class="arithmatex">\[
-g_k \;\leftarrow\; g_k - \tfrac{\mathrm{Tr}(g_k)}{d}\,\mathbb{1}.
-\]</div>
-<p>The geodesic <em>tangent</em> at <span class="arithmatex">\(U_k\)</span> is <span class="arithmatex">\(\Gamma_k = U_k g_k\)</span>. Its projection onto the basis is</p>
-<div class="arithmatex">\[
-\boldsymbol{\gamma}_k \;=\; \mathrm{proj}(\Gamma_k)/d \;\in\; \mathbb{R}^{K}.
-\]</div>
-<p>For each parameter <span class="arithmatex">\(\phi_{g,k}\)</span>, GEOPE forms the projected partial derivative</p>
-<div class="arithmatex">\[
-\boldsymbol{\omega}_{g,k} \;=\; \mathrm{proj}\!\bigl(i\,\partial U/\partial\phi_{g,k}\bigr) \;\in\; \mathbb{R}^{K}.
-\]</div>
-<p>The parameter step <span class="arithmatex">\(\delta\phi\)</span> is the least-squares solution to</p>
-<div class="arithmatex">\[
-\Omega^\top \,\delta\phi \;\approx\; \boldsymbol{\gamma}_k, \qquad \Omega_{:,(g,k)} = \boldsymbol{\omega}_{g,k}.
-\]</div>
-<p><code>coeffs = sol</code> is normalised to <span class="arithmatex">\(\|\boldsymbol{\mathrm{coeffs}}\| = \sqrt{N_g}\)</span>. A one-dimensional line search along the ray <span class="arithmatex">\(\phi + t \cdot \boldsymbol{\mathrm{coeffs}}\)</span> for <span class="arithmatex">\(t \in [-t_{\max}, 0]\)</span> (the toward-target half-line; see the sign-convention note below) chooses the actual step. The new parameters are appended to the history.</p>
-<p>When the geodesic step fails to improve fidelity, the optimiser falls back to a Gram–Schmidt-orthogonalised random direction.</p>
-<h3 id="13-null-space-refinement">1.3 Null-space refinement<a class="headerlink" href="#13-null-space-refinement" title="Permanent link">¤</a></h3>
-<p>After the main optimisation has converged, you can move within the <em>null space</em> of the parameter-to-unitary Jacobian to optimise auxiliary objectives without losing fidelity. The geometric picture: at the converged <span class="arithmatex">\(\phi^\star\)</span>,</p>
-<div class="arithmatex">\[
-\dim \ker J(\phi^\star) \;=\; \dim(\text{parameter space}) - \mathrm{rank}\bigl(J(\phi^\star)\bigr).
-\]</div>
-<p>If this kernel is non-trivial (a generically over-parameterised problem), each method projects a gradient of its cost onto <span class="arithmatex">\(\ker J\)</span> and takes a normalised step. Available costs:</p>
+<p>where each <span class="arithmatex">\(H_g = \sum_k \phi_{g,k}\,G_k\)</span> is a linear combination of basis generators on segment <span class="arithmatex">\(g\)</span>.</p>
+<p>The core algorithm is the <strong>geodesic method</strong>: at each step it computes the shortest path on <span class="arithmatex">\(U(d)\)</span> from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.</p>
+<p>The entry point is <code>Parameters</code> — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, <code>param_transform</code>, bounds, init values, seed, projective flag). Pass it to <code>Geope</code> and call <code>.optimize()</code>. The same <code>Parameters</code> object is the destination for the run history (<code>fidelities</code>, <code>parameters</code>, <code>best_fidelity</code>, <code>to_dict()</code>, ...).</p>
+<p>The lower-level classes <code>Engine</code> and <code>GeopeEngine</code> are still available for inspection and for advanced users who want to build the JIT-compiled functions directly, but <code>Geope</code> itself only accepts a <code>Parameters</code>.</p>
+<h2 id="class-hierarchy">Class hierarchy<a class="headerlink" href="#class-hierarchy" title="Permanent link">¤</a></h2>
+<div class="highlight"><pre><span></span><code>Basis, Hamiltonian, Unitary      (lie.py)
+
+Engine                           (engine.py)
+  └── GeopeEngine                (geope.py)
+
+Parameters                       (parameters.py)
+                ↘
+                  Geope          (geope.py)
+                ↗
+GeopeEngine
+</code></pre></div>
+<h2 id="lie-group-classes-liepy">Lie group classes (<code>lie.py</code>)<a class="headerlink" href="#lie-group-classes-liepy" title="Permanent link">¤</a></h2>
+<h3 id="basis"><code>Basis</code><a class="headerlink" href="#basis" title="Permanent link">¤</a></h3>
+<p>Represents a set of Lie algebra generators (e.g. Pauli strings) as a rank-3 tensor of shape <span class="arithmatex">\((K, d, d)\)</span>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">Basis</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">local_dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_qubits</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+      <span class="n">interaction_graph</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interaction_map</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
 <table>
 <thead>
 <tr>
-<th>Method</th>
-<th>Cost minimised</th>
-<th>Notes</th>
+<th>Parameter</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>smooth(...)</code></td>
-<td><span class="arithmatex">\(\sum_g \|\phi_{g+1} - \phi_g\|^2\)</span></td>
-<td>difference between adjacent segments</td>
+<td><code>basis</code></td>
+<td><code>np.ndarray</code> of shape <code>(K, 2ⁿ, 2ⁿ)</code> — Hermitian generators</td>
 </tr>
 <tr>
-<td><code>smooth_frequency(...)</code></td>
-<td><span class="arithmatex">\(\sum_{m\ge 1}\|\widehat\phi(m)\|^2\)</span></td>
-<td>high-frequency spectral power</td>
+<td><code>labels</code></td>
+<td>list of Pauli-string labels, e.g. <code>["XI", "IX", "ZZ"]</code></td>
 </tr>
 <tr>
-<td><code>filter_frequency(filter_fn, ...)</code></td>
-<td><span class="arithmatex">\(\|\widehat\phi - \mathcal{F}(\widehat\phi)\|^2\)</span></td>
-<td>distance to a user filter</td>
+<td><code>local_dim</code></td>
+<td>local Hilbert-space dimension, default 2</td>
 </tr>
 <tr>
-<td><code>speed(params, ...)</code></td>
-<td><span class="arithmatex">\(\max_{g,k\in P}\|\phi_{g,k}\|\)</span></td>
-<td>peak amplitude (raises gate-speed limit)</td>
+<td><code>n_qubits</code></td>
+<td>override for qubit count when <span class="arithmatex">\(d \neq 2^n\)</span></td>
 </tr>
 <tr>
-<td><code>length(params, ...)</code></td>
-<td><span class="arithmatex">\(\sum_g \|\phi_g\|_2\)</span></td>
-<td>pulse length</td>
+<td><code>interaction_graph</code></td>
+<td>list of qubit tuples to keep, e.g. <code>[(1,2), (2,3)]</code></td>
 </tr>
 <tr>
-<td><code>robust(params, delta, ...)</code></td>
-<td>$1 - \min_{</td>
-<td>\delta_k</td>
-</tr>
-<tr>
-<td><code>bound(parameter_bounds, ...)</code></td>
-<td><span class="arithmatex">\(\max(\phi - u_b, l_b - \phi)\)</span></td>
-<td>enforce a box constraint</td>
+<td><code>interaction_map</code></td>
+<td>dict of qubit-tuple → allowed interaction labels</td>
 </tr>
 </tbody>
 </table>
-<p>These all preserve fidelity to within the rate × number-of-iterations tolerance.</p>
-<h3 id="14-sign-convention-note">1.4 Sign-convention note<a class="headerlink" href="#14-sign-convention-note" title="Permanent link">¤</a></h3>
-<p>The line-search interval is <span class="arithmatex">\([-t_{\max}, 0]\)</span>, not <span class="arithmatex">\([0, t_{\max}]\)</span>, because of how <code>coeffs</code> is oriented: solving <span class="arithmatex">\(\Omega^\top \cdot \delta\phi = \boldsymbol\gamma\)</span> yields a <span class="arithmatex">\(\delta\phi\)</span> such that stepping in <strong>+coeffs</strong> moves <em>away</em> from <span class="arithmatex">\(U_T\)</span>, so the toward-target ray is <strong>dt &lt; 0</strong>. The line search minimises the engine's <code>infid_U_fn</code> over that interval and reports <code>fidelity = 1 - infid</code>. You don't normally need to think about this — the convention is internal — but it's the answer to "why negative dt".</p>
-<hr />
-<h2 id="2-building-a-parameters-object">2. Building a <code>Parameters</code> object<a class="headerlink" href="#2-building-a-parameters-object" title="Permanent link">¤</a></h2>
-<p><code>Parameters</code> is the high-level entry point that bundles every input the optimiser needs.</p>
-<h3 id="21-the-basis">2.1 The basis<a class="headerlink" href="#21-the-basis" title="Permanent link">¤</a></h3>
-<p>Pick a Pauli basis with one of the <code>utils</code> constructors:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geope</span>
+<p>Key properties:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>basis</code></td>
+<td>the <code>(K, d, d)</code> tensor</td>
+</tr>
+<tr>
+<td><code>lie_algebra_dim</code></td>
+<td><span class="arithmatex">\(K\)</span> — number of generators</td>
+</tr>
+<tr>
+<td><code>dim</code></td>
+<td><span class="arithmatex">\(d\)</span> — matrix dimension</td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td>number of qubits</td>
+</tr>
+<tr>
+<td><code>labels</code></td>
+<td>string labels</td>
+</tr>
+<tr>
+<td><code>plot_labels</code></td>
+<td>LaTeX strings, e.g. <code>"$X_{1}Z_{2}$"</code></td>
+</tr>
+<tr>
+<td><code>interaction_qubits</code></td>
+<td>tuple of qubit indices for each generator</td>
+</tr>
+<tr>
+<td><code>interaction_graph</code>, <code>interaction_map</code></td>
+<td>as above</td>
+</tr>
+</tbody>
+</table>
+<p>Key methods:</p>
+<ul>
+<li><code>overlap(other)</code> — boolean mask over <code>other</code>'s basis, true where there is nonzero trace overlap with <code>self</code>. Used by <code>Engine</code> to build index masks.</li>
+<li><code>verify()</code> — orthogonality check under the trace inner product.</li>
+<li><code>linear_span(parameters)</code> — <span class="arithmatex">\(\sum_i \phi_i G_i\)</span>.</li>
+<li><code>generate_parameter_list(parameter_map)</code> — converts a dict like <code>{1: {"x": 0.5}, (1,2): {"zz": 0.3}}</code> to a flat parameter array.</li>
+<li><code>generate_bounds(bounds_map, piecewise_steps)</code> — converts <code>{"x": (-1, 1)}</code> to <code>(lower, upper)</code> arrays.</li>
+<li><code>apply_interaction_graph(graph)</code> / <code>apply_interaction_map(map)</code> — prune to hardware connectivity.</li>
+</ul>
+<h3 id="hamiltonian"><code>Hamiltonian</code><a class="headerlink" href="#hamiltonian" title="Permanent link">¤</a></h3>
+<p>Represents <span class="arithmatex">\(H = \sum_i \phi_i G_i\)</span> and its unitary <span class="arithmatex">\(U = e^{iH}\)</span>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">Hamiltonian</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>basis</code></td>
+<td>the <code>Basis</code> object</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>coefficient vector <span class="arithmatex">\(\phi\)</span></td>
+</tr>
+<tr>
+<td><code>matrix</code></td>
+<td><span class="arithmatex">\(\sum_i \phi_i G_i\)</span></td>
+</tr>
+<tr>
+<td><code>unitary</code></td>
+<td><code>Unitary(expm(i·matrix))</code></td>
+</tr>
+</tbody>
+</table>
+<p>Methods:</p>
+<ul>
+<li><code>geodesic_hamiltonian(target_unitary)</code> — a <code>Hamiltonian</code> whose parameters are the geodesic direction <span class="arithmatex">\(-i\log(U^\dagger U_T)\)</span> decomposed in the basis.</li>
+<li><code>fidelity(unitary_matrix)</code> — <span class="arithmatex">\(|\mathrm{Tr}(U^\dagger V)|/d\)</span>.</li>
+<li><code>parameters_from_hamiltonian(H, basis)</code> (static) — coefficients via <span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(G_i H)/d\)</span>.</li>
+</ul>
+<h3 id="unitary"><code>Unitary</code><a class="headerlink" href="#unitary" title="Permanent link">¤</a></h3>
+<p>Wraps a unitary matrix with validation. Validates <span class="arithmatex">\(UU^\dagger = I\)</span> on construction.</p>
+<ul>
+<li><code>parameters(basis)</code> — Lie-algebra coefficients via the principal <code>logm</code>.</li>
+<li><code>fidelity(other)</code>.</li>
+<li><code>geodesic_hamiltonian(basis, target)</code>.</li>
+</ul>
+<h2 id="basis-construction-utilities-utilspy">Basis construction utilities (<code>utils.py</code>)<a class="headerlink" href="#basis-construction-utilities-utilspy" title="Permanent link">¤</a></h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>construct_full_pauli_basis(n)</code></td>
+<td>all <span class="arithmatex">\(4^n - 1\)</span> non-identity Pauli strings</td>
+</tr>
+<tr>
+<td><code>construct_two_body_pauli_basis(n)</code></td>
+<td>1-body and 2-body terms only</td>
+</tr>
+<tr>
+<td><code>construct_Heisenberg_pauli_basis(n)</code></td>
+<td>1-body + same-type 2-body (XX, YY, ZZ)</td>
+</tr>
+<tr>
+<td><code>construct_restricted_pauli_basis(n, restriction)</code></td>
+<td>custom restriction (list or dict)</td>
+</tr>
+<tr>
+<td><code>construct_full_spin_boson_basis(n_spins, n_bosons, truncation)</code></td>
+<td>spin-boson hybrid</td>
+</tr>
+<tr>
+<td><code>construct_restricted_spin_boson_basis(...)</code></td>
+<td>restricted spin-boson</td>
+</tr>
+<tr>
+<td><code>filter_basis_by_control(basis, control)</code></td>
+<td>filter an existing <code>Basis</code> by a control dict (handy when <span class="arithmatex">\(d \neq 2^n\)</span>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="restriction-formats">Restriction formats<a class="headerlink" href="#restriction-formats" title="Permanent link">¤</a></h3>
+<p><code>construct_restricted_pauli_basis</code> accepts two formats.</p>
+<p><strong>List</strong> — allowed interaction types as lower-case strings:</p>
+<div class="highlight"><pre><span></span><code><span class="n">control</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
+<span class="n">control</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
+<span class="n">drift</span>   <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">])</span>
+</code></pre></div>
+<p><strong>Dict</strong> — allowed interactions per qubit or qubit pair (1-indexed):</p>
+<div class="highlight"><pre><span></span><code><span class="n">control</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">]})</span>
+</code></pre></div>
+<h3 id="drift-parameter-values">Drift parameter values<a class="headerlink" href="#drift-parameter-values" title="Permanent link">¤</a></h3>
+<p>Drift coefficients are specified via <code>generate_parameter_list</code> on the drift basis (or passed directly through <code>Parameters(drift_values=...)</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="n">drift_basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">])</span>
+<span class="n">drift_values</span> <span class="o">=</span> <span class="n">drift_basis</span><span class="o">.</span><span class="n">generate_parameter_list</span><span class="p">({</span>
+    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+<span class="p">})</span>
+<span class="c1"># → [1.0, 1.0, 1.0] matching basis order [&quot;ZZI&quot;, &quot;ZIZ&quot;, &quot;IZZ&quot;]</span>
+</code></pre></div>
+<h3 id="linear-equality-constraints-global-controls">Linear equality constraints (global controls)<a class="headerlink" href="#linear-equality-constraints-global-controls" title="Permanent link">¤</a></h3>
+<p>Constraints enforce that selected projected parameters maintain fixed ratios. Use <code>generate_parameter_list</code> to build constraint vectors:</p>
+<div class="highlight"><pre><span></span><code><span class="n">control</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
 
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>              <span class="c1"># all 4^n - 1 Pauli strings</span>
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_two_body_pauli_basis</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>          <span class="c1"># ≤ 2-body terms</span>
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_Heisenberg_pauli_basis</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>        <span class="c1"># single-body + {XX, YY, ZZ}</span>
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">restriction</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;xx&#39;</span><span class="p">,</span> <span class="s1">&#39;yy&#39;</span><span class="p">])</span>
+<span class="n">global_x</span> <span class="o">=</span> <span class="n">control</span><span class="o">.</span><span class="n">generate_parameter_list</span><span class="p">({</span><span class="mi">1</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="mi">2</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="mi">3</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}})</span>
+<span class="c1"># → ties X₁ = X₂ = X₃</span>
+
+<span class="n">global_z</span> <span class="o">=</span> <span class="n">control</span><span class="o">.</span><span class="n">generate_parameter_list</span><span class="p">({</span><span class="mi">1</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="mi">2</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="mi">3</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}})</span>
+<span class="c1"># → ties Z₁ = Z₂ = Z₃</span>
 </code></pre></div>
-<p>Each <code>Basis</code> carries:</p>
-<ul>
-<li><code>basis.basis</code> — the <span class="arithmatex">\((K, d, d)\)</span> tensor of Hermitian matrices.</li>
-<li><code>basis.labels</code> — Pauli-string labels like <code>'XI'</code>, <code>'ZZ'</code>.</li>
-<li><code>basis.plot_labels</code> — LaTeX-formatted labels for plotting.</li>
-<li><code>basis.interaction_qubits</code> — qubit-index tuples per element.</li>
-<li><code>basis.n</code>, <code>basis.dim</code>, <code>basis.lie_algebra_dim</code> — sizes.</li>
-</ul>
-<h3 id="22-control-and-drift-dictionaries">2.2 Control and drift dictionaries<a class="headerlink" href="#22-control-and-drift-dictionaries" title="Permanent link">¤</a></h3>
-<p>The <strong>control</strong> dict picks the controllable subset of <code>basis</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="n">control</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span>         <span class="c1"># single-qubit controls on qubit 1</span>
-    <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">],</span>              <span class="c1"># qubit 2: only X, Y</span>
-    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;xx&#39;</span><span class="p">,</span> <span class="s1">&#39;yy&#39;</span><span class="p">],</span>       <span class="c1"># two-qubit coupling: XX, YY on the (1,2) pair</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Keys are 1-indexed qubit identifiers (or tuples for multi-qubit interactions); values are lower-case interaction labels. Anything matching the dict is added to the projected basis.</p>
-<p>The <strong>drift</strong> dict has the same format but selects generators with fixed coefficients:</p>
-<div class="highlight"><pre><span></span><code><span class="n">drift</span> <span class="o">=</span> <span class="p">{(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">]}</span>   <span class="c1"># an always-on ZZ coupling between qubits 1 and 2</span>
-</code></pre></div>
-<p>If you don't pass <code>drift_values</code>, drift coefficients default to ones.</p>
-<h3 id="23-the-target">2.3 The target<a class="headerlink" href="#23-the-target" title="Permanent link">¤</a></h3>
-<p><code>target</code> is just an <code>np.ndarray</code> of shape <span class="arithmatex">\((d,d)\)</span>:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="n">H</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-</code></pre></div>
-<h3 id="24-piecewise-gates-and-initial-values">2.4 Piecewise gates and initial values<a class="headerlink" href="#24-piecewise-gates-and-initial-values" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
-    <span class="n">basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
-    <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span>
-    <span class="n">drift</span><span class="o">=</span><span class="n">drift</span><span class="p">,</span>
-    <span class="n">target</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
-    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
-    <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>         <span class="c1"># → random in (-init_spread*π, init_spread*π)</span>
-    <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>        <span class="c1"># → ones</span>
-    <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
-    <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<p>Pass via <code>Parameters(constraints=[global_x, global_z], ...)</code>.</p>
+<h3 id="pulse-shape-constraints">Pulse-shape constraints<a class="headerlink" href="#pulse-shape-constraints" title="Permanent link">¤</a></h3>
+<p>Pulse constraints fix the relative values of specified parameters across piecewise steps — the temporal shape is frozen while the overall scale is optimised. This is an alternative to the <code>drift_basis</code> + <code>drift_values</code> route when you want a drift-like term whose amplitude is still tuned by the optimiser.</p>
+<div class="highlight"><pre><span></span><code><span class="n">projected</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="s1">&#39;zz&#39;</span><span class="p">])</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
+    <span class="n">basis</span><span class="o">=</span><span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span>
+    <span class="n">control</span><span class="o">=</span><span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span> <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span> <span class="mi">3</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span>
+             <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">]},</span>
+    <span class="n">target</span><span class="o">=</span><span class="n">U_T</span><span class="p">,</span>
+    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ZZI&quot;</span><span class="p">,</span> <span class="s2">&quot;ZIZ&quot;</span><span class="p">,</span> <span class="s2">&quot;IZZ&quot;</span><span class="p">],</span>
 <span class="p">)</span>
 </code></pre></div>
-<p><code>init_values</code> can be:</p>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>drift_basis</code> + <code>drift_values</code></td>
+<td>drift is truly fixed and not optimised</td>
+</tr>
+<tr>
+<td><code>pulse_constraints</code> on projected params</td>
+<td>drift-like terms whose amplitude is optimised but whose temporal profile is fixed</td>
+</tr>
+</tbody>
+</table>
+<p>Other utilities:</p>
 <ul>
-<li><code>None</code> — random uniform.</li>
-<li>A dict in the same format as <code>control</code>, listing concrete starting amplitudes (broadcast across all <span class="arithmatex">\(N_g\)</span> segments).</li>
-<li>An <code>np.ndarray</code> of shape <span class="arithmatex">\((N_g, K_{\text{full}})\)</span>.</li>
+<li><code>prepare_random_parameters(proj_indices, expander, spread, seed)</code> — random initial parameters respecting constraints.</li>
+<li><code>golden_section_search(f, a, b, tol)</code> — JIT-compatible 1-D <strong>minimiser</strong> (used internally by the line search).</li>
+<li><code>merge_constraints(constraints)</code> — merges overlapping linear constraints.</li>
+<li><code>qft_unitary(n)</code>, <code>multicontrol_unitary(U, n_controls)</code> — common target unitaries.</li>
+<li><code>make_per_element_transform(transforms)</code> — helper to build a <code>param_transform</code> from per-element callables.</li>
 </ul>
-<h3 id="25-linear-equality-constraints">2.5 Linear equality constraints<a class="headerlink" href="#25-linear-equality-constraints" title="Permanent link">¤</a></h3>
-<p><code>constraints</code> accepts either a list of <code>np.ndarray</code> vectors <span class="arithmatex">\(c\)</span> (length <span class="arithmatex">\(K_{\text{proj}}\)</span>) representing <span class="arithmatex">\(c \cdot \phi^{\text{proj}} = 0\)</span>, or a list of control-style dicts that are converted into such vectors. Internally <code>merge_constraints</code> resolves overlapping constraints before they are turned into an expander matrix that re-parameterises the projected space.</p>
-<p>Use this to enforce, e.g., that two parameters share the same value across all gate segments.</p>
-<h3 id="26-bounds">2.6 Bounds<a class="headerlink" href="#26-bounds" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
-    <span class="o">...</span><span class="p">,</span>
-    <span class="n">bounds</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)},</span>
-<span class="p">)</span>
+<h2 id="the-parameters-object">The <code>Parameters</code> object<a class="headerlink" href="#the-parameters-object" title="Permanent link">¤</a></h2>
+<p><code>Parameters</code> is the recommended entry point.</p>
+<div class="highlight"><pre><span></span><code><span class="n">Parameters</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+           <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
-<p>This is only consumed by <code>Geope.bound(...)</code>, not the main GEOPE loop. See Section 4.</p>
-<h3 id="27-phase-sensitive-vs-projective">2.7 Phase-sensitive vs projective<a class="headerlink" href="#27-phase-sensitive-vs-projective" title="Permanent link">¤</a></h3>
-<p>Set <code>projective=False</code> to use <span class="arithmatex">\(F_{\text{full}}\)</span> rather than <span class="arithmatex">\(F_{\text{proj}}\)</span>. Use this only when the global phase of <span class="arithmatex">\(U_T\)</span> is physically meaningful (e.g. matching a specific representative for downstream composition).</p>
-<blockquote>
-<p><strong>Caveat.</strong> Phase-sensitive optimisation has a known pathology when <span class="arithmatex">\(\mathrm{Tr}(U_T) = 0\)</span>: the gradient of <span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)\)</span> vanishes at the identity in every basis direction, so a random init close to <span class="arithmatex">\(I\)</span> may have no descent direction. Use a larger <code>init_spread</code> (≥ 0.5) or a non-zero <code>init_values</code> dict to break the symmetry.</p>
-</blockquote>
-<hr />
-<h2 id="3-running-the-optimisation">3. Running the optimisation<a class="headerlink" href="#3-running-the-optimisation" title="Permanent link">¤</a></h2>
-<p>The minimal three-line pattern:</p>
-<div class="highlight"><pre><span></span><code><span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">U_T</span><span class="p">,</span>
-                          <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>basis</code></td>
+<td>the full <code>Basis</code>; defaults to 2-qubit full Pauli basis if <code>None</code></td>
+</tr>
+<tr>
+<td><code>control</code></td>
+<td>dict picking the projected (controllable) subset</td>
+</tr>
+<tr>
+<td><code>drift</code></td>
+<td>dict picking the drift subset</td>
+</tr>
+<tr>
+<td><code>init_values</code></td>
+<td>dict in <code>control</code> format, or <code>ndarray</code> of full-basis shape, or <code>None</code> (random)</td>
+</tr>
+<tr>
+<td><code>drift_values</code></td>
+<td>dict, <code>ndarray</code>, or <code>None</code> (ones)</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>target unitary as <code>ndarray</code></td>
+</tr>
+<tr>
+<td><code>piecewise_steps</code></td>
+<td>number of gate segments <span class="arithmatex">\(N_g\)</span></td>
+</tr>
+<tr>
+<td><code>fixed_drift</code></td>
+<td>whether drift is held fixed during optimisation</td>
+</tr>
+<tr>
+<td><code>constraints</code></td>
+<td>list of constraint vectors / dicts</td>
+</tr>
+<tr>
+<td><code>pulse_constraints</code></td>
+<td>list (or dict; values ignored) of projected-basis labels whose time-shape is fixed</td>
+</tr>
+<tr>
+<td><code>bounds</code></td>
+<td>dict <code>{label: (lo, hi)}</code> — consumed by <code>Geope.bound(...)</code>, not by the main loop</td>
+</tr>
+<tr>
+<td><code>init_spread</code></td>
+<td>half-width of uniform random init, in units of <span class="arithmatex">\(\pi\)</span></td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>random seed</td>
+</tr>
+<tr>
+<td><code>param_transform</code></td>
+<td>callable mapping experimental params to basis coefficients</td>
+</tr>
+<tr>
+<td><code>n_experimental_params</code></td>
+<td>length of the experimental input; defaults to <code>projected_basis.lie_algebra_dim</code></td>
+</tr>
+<tr>
+<td><code>projective</code></td>
+<td><code>True</code> (default) for projective fidelity, <code>False</code> for phase-sensitive</td>
+</tr>
+</tbody>
+</table>
+<p>Attributes populated after construction:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>basis</code>, <code>projected_basis</code>, <code>drift_basis</code></td>
+<td>the three <code>Basis</code> objects</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>the target</td>
+</tr>
+<tr>
+<td><code>init_parameters</code></td>
+<td>initial parameter array, shape <code>(N_g, K_{full})</code></td>
+</tr>
+<tr>
+<td><code>drift_parameters</code></td>
+<td>drift coefficients (or <code>None</code>)</td>
+</tr>
+<tr>
+<td><code>constraint_arrays</code>, <code>constraint_expander</code></td>
+<td>merged constraints and reduced-space mapping</td>
+</tr>
+<tr>
+<td><code>bounds</code></td>
+<td>pre-built bounds tuple (or <code>None</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Mutable history written back by <code>Geope</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parameters</code></td>
+<td>list of parameter arrays, shape <code>(N_g, K_{full})</code> per entry</td>
+</tr>
+<tr>
+<td><code>fidelities</code>, <code>infidelities</code>, <code>step_sizes</code>, <code>steps</code></td>
+<td>history scalars</td>
+</tr>
+<tr>
+<td><code>best_fidelity</code></td>
+<td><code>max(fidelities)</code></td>
+</tr>
+<tr>
+<td><code>best_parameters</code></td>
+<td>parameters at the highest-fidelity step</td>
+</tr>
+<tr>
+<td><code>best_basis_coefficients</code></td>
+<td>best parameters mapped through <code>param_transform</code> if set</td>
+</tr>
+<tr>
+<td><code>to_dict()</code></td>
+<td>best solution as a control-style dict</td>
+</tr>
+</tbody>
+</table>
+<h2 id="engine-and-optimiser">Engine and optimiser<a class="headerlink" href="#engine-and-optimiser" title="Permanent link">¤</a></h2>
+<h3 id="engine-enginepy"><code>Engine</code> (<code>engine.py</code>)<a class="headerlink" href="#engine-enginepy" title="Permanent link">¤</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">Engine</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span>
+       <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div>
-<p>After <code>optimize()</code>, the <code>result</code> (which is the same <code>Parameters</code> instance) has its mutable history populated:</p>
+<p>Computes index masks between the three bases and JIT-compiles the unitary and fidelity functions.</p>
+<p>Index masks (boolean arrays):</p>
 <ul>
-<li><code>result.parameters</code> — list of <span class="arithmatex">\((N_g, K_{\text{full}})\)</span> arrays, one per recorded step.</li>
-<li><code>result.fidelities</code>, <code>result.infidelities</code> — per-step scalars.</li>
-<li><code>result.step_sizes</code>, <code>result.steps</code> — step magnitudes and counters.</li>
-<li><code>result.best_fidelity</code>, <code>result.best_parameters</code> — convenience accessors.</li>
-<li><code>result.best_basis_coefficients</code> — best params mapped through <code>param_transform</code> if set.</li>
-<li><code>result.to_dict()</code> — best solution as a human-readable control-style dict.</li>
+<li><code>projected_indices</code> — shape <span class="arithmatex">\((K_{\text{full}},)\)</span>, which full-basis elements are controllable (<code>projected_basis.overlap(full_basis)</code>).</li>
+<li><code>drift_indices</code> — shape <span class="arithmatex">\((K_{\text{full}},)\)</span>, which are fixed drift.</li>
+<li><code>proj_drift_indices</code> = <code>projected_indices | drift_indices</code>.</li>
+<li><code>proj_indices_projdrift_basis</code> — projected mask within the proj+drift subspace, shape <span class="arithmatex">\((K_{\text{pd}},)\)</span>.</li>
+<li><code>drift_indices_projdrift_basis</code> — drift mask within the proj+drift subspace.</li>
 </ul>
-<h3 id="31-optimiser-knobs">3.1 Optimiser knobs<a class="headerlink" href="#31-optimiser-knobs" title="Permanent link">¤</a></h3>
-<p>These are on <code>Geope.__init__</code>, not on <code>Parameters</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span>
-    <span class="n">params</span><span class="p">,</span>
-    <span class="n">max_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>                       <span class="c1"># cap on iterations</span>
-    <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">,</span>                  <span class="c1"># stopping fidelity</span>
-    <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span>                   <span class="c1"># line-search clip</span>
-    <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span>          <span class="c1"># fallback step magnitude</span>
-    <span class="n">line_search_method</span><span class="o">=</span><span class="s1">&#39;golden_section&#39;</span><span class="p">,</span> <span class="c1"># or &#39;difference_step&#39;</span>
-    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<span class="p">)</span>
+<p>Derived basis:</p>
+<ul>
+<li><code>proj_drift_basis</code> — <code>Basis</code> containing only the projected + drift elements; used for all JIT computations.</li>
+</ul>
+<p>JIT functions:</p>
+<ul>
+<li><code>compute_U_fn(params_list)</code> — scans over piecewise steps via <code>jax.lax.scan</code>:
+  <span class="arithmatex">\(\,U = \prod_g \exp\!\bigl(i \sum_i \phi_{g,i}\,G_i\bigr).\)</span>
+  Input shape: <span class="arithmatex">\((N_g, K_{\text{pd}})\)</span>.</li>
+<li><code>fid_U_fn(U)</code> — <span class="arithmatex">\(|\mathrm{Tr}(U_T^\dagger U)|/d\)</span> when <code>projective=True</code>, <span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d\)</span> when <code>projective=False</code>.</li>
+</ul>
+<h3 id="geopeengine-geopepy"><code>GeopeEngine</code> (<code>geope.py</code>)<a class="headerlink" href="#geopeengine-geopepy" title="Permanent link">¤</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">GeopeEngine</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span>
+            <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
-<h3 id="32-auxiliary-passes">3.2 Auxiliary passes<a class="headerlink" href="#32-auxiliary-passes" title="Permanent link">¤</a></h3>
-<p>Post-convergence refinement does not require re-building the optimiser:</p>
-<div class="highlight"><pre><span></span><code><span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-<span class="n">g</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">],</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">length</span><span class="p">(</span><span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">],</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">bound</span><span class="p">({</span><span class="s1">&#39;X&#39;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)},</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">)</span>
+<p>Extends <code>Engine</code> with geodesic-specific JIT functions:</p>
+<ul>
+<li><code>project_omegas_fn</code> — projects matrices onto the full Pauli basis via trace inner products <span class="arithmatex">\(\mathrm{Tr}(G_i M)\)</span>. For <span class="arithmatex">\(n &gt; 5\)</span> uses on-the-fly batched projection (<code>batch_size</code>) to manage memory.</li>
+<li><code>jac_fn</code> — Jacobian <span class="arithmatex">\(\partial U/\partial\phi_{g,k}\)</span>. For <span class="arithmatex">\(n \le 5\)</span>, JAX autodiff with <code>holomorphic=True</code>. For <span class="arithmatex">\(n &gt; 5\)</span>, manual block-exponential derivative via <code>dexpm.py</code>.</li>
+<li><code>geo_fn</code> — geodesic tangent at <span class="arithmatex">\(U\)</span>: <span class="arithmatex">\(U \cdot \bigl(-i\log(U^\dagger U_T)\bigr)\)</span>, with the global-phase generator subtracted when <code>projective=True</code>.</li>
+<li><code>infid_U_fn</code> — bound to <span class="arithmatex">\(1 - F_{\text{proj}}\)</span> or <span class="arithmatex">\(1 - F_{\text{full}}\)</span> to match <code>projective</code>.</li>
+<li><code>infid_fn</code>, <code>grad_fn</code> — infidelity of <span class="arithmatex">\(\phi\)</span> and its gradient (used by fallback methods and by the line search).</li>
+</ul>
+<h3 id="geope-geopepy"><code>Geope</code> (<code>geope.py</code>)<a class="headerlink" href="#geope-geopepy" title="Permanent link">¤</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span>
+      <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
+      <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span>
+      <span class="n">line_search_method</span><span class="o">=</span><span class="s2">&quot;golden_section&quot;</span><span class="p">,</span>
+      <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
-<p>Each returns <code>(success, iters)</code>. <code>piecewise_steps_multiplier &gt; 1</code> subdivides each existing gate segment into that many smaller ones (interpolating linearly), giving more degrees of freedom for the null-space pass to use.</p>
-<hr />
-<h2 id="4-pulse-shape-constraints-pulse_constraints">4. Pulse-shape constraints (<code>pulse_constraints</code>)<a class="headerlink" href="#4-pulse-shape-constraints-pulse_constraints" title="Permanent link">¤</a></h2>
-<h3 id="41-what-they-enforce">4.1 What they enforce<a class="headerlink" href="#41-what-they-enforce" title="Permanent link">¤</a></h3>
-<p>A pulse constraint on parameter <span class="arithmatex">\(k\)</span> forces the time profile <span class="arithmatex">\(\phi_k(g)\)</span>, <span class="arithmatex">\(g=0,\dots,N_g-1\)</span>, to lie on a one-dimensional subspace spanned by a fixed unit template <span class="arithmatex">\(t_k\)</span>:</p>
+<p><code>Geope</code> requires a <code>Parameters</code> object as its single positional argument. The engine, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and <code>param_transform</code> are all read from <code>params</code>. Passing a raw <code>GeopeEngine</code> raises <code>TypeError</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>params</code></td>
+<td>a <code>Parameters</code> instance bundling all inputs</td>
+</tr>
+<tr>
+<td><code>max_steps</code></td>
+<td>iteration cap</td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td>target fidelity</td>
+</tr>
+<tr>
+<td><code>max_step_size</code></td>
+<td>maximum line-search step</td>
+</tr>
+<tr>
+<td><code>gram_schmidt_step_size</code></td>
+<td>step size for the Gram–Schmidt fallback</td>
+</tr>
+<tr>
+<td><code>line_search_method</code></td>
+<td><code>"golden_section"</code> or <code>"difference_step"</code></td>
+</tr>
+<tr>
+<td><code>verbose</code></td>
+<td>print per-step progress</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>random seed (legacy API)</td>
+</tr>
+</tbody>
+</table>
+<p>State tracked across iterations:</p>
+<ul>
+<li><code>parameters</code> — list of arrays of shape <span class="arithmatex">\((N_g, K_{\text{full}})\)</span>.</li>
+<li><code>fidelities</code>, <code>infidelities</code>, <code>step_sizes</code>, <code>steps</code> — history lists.</li>
+</ul>
+<p>These lists are mirrored onto the <code>Parameters</code> object after every <code>optimize()</code>, and <code>optimize()</code> returns the <code>Parameters</code> instance itself — so the user has a single handle for both inputs and outputs.</p>
+<h2 id="core-algorithm-optimize">Core algorithm: <code>optimize()</code><a class="headerlink" href="#core-algorithm-optimize" title="Permanent link">¤</a></h2>
+<div class="highlight"><pre><span></span><code>for each step:
+    1. Extract free_params = parameters[:, proj_drift_indices]
+
+    2. Compute the geodesic direction:
+       U  = compute_U_fn(free_params)
+       g  = -i · logm(U† U_T)                       # generator in u(d)
+       g  = g - Tr(g)/d · I        if projective    # drop global-phase generator
+       Γ  = U · g                                   # geodesic tangent
+       γ  = project(Γ) / d                          # coefficients in basis
+
+    3. Compute the Jacobian projections:
+       ω[g, k] = project(i · ∂U/∂φ_{g,k})
+
+    4. Solve the constrained least-squares problem:
+       sol = argmin ||ω^T · sol - γ||
+       (optionally through a constraint+pulse expander E)
+
+    5. Normalise and line-search:
+       coeffs = sol · sqrt(N_g) / ||sol||
+       dt     = argmin infid(φ + t · coeffs)        # over t ∈ [-t_max, 0]
+       φ_new  = φ + dt · coeffs
+
+    6. If fidelity decreased, Gram–Schmidt fallback:
+       proj_c = random_direction ⊥ coeffs
+       try ±proj_c, keep the side with higher fidelity
+</code></pre></div>
+<p>The line search interval <span class="arithmatex">\([-t_{\max}, 0]\)</span> is the toward-target half-line under the algorithm's sign convention: solving <span class="arithmatex">\(\omega^\top \cdot \mathrm{sol} = \gamma\)</span> orients <code>coeffs</code> such that negative <code>dt</code> reduces infidelity. The minimiser operates on <code>infid_U_fn</code>, which is always non-negative, so the search is well-defined in both <code>projective=True</code> and <code>projective=False</code> modes. <code>Geope</code> reports <code>fidelity = 1 - infid</code> at the chosen step.</p>
+<h3 id="key-functions">Key functions<a class="headerlink" href="#key-functions" title="Permanent link">¤</a></h3>
+<ul>
+<li><strong><code>gammas_and_omegas(free_params)</code></strong> — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection <span class="arithmatex">\(\gamma\)</span>, the full Jacobian <span class="arithmatex">\(\partial U/\partial\phi\)</span>, and the per-parameter projections <span class="arithmatex">\(\omega\)</span>. Returns <span class="arithmatex">\((\gamma, \omega)\)</span>.</li>
+<li><strong><code>linear_comb_projected_coeffs_multigate(ω, γ, E)</code></strong> — least-squares solve, optionally through a constraint expander <span class="arithmatex">\(E\)</span>.</li>
+<li><strong><code>update_linesearch(params, coeffs, piecewise_steps)</code></strong> — golden-section minimisation of <span class="arithmatex">\(\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})\)</span> over <span class="arithmatex">\(t \in [-t_{\max}, 0]\)</span>.</li>
+</ul>
+<h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">¤</a></h2>
+<h3 id="linear-equality-constraints">Linear equality constraints<a class="headerlink" href="#linear-equality-constraints" title="Permanent link">¤</a></h3>
+<p><code>constraints</code> (or <code>Parameters.constraints</code>) takes a list of vectors <span class="arithmatex">\(c\)</span> of length <span class="arithmatex">\(K_{\text{proj}}\)</span> enforcing <span class="arithmatex">\(c \cdot \phi^{\text{proj}} = 0\)</span>, or dicts in <code>control</code> format that are converted into such vectors. Internally, overlapping constraints are merged via an expander matrix <span class="arithmatex">\(C\)</span> that maps free parameters to the full projected space, and the least-squares solve becomes <span class="arithmatex">\(\min \|\omega^\top C \tilde c - \gamma\|\)</span> with <span class="arithmatex">\(c = C \tilde c\)</span>.</p>
+<h3 id="pulse-shape-constraints_1">Pulse-shape constraints<a class="headerlink" href="#pulse-shape-constraints_1" title="Permanent link">¤</a></h3>
+<p><code>pulse_constraints</code> fixes the relative shape of selected parameters across piecewise steps. For each constrained label <span class="arithmatex">\(k\)</span> the time profile <span class="arithmatex">\(\phi_k(g)\)</span> is constrained to a one-dimensional subspace:</p>
 <div class="arithmatex">\[
 \phi_k(g) \;=\; \alpha_k\, t_k(g), \qquad \|t_k\| = 1, \quad \alpha_k \in \mathbb{R}.
 \]</div>
-<p>After every GEOPE iteration (and every null-space update), the time profile is re-projected:</p>
+<p>The template <span class="arithmatex">\(t_k\)</span> is read off the current solution at the moment <code>optimize()</code> is called (or the flat template <span class="arithmatex">\(\mathbf{1}/\sqrt{N_g}\)</span> if the column is empty), and after every iteration <span class="arithmatex">\(\phi_k\)</span> is re-projected:</p>
 <div class="arithmatex">\[
-\phi_k \;\leftarrow\; \bigl(\phi_k \cdot t_k\bigr)\, t_k.
+\phi_k \;\leftarrow\; \bigl(\phi_k \cdot t_k\bigr) t_k.
 \]</div>
-<p>This is what makes the constraint <em>strict</em> in practice rather than soft.</p>
-<h3 id="42-the-expander">4.2 The expander<a class="headerlink" href="#42-the-expander" title="Permanent link">¤</a></h3>
-<p>Concretely, the flat parameter vector <span class="arithmatex">\(\Phi \in \mathbb{R}^{N_g K_{\text{proj}}}\)</span> is replaced by free parameters <span class="arithmatex">\(\psi \in \mathbb{R}^{n_{\text{free}}}\)</span> via</p>
-<div class="arithmatex">\[
-\Phi \;=\; E \psi, \qquad
-n_{\text{free}} = N_g(K_{\text{proj}} - |P|) \;+\; |P|,
-\]</div>
-<p>where <span class="arithmatex">\(P\)</span> is the set of constrained indices and:</p>
-<ul>
-<li>each unconstrained <span class="arithmatex">\(k\)</span> contributes <span class="arithmatex">\(N_g\)</span> columns to <span class="arithmatex">\(E\)</span> (the identity on its time profile);</li>
-<li>each constrained <span class="arithmatex">\(k \in P\)</span> contributes a single column equal to <span class="arithmatex">\(t_k\)</span> down its <span class="arithmatex">\(N_g\)</span> rows.</li>
-</ul>
-<p>When you also have linear-equality <code>constraints</code> with expander <span class="arithmatex">\(C\)</span>, the combined expander used by the geodesic step is</p>
-<div class="arithmatex">\[
-E_{\text{comb}} \;=\; (I_{N_g}\!\otimes\!C)\,\bigl(I_{N_g}\!\otimes\!C\bigr)^{+}\,E,
-\]</div>
-<p>i.e. <span class="arithmatex">\(E\)</span> projected onto the column space of the Kronecker-lifted <span class="arithmatex">\(C\)</span>.</p>
-<h3 id="43-template-choice">4.3 Template choice<a class="headerlink" href="#43-template-choice" title="Permanent link">¤</a></h3>
-<p>The template <span class="arithmatex">\(t_k\)</span> is derived from the <em>current</em> solution at the moment <code>optimize()</code> is called:</p>
-<ul>
-<li>if the column <span class="arithmatex">\(\phi_k\)</span> from <code>self.parameters[-1]</code> has <span class="arithmatex">\(\|\phi_k\| &gt; 10^{-12}\)</span>, use <span class="arithmatex">\(t_k = \phi_k / \|\phi_k\|\)</span>;</li>
-<li>otherwise fall back to the flat template <span class="arithmatex">\(t_k = \mathbf{1}/\sqrt{N_g}\)</span> (a square pulse).</li>
-</ul>
-<p>So the typical pattern is to first run an unconstrained optimisation, inspect the pulse shape, decide which parameters should respect that shape, and <em>then</em> re-run with <code>pulse_constraints</code> to lock the shape in while allowing further refinement. Or to specify a desired template via <code>init_values</code> directly.</p>
-<h3 id="44-specifying-constraints">4.4 Specifying constraints<a class="headerlink" href="#44-specifying-constraints" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
-    <span class="o">...</span><span class="p">,</span>
-    <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;X&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s1">&#39;Y&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>   <span class="c1"># dict: keys are projected-basis labels</span>
-<span class="p">)</span>
-<span class="c1"># or equivalently:</span>
-<span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">,</span> <span class="s1">&#39;Y&#39;</span><span class="p">])</span>
-</code></pre></div>
-<p>The values in the dict are ignored — only the keys matter. The label format follows the <code>Basis.labels</code> convention (e.g. <code>'X'</code>, <code>'YI'</code>, <code>'XX'</code>).</p>
-<h3 id="45-worked-example-flat-x-free-y">4.5 Worked example: flat X, free Y<a class="headerlink" href="#45-worked-example-flat-x-free-y" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">geope</span>
-
-<span class="c1"># Single-qubit, target = Hadamard, piecewise gate over 8 segments</span>
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">H</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-
-<span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
-    <span class="n">basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
-    <span class="n">control</span><span class="o">=</span><span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]},</span>        <span class="c1"># only X and Y controllable</span>
-    <span class="n">target</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
-    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
-    <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;X&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>  <span class="c1"># X must be a single scalar × time shape</span>
-    <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-6</span><span class="p">)</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-
-<span class="n">X_profile</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">best_parameters</span><span class="p">[:,</span> <span class="n">basis</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;X&#39;</span><span class="p">)]</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;X profile:&quot;</span><span class="p">,</span> <span class="n">X_profile</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;X profile / norm:&quot;</span><span class="p">,</span> <span class="n">X_profile</span><span class="o">.</span><span class="n">real</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">X_profile</span><span class="o">.</span><span class="n">real</span><span class="p">))</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;best fidelity:&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">))</span>
-</code></pre></div>
-<p>After convergence the X column will be a single template repeated across segments; only the Y column has independent values per segment.</p>
-<hr />
-<h2 id="5-experimental-parameters-param_transform">5. Experimental parameters (<code>param_transform</code>)<a class="headerlink" href="#5-experimental-parameters-param_transform" title="Permanent link">¤</a></h2>
-<h3 id="51-when-to-use">5.1 When to use<a class="headerlink" href="#51-when-to-use" title="Permanent link">¤</a></h3>
-<p>GEOPE's "native" parameters are basis coefficients <span class="arithmatex">\(\phi^{\text{proj}}_{g,k}\)</span> — pure real numbers indexing <span class="arithmatex">\(\sum_k \phi_{g,k} B_k\)</span>. But in practice, the <strong>experimentally controllable</strong> quantities are often different:</p>
-<ul>
-<li>a single drive amplitude that couples to multiple basis elements through a <span class="arithmatex">\(\sin\)</span>/<span class="arithmatex">\(\cos\)</span> phase;</li>
-<li>a pulse parametrised by a small number of shape coefficients (Gaussian, Slepian, etc.);</li>
-<li>a calibration map <span class="arithmatex">\(\phi^{\text{proj}} = f(\text{voltage}, \text{frequency})\)</span> with <span class="arithmatex">\(f\)</span> non-linear.</li>
-</ul>
-<p>You want to optimise directly over those experimental knobs <span class="arithmatex">\(\phi^{\text{exp}}\)</span>, with the algorithm internally seeing the corresponding basis coefficients through a user-supplied callable <span class="arithmatex">\(\tau\)</span>:</p>
+<p>Formally, the flat parameter vector <span class="arithmatex">\(\Phi \in \mathbb{R}^{N_g K_{\text{proj}}}\)</span> is replaced by free parameters <span class="arithmatex">\(\psi\)</span> via <span class="arithmatex">\(\Phi = E\,\psi\)</span>, where <span class="arithmatex">\(E\)</span> has <span class="arithmatex">\(N_g\)</span> identity columns for each unconstrained <span class="arithmatex">\(k\)</span> and a single template column for each constrained <span class="arithmatex">\(k\)</span>. When combined with a linear-equality expander <span class="arithmatex">\(C\)</span>, the combined expander is <span class="arithmatex">\(E_{\text{comb}} = (I_{N_g} \otimes C)\,(I_{N_g} \otimes C)^{+}\,E\)</span>.</p>
+<p>With <code>param_transform</code>, pulse constraints reference parameter <strong>indices</strong> in <span class="arithmatex">\(\phi^{\text{exp}}\)</span> rather than projected-basis labels.</p>
+<h2 id="experimental-parameters-param_transform">Experimental parameters (<code>param_transform</code>)<a class="headerlink" href="#experimental-parameters-param_transform" title="Permanent link">¤</a></h2>
+<p>GEOPE's native parameters are basis coefficients <span class="arithmatex">\(\phi^{\text{proj}}_{g,k}\)</span>. In practice the <strong>experimentally controllable</strong> quantities are often different — an amplitude–phase pair driving two basis elements through <span class="arithmatex">\(\cos/\sin\)</span>, a small set of pulse-shape coefficients, a calibration map <span class="arithmatex">\(\phi^{\text{proj}} = f(\text{voltage}, \text{frequency})\)</span>. <code>param_transform</code> lets you optimise directly over those experimental knobs <span class="arithmatex">\(\phi^{\text{exp}}\)</span>:</p>
 <div class="arithmatex">\[
 \phi^{\text{proj}}_{g,\cdot} \;=\; \tau\bigl(\phi^{\text{exp}}_{g,\cdot}\bigr) \;\;\;\text{or}\;\;\; \tau\bigl(\phi^{\text{exp}}_{g,\cdot},\, g\bigr).
 \]</div>
-<h3 id="52-the-callable-contract">5.2 The callable contract<a class="headerlink" href="#52-the-callable-contract" title="Permanent link">¤</a></h3>
-<p><code>param_transform</code> must be a JAX-traceable callable. Two signatures are accepted:</p>
+<h3 id="contract">Contract<a class="headerlink" href="#contract" title="Permanent link">¤</a></h3>
+<p><code>param_transform</code> must be a JAX-traceable callable. Accepted signatures:</p>
 <ul>
-<li><strong>Step-independent</strong>: <code>tau(phi)</code> where <code>phi.shape == (n_experimental_params,)</code>.</li>
-<li><strong>Step-dependent</strong>: <code>tau(phi, step_index)</code> where <code>step_index</code> is a scalar <code>int32</code>.</li>
+<li><strong>Step-independent</strong>: <code>tau(phi)</code> with <code>phi.shape == (n_experimental_params,)</code>.</li>
+<li><strong>Step-dependent</strong>: <code>tau(phi, step_index)</code> with a scalar <code>int32</code> step index.</li>
 </ul>
-<p>The output must be a 1-D array. Its length is either:</p>
+<p>The output is a 1-D array whose length is either:</p>
 <ul>
-<li>equal to <code>projected_basis.lie_algebra_dim</code> — the coefficients are taken as the projected-basis coefficients directly; or</li>
-<li>equal to <code>basis.lie_algebra_dim</code> — the relevant projected entries are extracted automatically via <code>projected_basis.overlap(basis)</code>.</li>
+<li><code>projected_basis.lie_algebra_dim</code> — taken as projected-basis coefficients;</li>
+<li><code>basis.lie_algebra_dim</code> — relevant projected entries extracted automatically via <code>projected_basis.overlap(basis)</code>.</li>
 </ul>
-<p><code>Parameters.n_experimental_params</code> controls the input dimension; if you don't pass it, it defaults to <code>projected_basis.lie_algebra_dim</code>.</p>
-<h3 id="53-helper-make_per_element_transform">5.3 Helper: <code>make_per_element_transform</code><a class="headerlink" href="#53-helper-make_per_element_transform" title="Permanent link">¤</a></h3>
-<p>For the common case where each experimental parameter maps to one basis coefficient through an independent scalar function:</p>
+<p><code>Parameters.n_experimental_params</code> sets the input dimension. When <code>param_transform</code> is set, the engine's <code>compute_U_fn</code> is wrapped to apply <code>vmap(τ)</code> over the gate axis, embed the result into the proj+drift slots, broadcast drift coefficients, and delegate to the unitary-product code. The Jacobian is replaced by a split-real-imaginary version (real intermediates in <code>τ</code> would otherwise drop the imaginary part under holomorphic autodiff).</p>
+<h3 id="helper-make_per_element_transform">Helper: <code>make_per_element_transform</code><a class="headerlink" href="#helper-make_per_element_transform" title="Permanent link">¤</a></h3>
+<p>For element-wise transforms:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">geope</span>
 
 <span class="n">tau</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">make_per_element_transform</span><span class="p">([</span>
-    <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">,</span>                       <span class="c1"># phi[0] → cos(phi[0])    (e.g. X coefficient)</span>
-    <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">,</span>                       <span class="c1"># phi[1] → sin(phi[1])    (e.g. Y coefficient)</span>
-    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span>             <span class="c1"># phi[2] → 0.5 * phi[2]  (e.g. Z coefficient)</span>
-    <span class="kc">None</span><span class="p">,</span>                          <span class="c1"># phi[3] passes through unchanged</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">,</span>                 <span class="c1"># phi[0] → cos(phi[0])</span>
+    <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">,</span>                 <span class="c1"># phi[1] → sin(phi[1])</span>
+    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span>       <span class="c1"># phi[2] → 0.5 * phi[2]</span>
+    <span class="kc">None</span><span class="p">,</span>                    <span class="c1"># phi[3] passes through</span>
 <span class="p">])</span>
 </code></pre></div>
-<h3 id="54-worked-example-rabi-rotation-in-a-varphi">5.4 Worked example: Rabi rotation in <span class="arithmatex">\((A, \varphi)\)</span><a class="headerlink" href="#54-worked-example-rabi-rotation-in-a-varphi" title="Permanent link">¤</a></h3>
-<p>A common Rabi-drive parametrisation is one amplitude <span class="arithmatex">\(A\)</span> and one phase <span class="arithmatex">\(\varphi\)</span>, coupling to the <span class="arithmatex">\((X, Y)\)</span> generators as</p>
-<div class="arithmatex">\[
-H_{\text{drive}}(t) = A \,\cos(\varphi)\, X \;+\; A \,\sin(\varphi)\, Y.
-\]</div>
+<h3 id="worked-example-rabi-rotation-in-a-varphi">Worked example: Rabi rotation in <span class="arithmatex">\((A, \varphi)\)</span><a class="headerlink" href="#worked-example-rabi-rotation-in-a-varphi" title="Permanent link">¤</a></h3>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">geope</span>
 
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="c1"># K_proj = 3 (X, Y, Z labelled XI/YI/ZI? no, just X,Y,Z)</span>
+<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">rabi_transform</span><span class="p">(</span><span class="n">phi</span><span class="p">):</span>                        <span class="c1"># phi = (A, varphi)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">rabi</span><span class="p">(</span><span class="n">phi</span><span class="p">):</span>                                   <span class="c1"># phi = (A, varphi)</span>
     <span class="n">A</span><span class="p">,</span> <span class="n">varphi</span> <span class="o">=</span> <span class="n">phi</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">phi</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">A</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">varphi</span><span class="p">),</span>      <span class="c1"># X coefficient</span>
-                      <span class="n">A</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">varphi</span><span class="p">),</span>      <span class="c1"># Y coefficient</span>
-                      <span class="mf">0.0</span><span class="p">])</span>                     <span class="c1"># Z coefficient</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">A</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">varphi</span><span class="p">),</span>       <span class="c1"># X coefficient</span>
+                      <span class="n">A</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">varphi</span><span class="p">),</span>       <span class="c1"># Y coefficient</span>
+                      <span class="mf">0.0</span><span class="p">])</span>                      <span class="c1"># Z coefficient</span>
 
 <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">3</span>
 <span class="n">RX</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="o">/</span><span class="mi">2</span><span class="p">)],</span>
                <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span>  <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="o">/</span><span class="mi">2</span><span class="p">)]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
 
 <span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
-    <span class="n">basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
-    <span class="n">control</span><span class="o">=</span><span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]},</span>
-    <span class="n">target</span><span class="o">=</span><span class="n">RX</span><span class="p">,</span>
+    <span class="n">basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]},</span> <span class="n">target</span><span class="o">=</span><span class="n">RX</span><span class="p">,</span>
     <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-    <span class="n">param_transform</span><span class="o">=</span><span class="n">rabi_transform</span><span class="p">,</span>
-    <span class="n">n_experimental_params</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>                    <span class="c1"># phi has 2 entries per segment</span>
-    <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-    <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">param_transform</span><span class="o">=</span><span class="n">rabi</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="n">result</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;final fidelity:&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">))</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;best (A, varphi) per segment:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">best_parameters</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;induced basis coefficients:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">best_basis_coefficients</span><span class="p">)</span>
+<span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">best_basis_coefficients</span><span class="p">)</span>
 </code></pre></div>
-<h3 id="55-internal-consequences">5.5 Internal consequences<a class="headerlink" href="#55-internal-consequences" title="Permanent link">¤</a></h3>
-<p>When <code>param_transform</code> is set, the engine's <code>compute_U_fn</code> is wrapped to apply <span class="arithmatex">\(\tau\)</span> via <code>jax.vmap</code> over the gate axis, then embed into the proj+drift parameter slots before delegating to the original unitary-product code. The Jacobian is replaced by a split-real-imaginary version because user-supplied <span class="arithmatex">\(\tau\)</span> functions often carry real-valued intermediates that lose imaginary parts under the usual holomorphic Jacobian. Engine index masks are overridden so the rest of <code>Geope</code> (line search, Gram–Schmidt fallback, null-space passes) operate uniformly over <span class="arithmatex">\(\phi^{\text{exp}}\)</span>.</p>
-<p>You don't need to think about any of this; it's all transparent. But it has two practical implications:</p>
+<h3 id="practical-implications">Practical implications<a class="headerlink" href="#practical-implications" title="Permanent link">¤</a></h3>
 <ul>
-<li><strong>No <code>parameter_labels</code> argument in null-space methods.</strong> When <code>param_transform</code> is set, the projected basis labels no longer correspond to the indices of the optimised parameters. Pass <code>parameter_indices</code> (integers into <span class="arithmatex">\(\phi^{\text{exp}}\)</span>) instead. <code>Geope</code> raises a clear <code>ValueError</code> otherwise.</li>
-<li><strong>dtype.</strong> Internally, experimental parameters are <code>float64</code>; basis-coefficient mode uses <code>complex128</code>. Tolerances and bounds you supply should match.</li>
+<li>Null-space methods (<code>speed</code>, <code>length</code>, <code>robust</code>) must use <code>parameter_indices</code>, not <code>parameter_labels</code>, when <code>param_transform</code> is set — labels no longer correspond to optimised parameters. <code>Geope</code> raises <code>ValueError</code> otherwise.</li>
+<li>Internally <code>param_transform</code> mode uses <code>float64</code>; basis-coefficient mode uses <code>complex128</code>. Tolerances and bounds you supply should match.</li>
 </ul>
-<hr />
-<h2 id="6-auxiliary-null-space-methods-in-detail">6. Auxiliary null-space methods in detail<a class="headerlink" href="#6-auxiliary-null-space-methods-in-detail" title="Permanent link">¤</a></h2>
-<p>All five methods follow the same template:</p>
-<ol>
-<li>Compute the omega tensor and its null space <code>ker(Ω) ≈ I - Ω^+ Ω</code>.</li>
-<li>Form the cost gradient <span class="arithmatex">\(\nabla C(\phi)\)</span> via <code>jax.value_and_grad</code>.</li>
-<li>Project <span class="arithmatex">\(-\nabla C\)</span> onto <span class="arithmatex">\(\ker(\Omega)\)</span> via a least-squares solve.</li>
-<li>Take a normalised step <code>rate * x / ||x||</code> along the projection.</li>
-</ol>
-<p>Because the step stays in the null space, fidelity is preserved to first order at each iteration. Over many iterations small drift accumulates, so the auxiliary passes run with <code>diff_tol</code> rather than a precise fidelity guard — they stop when the auxiliary cost stops improving, not when fidelity drops below threshold.</p>
-<h3 id="61-smooth_frequency">6.1 <code>smooth_frequency</code><a class="headerlink" href="#61-smooth_frequency" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">g</span><span class="o">.</span><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-</code></pre></div>
-<p>Cost is the mean spectral power above DC,</p>
+<h2 id="phase-sensitive-vs-projective">Phase-sensitive vs projective<a class="headerlink" href="#phase-sensitive-vs-projective" title="Permanent link">¤</a></h2>
+<p>The two fidelities differ in how the trace is taken:</p>
 <div class="arithmatex">\[
-C(\phi) = \frac{1}{(N_g/2)\,K_{\text{proj}}}\sum_{m \ge 1, k} \bigl|\widehat{\phi_k}(m)\bigr|^2,
+F_{\text{proj}}(U, U_T) = \frac{|\mathrm{Tr}(U_T^\dagger U)|}{d}, \qquad
+F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 \]</div>
-<p>with <span class="arithmatex">\(\widehat{\phi_k} = \mathrm{rfft}_g \phi_k\)</span> along the gate axis. DC (<span class="arithmatex">\(m=0\)</span>) is excluded so the average amplitude is not penalised — only the <em>variation</em> is.</p>
-<h3 id="62-filter_frequency">6.2 <code>filter_frequency</code><a class="headerlink" href="#62-filter_frequency" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">low_pass</span><span class="p">(</span><span class="n">rfft_array</span><span class="p">):</span>           <span class="c1"># rfft_array.shape = (N_g//2 + 1, K_proj)</span>
-    <span class="n">cutoff</span> <span class="o">=</span> <span class="mi">2</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">rfft_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">cutoff</span>
-    <span class="k">return</span> <span class="n">rfft_array</span> <span class="o">*</span> <span class="n">mask</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
-
-<span class="n">g</span><span class="o">.</span><span class="n">filter_frequency</span><span class="p">(</span><span class="n">low_pass</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-</code></pre></div>
-<p>Cost is <span class="arithmatex">\(\|\widehat\phi - \mathcal{F}(\widehat\phi)\|^2\)</span>. By Parseval this equals the time-domain <span class="arithmatex">\(L^2\)</span> distance to the filtered pulse, so minimising it drives <span class="arithmatex">\(\phi\)</span> toward its filtered version while preserving fidelity.</p>
-<h3 id="63-speed-length">6.3 <code>speed</code>, <code>length</code><a class="headerlink" href="#63-speed-length" title="Permanent link">¤</a></h3>
-<p><code>speed</code> minimises <span class="arithmatex">\(\max_{g, k \in P}|\phi_{g,k}|\)</span> — the peak control amplitude. <code>length</code> minimises <span class="arithmatex">\(\sum_g \sqrt{\sum_{k\in P}\phi_{g,k}^2 + \|d_g\|^2}\)</span> — the total pulse length, including a constant drift contribution. Both reduce the energy you have to put into the gate.</p>
-<div class="highlight"><pre><span></span><code><span class="n">g</span><span class="o">.</span><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">,</span> <span class="s1">&#39;Y&#39;</span><span class="p">],</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">length</span><span class="p">(</span><span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-</code></pre></div>
-<h3 id="64-robust">6.4 <code>robust</code><a class="headerlink" href="#64-robust" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">g</span><span class="o">.</span><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">],</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-         <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-</code></pre></div>
-<p>Cost is <span class="arithmatex">\(1 - \min_{\boldsymbol{\delta} \in \mathcal{S}} F\bigl(U(\phi + \sum_k \delta_k e_k)\bigr)\)</span>, where <span class="arithmatex">\(\mathcal{S}\)</span> is the Cartesian grid of <code>num_samples</code> evenly-spaced values in <span class="arithmatex">\([-\Delta, +\Delta]\)</span> for each parameter in <span class="arithmatex">\(P\)</span>. Minimising this maximises the worst-case fidelity over that perturbation box. Each <span class="arithmatex">\(\delta_k\)</span> is applied <strong>uniformly</strong> to all gate segments (so it models a systematic calibration error, not per-segment noise). The total grid is <span class="arithmatex">\(\text{num\_samples}^{|P|}\)</span> points — keep <span class="arithmatex">\(|P|\)</span> small.</p>
-<h3 id="65-bound">6.5 <code>bound</code><a class="headerlink" href="#65-bound" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">g</span><span class="o">.</span><span class="n">bound</span><span class="p">({</span><span class="s1">&#39;X&#39;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)},</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">,</span> <span class="n">bounding_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
-</code></pre></div>
-<p>Two methods:</p>
+<p><span class="arithmatex">\(F_{\text{proj}} \in [0,1]\)</span> is invariant under <span class="arithmatex">\(U \mapsto e^{i\theta}U\)</span> (the global phase is unobservable). <span class="arithmatex">\(F_{\text{full}} \in [-1,1]\)</span> is not. Use <code>projective=False</code> only when the absolute phase matters — for example, when the gate is a sub-block of a larger coherent unitary, or when stitching multiple gates whose relative phase enters the composite fidelity.</p>
+<p>Two pathologies to keep in mind for phase-sensitive mode:</p>
 <ul>
-<li><code>'mid_point'</code> / <code>'mp'</code> — pulls parameters toward the centre of the feasible box via a least-squares projection.</li>
-<li><code>'projected_gradient'</code> / <code>'pg'</code> — gradient of the maximum-violation <span class="arithmatex">\(\max(\phi - u_b, l_b - \phi)\)</span>, projected onto the null space.</li>
+<li><strong>Traceless targets</strong> (Hadamard, single-qubit <span class="arithmatex">\(X/Y/Z\)</span>, etc.) make the gradient of <span class="arithmatex">\(F_{\text{full}}\)</span> vanish at <span class="arithmatex">\(U = I\)</span> in every direction; a random init near identity has no descent direction. Use larger <code>init_spread</code> or non-zero <code>init_values</code>.</li>
+<li><strong>Stopping criterion</strong>. <code>precision = 0.9999999</code> is meaningful for <span class="arithmatex">\(F_{\text{proj}}\)</span>. For <span class="arithmatex">\(F_{\text{full}}\)</span> the same threshold is valid near the optimum (both fidelities agree as <span class="arithmatex">\(U \to U_T\)</span>), but the optimiser may transit negative-fidelity regions on its way — that's geometry, not a bug.</li>
 </ul>
-<p><code>pg</code> typically converges faster when most parameters are already feasible; <code>mp</code> is gentler and more useful when starting from a heavily-violating point.</p>
-<hr />
-<h2 id="7-phase-sensitive-vs-projective">7. Phase-sensitive vs projective<a class="headerlink" href="#7-phase-sensitive-vs-projective" title="Permanent link">¤</a></h2>
-<p>The default <code>projective=True</code> should be your first choice. Use <code>projective=False</code> only when:</p>
-<ul>
-<li>you need the absolute phase of the gate (e.g. matching a stored reference rather than an equivalence class);</li>
-<li>the gate is a sub-block of a larger, coherent unitary so global phase becomes a relative phase against spectators;</li>
-<li>you're stitching several gates and the inter-gate phases enter the composite fidelity.</li>
-</ul>
-<p>The two are coupled internally: <code>projective=False</code> activates the U-geodesic (no trace subtraction) <strong>and</strong> rebinds <code>infid_U_fn</code> to <span class="arithmatex">\(1 - F_{\text{full}}\)</span>. The line search is correct for both modes (it minimises infidelity, which is always non-negative). The two pathologies to watch out for:</p>
-<ul>
-<li><strong>Traceless targets.</strong> When <span class="arithmatex">\(\mathrm{Tr}(U_T) = 0\)</span> (e.g. Hadamard, single-qubit Pauli <span class="arithmatex">\(X\)</span>, <span class="arithmatex">\(Y\)</span>, <span class="arithmatex">\(Z\)</span>, etc.), <span class="arithmatex">\(F_{\text{full}}\)</span> has a vanishing gradient at <span class="arithmatex">\(U = I\)</span> in every controllable direction. A random initialisation near the identity will have no descent direction. Use larger <code>init_spread</code> (≥ 0.5) or seed <code>init_values</code> away from zero.</li>
-<li><strong>Stopping criterion.</strong> <code>precision = 0.9999999</code> makes sense for <span class="arithmatex">\(F_{\text{proj}} \in [0,1]\)</span>. For <span class="arithmatex">\(F_{\text{full}}\)</span> the same number still works <em>near the optimum</em> (both fidelities agree as <span class="arithmatex">\(U \to U_T\)</span>), but the optimiser may pass through negative-fidelity regions on the way. That's fine — it isn't a stopping criterion failure, just the geometry of the cost surface.</li>
-</ul>
-<hr />
-<h2 id="8-full-worked-example">8. Full worked example<a class="headerlink" href="#8-full-worked-example" title="Permanent link">¤</a></h2>
-<p>A two-qubit XX-coupled chain, controllable only on <span class="arithmatex">\(\{X_i, Y_i, ZZ\}\)</span>, with <code>param_transform</code> to drive XY rotations by a single amplitude and phase per qubit, pulse-shape constraint on the coupling, post-optimisation smoothing and robustness.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">geope</span>
-
-<span class="c1"># --- 1. Target: SWAP gate</span>
-<span class="n">SWAP</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
-<span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-
-<span class="c1"># --- 2. Basis: full 2-qubit Pauli</span>
-<span class="n">basis</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-
-<span class="c1"># --- 3. Controllable subset: single-qubit XY drives + a tunable ZZ coupling</span>
-<span class="n">control</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="mi">1</span><span class="p">:</span>      <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">],</span>
-    <span class="mi">2</span><span class="p">:</span>      <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">],</span>
-    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span>
-<span class="p">}</span>
-
-<span class="c1"># --- 4. (No drift in this example)</span>
-<span class="c1"># --- 5. Experimental parametrisation:</span>
-<span class="c1">#     phi^exp per segment = (A1, varphi1, A2, varphi2, J_zz)  →  basis coefficients</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">tau</span><span class="p">(</span><span class="n">phi</span><span class="p">):</span>
-    <span class="n">A1</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">A2</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">Jzz</span> <span class="o">=</span> <span class="n">phi</span>
-    <span class="n">out</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>                  <span class="c1"># 5 controllable basis elements</span>
-    <span class="c1"># The projected basis ordering follows basis.labels, filtered by `control`.</span>
-    <span class="c1"># In this example the order happens to be (X1, Y1, X2, Y2, ZZ).</span>
-    <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">A1</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">p1</span><span class="p">))</span>   <span class="c1"># X on qubit 1</span>
-    <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">A1</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">p1</span><span class="p">))</span>   <span class="c1"># Y on qubit 1</span>
-    <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">A2</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">p2</span><span class="p">))</span>   <span class="c1"># X on qubit 2</span>
-    <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">A2</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">p2</span><span class="p">))</span>   <span class="c1"># Y on qubit 2</span>
-    <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">Jzz</span><span class="p">)</span>                <span class="c1"># ZZ</span>
-    <span class="k">return</span> <span class="n">out</span>
-
-<span class="c1"># --- 6. Build Parameters with the experimental parametrisation</span>
-<span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
-    <span class="n">basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
-    <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span>
-    <span class="n">target</span><span class="o">=</span><span class="n">SWAP</span><span class="p">,</span>
-    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
-    <span class="n">param_transform</span><span class="o">=</span><span class="n">tau</span><span class="p">,</span>
-    <span class="n">n_experimental_params</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-    <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>          <span class="c1"># by INDEX (not label) — required with param_transform</span>
-    <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-    <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="c1"># --- 7. Optimise</span>
-<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;main optimisation: F = </span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span><span class="si">:</span><span class="s2">.7f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<span class="c1"># --- 8. Post-process: smooth in time, then enforce robustness on the</span>
-<span class="c1">#       Rabi amplitudes (parameter indices 0 and 2).</span>
-<span class="n">g</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;after smoothing:  F = </span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span><span class="si">:</span><span class="s2">.7f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<span class="n">g</span><span class="o">.</span><span class="n">robust</span><span class="p">(</span><span class="n">parameter_indices</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-         <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;after robustness: F = </span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span><span class="si">:</span><span class="s2">.7f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<span class="c1"># --- 9. Inspect the final solution</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Best (A1, varphi1, A2, varphi2, Jzz) per segment:&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">best_parameters</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
-</code></pre></div>
-<p>The patterns to take from this example:</p>
-<ul>
-<li>The experimental parametrisation lives entirely in <code>tau</code>. Optimisation never sees the raw basis coefficients on the input side.</li>
-<li>Pulse constraints reference parameter <strong>indices</strong> (not labels) because labels don't make sense in experimental space.</li>
-<li>Robustness, smoothing, and other auxiliaries also reference indices and otherwise look identical to the non-<code>param_transform</code> case.</li>
-<li><code>params.best_basis_coefficients</code> gives you the induced basis coefficients <span class="arithmatex">\(\tau(\phi^{\text{exp}})\)</span> across all gate segments, in case you want them for downstream analysis (e.g. computing the realised Hamiltonian).</li>
-</ul>
-<hr />
-<h2 id="9-cheat-sheet">9. Cheat sheet<a class="headerlink" href="#9-cheat-sheet" title="Permanent link">¤</a></h2>
+<h2 id="null-space-optimisation">Null-space optimisation<a class="headerlink" href="#null-space-optimisation" title="Permanent link">¤</a></h2>
+<p>After the main GEOPE loop has converged, the null space of the Jacobian <span class="arithmatex">\(\omega\)</span> represents directions in parameter space that don't change the unitary to first order. Stepping along these lets you optimise secondary objectives while preserving fidelity.</p>
+<h3 id="available-objectives">Available objectives<a class="headerlink" href="#available-objectives" title="Permanent link">¤</a></h3>
 <table>
 <thead>
 <tr>
-<th>Task</th>
-<th>Code</th>
+<th>Method</th>
+<th>Cost minimised</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>All Pauli strings on n qubits</td>
-<td><code>geope.construct_full_pauli_basis(n)</code></td>
+<td><code>smooth(...)</code></td>
+<td><span class="arithmatex">\(\sum_g \|\phi_{g+1} - \phi_g\|^2\)</span></td>
+<td>reduce variation across segments</td>
 </tr>
 <tr>
-<td>Only ≤2-body terms</td>
-<td><code>geope.construct_two_body_pauli_basis(n)</code></td>
+<td><code>smooth_frequency(...)</code></td>
+<td>$\sum_{m \ge 1, k}</td>
+<td>\widehat{\phi_k}(m)</td>
 </tr>
 <tr>
-<td>Heisenberg (single + XX/YY/ZZ)</td>
-<td><code>geope.construct_Heisenberg_pauli_basis(n)</code></td>
+<td><code>filter_frequency(filter_fn, ...)</code></td>
+<td><span class="arithmatex">\(\|\widehat\phi - \mathcal{F}(\widehat\phi)\|^2\)</span></td>
+<td>drive <span class="arithmatex">\(\phi\)</span> toward a user-defined filtered version (= <span class="arithmatex">\(L^2\)</span> distance by Parseval)</td>
 </tr>
 <tr>
-<td>Build Parameters</td>
-<td><code>geope.Parameters(basis=..., control=..., target=..., piecewise_steps=...)</code></td>
+<td><code>speed(parameter_*, ...)</code></td>
+<td>$\max_{g, k \in P}</td>
+<td>\phi_{g,k}</td>
 </tr>
 <tr>
-<td>Run</td>
-<td><code>geope.Geope(params, max_steps=..., precision=...).optimize()</code></td>
+<td><code>length(parameter_*, ...)</code></td>
+<td><span class="arithmatex">\(\sum_g \sqrt{\sum_{k \in P}\phi_{g,k}^2 + \|d_g\|^2}\)</span></td>
+<td>reduce total pulse length (drift contribution included)</td>
 </tr>
 <tr>
-<td>Best fidelity</td>
-<td><code>params.best_fidelity</code></td>
+<td><code>robust(parameter_*, delta, num_samples, ...)</code></td>
+<td>$1 - \min_{\delta \in [-\Delta,+\Delta]^{</td>
+<td>P</td>
 </tr>
 <tr>
-<td>Best parameters</td>
-<td><code>params.best_parameters</code></td>
-</tr>
-<tr>
-<td>Solution as a dict</td>
-<td><code>params.to_dict()</code></td>
-</tr>
-<tr>
-<td>Phase-sensitive</td>
-<td><code>Parameters(..., projective=False)</code></td>
-</tr>
-<tr>
-<td>Pulse-shape constraint</td>
-<td><code>Parameters(..., pulse_constraints=['X','Y'])</code></td>
-</tr>
-<tr>
-<td>Experimental parameters</td>
-<td><code>Parameters(..., param_transform=tau, n_experimental_params=K)</code></td>
-</tr>
-<tr>
-<td>Smooth in time</td>
-<td><code>Geope(...).smooth(...)</code></td>
-</tr>
-<tr>
-<td>Suppress high frequencies</td>
-<td><code>Geope(...).smooth_frequency(...)</code></td>
-</tr>
-<tr>
-<td>Apply a frequency filter</td>
-<td><code>Geope(...).filter_frequency(filter_fn, ...)</code></td>
-</tr>
-<tr>
-<td>Limit peak amplitude</td>
-<td><code>Geope(...).speed(parameter_labels=[...], ...)</code></td>
-</tr>
-<tr>
-<td>Limit total pulse length</td>
-<td><code>Geope(...).length(parameter_labels=[...], ...)</code></td>
-</tr>
-<tr>
-<td>Robustness to δ noise</td>
-<td><code>Geope(...).robust(parameter_labels=[...], delta=..., ...)</code></td>
-</tr>
-<tr>
-<td>Enforce box bounds</td>
-<td><code>Geope(...).bound({label: (lo, hi)}, ...)</code></td>
+<td><code>bound(bounds, method, ...)</code></td>
+<td><span class="arithmatex">\(\max(\phi - u_b, l_b - \phi)\)</span></td>
+<td>enforce a box constraint via <code>'projected_gradient'</code> / <code>'pg'</code> or <code>'mid_point'</code> / <code>'mp'</code></td>
 </tr>
 </tbody>
 </table>
+<p>Each returns <code>(success, iters)</code>. Pass <code>piecewise_steps_multiplier &gt; 1</code> to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.</p>
+<h3 id="null-space-algorithm-_null_space_optimisation">Null-space algorithm: <code>_null_space_optimisation()</code><a class="headerlink" href="#null-space-algorithm-_null_space_optimisation" title="Permanent link">¤</a></h3>
+<div class="highlight"><pre><span></span><code>1. Optionally subdivide piecewise steps (piecewise_steps_multiplier)
+2. Build the combined expander (pulse × linear-equality)
+3. For each iteration:
+   a. Compute Jacobian projections ω
+   b. SVD of ω → null-space basis N (right-singular vectors below the rank)
+   c. Compute the cost gradient ∇C(φ)
+   d. Project the negative gradient onto the null space:
+        x = lstsq(N, -∇C)
+   e. Step: φ ← φ + rate · N·x / ||x||
+   f. Enforce pulse templates if applicable
+   g. Recompute fidelity (preserved to first order)
+</code></pre></div>
+<h2 id="parameter-spaces-and-index-mappings">Parameter spaces and index mappings<a class="headerlink" href="#parameter-spaces-and-index-mappings" title="Permanent link">¤</a></h2>
+<p>The codebase uses three basis spaces with boolean masks mapping between them:</p>
+<div class="highlight"><pre><span></span><code>full_basis  (dim K_full)         — all generators
+  ├── projected_indices          — shape (K_full,)
+  ├── drift_indices              — shape (K_full,)
+  └── proj_drift_indices         — projected | drift
+
+proj_drift_basis  (dim K_pd)     — only projected + drift elements
+  ├── proj_indices_projdrift_basis    — shape (K_pd,)
+  └── drift_indices_projdrift_basis   — shape (K_pd,)
+
+projected_basis  (dim K_proj)    — only the controllable elements
+</code></pre></div>
+<p>Parameters are stored in full-basis space <span class="arithmatex">\((N_g, K_{\text{full}})\)</span>. JIT functions operate on the proj+drift subspace <span class="arithmatex">\((N_g, K_{\text{pd}})\)</span>. With <code>param_transform</code>, the engine indices are overridden so the optimisation runs uniformly on <span class="arithmatex">\(\phi^{\text{exp}} \in \mathbb{R}^{N_g \times n_{\text{exp}}}\)</span>.</p>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">¤</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">geope</span>
+
+<span class="c1"># Bases</span>
+<span class="n">full</span>    <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">control</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span> <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span> <span class="mi">3</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]}</span>
+<span class="n">drift</span>   <span class="o">=</span> <span class="p">{(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">]}</span>
+
+<span class="c1"># Target: Toffoli</span>
+<span class="n">target</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">multicontrol_unitary</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]),</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># Bundle everything in a Parameters object</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
+    <span class="n">basis</span><span class="o">=</span><span class="n">full</span><span class="p">,</span>
+    <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span>
+    <span class="n">drift</span><span class="o">=</span><span class="n">drift</span><span class="p">,</span>
+    <span class="n">drift_values</span><span class="o">=</span><span class="p">{(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+                  <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+                  <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}},</span>
+    <span class="n">target</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
+    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Run — populates params history in place; returns the same Parameters</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999</span><span class="p">)</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+
+<span class="c1"># Null-space passes — fidelity preserved</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999</span><span class="p">)</span>
+<span class="n">g</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="n">g</span><span class="o">.</span><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="n">g</span><span class="o">.</span><span class="n">bound</span><span class="p">({</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)},</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">)</span>
+<span class="n">g</span><span class="o">.</span><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;XII&quot;</span><span class="p">,</span> <span class="s2">&quot;IXI&quot;</span><span class="p">,</span> <span class="s2">&quot;IIX&quot;</span><span class="p">],</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">g</span><span class="o">.</span><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;XII&quot;</span><span class="p">,</span> <span class="s2">&quot;IXI&quot;</span><span class="p">,</span> <span class="s2">&quot;IIX&quot;</span><span class="p">])</span>
+<span class="n">g</span><span class="o">.</span><span class="n">length</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="building-a-parameters-from-pre-built-bases">Building a <code>Parameters</code> from pre-built bases<a class="headerlink" href="#building-a-parameters-from-pre-built-bases" title="Permanent link">¤</a></h3>
+<p>If you've already constructed <code>Basis</code> objects (e.g. via <code>construct_restricted_pauli_basis</code>) and don't want to re-express them as <code>control</code> / <code>drift</code> dicts, pass them directly via the <code>projected_basis</code> and <code>drift_basis</code> kwargs:</p>
+<div class="highlight"><pre><span></span><code><span class="n">projected</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
+<span class="n">drift_b</span>   <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">])</span>
+
+<span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
+    <span class="n">basis</span><span class="o">=</span><span class="n">full</span><span class="p">,</span>
+    <span class="n">projected_basis</span><span class="o">=</span><span class="n">projected</span><span class="p">,</span>
+    <span class="n">drift_basis</span><span class="o">=</span><span class="n">drift_b</span><span class="p">,</span>
+    <span class="n">drift_values</span><span class="o">=</span><span class="n">drift_b</span><span class="o">.</span><span class="n">generate_parameter_list</span><span class="p">({</span>
+        <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+        <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+        <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">{</span><span class="s2">&quot;zz&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+    <span class="p">}),</span>
+    <span class="n">target</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
+    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>This is the escape hatch for cases where the projected subset can't be expressed as a control dict. <code>projected_basis</code> and <code>control</code> are mutually exclusive; same for <code>drift_basis</code> and <code>drift</code>.</p>
 
 
 

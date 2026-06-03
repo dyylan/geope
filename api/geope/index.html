@@ -499,7 +499,7 @@
   
   
   <span class="md-ellipsis">
-    Using GEOPE with Parameters
+    GEOPE – Geodesic Pulse Engineering
     
   </span>
   
@@ -1326,12 +1326,23 @@ controllable subalgebra.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
+            <td><code><span title="geope.geope.Geope.params">params</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The bound <code>Parameters</code> object (the single source of truth
+for all configuration and the destination for the run history).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="geope.geope.Geope.engine">engine</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The underlying <code>GeopeEngine</code>.</p>
+                <p>The internal <code>GeopeEngine</code> constructed from <code>params</code>.</p>
               </div>
             </td>
           </tr>
@@ -1372,16 +1383,6 @@ controllable subalgebra.</p>
             <td>
               <div class="doc-md-description">
                 <p>Step size for Gram-Schmidt fallback moves.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.init_parameters_spread">init_parameters_spread</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Spread of random initial parameters.</p>
               </div>
             </td>
           </tr>
@@ -1576,7 +1577,7 @@ errors defaults to 'strict'.</p>
 
 
 <h5 id="geope.geope.Geope.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> <span class="n">drift_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span> <span class="n">init_parameters_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">line_search_method</span><span class="o">=</span><span class="s1">&#39;golden_section&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span> <span class="n">line_search_method</span><span class="o">=</span><span class="s1">&#39;golden_section&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#geope.geope.Geope.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1584,12 +1585,10 @@ errors defaults to 'strict'.</p>
     <div class="doc doc-contents ">
 
         <p>Initialise the Geope optimiser.</p>
-<p>Accepts either a <code>Parameters</code> object (new high-level API) or a
-<code>GeopeEngine</code> (legacy low-level API). When a <code>Parameters</code> is
-passed, the engine and ancillary state (initial parameters,
-drift, constraints, pulse constraints, seed, init spread,
-projective flag, <code>param_transform</code>) are read from it; the
-legacy keyword arguments are ignored.</p>
+<p><code>Geope</code> requires a <code>Parameters</code> object — the engine, initial
+parameters, drift, constraints, pulse constraints, seed,
+initialisation spread, projective flag and <code>param_transform</code> are
+all read from it. To construct one, use :class:<code>Parameters</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1605,85 +1604,19 @@ legacy keyword arguments are ignored.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>engine</code>
+                <code>params</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a> | <a class="autorefs autorefs-internal" title="            geope.geope.GeopeEngine" href="#geope.geope.GeopeEngine">GeopeEngine</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Either a <code>GeopeEngine</code> instance (legacy API) or a
-<code>Parameters</code> instance (new high-level API). The
-parameter is named <code>engine</code> for backward compatibility
-with the original keyword call site.</p>
+                <p>A <code>Parameters</code> instance bundling every input the
+optimiser needs.</p>
               </div>
             </td>
             <td>
                 <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>drift_parameters</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Fixed drift parameter values (legacy API only).</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>init_parameters</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Initial parameter array (legacy API only).</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>constraints</code>
-            </td>
-            <td>
-                  <code><span title="list">list</span>[<span title="numpy.ndarray">ndarray</span>] | <span title="numpy.ndarray">ndarray</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Linear equality constraints (legacy API only).</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>pulse_constraints</code>
-            </td>
-            <td>
-                  <code><span title="dict">dict</span> | <span title="list">list</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Pulse-shape constraints (legacy API only).</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -1753,23 +1686,6 @@ Defaults to 1.3.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>init_parameters_spread</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Spread for random initialisation
-(legacy API only). Defaults to 0.1.</p>
-              </div>
-            </td>
-            <td>
-                  <code>0.1</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
                 <code>line_search_method</code>
             </td>
             <td>
@@ -1801,20 +1717,29 @@ Defaults to <code>'golden_section'</code>.</p>
                   <code>False</code>
             </td>
           </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>seed</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | None</code>
+                  <code><span title="TypeError">TypeError</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Random seed (legacy API only).</p>
+                <p>If <code>params</code> is not a <code>Parameters</code> instance.
+The legacy <code>Geope(engine=...)</code> call site is no longer
+supported; build a <code>Parameters</code> object instead.</p>
               </div>
-            </td>
-            <td>
-                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -1983,11 +1908,31 @@ Defaults to 0.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>True</code> if the target precision was reached, <code>False</code> otherwise.</p>
+                <p>The bound <code>Parameters</code> instance, with its mutable history</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>populated. Call <code>params.best_fidelity</code>, <code>params.best_parameters</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>or <code>params.to_dict()</code> to read the solution.</p>
               </div>
             </td>
           </tr>
