@@ -640,9 +640,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-create-the-engine-and-optimiser" class="md-nav__link">
+  <a href="#3-create-the-parameters-and-optimiser" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Create the engine and optimiser
+      3. Create the parameters and optimiser
     </span>
   </a>
   
@@ -971,9 +971,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-create-the-engine-and-optimiser" class="md-nav__link">
+  <a href="#3-create-the-parameters-and-optimiser" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Create the engine and optimiser
+      3. Create the parameters and optimiser
     </span>
   </a>
   
@@ -1057,8 +1057,9 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">geope</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">GeopeEngine</span><span class="p">,</span>
     <span class="n">Geope</span><span class="p">,</span>
+    <span class="n">Parameters</span><span class="p">,</span>
+    <span class="n">History</span><span class="p">,</span>
     <span class="n">Hamiltonian</span><span class="p">,</span>
     <span class="n">construct_full_pauli_basis</span><span class="p">,</span>
     <span class="n">construct_restricted_pauli_basis</span><span class="p">,</span>
@@ -1072,10 +1073,6 @@
 <div class="highlight"><pre><span></span><code><span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Target unitary (Hadamard):&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>Target unitary (Hadamard):
-[[ 0.70710678+0.j  0.70710678+0.j]
- [ 0.70710678+0.j -0.70710678+0.j]]
 </code></pre></div>
 <h2 id="2-build-the-pauli-bases">2. Build the Pauli bases<a class="headerlink" href="#2-build-the-pauli-bases" title="Permanent link">¤</a></h2>
 <p>For a single qubit the full Pauli basis is <span class="arithmatex">\(\{\sigma_x, \sigma_y, \sigma_z\}\)</span> (excluding identity). GEOPE uses this as the Lie algebra generators from which unitaries are constructed via the matrix exponential, a single time step expression of the unitary is:</p>
@@ -1100,95 +1097,64 @@
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Projected basis labels: </span><span class="si">{</span><span class="n">projected_basis</span><span class="o">.</span><span class="n">labels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Drift basis labels:     </span><span class="si">{</span><span class="n">drift_basis</span><span class="o">.</span><span class="n">labels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>Number of qubits:       1
-Hilbert space dim:      2
-Lie algebra dim:        3
-Basis labels:           [&#39;X&#39;, &#39;Y&#39;, &#39;Z&#39;]
-Projected basis labels: [&#39;X&#39;, &#39;Y&#39;]
-Drift basis labels:     [&#39;Z&#39;]
-</code></pre></div>
-<h2 id="3-create-the-engine-and-optimiser">3. Create the engine and optimiser<a class="headerlink" href="#3-create-the-engine-and-optimiser" title="Permanent link">¤</a></h2>
-<p>The <code>GeopeEngine</code> precompiles the JAX functions (unitary computation, Jacobian, geodesic Hamiltonian, fidelity). <code>Geope</code> wraps the engine with an optimisation loop.</p>
-<p>The number of piecewise steps is set in the <code>GeopeEngine</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="n">engine</span> <span class="o">=</span> <span class="n">GeopeEngine</span><span class="p">(</span>
-    <span class="n">target_unitary</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
-    <span class="n">full_basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
+<h2 id="3-create-the-parameters-and-optimiser">3. Create the parameters and optimiser<a class="headerlink" href="#3-create-the-parameters-and-optimiser" title="Permanent link">¤</a></h2>
+<p><code>Parameters</code> bundles the problem definition — the bases, target, initial/drift values, number of piecewise steps and seed. Pass it to <code>Geope</code>, which builds the <code>GeopeEngine</code>, precompiles the JAX functions (unitary computation, Jacobian, geodesic Hamiltonian, fidelity) and wraps them in an optimisation loop.</p>
+<p>An optional <code>History</code> logger records the per-step trajectory (parameters, fidelities, …). Without it, only the live/final state on <code>Parameters</code> is kept.</p>
+<p>The number of piecewise steps is set on <code>Parameters</code> (<code>piecewise_steps</code>).</p>
+<div class="highlight"><pre><span></span><code><span class="n">params</span> <span class="o">=</span> <span class="n">Parameters</span><span class="p">(</span>
+    <span class="n">basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
     <span class="n">projected_basis</span><span class="o">=</span><span class="n">projected_basis</span><span class="p">,</span>
     <span class="n">drift_basis</span><span class="o">=</span><span class="n">drift_basis</span><span class="p">,</span>
-    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">3</span>
+    <span class="n">init_values</span><span class="o">=</span><span class="n">init_parameters</span><span class="p">,</span>
+    <span class="n">drift_values</span><span class="o">=</span><span class="n">drift_parameters</span><span class="p">,</span>
+    <span class="n">target</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
+    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">opt</span> <span class="o">=</span> <span class="n">Geope</span><span class="p">(</span>
-    <span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span>
-    <span class="n">init_parameters</span><span class="o">=</span><span class="n">init_parameters</span><span class="p">,</span>
-    <span class="n">drift_parameters</span><span class="o">=</span><span class="n">drift_parameters</span><span class="p">,</span>
-    <span class="n">max_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+    <span class="n">params</span><span class="p">,</span>
     <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span>
     <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
     <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+    <span class="n">history</span><span class="o">=</span><span class="n">History</span><span class="p">(),</span>
 <span class="p">)</span>
 </code></pre></div>
 <h2 id="4-run-the-optimisation">4. Run the optimisation<a class="headerlink" href="#4-run-the-optimisation" title="Permanent link">¤</a></h2>
-<p><code>optimize()</code> runs the geodesic update loop. Each step:
+<p><code>optimize(max_steps=...)</code> runs the geodesic update loop. Each step:
 1. Computes the geodesic Hamiltonian pointing from the current unitary towards the target.
 2. Projects it onto the controllable basis to find the optimal parameter update direction.
 3. Performs a line search along that direction.</p>
-<p>The method returns <code>True</code> if the target precision is reached.</p>
-<div class="highlight"><pre><span></span><code><span class="n">success</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Converged: </span><span class="si">{</span><span class="n">success</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Steps:       </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fidelity:    </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">fidelities</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final parameters: </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>[4/200] [Fidelity = 0.999999999983874] A solution!                                                                      
+<p>It returns the bound <code>Parameters</code> object, whose <code>parameters</code> / <code>fidelity</code> hold the final result; convergence is reached when <code>params.fidelity &gt;= precision</code>. With a <code>History</code> attached, the full trajectory is available on <code>opt.history</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
 
-Converged: True
-Steps:       4
-Fidelity:    0.999999999983874
-Final parameters: [[ 1.107527   -0.61167785  1.        ]
- [ 0.66549443 -1.1386477   1.        ]
- [ 0.79323502 -0.51359499  1.        ]]
+<span class="n">converged</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span> <span class="o">&gt;=</span> <span class="n">opt</span><span class="o">.</span><span class="n">precision</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Converged:        </span><span class="si">{</span><span class="n">converged</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Steps:            </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fidelity:         </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final parameters: </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">parameters</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="5-check-the-result">5. Check the result<a class="headerlink" href="#5-check-the-result" title="Permanent link">¤</a></h2>
 <h3 id="convergence-plot">Convergence plot<a class="headerlink" href="#convergence-plot" title="Permanent link">¤</a></h3>
 <p>The fidelity should climb rapidly towards 1.</p>
 <div class="highlight"><pre><span></span><code><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">opt</span><span class="o">.</span><span class="n">steps</span><span class="p">,</span> <span class="n">opt</span><span class="o">.</span><span class="n">fidelities</span><span class="p">,</span> <span class="s2">&quot;o-&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">opt</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">steps</span><span class="p">,</span> <span class="n">opt</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">fidelities</span><span class="p">,</span> <span class="s2">&quot;o-&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Step&quot;</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Fidelity&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;GEOPE convergence — Hadamard gate&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;GEOPE convergence </span><span class="se">\u2014</span><span class="s2"> Hadamard gate&quot;</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">opt</span><span class="o">.</span><span class="n">precision</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;grey&quot;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Target = </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">precision</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
-<p><img alt="img" src="../_data/4794a34445584ad9b147859876c9fe83.png" /></p>
 <h3 id="recovered-parameters">Recovered parameters<a class="headerlink" href="#recovered-parameters" title="Permanent link">¤</a></h3>
 <p>The optimised Lie-algebra coefficients <span class="arithmatex">\(\boldsymbol{\phi}\)</span> define the Hamiltonian whose exponential gives the target gate.</p>
-<div class="highlight"><pre><span></span><code><span class="n">final_params</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><span class="n">final_params</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">parameters</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Optimised parameters:&quot;</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">param_step</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">final_params</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="se">\n</span><span class="s2">Time step </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">phi</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">param_step</span><span class="p">):</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">phi</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>Optimised parameters:
---
-Time step 0
-    X: 1.107527
-    Y: -0.611678
-    Z: 1.000000
---
-Time step 1
-    X: 0.665494
-    Y: -1.138648
-    Z: 1.000000
---
-Time step 2
-    X: 0.793235
-    Y: -0.513595
-    Z: 1.000000
 </code></pre></div>
 <h3 id="verify-the-synthesised-unitary">Verify the synthesised unitary<a class="headerlink" href="#verify-the-synthesised-unitary" title="Permanent link">¤</a></h3>
 <p>Reconstruct the unitary from the optimised parameters and compare it to the target. We find the target unitary up to global phase.</p>
@@ -1203,16 +1169,6 @@ Time step 2
 
 <span class="n">fid</span> <span class="o">=</span> <span class="n">fidelity</span><span class="p">(</span><span class="n">unitary_matrix</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Fidelity: </span><span class="si">{</span><span class="n">fid</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>Synthesised unitary:
-[[ 5.43007304e-06-0.70710785j -6.92167273e-07-0.70710571j]
- [ 6.92167273e-07-0.70710571j  5.43007304e-06+0.70710785j]]
-
-Target unitary:
-[[ 0.70710678+0.j  0.70710678+0.j]
- [ 0.70710678+0.j -0.70710678+0.j]]
-
-Fidelity: 0.9999999999838738
 </code></pre></div>
 
 

@@ -965,8 +965,8 @@
         <p>Central state object for the Basis -&gt; Parameters -&gt; Optimizer pipeline.</p>
 <p>Holds the system description (basis, control/drift Hamiltonians, target),
 optimisation config (constraints, bounds, <code>param_transform</code>), and the
-mutable history (parameters, fidelities) that is written back by
-optimisers such as <code>Geope</code>.</p>
+<em>live</em> optimisation state (<code>parameters</code>, <code>fidelity</code>) that an optimiser
+such as <code>Geope</code> updates in place.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1135,16 +1135,6 @@ into the projected basis under the constraints.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.parameters.Parameters.init_parameters">init_parameters</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Initial parameter <code>np.ndarray</code>.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
             <td><code><span title="geope.parameters.Parameters.drift_parameters">drift_parameters</span></code></td>
             <td>
             </td>
@@ -1180,47 +1170,32 @@ into the projected basis under the constraints.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Mutable list of parameter arrays appended by an optimiser.</p>
+                <p>Current parameter <code>np.ndarray</code> (full-basis), seeded to
+the initial guess and updated in place by an optimiser.</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.parameters.Parameters.fidelities">fidelities</span></code></td>
+            <td><code><span title="geope.parameters.Parameters.fidelity">fidelity</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Mutable list of fidelity values appended by an optimiser.</p>
+                <p>Current fidelity value, or <code>None</code> before a run.</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.parameters.Parameters.infidelities">infidelities</span></code></td>
+            <td><code><a class="autorefs autorefs-internal" title="            infidelity
+
+  
+      property
+   (geope.parameters.Parameters.infidelity)" href="#geope.parameters.Parameters.infidelity">infidelity</a></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Mutable list of infidelity values.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.parameters.Parameters.step_sizes">step_sizes</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Mutable list of optimiser step sizes.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.parameters.Parameters.steps">steps</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Mutable list of step counters.</p>
+                <p><code>1 - fidelity</code> (<code>None</code> before a run).</p>
               </div>
             </td>
           </tr>
@@ -1351,22 +1326,22 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.parameters.Parameters.best_basis_coefficients" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">best_basis_coefficients</span></code>
+<h5 id="geope.parameters.Parameters.basis_coefficients" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">basis_coefficients</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.parameters.Parameters.best_basis_coefficients" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.parameters.Parameters.basis_coefficients" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>Best parameters mapped through <code>param_transform</code> if set.</p>
-<p>Returns the induced basis coefficients corresponding to
-<code>self.best_parameters</code>. If <code>param_transform</code> is <code>None</code>
-this is just the best parameters.</p>
+        <p>Current parameters mapped through <code>param_transform</code> if set.</p>
+<p>Returns the induced basis coefficients corresponding to the
+current <code>self.parameters</code>. If <code>param_transform</code> is <code>None</code>
+this is just the current parameters.</p>
 
     </div>
 
@@ -1376,41 +1351,19 @@ this is just the best parameters.</p>
 
 
 
-<h5 id="geope.parameters.Parameters.best_fidelity" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">best_fidelity</span></code>
+<h5 id="geope.parameters.Parameters.infidelity" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">infidelity</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.parameters.Parameters.best_fidelity" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.parameters.Parameters.infidelity" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>Maximum recorded fidelity, or <code>None</code> if no run has happened.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.best_parameters" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">best_parameters</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.best_parameters" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Parameter array at the step of maximum fidelity, or <code>None</code>.</p>
+        <p><code>1 - fidelity</code>, or <code>None</code> before a run has computed it.</p>
 
     </div>
 
@@ -1774,28 +1727,10 @@ when <code>param_transform</code> is set. Defaults to
 
     <div class="doc doc-contents ">
 
-        <p>Export the best basis coefficients as a control-style dict.</p>
+        <p>Export the current basis coefficients as a control-style dict.</p>
 <p>Returns a dict keyed by qubit index (or qubit-index tuple) whose
 values are dicts mapping lower-case interaction labels to real
 coefficient values.</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.parameters.Parameters.reset_history" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">reset_history</span><span class="p">()</span></code>
-
-<a href="#geope.parameters.Parameters.reset_history" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Clear all mutable run history.</p>
 
 
     </div>

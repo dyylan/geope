@@ -705,6 +705,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#history-historypy" class="md-nav__link">
+    <span class="md-ellipsis">
+      History (history.py)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1376,6 +1385,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#history-historypy" class="md-nav__link">
+    <span class="md-ellipsis">
+      History (history.py)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1588,7 +1606,7 @@ U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\a
 \]</div>
 <p>where each <span class="arithmatex">\(H_g = \sum_k \phi_{g,k}\,G_k\)</span> is a linear combination of basis generators on segment <span class="arithmatex">\(g\)</span>.</p>
 <p>The core algorithm is the <strong>geodesic method</strong>: at each step it computes the shortest path on <span class="arithmatex">\(U(d)\)</span> from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.</p>
-<p>The entry point is <code>Parameters</code> — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, <code>param_transform</code>, bounds, init values, seed, projective flag). Pass it to <code>Geope</code> and call <code>.optimize()</code>. The same <code>Parameters</code> object is the destination for the run history (<code>fidelities</code>, <code>parameters</code>, <code>best_fidelity</code>, <code>to_dict()</code>, ...).</p>
+<p>The entry point is <code>Parameters</code> — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, <code>param_transform</code>, bounds, init values, seed, projective flag). Pass it to <code>Geope</code> and call <code>.optimize(max_steps=...)</code>. The returned <code>Parameters</code> carries the live/final <code>parameters</code> and <code>fidelity</code> (and <code>to_dict()</code>); the full run trajectory and <code>best_*</code> helpers live on an opt-in <code>History</code> logger (<code>geope.history</code>).</p>
 <p>The lower-level classes <code>Engine</code> and <code>GeopeEngine</code> are still available for inspection and for advanced users who want to build the JIT-compiled functions directly, but <code>Geope</code> itself only accepts a <code>Parameters</code>.</p>
 <h2 id="class-hierarchy">Class hierarchy<a class="headerlink" href="#class-hierarchy" title="Permanent link">¤</a></h2>
 <div class="highlight"><pre><span></span><code>Basis, Hamiltonian, Unitary      (lie.py)
@@ -1947,10 +1965,6 @@ GeopeEngine
 <td>the target</td>
 </tr>
 <tr>
-<td><code>init_parameters</code></td>
-<td>initial parameter array, shape <code>(N_g, K_{full})</code></td>
-</tr>
-<tr>
 <td><code>drift_parameters</code></td>
 <td>drift coefficients (or <code>None</code>)</td>
 </tr>
@@ -1964,7 +1978,7 @@ GeopeEngine
 </tr>
 </tbody>
 </table>
-<p>Mutable history written back by <code>Geope</code>:</p>
+<p>Live optimisation state — seeded at construction and updated in place by <code>Geope</code>:</p>
 <table>
 <thead>
 <tr>
@@ -1975,30 +1989,27 @@ GeopeEngine
 <tbody>
 <tr>
 <td><code>parameters</code></td>
-<td>list of parameter arrays, shape <code>(N_g, K_{full})</code> per entry</td>
+<td>current parameter array, shape <code>(N_g, K_{full})</code>; seeded to the initial guess, holds the final result after <code>optimize()</code></td>
 </tr>
 <tr>
-<td><code>fidelities</code>, <code>infidelities</code>, <code>step_sizes</code>, <code>steps</code></td>
-<td>history scalars</td>
+<td><code>fidelity</code></td>
+<td>current fidelity (<code>None</code> before a run)</td>
 </tr>
 <tr>
-<td><code>best_fidelity</code></td>
-<td><code>max(fidelities)</code></td>
+<td><code>infidelity</code></td>
+<td><code>1 - fidelity</code> (<code>None</code> before a run)</td>
 </tr>
 <tr>
-<td><code>best_parameters</code></td>
-<td>parameters at the highest-fidelity step</td>
-</tr>
-<tr>
-<td><code>best_basis_coefficients</code></td>
-<td>best parameters mapped through <code>param_transform</code> if set</td>
+<td><code>basis_coefficients</code></td>
+<td>current parameters mapped through <code>param_transform</code> if set</td>
 </tr>
 <tr>
 <td><code>to_dict()</code></td>
-<td>best solution as a control-style dict</td>
+<td>current solution as a control-style dict</td>
 </tr>
 </tbody>
 </table>
+<p>The full run trajectory and the <code>best_*</code> helpers live on the opt-in <a href="#history-historypy"><code>History</code></a> logger, not on <code>Parameters</code>.</p>
 <h2 id="engine-and-optimiser">Engine and optimiser<a class="headerlink" href="#engine-and-optimiser" title="Permanent link">¤</a></h2>
 <h3 id="engine-enginepy"><code>Engine</code> (<code>engine.py</code>)<a class="headerlink" href="#engine-enginepy" title="Permanent link">¤</a></h3>
 <div class="highlight"><pre><span></span><code><span class="n">Engine</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span>
@@ -2039,10 +2050,10 @@ GeopeEngine
 </ul>
 <h3 id="geope-geopepy"><code>Geope</code> (<code>geope.py</code>)<a class="headerlink" href="#geope-geopepy" title="Permanent link">¤</a></h3>
 <div class="highlight"><pre><span></span><code><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span>
-      <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
+      <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
       <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span>
       <span class="n">line_search_method</span><span class="o">=</span><span class="s2">&quot;golden_section&quot;</span><span class="p">,</span>
-      <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+      <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 <p><code>Geope</code> requires a <code>Parameters</code> object as its single positional argument. The engine, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and <code>param_transform</code> are all read from <code>params</code>. Passing a raw <code>GeopeEngine</code> raises <code>TypeError</code>.</p>
 <table>
@@ -2056,10 +2067,6 @@ GeopeEngine
 <tr>
 <td><code>params</code></td>
 <td>a <code>Parameters</code> instance bundling all inputs</td>
-</tr>
-<tr>
-<td><code>max_steps</code></td>
-<td>iteration cap</td>
 </tr>
 <tr>
 <td><code>precision</code></td>
@@ -2082,17 +2089,74 @@ GeopeEngine
 <td>print per-step progress</td>
 </tr>
 <tr>
-<td><code>seed</code></td>
-<td>random seed (legacy API)</td>
+<td><code>history</code></td>
+<td>optional <code>History</code> logger (<code>None</code> = no logging)</td>
 </tr>
 </tbody>
 </table>
-<p>State tracked across iterations:</p>
+<p>The iteration cap is now an argument of <code>optimize(max_steps=1000)</code>, not a constructor field.</p>
+<p>Live state and logging:</p>
 <ul>
-<li><code>parameters</code> — list of arrays of shape <span class="arithmatex">\((N_g, K_{\text{full}})\)</span>.</li>
-<li><code>fidelities</code>, <code>infidelities</code>, <code>step_sizes</code>, <code>steps</code> — history lists.</li>
+<li>The current parameters and fidelity live on <code>params</code> (<code>params.parameters</code>, <code>params.fidelity</code>); <code>Geope</code> updates them in place each step, and <code>optimize(max_steps=...)</code> returns the <code>Parameters</code> instance itself — so the user has a single handle for both inputs and the final result.</li>
+<li><code>step_size</code> — the transient last line-search step size.</li>
+<li><code>history</code> — an optional <code>History</code> logger (<code>None</code> unless one was passed). When supplied, the full run trajectory and <code>best_*</code> helpers are available on it (see below).</li>
 </ul>
-<p>These lists are mirrored onto the <code>Parameters</code> object after every <code>optimize()</code>, and <code>optimize()</code> returns the <code>Parameters</code> instance itself — so the user has a single handle for both inputs and outputs.</p>
+<h3 id="history-historypy"><code>History</code> (<code>history.py</code>)<a class="headerlink" href="#history-historypy" title="Permanent link">¤</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">History</span><span class="p">(</span><span class="n">log_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+<p>An opt-in, configurable run log. Pass one to <code>Geope</code> (<code>history=History()</code>) and the full trajectory is recorded into <code>geope.history</code>; leave it <code>None</code> and no history is kept (the final answer still lives on <code>params</code>).</p>
+<p>By default each step records five columns — <code>parameters</code> (a full-basis snapshot), <code>fidelities</code>, <code>infidelities</code>, <code>step_sizes</code>, and an integer <code>steps</code> counter derived from the log length. Pass <code>log_fn</code> to record arbitrary per-step values instead: it receives the running <code>Geope</code> and returns a <code>dict</code> of <code>column -&gt; value</code> (e.g. <code>History(log_fn=lambda g: {"fid": float(g.params.fidelity)})</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Member</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>record(geope)</code></td>
+<td>append one row via <code>log_fn</code>; called by <code>Geope</code> each step</td>
+</tr>
+<tr>
+<td><code>reset()</code></td>
+<td>drop all rows</td>
+</tr>
+<tr>
+<td><code>len(history)</code></td>
+<td>number of recorded rows</td>
+</tr>
+<tr>
+<td><code>history.&lt;col&gt;</code> / <code>history["&lt;col&gt;"]</code></td>
+<td>a logged column (the same list)</td>
+</tr>
+<tr>
+<td><code>keys()</code></td>
+<td>the logged column names</td>
+</tr>
+<tr>
+<td><code>to_dataframe()</code></td>
+<td>the logs as a <code>pandas.DataFrame</code></td>
+</tr>
+<tr>
+<td><code>best_fidelity</code></td>
+<td><code>max(fidelities)</code> (or <code>None</code>)</td>
+</tr>
+<tr>
+<td><code>best_parameters</code></td>
+<td>parameters at the highest-fidelity step (or <code>None</code>)</td>
+</tr>
+<tr>
+<td><code>best_basis_coefficients</code></td>
+<td>best parameters mapped through <code>param_transform</code> if set</td>
+</tr>
+<tr>
+<td><code>to_dict()</code></td>
+<td>best solution as a control-style dict (<code>{}</code> if unavailable)</td>
+</tr>
+</tbody>
+</table>
+<p>The best-over-trajectory helpers need the default <code>fidelities</code>/<code>parameters</code> columns; under a custom <code>log_fn</code> that omits them they degrade to <code>None</code>/<code>{}</code> rather than raising. Note <code>params.parameters</code> is the single current array while <code>history.parameters</code> is the list of per-step snapshots. A <code>History</code> is meant for a single run.</p>
 <h2 id="core-algorithm-optimize">Core algorithm: <code>optimize()</code><a class="headerlink" href="#core-algorithm-optimize" title="Permanent link">¤</a></h2>
 <div class="highlight"><pre><span></span><code>for each step:
     1. Extract free_params = parameters[:, proj_drift_indices]
@@ -2192,9 +2256,11 @@ GeopeEngine
     <span class="n">param_transform</span><span class="o">=</span><span class="n">rabi</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
     <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">))</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">best_basis_coefficients</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">geope</span><span class="o">.</span><span class="n">History</span><span class="p">())</span>
+<span class="n">g</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span><span class="p">))</span>        <span class="c1"># final fidelity (lives on Parameters)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">basis_coefficients</span><span class="p">)</span>     <span class="c1"># current params mapped through param_transform</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>         <span class="c1"># best fidelity over the trajectory</span>
 </code></pre></div>
 <h3 id="practical-implications">Practical implications<a class="headerlink" href="#practical-implications" title="Permanent link">¤</a></h3>
 <ul>
@@ -2315,13 +2381,14 @@ projected_basis  (dim K_proj)    — only the controllable elements
     <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="c1"># Run — populates params history in place; returns the same Parameters</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999</span><span class="p">)</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<span class="c1"># Run — updates params (parameters/fidelity) in place; returns the same Parameters</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">geope</span><span class="o">.</span><span class="n">History</span><span class="p">())</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">fidelity</span><span class="p">))</span>        <span class="c1"># final fidelity (lives on Parameters)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>              <span class="c1"># current solution as a control dict</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>       <span class="c1"># best over the trajectory</span>
 
-<span class="c1"># Null-space passes — fidelity preserved</span>
-<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999</span><span class="p">)</span>
+<span class="c1"># Null-space passes — fidelity preserved (reuse the same optimiser)</span>
 <span class="n">g</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
 <span class="n">g</span><span class="o">.</span><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
 <span class="n">g</span><span class="o">.</span><span class="n">bound</span><span class="p">({</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)},</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">)</span>

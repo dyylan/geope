@@ -1332,7 +1332,7 @@ controllable subalgebra.</p>
             <td>
               <div class="doc-md-description">
                 <p>The bound <code>Parameters</code> object (the single source of truth
-for all configuration and the destination for the run history).</p>
+for all configuration and for the live optimisation state).</p>
               </div>
             </td>
           </tr>
@@ -1343,16 +1343,6 @@ for all configuration and the destination for the run history).</p>
             <td>
               <div class="doc-md-description">
                 <p>The internal <code>GeopeEngine</code> constructed from <code>params</code>.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.max_steps">max_steps</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Maximum number of optimisation iterations.</p>
               </div>
             </td>
           </tr>
@@ -1398,52 +1388,23 @@ for all configuration and the destination for the run history).</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.parameters">parameters</span></code></td>
+            <td><code><span title="geope.geope.Geope.step_size">step_size</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>History of parameter arrays.</p>
+                <p>Transient last line-search step size.</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.fidelities">fidelities</span></code></td>
+            <td><code><span title="geope.geope.Geope.history">history</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>History of fidelity values.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.infidelities">infidelities</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>History of infidelity values.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.step_sizes">step_sizes</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>History of step sizes.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.steps">steps</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>History of step counts.</p>
+                <p>Optional <code>History</code> logger (<code>None</code> unless supplied),
+holding the full run trajectory.</p>
               </div>
             </td>
           </tr>
@@ -1577,7 +1538,7 @@ errors defaults to 'strict'.</p>
 
 
 <h5 id="geope.geope.Geope.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span> <span class="n">line_search_method</span><span class="o">=</span><span class="s1">&#39;golden_section&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span> <span class="n">line_search_method</span><span class="o">=</span><span class="s1">&#39;golden_section&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#geope.geope.Geope.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1617,22 +1578,6 @@ optimiser needs.</p>
             </td>
             <td>
                 <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>max_steps</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Maximum optimisation steps. Defaults to 1000.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1000</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -1717,6 +1662,24 @@ Defaults to <code>'golden_section'</code>.</p>
                   <code>False</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>history</code>
+            </td>
+            <td>
+                  <code><span title="geope.history.History">History</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional <code>History</code> logger. When supplied, the full run
+trajectory is recorded into it (<code>geope.history</code>); when
+<code>None</code> (default), no history is kept.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -1762,8 +1725,9 @@ supported; build a <code>Parameters</code> object instead.</p>
     <div class="doc doc-contents ">
 
         <p>(Re-)initialise optimiser state.</p>
-<p>Sets up constraints, initial parameters, drift parameters,
-and resets the fidelity / step history.</p>
+<p>Sets up constraints, initial parameters, drift parameters and the
+live state (<code>params.parameters</code> / <code>params.fidelity</code>), and records
+step 0 into <code>history</code> when one is attached.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1853,7 +1817,7 @@ and resets the fidelity / step history.</p>
 
 
 <h5 id="geope.geope.Geope.optimize" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">optimize</span><span class="p">(</span><span class="n">extra_steps</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span></code>
 
 <a href="#geope.geope.Geope.optimize" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1862,7 +1826,7 @@ and resets the fidelity / step history.</p>
 
         <p>Run the GEOPE optimisation loop.</p>
 <p>Iterates geodesic update steps until the fidelity exceeds
-<code>self.precision</code> or the maximum number of steps is reached.</p>
+<code>self.precision</code> or <code>max_steps</code> is reached.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1878,19 +1842,18 @@ and resets the fidelity / step history.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>extra_steps</code>
+                <code>max_steps</code>
             </td>
             <td>
                   <code><span title="int">int</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Additional steps beyond <code>self.max_steps</code>.
-Defaults to 0.</p>
+                <p>Maximum number of optimisation steps. Defaults to 1000.</p>
               </div>
             </td>
             <td>
-                  <code>0</code>
+                  <code>1000</code>
             </td>
           </tr>
       </tbody>
@@ -1912,7 +1875,7 @@ Defaults to 0.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The bound <code>Parameters</code> instance, with its mutable history</p>
+                <p>The bound <code>Parameters</code> instance, carrying the final</p>
               </div>
             </td>
           </tr>
@@ -1922,7 +1885,7 @@ Defaults to 0.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>populated. Call <code>params.best_fidelity</code>, <code>params.best_parameters</code></p>
+                <p><code>parameters</code> / <code>fidelity</code>. Read the result via</p>
               </div>
             </td>
           </tr>
@@ -1932,7 +1895,27 @@ Defaults to 0.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>or <code>params.to_dict()</code> to read the solution.</p>
+                <p><code>params.parameters</code>, <code>params.fidelity</code> or <code>params.to_dict()</code>;</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>the full trajectory and <code>best_*</code> live on <code>geope.history</code> when</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>a <code>History</code> was supplied.</p>
               </div>
             </td>
           </tr>
@@ -1955,9 +1938,11 @@ Defaults to 0.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Append a new parameter set to the optimisation history.</p>
+        <p>Update the live parameters and fidelity, logging a step.</p>
 <p>Handles different parameter shapes by mapping them back to the
-full basis. Computes the fidelity if not provided.</p>
+full basis. Computes the fidelity if not provided, sets
+<code>params.parameters</code> / <code>params.fidelity</code>, and records a row into
+<code>history</code> when one is attached.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
