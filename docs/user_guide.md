@@ -12,7 +12,7 @@ where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis gener
 
 The core algorithm is the **geodesic method**: at each step it computes the shortest path on $U(d)$ from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.
 
-The entry point is `Parameters` — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, `param_transform`, bounds, init values, seed, projective flag). Pass it to `Geope` and call `.optimize()`. The same `Parameters` object is the destination for the run history (`fidelities`, `parameters`, `best_fidelity`, `to_dict()`, ...).
+The entry point is `Parameters` — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, `param_transform`, bounds, init values, seed, projective flag). Pass it to `Geope` and call `.optimize(max_steps=...)`. The returned `Parameters` carries the live/final `parameters` and `fidelity` (and `to_dict()`); the full run trajectory and `best_*` helpers live on an opt-in `History` logger (`geope.history`).
 
 The lower-level classes `Engine` and `GeopeEngine` are still available for inspection and for advanced users who want to build the JIT-compiled functions directly, but `Geope` itself only accepts a `Parameters`.
 
@@ -230,21 +230,21 @@ Attributes populated after construction:
 |-----------|-------------|
 | `basis`, `projected_basis`, `drift_basis` | the three `Basis` objects |
 | `target` | the target |
-| `init_parameters` | initial parameter array, shape `(N_g, K_{full})` |
 | `drift_parameters` | drift coefficients (or `None`) |
 | `constraint_arrays`, `constraint_expander` | merged constraints and reduced-space mapping |
 | `bounds` | pre-built bounds tuple (or `None`) |
 
-Mutable history written back by `Geope`:
+Live optimisation state — seeded at construction and updated in place by `Geope`:
 
 | Attribute | Description |
 |-----------|-------------|
-| `parameters` | list of parameter arrays, shape `(N_g, K_{full})` per entry |
-| `fidelities`, `infidelities`, `step_sizes`, `steps` | history scalars |
-| `best_fidelity` | `max(fidelities)` |
-| `best_parameters` | parameters at the highest-fidelity step |
-| `best_basis_coefficients` | best parameters mapped through `param_transform` if set |
-| `to_dict()` | best solution as a control-style dict |
+| `parameters` | current parameter array, shape `(N_g, K_{full})`; seeded to the initial guess, holds the final result after `optimize()` |
+| `fidelity` | current fidelity (`None` before a run) |
+| `infidelity` | `1 - fidelity` (`None` before a run) |
+| `basis_coefficients` | current parameters mapped through `param_transform` if set |
+| `to_dict()` | current solution as a control-style dict |
+
+The full run trajectory and the `best_*` helpers live on the opt-in [`History`](#history-historypy) logger, not on `Parameters`.
 
 ## Engine and optimiser
 
@@ -296,10 +296,10 @@ Extends `Engine` with geodesic-specific JIT functions:
 
 ```python
 Geope(params,
-      max_steps=1000, precision=0.9999999,
+      precision=0.9999999,
       max_step_size=0.9, gram_schmidt_step_size=1.3,
       line_search_method="golden_section",
-      verbose=False)
+      verbose=False, history=None)
 ```
 
 `Geope` requires a `Parameters` object as its single positional argument. The engine, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and `param_transform` are all read from `params`. Passing a raw `GeopeEngine` raises `TypeError`.
@@ -307,20 +307,45 @@ Geope(params,
 | Parameter | Description |
 |-----------|-------------|
 | `params` | a `Parameters` instance bundling all inputs |
-| `max_steps` | iteration cap |
 | `precision` | target fidelity |
 | `max_step_size` | maximum line-search step |
 | `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback |
 | `line_search_method` | `"golden_section"` or `"difference_step"` |
 | `verbose` | print per-step progress |
-| `seed` | random seed (legacy API) |
+| `history` | optional `History` logger (`None` = no logging) |
 
-State tracked across iterations:
+The iteration cap is now an argument of `optimize(max_steps=1000)`, not a constructor field.
 
-- `parameters` — list of arrays of shape $(N_g, K_{\text{full}})$.
-- `fidelities`, `infidelities`, `step_sizes`, `steps` — history lists.
+Live state and logging:
 
-These lists are mirrored onto the `Parameters` object after every `optimize()`, and `optimize()` returns the `Parameters` instance itself — so the user has a single handle for both inputs and outputs.
+- The current parameters and fidelity live on `params` (`params.parameters`, `params.fidelity`); `Geope` updates them in place each step, and `optimize(max_steps=...)` returns the `Parameters` instance itself — so the user has a single handle for both inputs and the final result.
+- `step_size` — the transient last line-search step size.
+- `history` — an optional `History` logger (`None` unless one was passed). When supplied, the full run trajectory and `best_*` helpers are available on it (see below).
+
+### `History` (`history.py`)
+
+```python
+History(log_fn=None)
+```
+
+An opt-in, configurable run log. Pass one to `Geope` (`history=History()`) and the full trajectory is recorded into `geope.history`; leave it `None` and no history is kept (the final answer still lives on `params`).
+
+By default each step records five columns — `parameters` (a full-basis snapshot), `fidelities`, `infidelities`, `step_sizes`, and an integer `steps` counter derived from the log length. Pass `log_fn` to record arbitrary per-step values instead: it receives the running `Geope` and returns a `dict` of `column -> value` (e.g. `History(log_fn=lambda g: {"fid": float(g.params.fidelity)})`).
+
+| Member | Description |
+|--------|-------------|
+| `record(geope)` | append one row via `log_fn`; called by `Geope` each step |
+| `reset()` | drop all rows |
+| `len(history)` | number of recorded rows |
+| `history.<col>` / `history["<col>"]` | a logged column (the same list) |
+| `keys()` | the logged column names |
+| `to_dataframe()` | the logs as a `pandas.DataFrame` |
+| `best_fidelity` | `max(fidelities)` (or `None`) |
+| `best_parameters` | parameters at the highest-fidelity step (or `None`) |
+| `best_basis_coefficients` | best parameters mapped through `param_transform` if set |
+| `to_dict()` | best solution as a control-style dict (`{}` if unavailable) |
+
+The best-over-trajectory helpers need the default `fidelities`/`parameters` columns; under a custom `log_fn` that omits them they degrade to `None`/`{}` rather than raising. Note `params.parameters` is the single current array while `history.parameters` is the list of per-step snapshots. A `History` is meant for a single run.
 
 ## Core algorithm: `optimize()`
 
@@ -446,9 +471,11 @@ params = geope.Parameters(
     param_transform=rabi, n_experimental_params=2,
     init_spread=0.3, seed=0,
 )
-geope.Geope(params, max_steps=300, precision=1 - 1e-7).optimize()
-print(float(params.best_fidelity))
-print(params.best_basis_coefficients)
+g = geope.Geope(params, precision=1 - 1e-7, history=geope.History())
+g.optimize(max_steps=300)
+print(float(g.params.fidelity))        # final fidelity (lives on Parameters)
+print(g.params.basis_coefficients)     # current params mapped through param_transform
+print(g.history.best_fidelity)         # best fidelity over the trajectory
 ```
 
 ### Practical implications
@@ -552,13 +579,14 @@ params = geope.Parameters(
     seed=0,
 )
 
-# Run — populates params history in place; returns the same Parameters
-result = geope.Geope(params, max_steps=1000, precision=0.9999).optimize()
-print(result.best_fidelity)
-print(result.to_dict())
+# Run — updates params (parameters/fidelity) in place; returns the same Parameters
+g = geope.Geope(params, precision=0.9999, history=geope.History())
+result = g.optimize(max_steps=1000)
+print(float(result.fidelity))        # final fidelity (lives on Parameters)
+print(result.to_dict())              # current solution as a control dict
+print(g.history.best_fidelity)       # best over the trajectory
 
-# Null-space passes — fidelity preserved
-g = geope.Geope(params, max_steps=0, precision=0.9999)
+# Null-space passes — fidelity preserved (reuse the same optimiser)
 g.smooth(piecewise_steps_multiplier=2, smoothing_rate=0.05, diff_tol=1e-3)
 g.smooth_frequency(smoothing_rate=0.05, diff_tol=1e-3)
 g.bound({"x": (-1, 1), "z": (-1, 1)}, method='projected_gradient')

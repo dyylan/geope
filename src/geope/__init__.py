@@ -15,6 +15,10 @@ from .parameters import (
     Parameters,
 )
 
+from .history import (
+    History,
+)
+
 from .lie import (
     Basis,
     Hamiltonian,

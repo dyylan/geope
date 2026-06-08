@@ -18,8 +18,8 @@ class Parameters:
 
     Holds the system description (basis, control/drift Hamiltonians, target),
     optimisation config (constraints, bounds, ``param_transform``), and the
-    mutable history (parameters, fidelities) that is written back by
-    optimisers such as `Geope`.
+    *live* optimisation state (``parameters``, ``fidelity``) that an optimiser
+    such as `Geope` updates in place.
 
     Attributes:
         basis: Full ``Basis`` for the system.
@@ -42,15 +42,13 @@ class Parameters:
         constraint_expander: Expansion matrix that maps free parameters
             into the projected basis under the constraints.
         bounds: Pre-built bounds, or ``None``.
-        init_parameters: Initial parameter ``np.ndarray``.
         drift_parameters: Drift parameter ``np.ndarray``, or ``None``.
         seed: Optional random seed.
         init_spread: Half-width of the uniform initial-parameter sampling.
-        parameters: Mutable list of parameter arrays appended by an optimiser.
-        fidelities: Mutable list of fidelity values appended by an optimiser.
-        infidelities: Mutable list of infidelity values.
-        step_sizes: Mutable list of optimiser step sizes.
-        steps: Mutable list of step counters.
+        parameters: Current parameter ``np.ndarray`` (full-basis), seeded to
+            the initial guess and updated in place by an optimiser.
+        fidelity: Current fidelity value, or ``None`` before a run.
+        infidelity: ``1 - fidelity`` (``None`` before a run).
     """
 
     def __init__(self,
@@ -194,7 +192,7 @@ class Parameters:
         if bounds is not None:
             self.bounds = self.projected_basis.generate_bounds(bounds, piecewise_steps)
 
-        # --- Init parameters ---
+        # --- Live state: current parameters, seeded to the initial guess ---
         proj_indices = np.array(self.projected_basis.overlap(self.basis), dtype=bool)
 
         if init_values is not None:
@@ -202,11 +200,11 @@ class Parameters:
                 param_list = self.projected_basis.generate_parameter_list(init_values)
                 init_params = np.zeros(self.basis.lie_algebra_dim)
                 init_params[proj_indices] = param_list
-                self.init_parameters = np.array([init_params] * piecewise_steps)
+                self.parameters = np.array([init_params] * piecewise_steps)
             else:
-                self.init_parameters = np.array(init_values)
+                self.parameters = np.array(init_values)
         else:
-            self.init_parameters = np.array([
+            self.parameters = np.array([
                 prepare_random_parameters(proj_indices,
                                           expander=self.constraint_expander,
                                           spread=init_spread,
@@ -225,52 +223,35 @@ class Parameters:
         else:
             self.drift_parameters = None
 
-        # --- Mutable history (written by optimisers) ---
-        self.parameters: list = []
-        self.fidelities: list = []
-        self.infidelities: list = []
-        self.step_sizes: list = []
-        self.steps: list = []
+        # --- Live state: current fidelity (set once a run computes it) ---
+        self.fidelity = None
 
     @property
-    def best_fidelity(self) -> float | None:
-        """Maximum recorded fidelity, or ``None`` if no run has happened."""
-        if not self.fidelities:
-            return None
-        return max(self.fidelities)
+    def infidelity(self) -> float | None:
+        """``1 - fidelity``, or ``None`` before a run has computed it."""
+        return None if self.fidelity is None else 1 - self.fidelity
 
     @property
-    def best_parameters(self) -> np.ndarray | None:
-        """Parameter array at the step of maximum fidelity, or ``None``."""
-        if not self.fidelities:
-            return None
-        idx = int(np.argmax(self.fidelities))
-        return self.parameters[idx]
+    def basis_coefficients(self) -> np.ndarray | None:
+        """Current parameters mapped through ``param_transform`` if set.
 
-    @property
-    def best_basis_coefficients(self) -> np.ndarray | None:
-        """Best parameters mapped through ``param_transform`` if set.
-
-        Returns the induced basis coefficients corresponding to
-        ``self.best_parameters``. If ``param_transform`` is ``None``
-        this is just the best parameters.
+        Returns the induced basis coefficients corresponding to the
+        current ``self.parameters``. If ``param_transform`` is ``None``
+        this is just the current parameters.
         """
-        bp = self.best_parameters
-        if bp is None:
-            return None
         if self.param_transform is not None:
             import jax
-            return np.array(jax.vmap(self.param_transform)(bp))
-        return bp
+            return np.array(jax.vmap(self.param_transform)(self.parameters))
+        return self.parameters
 
     def to_dict(self) -> dict:
-        """Export the best basis coefficients as a control-style dict.
+        """Export the current basis coefficients as a control-style dict.
 
         Returns a dict keyed by qubit index (or qubit-index tuple) whose
         values are dicts mapping lower-case interaction labels to real
         coefficient values.
         """
-        coeffs = self.best_basis_coefficients
+        coeffs = self.basis_coefficients
         if coeffs is None:
             return {}
         proj_indices = np.array(self.projected_basis.overlap(self.basis), dtype=bool)
@@ -289,11 +270,3 @@ class Parameters:
                 result[key] = {}
             result[key][new_label] = float(np.real(value))
         return result
-
-    def reset_history(self) -> None:
-        """Clear all mutable run history."""
-        self.parameters = []
-        self.fidelities = []
-        self.infidelities = []
-        self.step_sizes = []
-        self.steps = []

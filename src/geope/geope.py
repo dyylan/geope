@@ -22,6 +22,7 @@ from .utils import golden_section_search, prepare_random_parameters, merge_const
 from .logm import logm
 from .jacobian_manual import get_jacobian_manual
 from .parameters import Parameters
+from .history import History
 from functools import partial
 from typing import Callable
 import inspect
@@ -96,29 +97,26 @@ class Geope:
 
     Attributes:
         params: The bound `Parameters` object (the single source of truth
-            for all configuration and the destination for the run history).
+            for all configuration and for the live optimisation state).
         engine: The internal `GeopeEngine` constructed from ``params``.
-        max_steps: Maximum number of optimisation iterations.
         precision: Target fidelity threshold.
         max_step_size: Maximum line-search step size.
         gram_schmidt_step_size: Step size for Gram-Schmidt fallback moves.
         line_search_method: Line-search strategy (``'golden_section'`` or
             ``'difference_step'``).
-        parameters: History of parameter arrays.
-        fidelities: History of fidelity values.
-        infidelities: History of infidelity values.
-        step_sizes: History of step sizes.
-        steps: History of step counts.
+        step_size: Transient last line-search step size.
+        history: Optional `History` logger (``None`` unless supplied),
+            holding the full run trajectory.
     """
 
     def __init__(self,
                  params: Parameters,
-                 max_steps: int = 1000,
                  precision: float = 0.9999999,
                  max_step_size: float = 0.9,
                  gram_schmidt_step_size: float = 1.3,
                  line_search_method: str = "golden_section",
-                 verbose: bool = False) -> None:
+                 verbose: bool = False,
+                 history: History | None = None) -> None:
         """Initialise the Geope optimiser.
 
         ``Geope`` requires a `Parameters` object — the engine, initial
@@ -129,7 +127,6 @@ class Geope:
         Args:
             params: A `Parameters` instance bundling every input the
                 optimiser needs.
-            max_steps: Maximum optimisation steps. Defaults to 1000.
             precision: Target fidelity. Defaults to 0.9999999.
             max_step_size: Maximum line-search step. Defaults to 0.9.
             gram_schmidt_step_size: Step size for Gram-Schmidt moves.
@@ -137,6 +134,9 @@ class Geope:
             line_search_method: ``'golden_section'`` or ``'difference_step'``.
                 Defaults to ``'golden_section'``.
             verbose: Whether to print progress. Defaults to False.
+            history: Optional `History` logger. When supplied, the full run
+                trajectory is recorded into it (``geope.history``); when
+                ``None`` (default), no history is kept.
 
         Raises:
             TypeError: If ``params`` is not a `Parameters` instance.
@@ -168,14 +168,18 @@ class Geope:
             drift_parameters = None
             constraints = None
         else:
-            init_parameters = params.init_parameters
+            init_parameters = params.parameters
             drift_parameters = params.drift_parameters
             constraints = params.constraint_arrays
 
         self.engine = engine
         self._real_params = params.param_transform is not None
 
-        self.max_steps = max_steps
+        self.history = history
+        if self.history is not None:
+            self.history.params = params
+        self.step_size = 0
+
         self.precision = precision
         self.max_step_size = max_step_size
         self.gram_schmidt_step_size = gram_schmidt_step_size
@@ -293,7 +297,7 @@ class Geope:
     def _init_for_param_transform(self, engine: GeopeEngine, params: Parameters) -> np.ndarray:
         """Compute initial parameters in experimental-parameter space.
 
-        If ``params.init_parameters`` is shaped ``(piecewise_steps, n_exp)``,
+        If ``params.parameters`` is shaped ``(piecewise_steps, n_exp)``,
         use it directly; otherwise sample uniformly in
         $[-\\text{init\\_spread}\\,\\pi, +\\text{init\\_spread}\\,\\pi]$.
 
@@ -305,7 +309,7 @@ class Geope:
             An ``np.ndarray`` of shape ``(piecewise_steps, n_exp)``.
         """
         n_exp = params.n_experimental_params
-        _user_init = np.array(params.init_parameters)
+        _user_init = np.array(params.parameters)
         if _user_init.shape == (params.piecewise_steps, n_exp):
             return _user_init
         rng = np.random.default_rng(params.seed)
@@ -322,8 +326,9 @@ class Geope:
     ) -> None:
         """(Re-)initialise optimiser state.
 
-        Sets up constraints, initial parameters, drift parameters,
-        and resets the fidelity / step history.
+        Sets up constraints, initial parameters, drift parameters and the
+        live state (``params.parameters`` / ``params.fidelity``), and records
+        step 0 into ``history`` when one is attached.
 
         Args:
             init_parameters: Initial parameter array. Defaults to random.
@@ -395,28 +400,30 @@ class Geope:
                 self.drift_parameters = None
         else:
             self.drift_parameters = None
-        self.parameters = [self.init_parameters]
+        self.params.parameters = np.array(self.init_parameters)
         _dtype = np.float64 if self._real_params else np.complex128
-        free_params = jnp.array([p[self.engine.proj_drift_indices] for p in self.parameters[-1]]).astype(_dtype)
-        self.fidelities = [self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))]
-        self.infidelities = [1 - self.fidelities[-1]]
-        self.step_sizes = [0]
-        self.steps = [0]
+        free_params = jnp.array([p[self.engine.proj_drift_indices] for p in self.params.parameters]).astype(_dtype)
+        self.params.fidelity = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
+        self.step_size = 0
+        if self.history is not None:
+            self.history.reset()
+            self.history.record(self)        # step 0
 
-    def optimize(self, extra_steps: int = 0) -> Parameters:
+    def optimize(self, max_steps: int = 1000) -> Parameters:
         """Run the GEOPE optimisation loop.
 
         Iterates geodesic update steps until the fidelity exceeds
-        ``self.precision`` or the maximum number of steps is reached.
+        ``self.precision`` or ``max_steps`` is reached.
 
         Args:
-            extra_steps: Additional steps beyond ``self.max_steps``.
-                Defaults to 0.
+            max_steps: Maximum number of optimisation steps. Defaults to 1000.
 
         Returns:
-            The bound `Parameters` instance, with its mutable history
-            populated. Call ``params.best_fidelity``, ``params.best_parameters``
-            or ``params.to_dict()`` to read the solution.
+            The bound `Parameters` instance, carrying the final
+            ``parameters`` / ``fidelity``. Read the result via
+            ``params.parameters``, ``params.fidelity`` or ``params.to_dict()``;
+            the full trajectory and ``best_*`` live on ``geope.history`` when
+            a `History` was supplied.
         """
         # Build pulse-constrained update step if needed
         pulse_templates = None
@@ -426,47 +433,40 @@ class Geope:
         else:
             update_step = self.update_step
 
-        step = self.steps[-1]
+        step = 0
         _dtype = jnp.float64 if self._real_params else jnp.complex128
-        while (self.fidelities[-1] < self.precision) and (step < self.max_steps + extra_steps):
+        while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
-            free_params = self.parameters[-1][:, self.engine.proj_drift_indices].astype(_dtype)
-            coeffs, new_params_update, fidelity, step_size = update_step(free_params, self.parameters[-1], self.engine.piecewise_steps)
+            free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
+            coeffs, new_params_update, fidelity, step_size = update_step(free_params, self.params.parameters, self.engine.piecewise_steps)
 
             if fidelity > self.precision:
                 if self.verbose:
                     print(
-                        f"[{step}/{self.max_steps + extra_steps}] [Fidelity = {fidelity}] A solution!                                                                     ",
+                        f"[{step}/{max_steps}] [Fidelity = {fidelity}] A solution!                                                                     ",
                         end="\r")
-            elif (fidelity > self.fidelities[-1]) and not jnp.isclose(fidelity, self.fidelities[-1],
-                                                                      atol=(1 - self.precision) / 100):
+            elif (fidelity > self.params.fidelity) and not jnp.isclose(fidelity, self.params.fidelity,
+                                                                       atol=(1 - self.precision) / 100):
                 if self.verbose:
                     print(
-                        f"[{step}/{self.max_steps + extra_steps}] [Fidelity = {fidelity}] Omega geodesic gave a positive fidelity update for this step...                 ",
+                        f"[{step}/{max_steps}] [Fidelity = {fidelity}] Omega geodesic gave a positive fidelity update for this step...                 ",
                         end="\r")
             else:
                 if self.verbose:
                     print(
-                        f"[{step}/{self.max_steps + extra_steps}] [Fidelity = {self.fidelities[-1]}] Omega geodesic gave a negative fidelity update for this step. Moving phi away...    ",
+                        f"[{step}/{max_steps}] [Fidelity = {self.params.fidelity}] Omega geodesic gave a negative fidelity update for this step. Moving phi away...    ",
                         end="\r")
                 if self.gram_schmidt_step_size:
                     new_params_update, fidelity, step_size = self.gram_schmidt(coeffs)
                 pass
-                
+
             self.add_parameters(new_params_update, fidelity, step_size)
 
             # Enforce pulse template constraints if applicable
             if pulse_templates is not None:
                 self._enforce_pulse_template(pulse_templates)
-        self.max_steps += extra_steps
         if self.verbose:
             print("")
-        # Sync history to Parameters object (always)
-        self.params.parameters = self.parameters
-        self.params.fidelities = self.fidelities
-        self.params.infidelities = self.infidelities
-        self.params.step_sizes = self.step_sizes
-        self.params.steps = self.steps
         return self.params
 
     def add_parameters(
@@ -475,10 +475,12 @@ class Geope:
         fidelity: float | Array | None = None,
         step_size: float | None = None,
     ) -> float | Array:
-        """Append a new parameter set to the optimisation history.
+        """Update the live parameters and fidelity, logging a step.
 
         Handles different parameter shapes by mapping them back to the
-        full basis. Computes the fidelity if not provided.
+        full basis. Computes the fidelity if not provided, sets
+        ``params.parameters`` / ``params.fidelity``, and records a row into
+        ``history`` when one is attached.
 
         Args:
             params: Parameter array (full, projected+drift, or projected shape).
@@ -505,18 +507,17 @@ class Geope:
                 new_params[:, self.engine.drift_indices] = jnp.tile(self.drift_parameters, (self.engine.piecewise_steps, 1))
         else:
             ValueError("Parameter shape does not match with full basis, projected & drift basis, or projected basis.")
-        self.parameters.append(new_params)
-
         if fidelity is None:
             _dtype = jnp.float64 if self._real_params else jnp.complex128
-            free_params = self.parameters[-1][:, self.engine.proj_drift_indices].astype(_dtype)
+            free_params = new_params[:, self.engine.proj_drift_indices].astype(_dtype)
             fidelity = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
-        self.fidelities.append(fidelity)
-        self.infidelities.append(1 - fidelity)
         if step_size is None:
             step_size = self.max_step_size
-        self.step_sizes.append(step_size)
-        self.steps.append(self.steps[-1]+1)  
+        self.params.parameters = new_params
+        self.params.fidelity = fidelity
+        self.step_size = step_size
+        if self.history is not None:
+            self.history.record(self)
         return fidelity
 
     def smooth(
@@ -917,7 +918,7 @@ class Geope:
         scaled_gs_step = self.gram_schmidt_step_size
         if self._real_params:
             _dtype = jnp.float64
-            current_params = self.parameters[-1][:, self.engine.proj_drift_indices]
+            current_params = self.params.parameters[:, self.engine.proj_drift_indices]
             for sign in [1, -1]:
                 new_exp = current_params + sign * scaled_gs_step * coeffs
                 fids[sign] = self.engine.fid_U_fn(
@@ -933,7 +934,7 @@ class Geope:
                 u = np.eye(self.engine.full_basis.dim)
                 for i, c in enumerate(cs):
                     u = Hamiltonian(self.engine.proj_drift_basis,
-                                    self.parameters[-1][i][self.engine.proj_drift_indices] + c).unitary.matrix @ u
+                                    self.params.parameters[i][self.engine.proj_drift_indices] + c).unitary.matrix @ u
                 fids[sign] = self.engine.fid_U_fn(u)
 
             if fids[1] > fids[-1]:
@@ -945,7 +946,7 @@ class Geope:
             coeffs[:, self.engine.proj_indices_projdrift_basis] = coeffs[:,
                                                                   self.engine.proj_indices_projdrift_basis] * sign * scaled_gs_step
             coeffs[:, self.engine.drift_indices_projdrift_basis] = 0
-            new_parameters = np.array(self.parameters[-1])[:, self.engine.proj_drift_indices] + coeffs
+            new_parameters = np.array(self.params.parameters)[:, self.engine.proj_drift_indices] + coeffs
 
         # if self.parameter_bounds is not None:
         #     new_parameters, fidelity = self.bound_parameters(new_parameters, scaled_gs_step)
@@ -1022,9 +1023,9 @@ class Geope:
             to pass into ``get_update_step(expander_override=...)``.
         """
         if getattr(self, "_real_params", False):
-            proj_params = self.parameters[-1]
+            proj_params = self.params.parameters
         else:
-            proj_params = self.parameters[-1][:, self.engine.projected_indices]
+            proj_params = self.params.parameters[:, self.engine.projected_indices]
         E_pulse, pulse_templates = self._build_pulse_expander(np.array(proj_params).real)
         if self.constraint_expander is not None:
             E_gate = np.kron(np.eye(self.engine.piecewise_steps), self.constraint_expander)
@@ -1036,16 +1037,16 @@ class Geope:
     def _enforce_pulse_template(self, pulse_templates: dict[int, np.ndarray]) -> None:
         """Re-project constrained parameter columns onto their templates.
 
-        Mutates ``self.parameters[-1]`` in place so that for every
+        Updates the live ``self.params.parameters`` so that for every
         constrained index $k$, the time profile of $\\phi_k$ is
-        proportional to the stored unit template $t_k$. Then
-        recomputes the trailing fidelity / infidelity.
+        proportional to the stored unit template $t_k$. Then recomputes
+        the fidelity and patches the last logged row when logging.
 
         Args:
             pulse_templates: Dict mapping projected (or experimental)
                 index to the unit-norm template vector.
         """
-        params = np.array(self.parameters[-1])
+        params = np.array(self.params.parameters)
         if getattr(self, "_real_params", False):
             for k, tmpl in pulse_templates.items():
                 col = params[:, k].real
@@ -1058,13 +1059,19 @@ class Geope:
                 col = params[:, full_idx].real
                 scale = float(np.dot(col, tmpl))
                 params[:, full_idx] = scale * tmpl
-        self.parameters[-1] = params
+        self.params.parameters = params
         # Recompute fidelity after enforcement
         _dtype = jnp.float64 if getattr(self, "_real_params", False) else jnp.complex128
         free_params = params[:, self.engine.proj_drift_indices].astype(_dtype)
         fid = float(self.engine.fid_U_fn(self.engine.compute_U_fn(free_params)))
-        self.fidelities[-1] = fid
-        self.infidelities[-1] = 1 - fid
+        self.params.fidelity = fid
+        if self.history is not None:
+            if "parameters" in self.history.logs:
+                self.history.logs["parameters"][-1] = np.array(params)
+            if "fidelities" in self.history.logs:
+                self.history.logs["fidelities"][-1] = fid
+            if "infidelities" in self.history.logs:
+                self.history.logs["infidelities"][-1] = 1 - fid
 
     def get_update_linesearch(
         self, fid_fn: Callable[..., Array], compute_U_fn: Callable[..., Array]
@@ -1288,19 +1295,18 @@ class Geope:
         # Update the number of piecewise steps and initialise new parameters
         self.engine.piecewise_steps = self.engine.piecewise_steps * piecewise_steps_multiplier
 
-        new_parameters = [list(np.copy(self.parameters[-1])) for _ in range(piecewise_steps_multiplier)]
-        self.parameters.append(
+        new_parameters = [list(np.copy(self.params.parameters)) for _ in range(piecewise_steps_multiplier)]
+        self.params.parameters = (
             np.array([x for group in zip(*new_parameters) for x in group]) / piecewise_steps_multiplier)
 
         _dtype = jnp.float64 if self._real_params else jnp.complex128
-        free_params = self.parameters[-1][:, self.engine.proj_drift_indices].astype(_dtype)
-        proj_params = self.parameters[-1][:, self.engine.projected_indices].astype(_dtype)
+        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
+        proj_params = self.params.parameters[:, self.engine.projected_indices].astype(_dtype)
 
-        # Record a step for the initial subdivided parameters so all history lists stay in sync
-        self.fidelities.append(self.fidelities[-1])
-        self.infidelities.append(self.infidelities[-1])
-        self.step_sizes.append(0)
-        self.steps.append(self.steps[-1] + 1)
+        # Record the initial subdivided parameters (fidelity carried over unchanged)
+        self.step_size = 0
+        if self.history is not None:
+            self.history.record(self)
 
         params_update = self.get_free_params_update_smoothing()
 
@@ -1334,7 +1340,7 @@ class Geope:
                     scale = float(np.dot(proj_params[:, k].real, tmpl))
                     proj_params[:, k] = scale * tmpl
 
-            free_params = params_update(proj_params, self.parameters[-1])
+            free_params = params_update(proj_params, self.params.parameters)
 
             fid = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
 
@@ -1344,13 +1350,13 @@ class Geope:
                 end="\r")
         print(f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        ")
         success = diff_tol >= diff
-        new_params = np.zeros_like(self.parameters[-1])
+        new_params = np.zeros_like(self.params.parameters)
         new_params[:, self.engine.proj_drift_indices] = [p.real for p in free_params]
-        self.parameters.append(new_params)
-        self.fidelities.append(fid)
-        self.infidelities.append(1 - fid)
-        self.step_sizes.append(rate)
-        self.steps.append(self.steps[-1] + 1)
+        self.params.parameters = new_params
+        self.params.fidelity = fid
+        self.step_size = rate
+        if self.history is not None:
+            self.history.record(self)
         return success, c
 
 
