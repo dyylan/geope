@@ -478,9 +478,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gecko-null-space-refinement" class="md-nav__link">
+  <a href="#gecko-pulse-quality-optimisation" class="md-nav__link">
     <span class="md-ellipsis">
-      Gecko: null-space refinement
+      Gecko: pulse quality optimisation
     </span>
   </a>
   
@@ -968,9 +968,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gecko-null-space-refinement" class="md-nav__link">
+  <a href="#gecko-pulse-quality-optimisation" class="md-nav__link">
     <span class="md-ellipsis">
-      Gecko: null-space refinement
+      Gecko: pulse quality optimisation
     </span>
   </a>
   
@@ -1027,11 +1027,11 @@
 <li><strong>Convex sub-problems</strong>: the update at each step is a linear least-squares problem, avoiding the non-convex landscape traps that can slow or stall GRAPE.</li>
 </ul>
 <p>Numerical benchmarks on Rydberg atom platforms show that GEOPE converges to solutions in many times <strong>fewer iterations</strong> than GRAPE across a range of multi-qubit gates (Toffoli, CCZ, QFT), and finds solutions that are out of reach for similar GRAPE implementations.</p>
-<h2 id="gecko-null-space-refinement">Gecko: null-space refinement<a class="headerlink" href="#gecko-null-space-refinement" title="Permanent link">¤</a></h2>
+<h2 id="gecko-pulse-quality-optimisation">Gecko: pulse quality optimisation<a class="headerlink" href="#gecko-pulse-quality-optimisation" title="Permanent link">¤</a></h2>
 <p>A pulse that achieves the target fidelity is rarely unique — there is typically a whole manifold of control parameters <span class="arithmatex">\(\mathbf{\Phi}\)</span> that realise the same gate. <strong>Gecko</strong> exploits this freedom to refine a fidelity-achieving GEOPE solution without sacrificing fidelity.</p>
 <p>Once GEOPE has found a solution, the controllable directions span a tangent subspace whose orthogonal complement — the <strong>Jacobian null space</strong> — is the set of parameter moves that leave the realised unitary (and hence the fidelity) unchanged to first order. Gecko optimises a secondary <strong>auxiliary cost</strong> by moving only within this null space:</p>
 <div class="arithmatex">\[\delta\mathbf{\Phi} \in \ker \mathbf{J}(\mathbf{\Phi}) \quad\Longrightarrow\quad F(\mathbf{\Phi} + \delta\mathbf{\Phi}, V) \approx F(\mathbf{\Phi}, V).\]</div>
-<p>This lets a solution be reshaped to satisfy experimental desiderata that the fidelity alone does not capture:</p>
+<p>This lets a solution be reshaped to satisfy experimental optimisations that the fidelity alone does not capture:</p>
 <ul>
 <li><strong>Smoothing</strong> — penalise sharp jumps between piecewise-constant segments (<code>smooth</code>, <code>smooth_frequency</code>).</li>
 <li><strong>Pulse length and speed</strong> — shorten the total evolution time or slow the control rate (<code>length</code>, <code>speed</code>).</li>
@@ -1075,7 +1075,7 @@
 </tr>
 <tr>
 <td><code>Gecko</code></td>
-<td>Null-space ("auxiliary cost") optimiser that refines a fidelity-achieving solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Builds its own engine from a <code>Parameters</code>, or reuses a <code>Geope</code>'s.</td>
+<td>Kernel ("auxiliary cost") optimiser that refines a solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Builds its own engine from a <code>Parameters</code>, or reuses a <code>Geope</code> engine.</td>
 </tr>
 <tr>
 <td><code>utils</code></td>
