@@ -42,7 +42,7 @@ A golden-section line search then determines the optimal step size along this di
 
 Numerical benchmarks on Rydberg atom platforms show that GEOPE converges to solutions in many times **fewer iterations** than GRAPE across a range of multi-qubit gates (Toffoli, CCZ, QFT), and finds solutions that are out of reach for similar GRAPE implementations.
 
-## Gecko: null-space refinement
+## Gecko: pulse quality optimisation
 
 A pulse that achieves the target fidelity is rarely unique — there is typically a whole manifold of control parameters $\mathbf{\Phi}$ that realise the same gate. **Gecko** exploits this freedom to refine a fidelity-achieving GEOPE solution without sacrificing fidelity.
 
@@ -50,7 +50,7 @@ Once GEOPE has found a solution, the controllable directions span a tangent subs
 
 $$\delta\mathbf{\Phi} \in \ker \mathbf{J}(\mathbf{\Phi}) \quad\Longrightarrow\quad F(\mathbf{\Phi} + \delta\mathbf{\Phi}, V) \approx F(\mathbf{\Phi}, V).$$
 
-This lets a solution be reshaped to satisfy experimental desiderata that the fidelity alone does not capture:
+This lets a solution be reshaped to satisfy experimental optimisations that the fidelity alone does not capture:
 
 - **Smoothing** — penalise sharp jumps between piecewise-constant segments (`smooth`, `smooth_frequency`).
 - **Pulse length and speed** — shorten the total evolution time or slow the control rate (`length`, `speed`).
@@ -74,7 +74,7 @@ The library is organised around a few core components:
 | `Engine` | Base engine that compiles JAX functions for computing unitaries and fidelities from a given basis. |
 | `GeopeEngine` | Extends `Engine` with JIT-compiled Jacobian, geodesic, and projection functions. Built internally by `Geope`. |
 | `Geope` | Top-level optimiser that runs the full GEOPE algorithm; requires a `Parameters` object. |
-| `Gecko` | Null-space ("auxiliary cost") optimiser that refines a fidelity-achieving solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Builds its own engine from a `Parameters`, or reuses a `Geope`'s. |
+| `Gecko` | Kernel ("auxiliary cost") optimiser that refines a solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Builds its own engine from a `Parameters`, or reuses a `Geope` engine. |
 | `utils` | Utilities for constructing restricted Pauli bases, Heisenberg and 2-local Hamiltonians, line search, and more. |
 
 A typical workflow is:
