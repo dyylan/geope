@@ -673,7 +673,7 @@
   
   
   <span class="md-ellipsis">
-    geope
+    API Reference
     
   </span>
   
@@ -789,6 +789,29 @@
   
   <span class="md-ellipsis">
     geope.geope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gecko/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.gecko
     
   </span>
   
@@ -1596,8 +1619,16 @@ each either an <code>np.ndarray</code> of size
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional pulse-shape constraints config
-(forwarded to <code>Geope</code>).</p>
+                <p>Optional pulse-shape constraints whose
+temporal profile is frozen during optimisation. In
+projected space, a control-format dict
+<code>{qubit_index_or_tuple: [lowercase op labels]}</code> (the
+same format as <code>control</code>), e.g.
+<code>{1: ['x'], (1, 2): ['zz']}</code>. In experimental space
+(<code>param_transform</code> set), a list of integer parameter
+indices. Forwarded to <code>Geope</code>. A dict that names an
+interaction absent from the projected basis raises
+<code>ValueError</code>.</p>
               </div>
             </td>
             <td>

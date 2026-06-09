@@ -671,7 +671,7 @@
   
   
   <span class="md-ellipsis">
-    geope
+    API Reference
     
   </span>
   
@@ -718,6 +718,29 @@
   
   <span class="md-ellipsis">
     geope.geope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gecko/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.gecko
     
   </span>
   
@@ -1029,6 +1052,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#geope.utils.adam_line_search" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;adam_line_search
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#geope.utils.merge_constraints" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;merge_constraints
@@ -1272,6 +1304,15 @@
   <a href="#geope.utils.golden_section_search" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;golden_section_search
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geope.utils.adam_line_search" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;adam_line_search
     </span>
   </a>
   
@@ -2533,7 +2574,7 @@ a dictionary mapping qubit indices to interaction labels.</p>
 
 
 <h4 id="geope.utils.prepare_random_parameters" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">prepare_random_parameters</span><span class="p">(</span><span class="n">proj_indices</span><span class="p">,</span> <span class="n">expander</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">prepare_random_parameters</span><span class="p">(</span><span class="n">proj_indices</span><span class="p">,</span> <span class="n">expander</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#geope.utils.prepare_random_parameters" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -2614,7 +2655,25 @@ parameter positions.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Random seed for reproducibility. Defaults to <code>None</code>.</p>
+                <p>Random seed for reproducibility. Defaults to <code>None</code>.
+Ignored when <code>rng</code> is provided.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>rng</code>
+            </td>
+            <td>
+                  <code><span title="numpy.random.Generator">Generator</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional NumPy <code>Generator</code>. When given, values are drawn
+from it and the global <code>np.random</code> state is left untouched.</p>
               </div>
             </td>
             <td>
@@ -3360,6 +3419,286 @@ with JIT compilation.</p>
 <details class="references" open>
   <summary>References</summary>
   <p><a href="https://en.wikipedia.org/wiki/Golden-section_search">Golden-section search</a></p>
+</details>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.utils.adam_line_search" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">adam_line_search</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a_init</span><span class="p">,</span> <span class="n">b_init</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">num_steps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">finite_difference</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fd_step</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">beta1</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">beta2</span><span class="o">=</span><span class="mf">0.999</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-08</span><span class="p">,</span> <span class="n">t_init</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span></code>
+
+<a href="#geope.utils.adam_line_search" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>JIT-compatible 1-D Adam line search using JAX.</p>
+<p>Minimises a scalar function <code>f</code> on the interval <span class="arithmatex">\([a, b]\)</span> by running
+a fixed number of Adam steps on the scalar variable <code>t</code>, clipping
+<code>t</code> back into the interval after every step. Uses
+<code>jax.lax.fori_loop</code> (fixed step count), making it compatible with
+JIT compilation.</p>
+<p>The gradient <code>df/dt</code> is obtained either by a finite-difference
+secant from successive evaluations (<code>finite_difference=True</code>;
+derivative-free, one <code>f</code> evaluation per step) or by
+<code>jax.value_and_grad</code> (<code>finite_difference=False</code>; exact, but
+differentiates through <code>f</code>). <code>f</code> must map a real scalar to a
+real scalar.</p>
+<p>Adam is not monotone, so the best iterate visited is tracked and
+returned — the result is never worse than <code>f(t_init)</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>f</code>
+            </td>
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Scalar-valued callable (real -&gt; real).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>a_init</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> | <span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Left endpoint of the search interval.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>b_init</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> | <span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Right endpoint of the search interval.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>lr</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Adam learning rate. Defaults to 0.05.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.05</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of Adam iterations. Defaults to 30.</p>
+              </div>
+            </td>
+            <td>
+                  <code>30</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>finite_difference</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>True</code> (default), estimate the gradient
+with a finite-difference secant; otherwise use
+<code>jax.value_and_grad</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>fd_step</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Probe size for the finite-difference bootstrap.
+Defaults to 1e-3.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.001</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>beta1</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>First-moment decay. Defaults to 0.9.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.9</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>beta2</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Second-moment decay. Defaults to 0.999.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.999</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>eps</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Numerical-stability term. Defaults to 1e-8.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1e-08</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>t_init</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> | <span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Starting point for <code>t</code>. Defaults to 0.0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(t_best, f_best)</code> of the best minimiser found and its</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>function value, matching the <code>(x_min, f_min)</code> contract of</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>func:<code>golden_section_search</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="highlight"><pre><span></span><code><span class="n">f</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="n">x_min</span><span class="p">,</span> <span class="n">f_min</span> <span class="o">=</span> <span class="n">adam_line_search</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">num_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</code></pre></div>
+</details>
+
+<details class="references" open>
+  <summary>References</summary>
+  <p><a href="https://arxiv.org/abs/1412.6980">Adam</a></p>
 </details>
 
     </div>

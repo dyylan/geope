@@ -837,28 +837,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#null-space-optimisation" class="md-nav__link">
+  <a href="#null-space-optimisation-gecko" class="md-nav__link">
     <span class="md-ellipsis">
-      Null-space optimisation
+      Null-space optimisation (Gecko)
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Null-space optimisation">
+    <nav class="md-nav" aria-label="Null-space optimisation (Gecko)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#available-objectives" class="md-nav__link">
+  <a href="#available-objectives-methods-on-gecko" class="md-nav__link">
     <span class="md-ellipsis">
-      Available objectives
+      Available objectives (methods on Gecko)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#null-space-algorithm-_null_space_optimisation" class="md-nav__link">
+  <a href="#null-space-algorithm-gecko_null_space_optimisation" class="md-nav__link">
     <span class="md-ellipsis">
-      Null-space algorithm: _null_space_optimisation()
+      Null-space algorithm: Gecko._null_space_optimisation()
     </span>
   </a>
   
@@ -887,6 +887,15 @@
   
     <nav class="md-nav" aria-label="Usage">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#refining-a-solution-from-another-method" class="md-nav__link">
+    <span class="md-ellipsis">
+      Refining a solution from another method
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#building-a-parameters-from-pre-built-bases" class="md-nav__link">
@@ -1069,7 +1078,7 @@
   
   
   <span class="md-ellipsis">
-    geope
+    API Reference
     
   </span>
   
@@ -1116,6 +1125,29 @@
   
   <span class="md-ellipsis">
     geope.geope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/gecko/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.gecko
     
   </span>
   
@@ -1517,28 +1549,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#null-space-optimisation" class="md-nav__link">
+  <a href="#null-space-optimisation-gecko" class="md-nav__link">
     <span class="md-ellipsis">
-      Null-space optimisation
+      Null-space optimisation (Gecko)
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Null-space optimisation">
+    <nav class="md-nav" aria-label="Null-space optimisation (Gecko)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#available-objectives" class="md-nav__link">
+  <a href="#available-objectives-methods-on-gecko" class="md-nav__link">
     <span class="md-ellipsis">
-      Available objectives
+      Available objectives (methods on Gecko)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#null-space-algorithm-_null_space_optimisation" class="md-nav__link">
+  <a href="#null-space-algorithm-gecko_null_space_optimisation" class="md-nav__link">
     <span class="md-ellipsis">
-      Null-space algorithm: _null_space_optimisation()
+      Null-space algorithm: Gecko._null_space_optimisation()
     </span>
   </a>
   
@@ -1567,6 +1599,15 @@
   
     <nav class="md-nav" aria-label="Usage">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#refining-a-solution-from-another-method" class="md-nav__link">
+    <span class="md-ellipsis">
+      Refining a solution from another method
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#building-a-parameters-from-pre-built-bases" class="md-nav__link">
@@ -1834,9 +1875,10 @@ GeopeEngine
              <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">]},</span>
     <span class="n">target</span><span class="o">=</span><span class="n">U_T</span><span class="p">,</span>
     <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-    <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ZZI&quot;</span><span class="p">,</span> <span class="s2">&quot;ZIZ&quot;</span><span class="p">,</span> <span class="s2">&quot;IZZ&quot;</span><span class="p">],</span>
+    <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">{(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;zz&#39;</span><span class="p">]},</span>
 <span class="p">)</span>
 </code></pre></div>
+<p><code>pulse_constraints</code> uses the same <code>{qubit_index_or_tuple: [interaction]}</code> dict format as <code>control</code> — here it freezes the temporal shape of the three <code>zz</code> terms.</p>
 <table>
 <thead>
 <tr>
@@ -1859,6 +1901,7 @@ GeopeEngine
 <ul>
 <li><code>prepare_random_parameters(proj_indices, expander, spread, seed)</code> — random initial parameters respecting constraints.</li>
 <li><code>golden_section_search(f, a, b, tol)</code> — JIT-compatible 1-D <strong>minimiser</strong> (used internally by the line search).</li>
+<li><code>adam_line_search(f, a, b, lr, num_steps, finite_difference)</code> — JIT-compatible 1-D Adam <strong>minimiser</strong> (finite-difference or exact-gradient; used by the <code>"adam*"</code> line-search methods).</li>
 <li><code>merge_constraints(constraints)</code> — merges overlapping linear constraints.</li>
 <li><code>qft_unitary(n)</code>, <code>multicontrol_unitary(U, n_controls)</code> — common target unitaries.</li>
 <li><code>make_per_element_transform(transforms)</code> — helper to build a <code>param_transform</code> from per-element callables.</li>
@@ -1919,7 +1962,7 @@ GeopeEngine
 </tr>
 <tr>
 <td><code>pulse_constraints</code></td>
-<td>list (or dict; values ignored) of projected-basis labels whose time-shape is fixed</td>
+<td>control-format dict <code>{site: [ops]}</code> (same format as <code>control</code>) of projected terms whose time-shape is fixed</td>
 </tr>
 <tr>
 <td><code>bounds</code></td>
@@ -2052,7 +2095,6 @@ GeopeEngine
 <div class="highlight"><pre><span></span><code><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span>
       <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
       <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span>
-      <span class="n">line_search_method</span><span class="o">=</span><span class="s2">&quot;golden_section&quot;</span><span class="p">,</span>
       <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 <p><code>Geope</code> requires a <code>Parameters</code> object as its single positional argument. The engine, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and <code>param_transform</code> are all read from <code>params</code>. Passing a raw <code>GeopeEngine</code> raises <code>TypeError</code>.</p>
@@ -2081,10 +2123,6 @@ GeopeEngine
 <td>step size for the Gram–Schmidt fallback</td>
 </tr>
 <tr>
-<td><code>line_search_method</code></td>
-<td><code>"golden_section"</code> or <code>"difference_step"</code></td>
-</tr>
-<tr>
 <td><code>verbose</code></td>
 <td>print per-step progress</td>
 </tr>
@@ -2094,7 +2132,38 @@ GeopeEngine
 </tr>
 </tbody>
 </table>
-<p>The iteration cap is now an argument of <code>optimize(max_steps=1000)</code>, not a constructor field.</p>
+<p>The iteration cap and the line-search method are arguments of <code>optimize</code>, not constructor fields:</p>
+<div class="highlight"><pre><span></span><code><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+         <span class="n">line_search_method</span><span class="o">=</span><span class="s2">&quot;golden_section&quot;</span><span class="p">,</span>
+         <span class="n">adam_lr</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">adam_steps</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>optimize</code> argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>max_steps</code></td>
+<td>maximum number of optimisation steps</td>
+</tr>
+<tr>
+<td><code>line_search_method</code></td>
+<td><code>"golden_section"</code>, <code>"difference_step"</code>, <code>"adam"</code>, <code>"adam_fd"</code> or <code>"adam_grad"</code> (<code>"adam"</code> aliases <code>"adam_fd"</code>)</td>
+</tr>
+<tr>
+<td><code>adam_lr</code></td>
+<td>learning rate for the <code>"adam*"</code> line-search methods</td>
+</tr>
+<tr>
+<td><code>adam_steps</code></td>
+<td>number of Adam iterations for the <code>"adam*"</code> line-search methods</td>
+</tr>
+</tbody>
+</table>
+<p>The line-search method and its Adam hyperparameters bake into JIT-compiled functions that <code>optimize</code> builds on first use and reuses across calls; changing them between <code>optimize</code> calls triggers a one-off recompile.</p>
 <p>Live state and logging:</p>
 <ul>
 <li>The current parameters and fidelity live on <code>params</code> (<code>params.parameters</code>, <code>params.fidelity</code>); <code>Geope</code> updates them in place each step, and <code>optimize(max_steps=...)</code> returns the <code>Parameters</code> instance itself — so the user has a single handle for both inputs and the final result.</li>
@@ -2102,10 +2171,10 @@ GeopeEngine
 <li><code>history</code> — an optional <code>History</code> logger (<code>None</code> unless one was passed). When supplied, the full run trajectory and <code>best_*</code> helpers are available on it (see below).</li>
 </ul>
 <h3 id="history-historypy"><code>History</code> (<code>history.py</code>)<a class="headerlink" href="#history-historypy" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">History</span><span class="p">(</span><span class="n">log_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">History</span><span class="p">(</span><span class="n">logging_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 <p>An opt-in, configurable run log. Pass one to <code>Geope</code> (<code>history=History()</code>) and the full trajectory is recorded into <code>geope.history</code>; leave it <code>None</code> and no history is kept (the final answer still lives on <code>params</code>).</p>
-<p>By default each step records five columns — <code>parameters</code> (a full-basis snapshot), <code>fidelities</code>, <code>infidelities</code>, <code>step_sizes</code>, and an integer <code>steps</code> counter derived from the log length. Pass <code>log_fn</code> to record arbitrary per-step values instead: it receives the running <code>Geope</code> and returns a <code>dict</code> of <code>column -&gt; value</code> (e.g. <code>History(log_fn=lambda g: {"fid": float(g.params.fidelity)})</code>).</p>
+<p>By default each step records five columns — <code>parameters</code> (a full-basis snapshot), <code>fidelities</code>, <code>infidelities</code>, <code>step_sizes</code>, and an integer <code>steps</code> counter derived from the log length. Pass <code>logging_fn</code> to record arbitrary per-step values instead: it receives the running <code>Geope</code> and returns a <code>dict</code> of <code>column -&gt; value</code> (e.g. <code>History(logging_fn=lambda g: {"fid": float(g.params.fidelity)})</code>).</p>
 <table>
 <thead>
 <tr>
@@ -2116,7 +2185,7 @@ GeopeEngine
 <tbody>
 <tr>
 <td><code>record(geope)</code></td>
-<td>append one row via <code>log_fn</code>; called by <code>Geope</code> each step</td>
+<td>append one row via <code>logging_fn</code>; called by <code>Geope</code> each step</td>
 </tr>
 <tr>
 <td><code>reset()</code></td>
@@ -2156,7 +2225,7 @@ GeopeEngine
 </tr>
 </tbody>
 </table>
-<p>The best-over-trajectory helpers need the default <code>fidelities</code>/<code>parameters</code> columns; under a custom <code>log_fn</code> that omits them they degrade to <code>None</code>/<code>{}</code> rather than raising. Note <code>params.parameters</code> is the single current array while <code>history.parameters</code> is the list of per-step snapshots. A <code>History</code> is meant for a single run.</p>
+<p>The best-over-trajectory helpers need the default <code>fidelities</code>/<code>parameters</code> columns; under a custom <code>logging_fn</code> that omits them they degrade to <code>None</code>/<code>{}</code> rather than raising. Note <code>params.parameters</code> is the single current array while <code>history.parameters</code> is the list of per-step snapshots. A <code>History</code> is meant for a single run.</p>
 <h2 id="core-algorithm-optimize">Core algorithm: <code>optimize()</code><a class="headerlink" href="#core-algorithm-optimize" title="Permanent link">¤</a></h2>
 <div class="highlight"><pre><span></span><code>for each step:
     1. Extract free_params = parameters[:, proj_drift_indices]
@@ -2264,7 +2333,7 @@ GeopeEngine
 </code></pre></div>
 <h3 id="practical-implications">Practical implications<a class="headerlink" href="#practical-implications" title="Permanent link">¤</a></h3>
 <ul>
-<li>Null-space methods (<code>speed</code>, <code>length</code>, <code>robust</code>) must use <code>parameter_indices</code>, not <code>parameter_labels</code>, when <code>param_transform</code> is set — labels no longer correspond to optimised parameters. <code>Geope</code> raises <code>ValueError</code> otherwise.</li>
+<li><code>Gecko</code>'s null-space methods (<code>speed</code>, <code>length</code>, <code>robust</code>) must use <code>parameter_indices</code>, not <code>parameter_labels</code>, when <code>param_transform</code> is set — labels no longer correspond to optimised parameters. <code>Gecko</code> raises <code>ValueError</code> otherwise. (<code>Gecko</code> supports experimental parameters in every construction mode: when reusing a <code>Geope</code> the engine is already wrapped; when built from <code>params</code> it re-wraps a fresh engine.)</li>
 <li>Internally <code>param_transform</code> mode uses <code>float64</code>; basis-coefficient mode uses <code>complex128</code>. Tolerances and bounds you supply should match.</li>
 </ul>
 <h2 id="phase-sensitive-vs-projective">Phase-sensitive vs projective<a class="headerlink" href="#phase-sensitive-vs-projective" title="Permanent link">¤</a></h2>
@@ -2279,9 +2348,17 @@ F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 <li><strong>Traceless targets</strong> (Hadamard, single-qubit <span class="arithmatex">\(X/Y/Z\)</span>, etc.) make the gradient of <span class="arithmatex">\(F_{\text{full}}\)</span> vanish at <span class="arithmatex">\(U = I\)</span> in every direction; a random init near identity has no descent direction. Use larger <code>init_spread</code> or non-zero <code>init_values</code>.</li>
 <li><strong>Stopping criterion</strong>. <code>precision = 0.9999999</code> is meaningful for <span class="arithmatex">\(F_{\text{proj}}\)</span>. For <span class="arithmatex">\(F_{\text{full}}\)</span> the same threshold is valid near the optimum (both fidelities agree as <span class="arithmatex">\(U \to U_T\)</span>), but the optimiser may transit negative-fidelity regions on its way — that's geometry, not a bug.</li>
 </ul>
-<h2 id="null-space-optimisation">Null-space optimisation<a class="headerlink" href="#null-space-optimisation" title="Permanent link">¤</a></h2>
+<h2 id="null-space-optimisation-gecko">Null-space optimisation (<code>Gecko</code>)<a class="headerlink" href="#null-space-optimisation-gecko" title="Permanent link">¤</a></h2>
 <p>After the main GEOPE loop has converged, the null space of the Jacobian <span class="arithmatex">\(\omega\)</span> represents directions in parameter space that don't change the unitary to first order. Stepping along these lets you optimise secondary objectives while preserving fidelity.</p>
-<h3 id="available-objectives">Available objectives<a class="headerlink" href="#available-objectives" title="Permanent link">¤</a></h3>
+<p>These passes live on a separate optimiser, <strong><code>Gecko</code></strong>, which post-processes a solution. A <code>Gecko</code> needs a built <code>GeopeEngine</code>; building one is expensive, so it can either build its own from a <code>Parameters</code>, or borrow a <code>Geope</code>'s already-built engine:</p>
+<ul>
+<li><code>Gecko(params=p)</code> — build a fresh engine from <code>p</code> and operate on whatever solution <code>p.parameters</code> holds.</li>
+<li><code>Gecko(geope=g)</code> — reuse <code>g.engine</code> and <code>g.params</code> (convenient straight after <code>g.optimize(...)</code>).</li>
+<li><code>Gecko(params=p, geope=g)</code> — reuse <code>g.engine</code> but verify it is compatible with the separately-supplied <code>p</code> (raises <code>ValueError</code> on mismatch).</li>
+</ul>
+<p><strong>The solution does not have to come from <code>Geope</code>.</strong> <code>Gecko</code> operates on the current <code>params.parameters</code> — that array can be a <code>Geope</code> result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a <code>Parameters</code> object describing the same system (<code>basis</code>, <code>projected_basis</code>/<code>drift_basis</code>, <code>target</code>, <code>piecewise_steps</code>, and any <code>param_transform</code>) and call <code>Gecko(params=p)</code>; it builds its own engine and refines the imported solution while preserving its fidelity. (When <code>params</code> has never been evaluated, <code>Gecko</code> computes the baseline fidelity itself on construction.) The <code>geope=</code> modes are purely a convenience/efficiency option for when you already have a <code>Geope</code> whose engine you can reuse.</p>
+<p>In the reuse modes the engine and <code>Parameters</code> are shared with the source <code>Geope</code>, so a pass with <code>piecewise_steps_multiplier &gt; 1</code> advances the shared state forward (<code>params.parameters</code>, <code>params.piecewise_steps</code>, and <code>engine.piecewise_steps</code> all move to the new count together).</p>
+<h3 id="available-objectives-methods-on-gecko">Available objectives (methods on <code>Gecko</code>)<a class="headerlink" href="#available-objectives-methods-on-gecko" title="Permanent link">¤</a></h3>
 <table>
 <thead>
 <tr>
@@ -2329,7 +2406,7 @@ F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 </tbody>
 </table>
 <p>Each returns <code>(success, iters)</code>. Pass <code>piecewise_steps_multiplier &gt; 1</code> to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.</p>
-<h3 id="null-space-algorithm-_null_space_optimisation">Null-space algorithm: <code>_null_space_optimisation()</code><a class="headerlink" href="#null-space-algorithm-_null_space_optimisation" title="Permanent link">¤</a></h3>
+<h3 id="null-space-algorithm-gecko_null_space_optimisation">Null-space algorithm: <code>Gecko._null_space_optimisation()</code><a class="headerlink" href="#null-space-algorithm-gecko_null_space_optimisation" title="Permanent link">¤</a></h3>
 <div class="highlight"><pre><span></span><code>1. Optionally subdivide piecewise steps (piecewise_steps_multiplier)
 2. Build the combined expander (pulse × linear-equality)
 3. For each iteration:
@@ -2388,13 +2465,34 @@ projected_basis  (dim K_proj)    — only the controllable elements
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>              <span class="c1"># current solution as a control dict</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>       <span class="c1"># best over the trajectory</span>
 
-<span class="c1"># Null-space passes — fidelity preserved (reuse the same optimiser)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">bound</span><span class="p">({</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)},</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;XII&quot;</span><span class="p">,</span> <span class="s2">&quot;IXI&quot;</span><span class="p">,</span> <span class="s2">&quot;IIX&quot;</span><span class="p">],</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
-<span class="n">g</span><span class="o">.</span><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;XII&quot;</span><span class="p">,</span> <span class="s2">&quot;IXI&quot;</span><span class="p">,</span> <span class="s2">&quot;IIX&quot;</span><span class="p">])</span>
-<span class="n">g</span><span class="o">.</span><span class="n">length</span><span class="p">()</span>
+<span class="c1"># Null-space passes — fidelity preserved — live on Gecko, which</span>
+<span class="c1"># reuses the converged optimiser&#39;s engine and Parameters.</span>
+<span class="n">gk</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Gecko</span><span class="p">(</span><span class="n">geope</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+<span class="n">gk</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="n">gk</span><span class="o">.</span><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="n">gk</span><span class="o">.</span><span class="n">bound</span><span class="p">({</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)},</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">)</span>
+<span class="n">gk</span><span class="o">.</span><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;XII&quot;</span><span class="p">,</span> <span class="s2">&quot;IXI&quot;</span><span class="p">,</span> <span class="s2">&quot;IIX&quot;</span><span class="p">],</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">gk</span><span class="o">.</span><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;XII&quot;</span><span class="p">,</span> <span class="s2">&quot;IXI&quot;</span><span class="p">,</span> <span class="s2">&quot;IIX&quot;</span><span class="p">])</span>
+<span class="n">gk</span><span class="o">.</span><span class="n">length</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="refining-a-solution-from-another-method">Refining a solution from another method<a class="headerlink" href="#refining-a-solution-from-another-method" title="Permanent link">¤</a></h3>
+<p><code>Gecko</code> does not require the solution to have been produced by <code>Geope</code>. Drop any
+fidelity-achieving solution — from a different optimiser, an analytic construction,
+or an imported result — into a <code>Parameters</code> describing the same system, then build a
+<code>Gecko</code> directly from it:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># `phi` is a (piecewise_steps, K_full) parameter array obtained elsewhere.</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
+    <span class="n">basis</span><span class="o">=</span><span class="n">full</span><span class="p">,</span>
+    <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span>
+    <span class="n">drift</span><span class="o">=</span><span class="n">drift</span><span class="p">,</span>
+    <span class="n">target</span><span class="o">=</span><span class="n">target</span><span class="p">,</span>
+    <span class="n">piecewise_steps</span><span class="o">=</span><span class="n">phi</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+    <span class="n">init_values</span><span class="o">=</span><span class="n">phi</span><span class="p">,</span>          <span class="c1"># the externally-found solution</span>
+<span class="p">)</span>
+
+<span class="n">gk</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Gecko</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)</span>   <span class="c1"># builds its own engine; no Geope needed</span>
+<span class="n">gk</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">gk</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span><span class="p">))</span>  <span class="c1"># baseline computed on construction, preserved by the pass</span>
 </code></pre></div>
 <h3 id="building-a-parameters-from-pre-built-bases">Building a <code>Parameters</code> from pre-built bases<a class="headerlink" href="#building-a-parameters-from-pre-built-bases" title="Permanent link">¤</a></h3>
 <p>If you've already constructed <code>Basis</code> objects (e.g. via <code>construct_restricted_pauli_basis</code>) and don't want to re-express them as <code>control</code> / <code>drift</code> dicts, pass them directly via the <code>projected_basis</code> and <code>drift_basis</code> kwargs:</p>

@@ -12,13 +12,13 @@
         <meta name="author" content="Dylan Lewis and Roeland Wiersema">
       
       
-        <link rel="canonical" href="https://dyylan.github.io/geope/api/geope/">
+        <link rel="canonical" href="https://dyylan.github.io/geope/api/gecko/">
       
       
-        <link rel="prev" href="../parameters/">
+        <link rel="prev" href="../geope/">
       
       
-        <link rel="next" href="../gecko/">
+        <link rel="next" href="../engine/">
       
       
       <link rel="icon" href="../../_static/geope_logo.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>geope.geope - Geodesic Pulse Engineering (GEOPE)</title>
+        <title>geope.gecko - Geodesic Pulse Engineering (GEOPE)</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#geopegeope" class="md-skip">
+        <a href="#geopegecko" class="md-skip">
           Skip to content
         </a>
       
@@ -117,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              geope.geope
+              geope.gecko
             
           </span>
         </div>
@@ -711,6 +711,29 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../geope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -728,7 +751,7 @@
   
   
   <span class="md-ellipsis">
-    geope.geope
+    geope.gecko
     
   </span>
   
@@ -741,7 +764,7 @@
   
   
   <span class="md-ellipsis">
-    geope.geope
+    geope.gecko
     
   </span>
   
@@ -764,18 +787,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.geope.GeopeEngine" class="md-nav__link">
+  <a href="#geope.gecko.Gecko" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GeopeEngine
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.geope.Geope" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Geope
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Gecko
     </span>
   </a>
   
@@ -785,29 +799,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../gecko/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    geope.gecko
-    
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -916,18 +907,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.geope.GeopeEngine" class="md-nav__link">
+  <a href="#geope.gecko.Gecko" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GeopeEngine
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.geope.Geope" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Geope
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Gecko
     </span>
   </a>
   
@@ -949,28 +931,41 @@
 
 
 
-<h1 id="geopegeope">geope.geope<a class="headerlink" href="#geopegeope" title="Permanent link">¤</a></h1>
+<h1 id="geopegecko">geope.gecko<a class="headerlink" href="#geopegecko" title="Permanent link">¤</a></h1>
 
 
 <div class="doc doc-object doc-class">
 
 
 
-<h4 id="geope.geope.GeopeEngine" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.geope.GeopeEngine</code>
+<h4 id="geope.gecko.Gecko" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.gecko.Gecko</code>
 
 
-<a href="#geope.geope.GeopeEngine" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.gecko.Gecko" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
 
 
-        <p>Engine with JIT-compiled geodesic optimisation functions.</p>
-<p>Extends <code>Engine</code> with Jacobian, projection, geodesic, infidelity,
-and gradient functions that are JIT-compiled for use with the GEOPE
-algorithm.</p>
+        <p>Null-space ("auxiliary cost") optimiser for GEOPE solutions.</p>
+<p><code>Gecko</code> post-processes an already-found GEOPE solution: it moves the
+parameters within the Jacobian null space so that fidelity is preserved
+while an auxiliary cost is improved — smoothing, frequency shaping,
+pulse length, gate speed, robustness, or parameter bounds.</p>
+<p>A <code>Gecko</code> always needs a built <code>GeopeEngine</code>. Constructing one is
+expensive (JIT compilation), so a <code>Gecko</code> can either build its own
+engine from a <code>Parameters</code> object, or borrow a <code>Geope</code>'s already-built
+engine:</p>
+<ul>
+<li><code>Gecko(params=p)</code> — build a fresh engine from <code>p</code>.</li>
+<li><code>Gecko(geope=g)</code> — reuse <code>g.engine</code> and <code>g.params</code> directly.</li>
+<li><code>Gecko(params=p, geope=g)</code> — reuse <code>g.engine</code> but first verify it
+  is compatible with the separately-supplied <code>p</code> (raises <code>ValueError</code>
+  on mismatch).</li>
+<li><code>Gecko()</code> — raises <code>ValueError</code>.</li>
+</ul>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -984,57 +979,86 @@ algorithm.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code><span title="geope.geope.GeopeEngine.project_omegas_fn">project_omegas_fn</span></code></td>
+            <td><code><span title="geope.gecko.Gecko.params">params</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>JIT-compiled function for projecting omegas.</p>
+                <p>The bound <code>Parameters</code> object (live optimisation state).</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.geope.GeopeEngine.jac_fn">jac_fn</span></code></td>
+            <td><code><span title="geope.gecko.Gecko.engine">engine</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Jacobian function of the unitary with respect to parameters.</p>
+                <p>The <code>GeopeEngine</code> (reused from a <code>Geope</code> or freshly built).</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.geope.GeopeEngine.geo_fn">geo_fn</span></code></td>
+            <td><code><span title="geope.gecko.Gecko.history">history</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>JIT-compiled geodesic Hamiltonian function.</p>
+                <p>Optional <code>History</code> logger (<code>None</code> unless supplied).</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.geope.GeopeEngine.infid_fn">infid_fn</span></code></td>
+            <td><code><span title="geope.gecko.Gecko.step_size">step_size</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Infidelity function.</p>
+                <p>Transient last optimisation rate.</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.geope.GeopeEngine.grad_fn">grad_fn</span></code></td>
+            <td><code><span title="geope.gecko.Gecko.pulse_constraints">pulse_constraints</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Value-and-gradient of the infidelity.</p>
+                <p>Optional pulse-shape constraint config.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.gecko.Gecko.constraint_expander">constraint_expander</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Linear-equality constraint expander (from params).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.gecko.Gecko.drift_parameters">drift_parameters</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Drift parameter <code>np.ndarray</code> (<code>None</code> in
+experimental / <code>param_transform</code> mode).</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
+        <p>.. note::
+    In the <code>geope</code> and <code>params+geope</code> reuse modes the engine and
+    <code>Parameters</code> are <strong>shared</strong> with the source <code>Geope</code>. A null-space
+    pass with <code>piecewise_steps_multiplier &gt; 1</code> subdivides the pulse and
+    advances <code>params.parameters</code> / <code>params.piecewise_steps</code> /
+    <code>engine.piecewise_steps</code> together — so the shared <code>Geope</code>'s state
+    moves forward too, and a later <code>geope.optimize()</code> continues from
+    the subdivided pulse.</p>
 
 
 
@@ -1058,14 +1082,14 @@ algorithm.</p>
 
 
 
-<h5 id="geope.geope.GeopeEngine.__dict__" class="doc doc-heading">
+<h5 id="geope.gecko.Gecko.__dict__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
   </span>
 
-<a href="#geope.geope.GeopeEngine.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.gecko.Gecko.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1078,14 +1102,74 @@ algorithm.</p>
 
 
 
-<h5 id="geope.geope.GeopeEngine.__weakref__" class="doc doc-heading">
+<h5 id="geope.gecko.Gecko.__doc__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.gecko.Gecko.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.gecko.Gecko.__module__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.gecko.Gecko.__module__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.gecko.Gecko.__weakref__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.geope.GeopeEngine.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.gecko.Gecko.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1096,241 +1180,21 @@ algorithm.</p>
 
 </div>
 
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.geope.GeopeEngine.__doc__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.geope.GeopeEngine.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.geope.GeopeEngine.__module__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.geope.GeopeEngine.__module__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
 
 
 
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.geope.GeopeEngine.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<h5 id="geope.gecko.Gecko.__init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">geope</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
-<a href="#geope.geope.GeopeEngine.__init__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Initialise the GeopeEngine.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>target_unitary</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The target unitary <code>np.ndarray</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>full_basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The full Lie algebra <code>Basis</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>projected_basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The projected (controllable) subalgebra <code>Basis</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>drift_basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The drift (uncontrollable) subalgebra <code>Basis</code>.
-Defaults to <code>None</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>piecewise_steps</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of piecewise-constant gate segments. Defaults to 1.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>batch_size</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional batch size for on-the-fly omega projection
-when the number of qubits exceeds 5.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>projective</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If <code>True</code> (default), use the projective (SU)
-geodesic and <span class="arithmatex">\(F_{\mathrm{proj}} = |\mathrm{Tr}(U_T^\dagger U)|/d\)</span>.
-If <code>False</code>, use the full (U) geodesic and
-<span class="arithmatex">\(F_{\mathrm{full}} = \mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d\)</span>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.GeopeEngine.wrap_param_transform" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">wrap_param_transform</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></code>
-
-<a href="#geope.geope.GeopeEngine.wrap_param_transform" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.gecko.Gecko.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>Replace <code>compute_U_fn</code> / <code>jac_fn</code> to honour <code>params.param_transform</code>.</p>
-<p>The user-facing parameters <span class="arithmatex">\(\phi^{\mathrm{exp}}\in\mathbb{R}^{N_g\times n_{\mathrm{exp}}}\)</span>
-are mapped to projected-basis coefficients via <code>params.param_transform</code>
-(possibly step-dependent), embedded into the proj+drift basis,
-and combined with the drift before the original <code>compute_U_fn</code>
-is called. The Jacobian is replaced by a split-real-imag version
-so that complex tracing preserves the imaginary part of
-intermediates. The engine's indices are overridden so the rest
-of the pipeline operates in experimental space.</p>
-<p><code>gammas_and_omegas</code> is rebuilt at the end so it closes over the
-wrapped functions.</p>
+        <p>Initialise the Gecko optimiser.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1349,607 +1213,50 @@ wrapped functions.</p>
                 <code>params</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The <code>Parameters</code> object carrying <code>param_transform</code>.</p>
+                <p>A <code>Parameters</code> instance. Required unless <code>geope</code> is
+given (a <code>Geope</code> already carries its own <code>geope.params</code>).</p>
               </div>
             </td>
             <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.GeopeEngine.build_pulse_expander" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">build_pulse_expander</span><span class="p">(</span><span class="n">pulse_constraints</span><span class="p">,</span> <span class="n">real_params</span><span class="p">,</span> <span class="n">n_exp</span><span class="p">,</span> <span class="n">proj_params</span><span class="p">)</span></code>
-
-<a href="#geope.geope.GeopeEngine.build_pulse_expander" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Build a flat-space expander enforcing pulse-shape constraints.</p>
-<p>For each constrained parameter index <span class="arithmatex">\(k\)</span> the time profile
-<span class="arithmatex">\(\phi_k(g)\)</span> is constrained to a fixed unit-norm template
-<span class="arithmatex">\(t_k\in\mathbb{R}^{N_g}\)</span>, leaving only the scalar amplitude
-free. Unconstrained parameters retain one free variable per gate.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>pulse_constraints</code>
-            </td>
-            <td>
-                  <code><span title="dict">dict</span> | <span title="list">list</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The pulse-shape constraint config. In
-experimental space, an iterable of integer parameter
-indices; in projected space, a control-format dict
-<code>{qubit_index_or_tuple: [lowercase op labels]}</code> (the
-same format as <code>control</code>), e.g. <code>{(1, 2): ['zz']}</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>real_params</code>
+                <code>geope</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geope.Geope" href="../geope/#geope.geope.Geope">Geope</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Whether the engine operates in experimental
-(<code>param_transform</code>) space.</p>
+                <p>An optional <code>Geope</code> whose engine (and, when <code>params</code> is
+omitted, whose <code>Parameters</code>) is reused instead of rebuilding.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>n_exp</code>
+                <code>history</code>
             </td>
             <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of experimental parameters (used when
-<code>real_params</code> is <code>True</code>).</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>proj_params</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
+                  <code><span title="geope.history.History">History</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Current projected parameter <code>np.ndarray</code> of
-shape <code>(N_g, K_proj)</code> (or <code>(N_g, n_exp)</code> in
-experimental mode) used as the shape template.</p>
+                <p>Optional <code>History</code> logger. When supplied, the run
+trajectory is recorded into it.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A tuple <code>(E, templates)</code> where <code>E</code> is the</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="dict">dict</span>[<span title="int">int</span>, <span title="numpy.ndarray">ndarray</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>(N_g * n_proj, n_free)</code> expander matrix and <code>templates</code></p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="numpy.ndarray">ndarray</span>, <span title="dict">dict</span>[<span title="int">int</span>, <span title="numpy.ndarray">ndarray</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>is a dict mapping the constrained integer index to its</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="numpy.ndarray">ndarray</span>, <span title="dict">dict</span>[<span title="int">int</span>, <span title="numpy.ndarray">ndarray</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>unit-norm template vector.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.GeopeEngine.set_piecewise_steps" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">set_piecewise_steps</span><span class="p">(</span><span class="n">piecewise_steps</span><span class="p">)</span></code>
-
-<a href="#geope.geope.GeopeEngine.set_piecewise_steps" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Set the number of piecewise-constant gate segments.</p>
-<p>This is the single owned entry point for changing the segment
-count (e.g. when a null-space pass subdivides the pulse). The
-unitary computation scans over the parameter list, so no
-recompilation is needed — the integer is metadata used for
-shaping and expander construction.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>piecewise_steps</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The new number of gate segments.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h4 id="geope.geope.Geope" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.geope.Geope</code>
-
-
-<a href="#geope.geope.Geope" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-
-
-        <p>Top-level GEOPE optimiser for quantum gate synthesis.</p>
-<p>Orchestrates the geodesic-based optimisation of Lie algebra
-parameters (<span class="arithmatex">\(\phi\)</span>) to synthesise a target unitary from a
-controllable subalgebra.</p>
-
-
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.params">params</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The bound <code>Parameters</code> object (the single source of truth
-for all configuration and for the live optimisation state).</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.engine">engine</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The internal <code>GeopeEngine</code> constructed from <code>params</code>.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.precision">precision</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Target fidelity threshold.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.max_step_size">max_step_size</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Maximum line-search step size.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.gram_schmidt_step_size">gram_schmidt_step_size</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Step size for Gram-Schmidt fallback moves.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.line_search_method">line_search_method</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Line-search strategy from the most recent
-:meth:<code>optimize</code> call (<code>'golden_section'</code>, <code>'difference_step'</code>,
-<code>'adam'</code>, <code>'adam_fd'</code> or <code>'adam_grad'</code>; <code>'adam'</code> is an alias
-for <code>'adam_fd'</code>). <code>None</code> until :meth:<code>optimize</code> is first called.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.adam_lr">adam_lr</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Adam learning rate from the most recent :meth:<code>optimize</code> call
-(used by the <code>'adam*'</code> methods); <code>None</code> until then.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.adam_steps">adam_steps</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of Adam iterations from the most recent
-:meth:<code>optimize</code> call (used by the <code>'adam*'</code> methods); <code>None</code>
-until then.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.step_size">step_size</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Transient last line-search step size.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.geope.Geope.history">history</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional <code>History</code> logger (<code>None</code> unless supplied),
-holding the full run trajectory.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.geope.Geope.__dict__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.geope.Geope.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.geope.Geope.__doc__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.geope.Geope.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.geope.Geope.__module__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.geope.Geope.__module__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.geope.Geope.__weakref__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.geope.Geope.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>list of weak references to the object</p>
-
-    </div>
-
-</div>
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.Geope.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
-
-<a href="#geope.geope.Geope.__init__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Initialise the Geope optimiser.</p>
-<p><code>Geope</code> requires a <code>Parameters</code> object — the engine, initial
-parameters, drift, constraints, pulse constraints, seed,
-initialisation spread, projective flag and <code>param_transform</code> are
-all read from it. To construct one, use :class:<code>Parameters</code>.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>params</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Parameters</code> instance bundling every input the
-optimiser needs.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>precision</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Target fidelity. Defaults to 0.9999999.</p>
-              </div>
-            </td>
-            <td>
-                  <code>0.9999999</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>max_step_size</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Maximum line-search step. Defaults to 0.9.</p>
-              </div>
-            </td>
-            <td>
-                  <code>0.9</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>gram_schmidt_step_size</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Step size for Gram-Schmidt moves.
-Defaults to 1.3.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1.3</code>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -1968,22 +1275,1071 @@ Defaults to 1.3.</p>
                   <code>False</code>
             </td>
           </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>history</code>
-            </td>
-            <td>
-                  <code><span title="geope.history.History">History</span> | None</code>
+                  <code><span title="ValueError">ValueError</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional <code>History</code> logger. When supplied, the full run
-trajectory is recorded into it (<code>geope.history</code>); when
-<code>None</code> (default), no history is kept.</p>
+                <p>If neither <code>params</code> nor <code>geope</code> is given, or if
+both are given but the engine is incompatible with <code>params</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.gecko.Gecko.smooth" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.gecko.Gecko.smooth" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Smooth the piecewise-constant pulse by null-space optimisation.</p>
+<p>Minimises the differences between consecutive gate segments
+while remaining in the null space of the Jacobian so that
+fidelity is preserved.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Factor by which to increase the
+number of gate segments. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>smoothing_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate for the null-space update.
+Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_smoothing_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum smoothing iterations.
+Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance on the smoothing cost.
+Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code> where <code>success</code> is <code>True</code> if</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>diff_tol</code> was reached.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.gecko.Gecko.smooth_frequency" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.gecko.Gecko.smooth_frequency" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Suppress high-frequency spectral power in the pulse.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Factor by which to subdivide
+gate segments. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>smoothing_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_smoothing_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance on the spectral cost.
+Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.gecko.Gecko.filter_frequency" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">filter_frequency</span><span class="p">(</span><span class="n">filter_fn</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.gecko.Gecko.filter_frequency" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Drive the pulse toward <code>filter_fn(rfft(pulse))</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>filter_fn</code>
+            </td>
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Complex-array filter applied to the rfft of phi.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Factor by which to subdivide
+gate segments. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>smoothing_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_smoothing_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.gecko.Gecko.speed" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.gecko.Gecko.speed" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Minimise the peak amplitude of selected projected parameters.</p>
+<p>Cost: <span class="arithmatex">\(\max_{g,k\in P}|\phi_k(g)|\)</span>. Minimising it raises the
+gate-speed limit.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_labels</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Projected-basis labels to minimise.</p>
               </div>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_indices</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="int">int</span>, ...] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Integer indices (alternative to labels).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subdivision factor. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimization_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_optimization_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.gecko.Gecko.length" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">length</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.gecko.Gecko.length" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Minimise the total pulse length.</p>
+<p>Cost: <span class="arithmatex">\(\sum_g\sqrt{\sum_{k\in P}\phi_k(g)^2 + \|d_g\|^2}\)</span>
+where <span class="arithmatex">\(d_g\)</span> is the per-segment drift contribution.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_labels</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Projected-basis labels to minimise.
+If <code>None</code>, all projected parameters are used.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_indices</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="int">int</span>, ...] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Integer indices (alternative to labels).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subdivision factor. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimization_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_optimization_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.gecko.Gecko.robust" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.gecko.Gecko.robust" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Maximise the worst-case fidelity over <span class="arithmatex">\(\delta\)</span> perturbations.</p>
+<p>Cost: <span class="arithmatex">\(1 - \min_{\boldsymbol\delta} F(U(\phi+\sum_k \delta_k e_k))\)</span>
+over a Cartesian grid of <code>num_samples</code> evenly-spaced values
+in <span class="arithmatex">\([-\delta, +\delta]\)</span> for each <span class="arithmatex">\(k\in P\)</span>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_labels</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Projected-basis labels to make robust.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_indices</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="int">int</span>, ...] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Integer indices (alternative to labels).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Half-width of the perturbation box. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_samples</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Samples per parameter. Defaults to 5.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps_multiplier</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subdivision factor. Defaults to 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimization_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_optimization_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="bool">bool</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.gecko.Gecko.bound" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">bound</span><span class="p">(</span><span class="n">parameter_bounds</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">,</span> <span class="n">bounding_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_bounding_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
+
+<a href="#geope.gecko.Gecko.bound" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Enforce parameter bounds via null-space optimisation.</p>
+<p>Projects the parameters into the feasible box defined by
+<code>parameter_bounds</code> while staying in the Jacobian null space.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_bounds</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="tuple">tuple</span>[<span title="float">float</span>, <span title="float">float</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dictionary mapping interaction labels to
+<code>(min, max)</code> tuples.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Bounding strategy — <code>'projected_gradient'</code> /
+<code>'pg'</code> or <code>'mid_point'</code> / <code>'mp'</code>.
+Defaults to <code>'projected_gradient'</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;projected_gradient&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>bounding_rate</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate. Defaults to 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_bounding_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum iterations. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>diff_tol</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence tolerance. Defaults to 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tuple <code>(success, iters)</code> where <code>success</code> is <code>True</code> if</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>diff_tol</code> was reached.</p>
+              </div>
             </td>
           </tr>
       </tbody>
@@ -2001,13 +2357,11 @@ trajectory is recorded into it (<code>geope.history</code>); when
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="TypeError">TypeError</span></code>
+                  <code><span title="ValueError">ValueError</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If <code>params</code> is not a <code>Parameters</code> instance.
-The legacy <code>Geope(engine=...)</code> call site is no longer
-supported; build a <code>Parameters</code> object instead.</p>
+                <p>If an unsupported <code>method</code> is provided.</p>
               </div>
             </td>
           </tr>
@@ -2022,205 +2376,17 @@ supported; build a <code>Parameters</code> object instead.</p>
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.geope.Geope.init" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">init</span><span class="p">(</span><span class="n">init_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<h5 id="geope.gecko.Gecko.get_free_params_update_smoothing" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_free_params_update_smoothing</span><span class="p">()</span></code>
 
-<a href="#geope.geope.Geope.init" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>(Re-)initialise optimiser state.</p>
-<p>Sets up constraints, initial parameters, drift parameters and the
-live state (<code>params.parameters</code> / <code>params.fidelity</code>), and records
-step 0 into <code>history</code> when one is attached.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>init_parameters</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Initial parameter array. Defaults to random.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>drift_parameters</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Fixed drift parameter values. Defaults to ones.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>constraints</code>
-            </td>
-            <td>
-                  <code><span title="list">list</span>[<span title="numpy.ndarray">ndarray</span>] | <span title="numpy.ndarray">ndarray</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Linear equality constraints.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>seed</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Random seed for reproducibility.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.Geope.optimize" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">line_search_method</span><span class="o">=</span><span class="s1">&#39;golden_section&#39;</span><span class="p">,</span> <span class="n">adam_lr</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">adam_steps</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span></code>
-
-<a href="#geope.geope.Geope.optimize" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.gecko.Gecko.get_free_params_update_smoothing" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>Run the GEOPE optimisation loop.</p>
-<p>Iterates geodesic update steps until the fidelity exceeds
-<code>self.precision</code> or <code>max_steps</code> is reached.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>max_steps</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Maximum number of optimisation steps. Defaults to 1000.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1000</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>line_search_method</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>'golden_section'</code>, <code>'difference_step'</code>,
-<code>'adam'</code>, <code>'adam_fd'</code> or <code>'adam_grad'</code>. <code>'adam'</code> is an
-alias for <code>'adam_fd'</code> (Adam with a finite-difference
-gradient); <code>'adam_grad'</code> uses an exact autodiff gradient.
-Defaults to <code>'golden_section'</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;golden_section&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>adam_lr</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Learning rate for the Adam line-search methods.
-Defaults to 0.05. Ignored by other methods.</p>
-              </div>
-            </td>
-            <td>
-                  <code>0.05</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>adam_steps</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of Adam iterations for the Adam line-search
-methods. Defaults to 3 — enough to resolve the 1-D step size
-over the clipped <code>max_step_size</code> interval at the default
-<code>adam_lr</code>; smaller learning rates may need more. Ignored by
-other methods.</p>
-              </div>
-            </td>
-            <td>
-                  <code>3</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <p>Build a JIT-compiled function to reconstruct free parameters.</p>
+<p>Combines projected and drift parameters into the full
+free-parameter array during smoothing.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -2234,408 +2400,7 @@ other methods.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The bound <code>Parameters</code> instance, carrying the final</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>parameters</code> / <code>fidelity</code>. Read the result via</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>params.parameters</code>, <code>params.fidelity</code> or <code>params.to_dict()</code>;</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the full trajectory and <code>best_*</code> live on <code>geope.history</code> when</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>a <code>History</code> was supplied.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.Geope.add_parameters" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">add_parameters</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">fidelity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
-
-<a href="#geope.geope.Geope.add_parameters" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Update the live parameters and fidelity, logging a step.</p>
-<p>Handles different parameter shapes by mapping them back to the
-full basis. Computes the fidelity if not provided, sets
-<code>params.parameters</code> / <code>params.fidelity</code>, and records a row into
-<code>history</code> when one is attached.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>params</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span> | <span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Parameter array (full, projected+drift, or projected shape).</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>fidelity</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span> | <span title="jax.Array">Array</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Pre-computed fidelity value. If <code>None</code>, it is
-computed from the parameters.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>step_size</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Step size used. Defaults to <code>self.max_step_size</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="float">float</span> | <span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The fidelity of the new parameter set.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.Geope.gram_schmidt" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">gram_schmidt</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)</span></code>
-
-<a href="#geope.geope.Geope.gram_schmidt" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Generate a Gram-Schmidt orthogonal fallback direction.</p>
-<p>When the geodesic step fails to improve fidelity, this method
-constructs a random direction orthogonal to the previous
-coefficients and performs a signed step.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>coeffs</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The previous coefficient array from the geodesic step.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="float">float</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A tuple <code>(new_params, fidelity, step_size)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.Geope.get_update_linesearch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_update_linesearch</span><span class="p">(</span><span class="n">fid_fn</span><span class="p">,</span> <span class="n">compute_U_fn</span><span class="p">)</span></code>
-
-<a href="#geope.geope.Geope.get_update_linesearch" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Build a JIT-compiled line-search update function.</p>
-<p>Returns a function that, given current parameters and a search
-direction, finds the optimal step size via the configured
-line-search method.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>fid_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JIT-compiled fidelity function.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>compute_U_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JIT-compiled unitary computation function.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A callable <code>update_linesearch(params, coeffs, piecewise_steps)</code></p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>that returns <code>(new_parameters, fidelity, dt)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.geope.Geope.get_update_step" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_update_step</span><span class="p">(</span><span class="n">expander_override</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
-
-<a href="#geope.geope.Geope.get_update_step" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Build a JIT-compiled geodesic update step function.</p>
-<p>Computes the optimal linear combination of omegas that matches
-the geodesic direction, then performs a line search.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>expander_override</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional constraint expander to use in
-place of <code>self.constraint_expander</code>'s Kronecker'd
-version. Used by pulse-shape constraints.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="numpy.ndarray">ndarray</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2645,21 +2410,11 @@ version. Used by pulse-shape constraints.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="numpy.ndarray">ndarray</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>update_step(free_params, params, piecewise_steps)</code></p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>returning <code>(coeffs, new_params, fidelity, step_size)</code>.</p>
+                <p><code>update_free_params_smoothing(proj_params, params)</code>.</p>
               </div>
             </td>
           </tr>
@@ -2677,17 +2432,23 @@ version. Used by pulse-shape constraints.</p>
 
     </div>
 
-</div><!-- ::: geope.geope.linear_comb_projected_coeffs_multigate
+</div><!-- ::: geope.gecko.find_null_space
 
-::: geope.geope.geodesic_hamiltonian
+::: geope.gecko.piecewise_smoothing
 
-::: geope.geope.get_geodesic_hamiltonian_fn
+::: geope.gecko.piecewise_smoothing_frequency
 
-::: geope.geope.hvp_forward_over_reverse -->
+::: geope.gecko.piecewise_smoothing_frequency_filter
 
-<!-- The null-space passes (find_null_space, piecewise_smoothing,
-piecewise_bounding_mp, piecewise_bounding_pg, ...) now live in
-geope.gecko — see api/gecko.md. -->
+::: geope.gecko.get_speed_null_space_fn
+
+::: geope.gecko.get_length_null_space_fn
+
+::: geope.gecko.get_robustness_null_space_fn
+
+::: geope.gecko.piecewise_bounding_mp
+
+::: geope.gecko.piecewise_bounding_pg -->
 
 
 
