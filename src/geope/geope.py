@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-import scipy.optimize as spo
 
 import jax
 import jax.numpy as jnp
@@ -12,13 +11,12 @@ jax.config.update("jax_enable_x64", True)
 from .pauli_projector import get_project_omegas_fn, get_project_omegas_fn_otf
 from .engine import (
     Engine,
-    fidelity,
     get_infidelity_fn,
     get_fidelity_full_fn,
     get_infidelity_full_fn,
 )
 from .lie import Hamiltonian, Basis
-from .utils import golden_section_search, prepare_random_parameters, merge_constraints
+from .utils import golden_section_search, adam_line_search, prepare_random_parameters, merge_constraints, control_to_indices
 from .logm import logm
 from .jacobian_manual import get_jacobian_manual
 from .parameters import Parameters
@@ -86,143 +84,69 @@ class GeopeEngine(Engine):
             self.infid_U_fn = get_infidelity_full_fn(target_unitary)
         self.infid_fn = lambda x: self.infid_U_fn(self.compute_U_fn(x))
         self.grad_fn = jax.value_and_grad(self.infid_fn)
+        self.gammas_and_omegas = self._make_gammas_and_omegas()
 
+    def _make_gammas_and_omegas(self) -> Callable[[Array], tuple[Array, Array]]:
+        """Build the JIT-compiled function that computes gammas and omegas.
 
-class Geope:
-    """Top-level GEOPE optimiser for quantum gate synthesis.
+        Gammas are the projected geodesic Hamiltonian coefficients;
+        omegas encode the Jacobian of each unitary gate with respect to
+        each parameter, projected onto the Pauli basis. The closure
+        captures the engine's current ``compute_U_fn`` / ``jac_fn`` /
+        ``geo_fn`` / ``project_omegas_fn`` and projected+drift indices,
+        so it must be (re)built after any wrapping that replaces those
+        functions (see :meth:`wrap_param_transform`).
 
-    Orchestrates the geodesic-based optimisation of Lie-algebra
-    parameters ($\\phi$) to synthesise a target unitary from a
-    controllable subalgebra.
-
-    Attributes:
-        params: The bound `Parameters` object (the single source of truth
-            for all configuration and for the live optimisation state).
-        engine: The internal `GeopeEngine` constructed from ``params``.
-        precision: Target fidelity threshold.
-        max_step_size: Maximum line-search step size.
-        gram_schmidt_step_size: Step size for Gram-Schmidt fallback moves.
-        line_search_method: Line-search strategy (``'golden_section'`` or
-            ``'difference_step'``).
-        step_size: Transient last line-search step size.
-        history: Optional `History` logger (``None`` unless supplied),
-            holding the full run trajectory.
-    """
-
-    def __init__(self,
-                 params: Parameters,
-                 precision: float = 0.9999999,
-                 max_step_size: float = 0.9,
-                 gram_schmidt_step_size: float = 1.3,
-                 line_search_method: str = "golden_section",
-                 verbose: bool = False,
-                 history: History | None = None) -> None:
-        """Initialise the Geope optimiser.
-
-        ``Geope`` requires a `Parameters` object — the engine, initial
-        parameters, drift, constraints, pulse constraints, seed,
-        initialisation spread, projective flag and ``param_transform`` are
-        all read from it. To construct one, use :class:`Parameters`.
-
-        Args:
-            params: A `Parameters` instance bundling every input the
-                optimiser needs.
-            precision: Target fidelity. Defaults to 0.9999999.
-            max_step_size: Maximum line-search step. Defaults to 0.9.
-            gram_schmidt_step_size: Step size for Gram-Schmidt moves.
-                Defaults to 1.3.
-            line_search_method: ``'golden_section'`` or ``'difference_step'``.
-                Defaults to ``'golden_section'``.
-            verbose: Whether to print progress. Defaults to False.
-            history: Optional `History` logger. When supplied, the full run
-                trajectory is recorded into it (``geope.history``); when
-                ``None`` (default), no history is kept.
-
-        Raises:
-            TypeError: If ``params`` is not a `Parameters` instance.
-                The legacy ``Geope(engine=...)`` call site is no longer
-                supported; build a ``Parameters`` object instead.
+        Returns:
+            A JIT-compiled callable ``gammas_and_omegas(free_params)``.
         """
-        if not isinstance(params, Parameters):
-            raise TypeError(
-                "Geope requires a Parameters object as its first argument. "
-                "The legacy `Geope(engine=...)` call site has been removed. "
-                "Build a Parameters object with `geope.Parameters(basis=..., "
-                "control=..., target=..., ...)` and pass that in."
-            )
+        project_omegas_fn = self.project_omegas_fn
+        jac_fn = self.jac_fn
+        compute_U_fn = self.compute_U_fn
+        geodesic_fn = self.geo_fn
+        proj_drift_basis = self.proj_drift_basis
+        proj_indices = self.proj_indices_projdrift_basis
 
-        self.params = params
-        engine = GeopeEngine(
-            target_unitary=params.target,
-            full_basis=params.basis,
-            projected_basis=params.projected_basis,
-            drift_basis=params.drift_basis,
-            piecewise_steps=params.piecewise_steps,
-            projective=params.projective,
-        )
+        @jax.jit
+        def gammas_and_omegas(free_params):
+            unitary = compute_U_fn(free_params)
+            gammaU = geodesic_fn(unitary)
+            gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (gammaU.shape[0])
 
-        # Wrap compute_U_fn if param_transform is set
-        if params.param_transform is not None:
-            self._wrap_param_transform(engine, params)
-            init_parameters = self._init_for_param_transform(engine, params)
-            drift_parameters = None
-            constraints = None
-        else:
-            init_parameters = params.parameters
-            drift_parameters = params.drift_parameters
-            constraints = params.constraint_arrays
+            dUs = jnp.array(jac_fn(free_params))
+            dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
+            omegas_steps_phis = jnp.array([project_omegas_fn(1.j * omegaUs) for omegaUs in dUs_t])
 
-        self.engine = engine
-        self._real_params = params.param_transform is not None
+            if np.any(proj_drift_basis):
+                omegas_steps_phis = omegas_steps_phis.at[:, proj_indices, :].get()
 
-        self.history = history
-        if self.history is not None:
-            self.history.params = params
-        self.step_size = 0
+            return gammaU_params, omegas_steps_phis
 
-        self.precision = precision
-        self.max_step_size = max_step_size
-        self.gram_schmidt_step_size = gram_schmidt_step_size
-        self.init_parameters_spread = params.init_spread
-        self.line_search_method = line_search_method
-        self.pulse_constraints = params.pulse_constraints
+        return gammas_and_omegas
 
-        # Get update steps
-        self.gammas_and_omegas = self.get_gammas_and_omegas(self.engine.project_omegas_fn,
-                                                            self.engine.jac_fn,
-                                                            self.engine.compute_U_fn,
-                                                            self.engine.geo_fn)
-        self.update_step = self.get_update_step()
-        self.update_linesearch = self.get_update_linesearch(self.engine.fid_U_fn,
-                                                            self.engine.compute_U_fn)
-        self.bound_parameters = self.get_bound_parameters(self.engine.fid_U_fn,
-                                                          self.engine.compute_U_fn)
-
-        self.verbose = verbose
-        # Initialize parameters
-        self.init(init_parameters, drift_parameters, constraints, params.seed)
-
-    def _wrap_param_transform(self, engine: GeopeEngine, params: Parameters) -> None:
-        """Replace ``engine.compute_U_fn`` and ``engine.jac_fn`` to honour
-        ``params.param_transform``.
+    def wrap_param_transform(self, params: Parameters) -> None:
+        """Replace ``compute_U_fn`` / ``jac_fn`` to honour ``params.param_transform``.
 
         The user-facing parameters $\\phi^{\\mathrm{exp}}\\in\\mathbb{R}^{N_g\\times n_{\\mathrm{exp}}}$
         are mapped to projected-basis coefficients via ``params.param_transform``
         (possibly step-dependent), embedded into the proj+drift basis,
-        and combined with the drift before the original
-        ``compute_U_fn`` is called. The Jacobian is replaced by a
-        split-real-imag version so that complex tracing preserves
-        the imaginary part of intermediates.
+        and combined with the drift before the original ``compute_U_fn``
+        is called. The Jacobian is replaced by a split-real-imag version
+        so that complex tracing preserves the imaginary part of
+        intermediates. The engine's indices are overridden so the rest
+        of the pipeline operates in experimental space.
+
+        ``gammas_and_omegas`` is rebuilt at the end so it closes over the
+        wrapped functions.
 
         Args:
-            engine: The freshly-constructed ``GeopeEngine`` to mutate.
             params: The ``Parameters`` object carrying ``param_transform``.
         """
-        raw_compute_U = engine.compute_U_fn
+        raw_compute_U = self.compute_U_fn
         n_exp = params.n_experimental_params
-        n_proj_drift = engine.proj_drift_basis.lie_algebra_dim
-        proj_idx_pd = engine.proj_indices_projdrift_basis
-        drift_idx_pd = engine.drift_indices_projdrift_basis
+        n_proj_drift = self.proj_drift_basis.lie_algebra_dim
+        proj_idx_pd = self.proj_indices_projdrift_basis
+        drift_idx_pd = self.drift_indices_projdrift_basis
 
         # Detect step-dependence: tau(phi) vs tau(phi, step_index)
         _step_dependent = len(inspect.signature(params.param_transform).parameters) >= 2
@@ -235,7 +159,7 @@ class Geope:
         n_proj = params.projected_basis.lie_algebra_dim
         if tf_out_dim != n_proj:
             _extract = jnp.array(np.where(
-                np.array(engine.projected_basis.overlap(params.basis)))[0])
+                np.array(self.projected_basis.overlap(params.basis)))[0])
         else:
             _extract = None
 
@@ -266,10 +190,10 @@ class Geope:
                                      (exp_params.shape[0], _dr.shape[0])))
             return _raw(full)
 
-        engine.compute_U_fn = jax.jit(_wrapped_compute_U)
+        self.compute_U_fn = jax.jit(_wrapped_compute_U)
         # Split real/imag Jacobian to avoid losing imaginary parts through
         # real-valued intermediates in the user transform.
-        _compute_U = engine.compute_U_fn
+        _compute_U = self.compute_U_fn
 
         def _split_U(x, _cu=_compute_U):
             U = _cu(x)
@@ -281,18 +205,216 @@ class Geope:
             jac_split = _rjs(x)
             return jac_split[0] + 1j * jac_split[1]
 
-        engine.jac_fn = _jac_fn
-        engine.infid_fn = lambda x: engine.infid_U_fn(engine.compute_U_fn(x))
-        engine.grad_fn = jax.value_and_grad(engine.infid_fn)
+        self.jac_fn = _jac_fn
+        self.infid_fn = lambda x: self.infid_U_fn(self.compute_U_fn(x))
+        self.grad_fn = jax.value_and_grad(self.infid_fn)
 
-        # Override engine indices so the rest of Geope operates in experimental space
-        engine.proj_drift_indices = np.arange(n_exp)
-        engine.drift_indices = np.array([], dtype=int)
-        engine.drift_basis = None
-        engine.proj_indices_projdrift_basis = np.ones(n_exp, dtype=bool)
-        engine.drift_indices_projdrift_basis = np.zeros(n_exp, dtype=bool)
-        engine.proj_drift_basis._lie_algebra_dim = n_exp
-        engine.projected_indices = np.ones(n_exp, dtype=bool)
+        # Override engine indices so the rest of the pipeline operates in
+        # experimental space
+        self.proj_drift_indices = np.arange(n_exp)
+        self.drift_indices = np.array([], dtype=int)
+        self.drift_basis = None
+        self.proj_indices_projdrift_basis = np.ones(n_exp, dtype=bool)
+        self.drift_indices_projdrift_basis = np.zeros(n_exp, dtype=bool)
+        self.proj_drift_basis._lie_algebra_dim = n_exp
+        self.projected_indices = np.ones(n_exp, dtype=bool)
+
+        # Rebuild gammas/omegas so it closes over the wrapped functions and
+        # the overridden indices.
+        self.gammas_and_omegas = self._make_gammas_and_omegas()
+
+    def build_pulse_expander(
+        self,
+        pulse_constraints: dict | list,
+        real_params: bool,
+        n_exp: int,
+        proj_params: np.ndarray,
+    ) -> tuple[np.ndarray, dict[int, np.ndarray]]:
+        """Build a flat-space expander enforcing pulse-shape constraints.
+
+        For each constrained parameter index $k$ the time profile
+        $\\phi_k(g)$ is constrained to a fixed unit-norm template
+        $t_k\\in\\mathbb{R}^{N_g}$, leaving only the scalar amplitude
+        free. Unconstrained parameters retain one free variable per gate.
+
+        Args:
+            pulse_constraints: The pulse-shape constraint config. In
+                experimental space, an iterable of integer parameter
+                indices; in projected space, a control-format dict
+                ``{qubit_index_or_tuple: [lowercase op labels]}`` (the
+                same format as ``control``), e.g. ``{(1, 2): ['zz']}``.
+            real_params: Whether the engine operates in experimental
+                (``param_transform``) space.
+            n_exp: Number of experimental parameters (used when
+                ``real_params`` is ``True``).
+            proj_params: Current projected parameter ``np.ndarray`` of
+                shape ``(N_g, K_proj)`` (or ``(N_g, n_exp)`` in
+                experimental mode) used as the shape template.
+
+        Returns:
+            A tuple ``(E, templates)`` where ``E`` is the
+            ``(N_g * n_proj, n_free)`` expander matrix and ``templates``
+            is a dict mapping the constrained integer index to its
+            unit-norm template vector.
+        """
+        L = self.piecewise_steps
+        if real_params:
+            n_proj = n_exp
+            pulse_indices = list(pulse_constraints)
+        else:
+            n_proj = self.projected_basis.lie_algebra_dim
+            proj_labels = list(self.projected_basis.labels)
+            if not isinstance(pulse_constraints, dict):
+                raise TypeError(
+                    "pulse_constraints must be a control-format dict in "
+                    "projected space, e.g. {(1, 2): ['zz']}.")
+            pulse_indices = control_to_indices(proj_labels, pulse_constraints,
+                                               strict=True)
+        pulse_set = set(pulse_indices)
+        non_pulse = [k for k in range(n_proj) if k not in pulse_set]
+
+        n_free = L * len(non_pulse) + len(pulse_indices)
+        E = np.zeros((L * n_proj, n_free))
+
+        col = 0
+        for g in range(L):
+            for k in non_pulse:
+                E[k + g * n_proj, col] = 1.0
+                col += 1
+
+        templates = {}
+        for k in pulse_indices:
+            template = np.array(proj_params[:, k]).real
+            norm_t = np.linalg.norm(template)
+            if norm_t < 1e-12:
+                template = np.ones(L) / np.sqrt(L)
+            else:
+                template = template / norm_t
+            templates[k] = template
+            for g in range(L):
+                E[k + g * n_proj, col] = float(template[g])
+            col += 1
+
+        return E, templates
+
+
+class Geope:
+    """Top-level GEOPE optimiser for quantum gate synthesis.
+
+    Orchestrates the geodesic-based optimisation of Lie algebra
+    parameters ($\\phi$) to synthesise a target unitary from a
+    controllable subalgebra.
+
+    Attributes:
+        params: The bound `Parameters` object (the single source of truth
+            for all configuration and for the live optimisation state).
+        engine: The internal `GeopeEngine` constructed from ``params``.
+        precision: Target fidelity threshold.
+        max_step_size: Maximum line-search step size.
+        gram_schmidt_step_size: Step size for Gram-Schmidt fallback moves.
+        line_search_method: Line-search strategy from the most recent
+            :meth:`optimize` call (``'golden_section'``, ``'difference_step'``,
+            ``'adam'``, ``'adam_fd'`` or ``'adam_grad'``; ``'adam'`` is an alias
+            for ``'adam_fd'``). ``None`` until :meth:`optimize` is first called.
+        adam_lr: Adam learning rate from the most recent :meth:`optimize` call
+            (used by the ``'adam*'`` methods); ``None`` until then.
+        adam_steps: Number of Adam iterations from the most recent
+            :meth:`optimize` call (used by the ``'adam*'`` methods); ``None``
+            until then.
+        step_size: Transient last line-search step size.
+        history: Optional `History` logger (``None`` unless supplied),
+            holding the full run trajectory.
+    """
+
+    def __init__(self,
+                 params: Parameters,
+                 precision: float = 0.9999999,
+                 max_step_size: float = 0.9,
+                 gram_schmidt_step_size: float = 1.3,
+                 verbose: bool = False,
+                 history: History | None = None) -> None:
+        """Initialise the Geope optimiser.
+
+        ``Geope`` requires a `Parameters` object — the engine, initial
+        parameters, drift, constraints, pulse constraints, seed,
+        initialisation spread, projective flag and ``param_transform`` are
+        all read from it. To construct one, use :class:`Parameters`.
+
+        Args:
+            params: A `Parameters` instance bundling every input the
+                optimiser needs.
+            precision: Target fidelity. Defaults to 0.9999999.
+            max_step_size: Maximum line-search step. Defaults to 0.9.
+            gram_schmidt_step_size: Step size for Gram-Schmidt moves.
+                Defaults to 1.3.
+            verbose: Whether to print progress. Defaults to False.
+            history: Optional `History` logger. When supplied, the full run
+                trajectory is recorded into it (``geope.history``); when
+                ``None`` (default), no history is kept.
+
+        Raises:
+            TypeError: If ``params`` is not a `Parameters` instance.
+                The legacy ``Geope(engine=...)`` call site is no longer
+                supported; build a ``Parameters`` object instead.
+        """
+        if not isinstance(params, Parameters):
+            raise TypeError(
+                "Geope requires a Parameters object as its first argument. "
+                "Build a Parameters object with `geope.Parameters(basis=..., "
+                "control=..., target=..., ...)` and pass that in."
+            )
+
+        self.params = params
+        engine = GeopeEngine(
+            target_unitary=params.target,
+            full_basis=params.basis,
+            projected_basis=params.projected_basis,
+            drift_basis=params.drift_basis,
+            piecewise_steps=params.piecewise_steps,
+            projective=params.projective,
+        )
+
+        # Wrap compute_U_fn if param_transform is set
+        if params.param_transform is not None:
+            engine.wrap_param_transform(params)
+            init_parameters = self._init_for_param_transform(engine, params)
+            drift_parameters = None
+            constraints = None
+        else:
+            init_parameters = params.parameters
+            drift_parameters = params.drift_parameters
+            constraints = params.constraint_arrays
+
+        self.engine = engine
+        self._real_params = params.param_transform is not None
+
+        self.history = history
+        if self.history is not None:
+            self.history.params = params
+        self.step_size = 0
+
+        self.precision = precision
+        self.max_step_size = max_step_size
+        self.gram_schmidt_step_size = gram_schmidt_step_size
+        self.init_parameters_spread = params.init_spread
+        self.pulse_constraints = params.pulse_constraints
+
+        # The line-search method and its hyperparameters are arguments of
+        # optimize(), not the constructor. The JIT-compiled update_step /
+        # update_linesearch bake the method and hyperparameters into their
+        # closures, so they are built lazily by optimize() (via
+        # _configure_line_search) and rebuilt only when that configuration
+        # changes. They stay unset until the first optimize() call.
+        self.line_search_method = None
+        self.adam_lr = None
+        self.adam_steps = None
+        self._linesearch_config = None
+        self.update_step = None
+        self.update_linesearch = None
+
+        self.verbose = verbose
+        # Initialize parameters
+        self.init(init_parameters, drift_parameters, constraints, params.seed)
 
     def _init_for_param_transform(self, engine: GeopeEngine, params: Parameters) -> np.ndarray:
         """Compute initial parameters in experimental-parameter space.
@@ -336,6 +458,10 @@ class Geope:
             constraints: Linear equality constraints.
             seed: Random seed for reproducibility.
         """
+        # Dedicated RNG for stochastic fallbacks (e.g. the Gram-Schmidt
+        # escape direction), so a run is reproducible when ``seed`` is given.
+        self._rng = np.random.default_rng(seed)
+
         # Set constraints
         self.constraint_expander = None
         if constraints is not None:
@@ -409,7 +535,42 @@ class Geope:
             self.history.reset()
             self.history.record(self)        # step 0
 
-    def optimize(self, max_steps: int = 1000) -> Parameters:
+    def _configure_line_search(
+        self,
+        line_search_method: str,
+        adam_lr: float,
+        adam_steps: int,
+    ) -> None:
+        """Select the line-search method and (re)build its update functions.
+
+        The JIT-compiled ``update_step`` / ``update_linesearch`` close over the
+        method string and Adam hyperparameters, so they must be recreated and
+        re-traced whenever the configuration changes. The current
+        configuration is memoised in ``_linesearch_config`` so that repeated
+        ``optimize()`` calls with unchanged settings reuse the already-compiled
+        functions instead of triggering a fresh JAX recompilation.
+
+        Args:
+            line_search_method: Line-search strategy (see :meth:`optimize`).
+            adam_lr: Adam learning rate (used by the ``'adam*'`` methods).
+            adam_steps: Number of Adam iterations (used by the ``'adam*'``
+                methods).
+        """
+        config = (line_search_method, adam_lr, adam_steps)
+        if self._linesearch_config == config:
+            return
+        self.line_search_method = line_search_method
+        self.adam_lr = adam_lr
+        self.adam_steps = adam_steps
+        self.update_linesearch = self.get_update_linesearch(
+            self.engine.fid_U_fn, self.engine.compute_U_fn)
+        self.update_step = self.get_update_step()
+        self._linesearch_config = config
+
+    def optimize(self, max_steps: int = 1000,
+                 line_search_method: str = "golden_section",
+                 adam_lr: float = 0.05,
+                 adam_steps: int = 3) -> Parameters:
         """Run the GEOPE optimisation loop.
 
         Iterates geodesic update steps until the fidelity exceeds
@@ -417,6 +578,18 @@ class Geope:
 
         Args:
             max_steps: Maximum number of optimisation steps. Defaults to 1000.
+            line_search_method: ``'golden_section'``, ``'difference_step'``,
+                ``'adam'``, ``'adam_fd'`` or ``'adam_grad'``. ``'adam'`` is an
+                alias for ``'adam_fd'`` (Adam with a finite-difference
+                gradient); ``'adam_grad'`` uses an exact autodiff gradient.
+                Defaults to ``'golden_section'``.
+            adam_lr: Learning rate for the Adam line-search methods.
+                Defaults to 0.05. Ignored by other methods.
+            adam_steps: Number of Adam iterations for the Adam line-search
+                methods. Defaults to 3 — enough to resolve the 1-D step size
+                over the clipped ``max_step_size`` interval at the default
+                ``adam_lr``; smaller learning rates may need more. Ignored by
+                other methods.
 
         Returns:
             The bound `Parameters` instance, carrying the final
@@ -425,6 +598,10 @@ class Geope:
             the full trajectory and ``best_*`` live on ``geope.history`` when
             a `History` was supplied.
         """
+        # Select the line-search method and (re)build the JIT-compiled update
+        # functions if this configuration differs from the last run.
+        self._configure_line_search(line_search_method, adam_lr, adam_steps)
+
         # Build pulse-constrained update step if needed
         pulse_templates = None
         if self.pulse_constraints is not None and self.engine.piecewise_steps > 1:
@@ -520,356 +697,6 @@ class Geope:
             self.history.record(self)
         return fidelity
 
-    def smooth(
-        self,
-        piecewise_steps_multiplier: int = 1,
-        smoothing_rate: float = 0.01,
-        max_smoothing_steps: int = 100,
-        diff_tol: float = 0.1,
-    ) -> tuple[bool, int]:
-        """Smooth the piecewise-constant pulse by null-space optimisation.
-
-        Minimises the differences between consecutive gate segments
-        while remaining in the null space of the Jacobian so that
-        fidelity is preserved.
-
-        Args:
-            piecewise_steps_multiplier: Factor by which to increase the
-                number of gate segments. Defaults to 1.
-            smoothing_rate: Learning rate for the null-space update.
-                Defaults to 0.01.
-            max_smoothing_steps: Maximum smoothing iterations.
-                Defaults to 100.
-            diff_tol: Convergence tolerance on the smoothing cost.
-                Defaults to 0.1.
-
-        Returns:
-            A tuple ``(success, iters)`` where `success` is ``True`` if
-            `diff_tol` was reached.
-        """
-        success, iters = self._null_space_optimisation(piecewise_smoothing,
-                                                        piecewise_steps_multiplier=piecewise_steps_multiplier,
-                                                        max_steps=max_smoothing_steps,
-                                                        rate=smoothing_rate,
-                                                        diff_tol=diff_tol,
-                                                        label="Smoothing")
-        return success, iters
-
-    def smooth_frequency(
-        self,
-        piecewise_steps_multiplier: int = 1,
-        smoothing_rate: float = 0.01,
-        max_smoothing_steps: int = 100,
-        diff_tol: float = 0.1,
-    ) -> tuple[bool, int]:
-        """Suppress high-frequency spectral power in the pulse.
-
-        Args:
-            piecewise_steps_multiplier: Factor by which to subdivide
-                gate segments. Defaults to 1.
-            smoothing_rate: Learning rate. Defaults to 0.01.
-            max_smoothing_steps: Maximum iterations. Defaults to 100.
-            diff_tol: Convergence tolerance on the spectral cost.
-                Defaults to 0.1.
-
-        Returns:
-            A tuple ``(success, iters)``.
-        """
-        success, iters = self._null_space_optimisation(
-            piecewise_smoothing_frequency,
-            piecewise_steps_multiplier=piecewise_steps_multiplier,
-            max_steps=max_smoothing_steps,
-            rate=smoothing_rate,
-            diff_tol=diff_tol,
-            label="Smoothing (freq)",
-        )
-        return success, iters
-
-    def filter_frequency(
-        self,
-        filter_fn: Callable[[Array], Array],
-        piecewise_steps_multiplier: int = 1,
-        smoothing_rate: float = 0.01,
-        max_smoothing_steps: int = 100,
-        diff_tol: float = 0.1,
-    ) -> tuple[bool, int]:
-        """Drive the pulse toward ``filter_fn(rfft(pulse))``.
-
-        Args:
-            filter_fn: Complex-array filter applied to the rfft of phi.
-            piecewise_steps_multiplier: Factor by which to subdivide
-                gate segments. Defaults to 1.
-            smoothing_rate: Learning rate. Defaults to 0.01.
-            max_smoothing_steps: Maximum iterations. Defaults to 100.
-            diff_tol: Convergence tolerance. Defaults to 0.1.
-
-        Returns:
-            A tuple ``(success, iters)``.
-        """
-        success, iters = self._null_space_optimisation(
-            partial(piecewise_smoothing_frequency_filter, filter_fn=filter_fn),
-            piecewise_steps_multiplier=piecewise_steps_multiplier,
-            max_steps=max_smoothing_steps,
-            rate=smoothing_rate,
-            diff_tol=diff_tol,
-            label="Smoothing (freq filter)",
-        )
-        return success, iters
-
-    def _resolve_parameter_indices(
-        self,
-        parameter_labels: list[str] | None,
-        parameter_indices: tuple[int, ...] | None,
-        default_all: bool = False,
-    ) -> tuple[int, ...]:
-        """Resolve ``parameter_labels`` / ``parameter_indices`` into integer indices.
-
-        Args:
-            parameter_labels: Optional list of projected-basis label strings.
-            parameter_indices: Optional tuple of integer indices.
-            default_all: If both are ``None`` and this is ``True``, return
-                the full range of projected indices.
-
-        Returns:
-            A tuple of integer indices into the projected basis.
-
-        Raises:
-            ValueError: If both are provided, or labels are passed with
-                ``param_transform`` active.
-        """
-        if parameter_labels is not None and parameter_indices is not None:
-            raise ValueError("Specify parameter_labels or parameter_indices, not both")
-        real = getattr(self, "_real_params", False)
-        if real:
-            if parameter_labels is not None:
-                raise ValueError(
-                    "parameter_labels not supported with param_transform; "
-                    "use parameter_indices instead"
-                )
-            if parameter_indices is None:
-                if default_all:
-                    return tuple(range(self.params.n_experimental_params))
-                raise ValueError("parameter_indices required with param_transform")
-            return tuple(parameter_indices)
-        if parameter_indices is not None:
-            return tuple(parameter_indices)
-        proj_labels = list(self.engine.projected_basis.labels)
-        if parameter_labels is None:
-            if default_all:
-                return tuple(range(len(proj_labels)))
-            raise ValueError("Either parameter_labels or parameter_indices must be provided")
-        return tuple(proj_labels.index(label) for label in parameter_labels)
-
-    def speed(
-        self,
-        parameter_labels: list[str] | None = None,
-        parameter_indices: tuple[int, ...] | None = None,
-        piecewise_steps_multiplier: int = 1,
-        optimization_rate: float = 0.01,
-        max_optimization_steps: int = 100,
-        diff_tol: float = 0.1,
-    ) -> tuple[bool, int]:
-        """Minimise the peak amplitude of selected projected parameters.
-
-        Cost: $\\max_{g,k\\in P}|\\phi_k(g)|$. Minimising it raises the
-        gate-speed limit.
-
-        Args:
-            parameter_labels: Projected-basis labels to minimise.
-            parameter_indices: Integer indices (alternative to labels).
-            piecewise_steps_multiplier: Subdivision factor. Defaults to 1.
-            optimization_rate: Learning rate. Defaults to 0.01.
-            max_optimization_steps: Maximum iterations. Defaults to 100.
-            diff_tol: Convergence tolerance. Defaults to 0.1.
-
-        Returns:
-            A tuple ``(success, iters)``.
-        """
-        parameter_indices = self._resolve_parameter_indices(
-            parameter_labels, parameter_indices, default_all=False
-        )
-        real = getattr(self, "_real_params", False)
-        n_proj = (self.params.n_experimental_params if real
-                  else self.engine.projected_basis.lie_algebra_dim)
-        speed_fn = get_speed_null_space_fn(n_proj, parameter_indices)
-        success, iters = self._null_space_optimisation(
-            speed_fn,
-            piecewise_steps_multiplier=piecewise_steps_multiplier,
-            max_steps=max_optimization_steps,
-            rate=optimization_rate,
-            diff_tol=diff_tol,
-            label="Speed Optimization",
-        )
-        return success, iters
-
-    def length(
-        self,
-        parameter_labels: list[str] | None = None,
-        parameter_indices: tuple[int, ...] | None = None,
-        piecewise_steps_multiplier: int = 1,
-        optimization_rate: float = 0.01,
-        max_optimization_steps: int = 100,
-        diff_tol: float = 0.1,
-    ) -> tuple[bool, int]:
-        """Minimise the total pulse length.
-
-        Cost: $\\sum_g\\sqrt{\\sum_{k\\in P}\\phi_k(g)^2 + \\|d_g\\|^2}$
-        where $d_g$ is the per-segment drift contribution.
-
-        Args:
-            parameter_labels: Projected-basis labels to minimise.
-                If ``None``, all projected parameters are used.
-            parameter_indices: Integer indices (alternative to labels).
-            piecewise_steps_multiplier: Subdivision factor. Defaults to 1.
-            optimization_rate: Learning rate. Defaults to 0.01.
-            max_optimization_steps: Maximum iterations. Defaults to 100.
-            diff_tol: Convergence tolerance. Defaults to 0.1.
-
-        Returns:
-            A tuple ``(success, iters)``.
-        """
-        parameter_indices = self._resolve_parameter_indices(
-            parameter_labels, parameter_indices, default_all=True
-        )
-        real = getattr(self, "_real_params", False)
-        n_proj = (self.params.n_experimental_params if real
-                  else self.engine.projected_basis.lie_algebra_dim)
-        drift_sq_norm = 0.0
-        if not real and self.engine.drift_basis is not None and getattr(self, "drift_parameters", None) is not None:
-            drift_per_gate = np.array(self.drift_parameters) / piecewise_steps_multiplier
-            drift_sq_norm = float(np.sum(drift_per_gate ** 2))
-        length_fn = get_length_null_space_fn(n_proj, parameter_indices, drift_sq_norm=drift_sq_norm)
-        success, iters = self._null_space_optimisation(
-            length_fn,
-            piecewise_steps_multiplier=piecewise_steps_multiplier,
-            max_steps=max_optimization_steps,
-            rate=optimization_rate,
-            diff_tol=diff_tol,
-            label="Length Optimization",
-        )
-        return success, iters
-
-    def robust(
-        self,
-        parameter_labels: list[str] | None = None,
-        parameter_indices: tuple[int, ...] | None = None,
-        delta: float = 0.01,
-        num_samples: int = 5,
-        piecewise_steps_multiplier: int = 1,
-        optimization_rate: float = 0.01,
-        max_optimization_steps: int = 100,
-        diff_tol: float = 0.1,
-    ) -> tuple[bool, int]:
-        """Maximise the worst-case fidelity over $\\delta$ perturbations.
-
-        Cost: $1 - \\min_{\\boldsymbol\\delta} F(U(\\phi+\\sum_k \\delta_k e_k))$
-        over a Cartesian grid of ``num_samples`` evenly-spaced values
-        in $[-\\delta, +\\delta]$ for each $k\\in P$.
-
-        Args:
-            parameter_labels: Projected-basis labels to make robust.
-            parameter_indices: Integer indices (alternative to labels).
-            delta: Half-width of the perturbation box. Defaults to 0.01.
-            num_samples: Samples per parameter. Defaults to 5.
-            piecewise_steps_multiplier: Subdivision factor. Defaults to 1.
-            optimization_rate: Learning rate. Defaults to 0.01.
-            max_optimization_steps: Maximum iterations. Defaults to 100.
-            diff_tol: Convergence tolerance. Defaults to 0.1.
-
-        Returns:
-            A tuple ``(success, iters)``.
-        """
-        parameter_indices = self._resolve_parameter_indices(
-            parameter_labels, parameter_indices, default_all=False
-        )
-        real = getattr(self, "_real_params", False)
-        if real:
-            n_proj = self.params.n_experimental_params
-            n_projdrift = n_proj
-            drift_params = None
-        else:
-            n_proj = self.engine.projected_basis.lie_algebra_dim
-            n_projdrift = self.engine.proj_drift_basis.lie_algebra_dim
-            drift_params = (
-                self.drift_parameters
-                if hasattr(self, "drift_parameters") and self.engine.drift_basis is not None
-                else None
-            )
-        robustness_fn = get_robustness_null_space_fn(
-            self.engine.fid_U_fn,
-            self.engine.compute_U_fn,
-            self.engine.proj_indices_projdrift_basis,
-            self.engine.drift_indices_projdrift_basis,
-            drift_params,
-            n_proj,
-            n_projdrift,
-            parameter_indices,
-            delta,
-            num_samples,
-        )
-        success, iters = self._null_space_optimisation(
-            robustness_fn,
-            piecewise_steps_multiplier=piecewise_steps_multiplier,
-            max_steps=max_optimization_steps,
-            rate=optimization_rate,
-            diff_tol=diff_tol,
-            label="Robustness Optimization",
-        )
-        return success, iters
-
-    def bound(
-        self,
-        parameter_bounds: dict[str, tuple[float, float]],
-        method: str = "projected_gradient",
-        bounding_rate: float = 0.01,
-        max_bounding_steps: int = 100,
-        diff_tol: float = 0.1,
-    ) -> tuple[bool, int]:
-        """Enforce parameter bounds via null-space optimisation.
-
-        Projects the parameters into the feasible box defined by
-        `parameter_bounds` while staying in the Jacobian null space.
-
-        Args:
-            parameter_bounds: Dictionary mapping interaction labels to
-                ``(min, max)`` tuples.
-            method: Bounding strategy — ``'projected_gradient'`` /
-                ``'pg'`` or ``'mid_point'`` / ``'mp'``.
-                Defaults to ``'projected_gradient'``.
-            bounding_rate: Learning rate. Defaults to 0.01.
-            max_bounding_steps: Maximum iterations. Defaults to 100.
-            diff_tol: Convergence tolerance. Defaults to 0.1.
-
-        Returns:
-            A tuple ``(success, iters)`` where `success` is ``True`` if
-            `diff_tol` was reached.
-
-        Raises:
-            ValueError: If an unsupported `method` is provided.
-        """
-        self.parameter_bounds = parameter_bounds
-        bounds = self.engine.proj_drift_basis.generate_bounds(self.parameter_bounds, 
-                                                              self.engine.piecewise_steps)
-        self.lower_bounds = jnp.array(bounds[0], dtype=jnp.float64)
-        self.upper_bounds = jnp.array(bounds[1], dtype=jnp.float64)
-
-        if method == "projected_gradient" or method == "pg":
-            piecewise_bounding = piecewise_bounding_pg 
-        elif method == "mid_point" or method == "mp":
-            piecewise_bounding = piecewise_bounding_mp
-        else:
-            raise ValueError(f"Bounding method {method} not implemented.")
-        
-        success, iters = self._null_space_optimisation(piecewise_bounding, 
-                                                        max_steps=max_bounding_steps, 
-                                                        rate=bounding_rate,
-                                                        diff_tol=diff_tol,
-                                                        label="Bounding",
-                                                        lower_bounds=self.lower_bounds[:,self.engine.proj_indices_projdrift_basis],
-                                                        upper_bounds=self.upper_bounds[:,self.engine.proj_indices_projdrift_basis],
-                                                        )
-        return success, iters
-    
     def gram_schmidt(self, coeffs: Array) -> tuple[Array, Array, float]:
         """Generate a Gram-Schmidt orthogonal fallback direction.
 
@@ -885,10 +712,11 @@ class Geope:
         """
         if self._real_params:
             n_exp = self.params.n_experimental_params
-            proj_c = np.random.randn(self.engine.piecewise_steps, n_exp) * 0.1
+            proj_c = self._rng.standard_normal((self.engine.piecewise_steps, n_exp)) * 0.1
         else:
             proj_c = np.array(
-                [prepare_random_parameters(self.engine.projected_indices, self.constraint_expander)[
+                [prepare_random_parameters(self.engine.projected_indices, self.constraint_expander,
+                                           rng=self._rng)[
                      self.engine.proj_drift_indices] for _ in
                  range(self.engine.piecewise_steps)])
             if self.engine.drift_basis is not None:
@@ -953,64 +781,6 @@ class Geope:
 
         return new_parameters, fidelity, sign * scaled_gs_step
 
-    def _build_pulse_expander(self, proj_params: np.ndarray) -> tuple[np.ndarray, dict[int, np.ndarray]]:
-        """Build a flat-space expander enforcing pulse-shape constraints.
-
-        For each constrained parameter index $k$ the time profile
-        $\\phi_k(g)$ is constrained to a fixed unit-norm template
-        $t_k\\in\\mathbb{R}^{N_g}$, leaving only the scalar amplitude
-        free. Unconstrained parameters retain one free variable per gate.
-
-        Args:
-            proj_params: Current projected parameter ``np.ndarray`` of
-                shape ``(N_g, K_proj)`` (or ``(N_g, n_exp)`` in
-                experimental mode) used as the shape template.
-
-        Returns:
-            A tuple ``(E, templates)`` where ``E`` is the
-            ``(N_g * n_proj, n_free)`` expander matrix and ``templates``
-            is a dict mapping the constrained integer index to its
-            unit-norm template vector.
-        """
-        L = self.engine.piecewise_steps
-        if getattr(self, "_real_params", False):
-            n_proj = self.params.n_experimental_params
-            pulse_indices = list(self.pulse_constraints)
-        else:
-            n_proj = self.engine.projected_basis.lie_algebra_dim
-            proj_labels = list(self.engine.projected_basis.labels)
-            if isinstance(self.pulse_constraints, dict):
-                labels = list(self.pulse_constraints.keys())
-            else:
-                labels = list(self.pulse_constraints)
-            pulse_indices = [proj_labels.index(label) for label in labels]
-        pulse_set = set(pulse_indices)
-        non_pulse = [k for k in range(n_proj) if k not in pulse_set]
-
-        n_free = L * len(non_pulse) + len(pulse_indices)
-        E = np.zeros((L * n_proj, n_free))
-
-        col = 0
-        for g in range(L):
-            for k in non_pulse:
-                E[k + g * n_proj, col] = 1.0
-                col += 1
-
-        templates = {}
-        for k in pulse_indices:
-            template = np.array(proj_params[:, k]).real
-            norm_t = np.linalg.norm(template)
-            if norm_t < 1e-12:
-                template = np.ones(L) / np.sqrt(L)
-            else:
-                template = template / norm_t
-            templates[k] = template
-            for g in range(L):
-                E[k + g * n_proj, col] = float(template[g])
-            col += 1
-
-        return E, templates
-
     def _build_optimize_expander(self) -> tuple[Array, dict[int, np.ndarray]]:
         """Build the combined pulse + linear-constraint expander.
 
@@ -1026,7 +796,9 @@ class Geope:
             proj_params = self.params.parameters
         else:
             proj_params = self.params.parameters[:, self.engine.projected_indices]
-        E_pulse, pulse_templates = self._build_pulse_expander(np.array(proj_params).real)
+        E_pulse, pulse_templates = self.engine.build_pulse_expander(
+            self.pulse_constraints, getattr(self, "_real_params", False),
+            self.params.n_experimental_params, np.array(proj_params).real)
         if self.constraint_expander is not None:
             E_gate = np.kron(np.eye(self.engine.piecewise_steps), self.constraint_expander)
             combined = E_gate @ np.linalg.pinv(E_gate) @ E_pulse
@@ -1117,52 +889,30 @@ class Geope:
             elif self.line_search_method == "difference_step":
                 tol = 0.1 * f(0)
                 dt, infid = golden_section_search(f, -max_step_size, 0., tol=tol)
+            elif self.line_search_method in ("adam", "adam_fd"):
+                dt, infid = adam_line_search(
+                    f, -max_step_size, 0.,
+                    lr=self.adam_lr, num_steps=self.adam_steps,
+                    finite_difference=True,
+                )
+            elif self.line_search_method == "adam_grad":
+                dt, infid = adam_line_search(
+                    f, -max_step_size, 0.,
+                    lr=self.adam_lr, num_steps=self.adam_steps,
+                    finite_difference=False,
+                )
+            else:
+                raise ValueError(
+                    f"Unknown line_search_method {self.line_search_method!r}; "
+                    "expected 'golden_section', 'difference_step', 'adam', "
+                    "'adam_fd', or 'adam_grad'."
+                )
             new_parameters = sliced_params + dt * coeffs
             fidelity = 1 - infid
 
             return new_parameters, fidelity, dt
 
         return update_linesearch
-
-    def get_gammas_and_omegas(
-        self,
-        project_omegas_fn: Callable[..., Array],
-        jac_fn: Callable[..., Array],
-        compute_U_fn: Callable[..., Array],
-        geodesic_fn: Callable[..., Array],
-    ) -> Callable[[Array], tuple[Array, Array]]:
-        """Build a JIT-compiled function that computes gammas and omegas.
-
-        Gammas are the projected geodesic Hamiltonian coefficients;
-        omegas encode the Jacobian of each unitary gate with respect
-        to each parameter, projected onto the Pauli basis.
-
-        Args:
-            project_omegas_fn: Function to project matrices onto the basis.
-            jac_fn: Jacobian function of the unitary.
-            compute_U_fn: Unitary computation function.
-            geodesic_fn: Geodesic Hamiltonian function.
-
-        Returns:
-            A JIT-compiled callable ``gammas_and_omegas(free_params)``.
-        """
-
-        @jax.jit
-        def gammas_and_omegas(free_params):
-            unitary = compute_U_fn(free_params)
-            gammaU = geodesic_fn(unitary)
-            gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (gammaU.shape[0])
-
-            dUs = jnp.array(jac_fn(free_params))
-            dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
-            omegas_steps_phis = jnp.array([project_omegas_fn(1.j * omegaUs) for omegaUs in dUs_t])
-
-            if np.any(self.engine.proj_drift_basis):
-                omegas_steps_phis = omegas_steps_phis.at[:, self.engine.proj_indices_projdrift_basis, :].get()
-
-            return gammaU_params, omegas_steps_phis
-
-        return gammas_and_omegas
 
     def get_update_step(self, expander_override: Array | None = None) -> Callable[..., tuple[Array, Array, Array, Array]]:
         """Build a JIT-compiled geodesic update step function.
@@ -1184,7 +934,7 @@ class Geope:
         @jax.jit
         def update_step(free_params, params, piecewise_steps):
 
-            gammaU_params, omegas_steps_phis = self.gammas_and_omegas(free_params)
+            gammaU_params, omegas_steps_phis = self.engine.gammas_and_omegas(free_params)
 
             if expander_override is not None:
                 expander_gates = expander_override
@@ -1206,159 +956,6 @@ class Geope:
             return coeffs, new_params, fidelity_new_phi, step_size
 
         return update_step
-
-    def get_free_params_update_smoothing(self) -> Callable[[Array, np.ndarray], Array]:
-        """Build a JIT-compiled function to reconstruct free parameters.
-
-        Combines projected and drift parameters into the full
-        free-parameter array during smoothing.
-
-        Returns:
-            A JIT-compiled callable
-            ``update_free_params_smoothing(proj_params, params)``.
-        """
-
-        _dtype = jnp.float64 if self._real_params else jnp.complex128
-
-        @jax.jit
-        def update_free_params_smoothing(proj_params, params):
-            free_params = jnp.zeros((self.engine.piecewise_steps, self.engine.proj_drift_basis.lie_algebra_dim),
-                                    dtype=_dtype)
-            free_params = free_params.at[:, self.engine.proj_indices_projdrift_basis].set(proj_params)
-            free_params = free_params.at[:, self.engine.drift_indices_projdrift_basis].set(
-                params[:, self.engine.drift_indices])
-            return free_params
-
-        return update_free_params_smoothing
-
-    def get_bound_parameters(
-        self, fid_fn: Callable[..., Array], compute_U_fn: Callable[..., Array]
-    ) -> Callable[[Array, float], tuple[Array, Array]]:
-        """Build a JIT-compiled parameter-clipping function.
-
-        Clips parameters to the configured bounds and returns the
-        resulting fidelity.
-
-        Args:
-            fid_fn: JIT-compiled fidelity function.
-            compute_U_fn: JIT-compiled unitary computation function.
-
-        Returns:
-            A JIT-compiled callable
-            ``bound_parameters(params, offset)`` returning
-            ``(clipped_params, fidelity)``.
-        """
-
-        @jax.jit
-        def bound_parameters(params, offset):
-            basis = self.engine.proj_drift_basis
-            bounds = basis.generate_bounds(self.parameter_bounds, self.engine.piecewise_steps)
-            new_params = jnp.clip(params.astype(jnp.float64), 
-                                  jnp.array(bounds[0], dtype=jnp.float64) + offset, 
-                                  jnp.array(bounds[1], dtype=jnp.float64) - offset)
-            fid = fid_fn(compute_U_fn(new_params))
-            return new_params.astype(jnp.complex128), fid
-
-        return bound_parameters
-
-    def _null_space_optimisation(self, 
-                                 null_space_function: Callable[..., tuple[Array, Array]], 
-                                 *,
-                                 piecewise_steps_multiplier: int = 1,
-                                 rate: float = 0.01,
-                                 max_steps: int = 100, 
-                                 diff_tol: float = 0.1, 
-                                 label: str | None = None, 
-                                 **kwargs) -> tuple[bool, int]:
-        """Run a generic null-space optimisation loop.
-
-        Iteratively applies `null_space_function` to move parameters
-        within the Jacobian null space, preserving fidelity while
-        optimising an auxiliary cost (smoothing or bounding).
-
-        Args:
-            null_space_function: Callable implementing the null-space
-                update rule.
-            piecewise_steps_multiplier: Factor by which to subdivide
-                existing gate segments. Defaults to 1.
-            rate: Learning rate. Defaults to 0.01.
-            max_steps: Maximum iterations. Defaults to 100.
-            diff_tol: Convergence tolerance. Defaults to 0.1.
-            label: Label printed during progress logging.
-            **kwargs: Extra keyword arguments forwarded to
-                `null_space_function`.
-
-        Returns:
-            A tuple ``(success, iters)`` where `success` is ``True`` if
-            `diff_tol` was reached.
-        """
-        # Update the number of piecewise steps and initialise new parameters
-        self.engine.piecewise_steps = self.engine.piecewise_steps * piecewise_steps_multiplier
-
-        new_parameters = [list(np.copy(self.params.parameters)) for _ in range(piecewise_steps_multiplier)]
-        self.params.parameters = (
-            np.array([x for group in zip(*new_parameters) for x in group]) / piecewise_steps_multiplier)
-
-        _dtype = jnp.float64 if self._real_params else jnp.complex128
-        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
-        proj_params = self.params.parameters[:, self.engine.projected_indices].astype(_dtype)
-
-        # Record the initial subdivided parameters (fidelity carried over unchanged)
-        self.step_size = 0
-        if self.history is not None:
-            self.history.record(self)
-
-        params_update = self.get_free_params_update_smoothing()
-
-        c = 0
-        diff = np.inf
-        pulse_templates = None
-        if self.pulse_constraints is not None:
-            E_pulse, pulse_templates = self._build_pulse_expander(np.array(proj_params).real)
-            if self.constraint_expander is not None:
-                E_gate = np.kron(np.eye(self.engine.piecewise_steps), self.constraint_expander)
-                expander = jnp.array(E_gate @ np.linalg.pinv(E_gate) @ E_pulse)
-            else:
-                expander = jnp.array(E_pulse)
-        elif self.constraint_expander is not None:
-            expander = jnp.kron(jnp.eye(self.engine.piecewise_steps), jnp.array(self.constraint_expander))
-        else:
-            expander = None
-        fid=0
-        while (diff > diff_tol) and (c < max_steps):
-            _, omegas_steps_phis = self.gammas_and_omegas(free_params)
-            vh, num = find_null_space(omegas_steps_phis, expander)
-
-            assert num > 0, "Nullspace is empty!"
-            null_space = vh[num:, :].T.conj()
-
-            proj_params, diff = null_space_function(proj_params, null_space, expander, rate, **kwargs)
-
-            if pulse_templates is not None:
-                proj_params = np.array(proj_params)
-                for k, tmpl in pulse_templates.items():
-                    scale = float(np.dot(proj_params[:, k].real, tmpl))
-                    proj_params[:, k] = scale * tmpl
-
-            free_params = params_update(proj_params, self.params.parameters)
-
-            fid = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
-
-            c += 1
-            print(
-                f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                      ",
-                end="\r")
-        print(f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        ")
-        success = diff_tol >= diff
-        new_params = np.zeros_like(self.params.parameters)
-        new_params[:, self.engine.proj_drift_indices] = [p.real for p in free_params]
-        self.params.parameters = new_params
-        self.params.fidelity = fid
-        self.step_size = rate
-        if self.history is not None:
-            self.history.record(self)
-        return success, c
-
 
 def linear_comb_projected_coeffs_multigate(
     combination_vectors: Array, target_vector: Array, expander: Array | None
@@ -1445,430 +1042,3 @@ def hvp_forward_over_reverse(
     v = v.reshape(params.shape)
     return jax.jvp(jax.grad(f), (params,), (v,))[1]
 
-
-@partial(jax.jit, static_argnames=("rcond"))
-def find_null_space(
-    omegas_steps_phis: Array,
-    expander: Array | None,
-    rcond: float | None = None,
-) -> tuple[Array, int]:
-    """Find the null space of the Jacobian omega matrix.
-
-    Performs an SVD and identifies the right singular vectors
-    whose singular values fall below a tolerance.
-
-    Args:
-        omegas_steps_phis: Omega ``Array`` matrices from the Jacobian,
-            one per gate segment.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        rcond: Relative condition number cutoff. Defaults to machine
-            epsilon times the larger matrix dimension.
-
-    Returns:
-        A tuple ``(vh, num)`` where ``vh`` is the right singular
-        vectors ``Array`` and ``num`` is the rank (number of
-        non-null singular values).
-    """
-    comb_vecs_T = jnp.concatenate(omegas_steps_phis, axis=0).T
-    comb_vecs_T = comb_vecs_T @ expander if expander is not None else comb_vecs_T
-    u, s, vh = jax.scipy.linalg.svd(comb_vecs_T, full_matrices=True)
-    M, N = u.shape[0], vh.shape[1]
-    if rcond is None:
-        rcond = jnp.finfo(s.dtype).eps * max(M, N)
-    tol = jnp.amax(s) * rcond
-    num = jnp.sum(s > tol, dtype=int)
-    return vh, num
-
-
-@partial(jax.jit, static_argnames=("smoothing_rate"))
-def piecewise_smoothing_frequency(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    smoothing_rate: float = 0.01,
-) -> tuple[Array, Array]:
-    """Null-space update that suppresses high-frequency spectral power.
-
-    Minimises $\\frac{1}{(N_g/2)K}\\sum_{m \\ge 1, k}|\\widehat{\\phi_k}(m)|^2$
-    via gradient descent projected onto the Jacobian null space, so
-    fidelity is preserved. The DC bin $m=0$ is excluded so the mean
-    level of each pulse is not penalised.
-
-    Args:
-        phi: Current projected parameter ``Array`` of shape ``(N_g, K)``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        smoothing_rate: Learning rate. Defaults to 0.01.
-
-    Returns:
-        A tuple ``(updated_phi, cost)``.
-    """
-    null_space = expander @ null_space if expander is not None else null_space
-    phi = phi.astype(jnp.float64)
-    phi_flat = phi.flatten()
-
-    def minimize_power(params_flat):
-        params_2d = params_flat.reshape(phi.shape)
-        phi_rfft = jnp.fft.rfft(params_2d, axis=0)
-        return jnp.mean(jnp.abs(phi_rfft[1:]) ** 2)
-
-    val, grad = jax.value_and_grad(minimize_power)(phi_flat)
-    x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
-    sol = null_space @ (smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x) + 1e-12))
-    sol = phi + sol.reshape(phi.shape)
-    return sol, val
-
-
-@partial(jax.jit, static_argnames=("smoothing_rate", "filter_fn"))
-def piecewise_smoothing_frequency_filter(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    smoothing_rate: float = 0.01,
-    filter_fn: Callable[[Array], Array] | None = None,
-) -> tuple[Array, Array]:
-    """Null-space update that drives $\\phi$ toward ``filter_fn(rfft(phi))``.
-
-    Minimises the squared distance, in Fourier space, between the
-    current pulse and its filtered version. By Parseval's theorem
-    this equals the time-domain $L^2$ distance up to a constant.
-
-    Args:
-        phi: Current projected parameter ``Array`` of shape ``(N_g, K)``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        smoothing_rate: Learning rate. Defaults to 0.01.
-        filter_fn: Callable mapping a complex ``(N_rfft, K)`` rfft array
-            to a same-shape filtered array.
-
-    Returns:
-        A tuple ``(updated_phi, cost)``.
-    """
-    null_space = expander @ null_space if expander is not None else null_space
-    phi = phi.astype(jnp.float64)
-    phi_flat = phi.flatten()
-
-    def distance_to_filtered(params_flat):
-        params_2d = params_flat.reshape(phi.shape)
-        phi_rfft = jnp.fft.rfft(params_2d, axis=0)
-        phi_rfft_filtered = filter_fn(phi_rfft)
-        diff = phi_rfft - phi_rfft_filtered
-        return jnp.mean(jnp.abs(diff) ** 2)
-
-    val, grad = jax.value_and_grad(distance_to_filtered)(phi_flat)
-    x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
-    sol = null_space @ (smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x) + 1e-12))
-    sol = phi + sol.reshape(phi.shape)
-    return sol, val
-
-
-def get_speed_null_space_fn(n_proj: int, parameter_indices: tuple[int, ...]) -> Callable:
-    """Build a JIT-compiled peak-amplitude minimisation step.
-
-    Cost: $\\max_{g,k\\in P}|\\phi_k(g)|$.
-
-    Args:
-        n_proj: Number of projected basis parameters per step.
-        parameter_indices: Indices within the projected basis to minimise.
-
-    Returns:
-        A callable ``(phi, null_space, expander, optimization_rate) ->
-        (new_phi, cost)``.
-    """
-    _pi = tuple(parameter_indices)
-
-    def cost(phi_flat):
-        n_steps = phi_flat.size // n_proj
-        sel = jnp.concatenate([jnp.arange(n_steps) * n_proj + p for p in _pi])
-        return jnp.max(jnp.abs(phi_flat[sel]))
-
-    cost_vg = jax.jit(jax.value_and_grad(cost))
-
-    @partial(jax.jit, static_argnames=("optimization_rate",))
-    def step(phi, null_space, expander, optimization_rate=0.01):
-        ns = expander @ null_space if expander is not None else null_space
-        phi_flat = phi.flatten().astype(jnp.float64)
-        val, grad = cost_vg(phi_flat)
-        x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
-        sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
-        sol = phi + sol.reshape(phi.shape)
-        return sol, val
-
-    return step
-
-
-def get_length_null_space_fn(n_proj: int, parameter_indices: tuple[int, ...], drift_sq_norm: float = 0.0) -> Callable:
-    """Build a JIT-compiled pulse-length minimisation step.
-
-    Cost: $\\sum_g \\sqrt{\\sum_{k\\in P}\\phi_k(g)^2 + \\|d_g\\|^2 + \\varepsilon}$
-    where $d_g$ is the constant drift contribution.
-
-    Args:
-        n_proj: Number of projected basis parameters per step.
-        parameter_indices: Indices within the projected basis to minimise.
-        drift_sq_norm: Sum of squared drift parameters per gate.
-            Added inside each per-step norm.
-
-    Returns:
-        A callable ``(phi, null_space, expander, optimization_rate) ->
-        (new_phi, cost)``.
-    """
-    _pi = jnp.array(parameter_indices, dtype=jnp.int32)
-    _dsq = jnp.float64(drift_sq_norm)
-
-    def cost(phi_flat):
-        n_steps = phi_flat.size // n_proj
-        phi_mat = phi_flat.reshape(n_steps, n_proj)
-        selected = phi_mat[:, _pi]
-        per_step_norms = jnp.sqrt(jnp.sum(selected ** 2, axis=1) + _dsq + 1e-30)
-        return jnp.sum(per_step_norms)
-
-    cost_vg = jax.jit(jax.value_and_grad(cost))
-
-    @partial(jax.jit, static_argnames=("optimization_rate",))
-    def step(phi, null_space, expander, optimization_rate=0.01):
-        ns = expander @ null_space if expander is not None else null_space
-        phi_flat = phi.flatten().astype(jnp.float64)
-        val, grad = cost_vg(phi_flat)
-        x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
-        sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
-        sol = phi + sol.reshape(phi.shape)
-        return sol, val
-
-    return step
-
-
-def get_robustness_null_space_fn(
-    fid_U_fn: Callable,
-    compute_U_fn: Callable,
-    proj_indices: np.ndarray,
-    drift_indices: np.ndarray,
-    drift_params: np.ndarray | None,
-    n_proj: int,
-    n_projdrift: int,
-    parameter_indices: tuple[int, ...],
-    delta: float,
-    num_samples: int = 5,
-) -> Callable:
-    """Build a JIT-compiled worst-case-fidelity null-space step.
-
-    Cost: $1 - \\min_{\\boldsymbol\\delta\\in[-\\Delta,\\Delta]^{|P|}}
-    F\\bigl(U(\\phi + \\sum_{k\\in P}\\delta_k e_k)\\bigr)$, sampled on a
-    Cartesian grid of $\\mathtt{num\\_samples}^{|P|}$ points. Each
-    perturbation $\\delta_k$ is applied uniformly to all gate segments.
-
-    Args:
-        fid_U_fn: JIT-compiled fidelity function taking a unitary.
-        compute_U_fn: JIT-compiled function computing the unitary
-            from free parameters.
-        proj_indices: Boolean mask of projected positions within the
-            proj+drift basis.
-        drift_indices: Boolean mask of drift positions within the
-            proj+drift basis.
-        drift_params: Drift values, or ``None``.
-        n_proj: Number of projected parameters per gate.
-        n_projdrift: Number of proj+drift parameters per gate.
-        parameter_indices: Indices within the projected basis to make
-            robust.
-        delta: Half-width $\\Delta$ of the perturbation box.
-        num_samples: Number of samples per parameter. Defaults to 5.
-
-    Returns:
-        A callable ``(phi, null_space, expander, optimization_rate) ->
-        (new_phi, cost)``.
-    """
-    sample_deltas = jnp.linspace(-delta, delta, num_samples)
-    n_robust = len(parameter_indices)
-    grids = jnp.meshgrid(*([sample_deltas] * n_robust), indexing='ij')
-    delta_combinations = jnp.stack([g.ravel() for g in grids], axis=-1)
-    _pi = tuple(parameter_indices)
-
-    def _make_free_params(proj_flat_real):
-        n_steps = proj_flat_real.size // n_proj
-        proj_params = proj_flat_real.reshape(n_steps, n_proj)
-        free_params = jnp.zeros((n_steps, n_projdrift), dtype=jnp.complex128)
-        free_params = free_params.at[:, proj_indices].set(proj_params.astype(jnp.complex128))
-        if drift_params is not None:
-            free_params = free_params.at[:, drift_indices].set(
-                jnp.tile(jnp.array(drift_params, dtype=jnp.complex128), (n_steps, 1)))
-        return free_params
-
-    def min_fidelity_cost(proj_flat_real):
-        n_steps = proj_flat_real.size // n_proj
-
-        def fid_at_deltas(delta_vec):
-            perturbation = jnp.zeros_like(proj_flat_real)
-            for k, pidx in enumerate(_pi):
-                gate_idxs = jnp.arange(n_steps) * n_proj + pidx
-                perturbation = perturbation.at[gate_idxs].set(delta_vec[k])
-            return fid_U_fn(compute_U_fn(_make_free_params(proj_flat_real + perturbation)))
-
-        fidelities = jax.vmap(fid_at_deltas)(delta_combinations)
-        return jnp.real(1.0 - jnp.min(fidelities))
-
-    cost_vg = jax.jit(jax.value_and_grad(min_fidelity_cost))
-
-    @partial(jax.jit, static_argnames=("optimization_rate",))
-    def step(phi, null_space, expander, optimization_rate=0.01):
-        ns = expander @ null_space if expander is not None else null_space
-        phi_flat = phi.flatten().astype(jnp.float64)
-        val, grad = cost_vg(phi_flat)
-        x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
-        sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
-        sol = phi + sol.reshape(phi.shape)
-        return sol, val
-
-    return step
-
-
-@partial(jax.jit, static_argnames=("smoothing_rate"))
-def piecewise_smoothing(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    smoothing_rate: float = 0.01,
-) -> tuple[Array, Array]:
-    """Null-space update that smooths consecutive gate segments.
-
-    Minimises the squared differences between adjacent parameter
-    blocks by projecting a least-squares solution onto the null space.
-
-    Args:
-        phi: Current projected parameter ``Array`` of shape
-            ``(piecewise_steps, K_proj)``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        smoothing_rate: Learning rate scaling the update. Defaults to 0.01.
-
-    Returns:
-        A tuple ``(updated_phi, cost)`` where ``cost`` is the squared
-        norm of the difference vector.
-    """
-    indep_params = phi.shape[1] # size of lie algebra of projected basis
-    null_space = expander @ null_space if expander is not None else null_space
-    phi_flat = phi.flatten()
-    phi_flat = phi_flat.astype(jnp.float64)
-    n_params = phi_flat.size  # phi = (piecewise_step_multiplier * K, K_non_drift)
-    # Difference matrix
-    D = jnp.eye(n_params, k=0) - jnp.eye(n_params, k=indep_params)
-    D = jnp.vstack([jnp.eye(indep_params, D.shape[1]), D])
-    # We have D (phi + Nullspace @ x) as difference vector
-    A = D @ null_space  # A = (piecewise_step_multiplier * K + K_non_drift, dim(ker(J)))
-    b = D @ phi_flat  # b = (piecewise_step_multiplier * K + K_non_drift,)
-    x, _, _, _ = jnp.linalg.lstsq(A, -b)
-    sol = null_space @ (smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x)))
-    sol = phi + sol.reshape(phi.shape)
-    return sol, jnp.linalg.norm(b) ** 2  # Difference is given by phi @ D.T @ D @ phi
-
-
-@partial(jax.jit, static_argnames=("bounding_rate"))
-def piecewise_bounding_mp(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    bounding_rate: float = 0.01,
-    lower_bounds: Array | None = None,
-    upper_bounds: Array | None = None,
-) -> tuple[Array, Array]:
-    """Null-space bounding update using the mid-point method.
-
-    Moves parameters towards the centre of the feasible box via a
-    least-squares projection onto the null space.
-
-    Args:
-        phi: Current projected parameter ``Array``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        bounding_rate: Learning rate. Defaults to 0.01.
-        lower_bounds: Lower bound ``Array``. Defaults to ``None``.
-        upper_bounds: Upper bound ``Array``. Defaults to ``None``.
-
-    Returns:
-        A tuple ``(updated_phi, cost)``.
-    """
-    null_space = expander @ null_space if expander is not None else null_space
-    # Flatten parameters
-    phi_flat = phi.flatten()
-    phi_flat = phi_flat.astype(jnp.float64)
-    n_params = phi_flat.size
-    r,c = null_space.shape
-
-    # Prepare bounds in flattened form
-    lower_flat = lower_bounds.flatten()
-    upper_flat = upper_bounds.flatten()
-    mid_point = (lower_flat + upper_flat) / 2.0
-    range = upper_flat - lower_flat 
-    range = range / jnp.max(range)  # Normalize range to avoid scaling issues
-
-    phi_mid = jnp.concatenate((phi_flat, mid_point))
-    zero_mid = jnp.concatenate((jnp.zeros(c), mid_point))
-
-    zero = jnp.zeros((n_params, n_params))
-    zero_r = jnp.zeros((r, n_params))
-    zero_c = jnp.zeros((n_params, c))
-    eye_n = jnp.eye(n_params)
-    eye_d = jnp.diag(1/range)
-    eye_c = jnp.eye(c)
-    D = jnp.block([[eye_d, -eye_d],[zero, zero]])
-    N = jnp.block([[null_space, zero_r],[zero_c, eye_n]])
-    E = jnp.block([eye_c, zero_c.T]).T
-
-    # We have D (phi + Nullspace @ x) as difference vector
-    A = D @ N @ E  # A = (piecewise_step_multiplier * K + K_non_drift, dim(ker(J)))
-    b = D @ phi_mid + D @ N @ zero_mid  # b = (piecewise_step_multiplier * K + K_non_drift,)
-    x, _, _, _ = jnp.linalg.lstsq(A, -b)
-    sol = null_space @ (bounding_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x)))
-    sol = phi + sol.reshape(phi.shape)
-    return sol, jnp.linalg.norm(b) ** 2  # Difference is given by phi @ D.T @ D @ phi
-
-
-@partial(jax.jit, static_argnames=("bounding_rate"))
-def piecewise_bounding_pg(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    bounding_rate: float = 0.01,
-    lower_bounds: Array | None = None,
-    upper_bounds: Array | None = None,
-) -> tuple[Array, Array]:
-    """Null-space bounding update using projected gradient.
-
-    Computes the gradient of the maximum bound violation and projects
-    it onto the null space to find a feasibility-improving direction.
-
-    Args:
-        phi: Current projected parameter ``Array``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        bounding_rate: Learning rate. Defaults to 0.01.
-        lower_bounds: Lower bound ``Array``. Defaults to ``None``.
-        upper_bounds: Upper bound ``Array``. Defaults to ``None``.
-
-    Returns:
-        A tuple ``(updated_phi, cost)`` where `cost` is the maximum
-        constraint violation.
-    """
-    null_space = expander @ null_space if expander is not None else null_space
-    # Flatten parameters
-    phi_flat = phi.flatten()
-    phi_flat = phi_flat.astype(jnp.float64)
-
-    # Prepare bounds in flattened form
-    lower_flat = lower_bounds.flatten()
-    upper_flat = upper_bounds.flatten()
-
-    # Cost: sum of squared distances outside the box
-    def cost_function(x):
-        upper_violation = jnp.clip(x - upper_flat, min=0.0)
-        lower_violation = jnp.clip(lower_flat - x, min=0.0)
-        # return jnp.mean(upper_violation**2 + lower_violation**2)
-        return jnp.max(upper_violation + lower_violation)
-
-    val, grad = jax.value_and_grad(cost_function)(phi_flat)
-
-    x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
-
-    sol = null_space @ (bounding_rate * x / (jnp.linalg.norm(x)+1e-12))
-    sol = phi + sol.reshape(phi.shape)
-
-    return sol, val

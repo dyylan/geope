@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def _default_log_fn(geope) -> dict:
+def _default_logging_fn(geope) -> dict:
     """Default per-step log row: with five standard data columns.
 
     Reads the running optimiser and returns a dict with ``parameters``
@@ -31,7 +31,7 @@ class History:
 
     By default records today's five columns (``parameters``,
     ``fidelities``, ``infidelities``, ``step_sizes``, ``steps``) every
-    step. Pass ``log_fn`` to record arbitrary per-step values instead;
+    step. Pass ``logging_fn`` to record arbitrary per-step values instead;
     it receives the running `Geope` and returns a dict of
     ``column -> value``.
 
@@ -43,15 +43,15 @@ class History:
     to ``None``/``{}`` otherwise.
     """
 
-    def __init__(self, log_fn=None) -> None:
+    def __init__(self, logging_fn=None) -> None:
         # ``logs`` must be set first so ``__getattr__`` can guard on it.
         self.logs: dict = {}
-        self.log_fn = log_fn or _default_log_fn
+        self.logging_fn = logging_fn or _default_logging_fn
         self.params = None   # back-ref to the Parameters, set by Geope
 
     def record(self, geope) -> dict:
-        """Append one row by calling ``log_fn(geope)``; returns the row."""
-        row = self.log_fn(geope)
+        """Append one row by calling ``logging_fn(geope)``; returns the row."""
+        row = self.logging_fn(geope)
         for k, v in row.items():
             self.logs.setdefault(k, []).append(v)
         return row

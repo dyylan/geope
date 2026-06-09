@@ -25,6 +25,7 @@ class Engine:
         full_basis: The full Lie algebra basis.
         projected_basis: The projected (controllable) subalgebra basis.
         drift_basis: The drift (uncontrollable) subalgebra basis, if any.
+        target_unitary: The target unitary the fidelity functions are bound to.
         piecewise_steps: Number of piecewise-constant gate segments.
         projected_indices: Boolean mask for projected basis elements in the full basis.
         drift_indices: Boolean mask for drift basis elements in the full basis.
@@ -55,6 +56,7 @@ class Engine:
         self.full_basis = full_basis
         self.projected_basis = projected_basis
         self.drift_basis = drift_basis
+        self.target_unitary = np.array(target_unitary)
         self.piecewise_steps = piecewise_steps
 
         # Get the projected indices in the full space
@@ -74,6 +76,20 @@ class Engine:
         # Get the Jax functions from the helper functions
         self.compute_U_fn = jax.jit(get_compute_matrices_params_list_fn(self.proj_drift_basis.basis))
         self.fid_U_fn = jax.jit(get_fidelity_fn(target_unitary))
+
+    def set_piecewise_steps(self, piecewise_steps: int) -> None:
+        """Set the number of piecewise-constant gate segments.
+
+        This is the single owned entry point for changing the segment
+        count (e.g. when a null-space pass subdivides the pulse). The
+        unitary computation scans over the parameter list, so no
+        recompilation is needed — the integer is metadata used for
+        shaping and expander construction.
+
+        Args:
+            piecewise_steps: The new number of gate segments.
+        """
+        self.piecewise_steps = piecewise_steps
 
 
 def fidelity(unitary: Array, target_unitary: Array) -> Array:

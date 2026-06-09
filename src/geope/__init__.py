@@ -11,6 +11,10 @@ from .geope import (
     Geope,
 )
 
+from .gecko import (
+    Gecko,
+)
+
 from .parameters import (
     Parameters,
 )
@@ -33,6 +37,7 @@ from .utils import (
     check_2_local_comb,
     restriction_function,
     restriction_order_function,
+    control_to_indices,
     filter_basis_by_control,
     make_per_element_transform,
     construct_restricted_pauli_basis,
@@ -51,5 +56,6 @@ from .utils import (
     qft_unitary,
     golden_section_search_np,
     golden_section_search,
+    adam_line_search,
     merge_constraints,
 )

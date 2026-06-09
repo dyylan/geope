@@ -180,6 +180,57 @@ def restriction_order_function(
     return check 
 
 
+def control_to_indices(labels: list[str], control: dict,
+                       strict: bool = False) -> list[int]:
+    """Map Pauli labels to the indices selected by a control-format dict.
+
+    For each label, build the qubit-index key (a single integer for
+    1-body terms, a tuple for multi-body) and the lower-case interaction
+    string, then keep the index only if ``control[key]`` lists that
+    interaction. Preserves the order of ``labels``.
+
+    Args:
+        labels: Sequence of Pauli-string labels, e.g. ``["XII", "ZZI"]``.
+        control: Dict mapping qubit index (or tuple of indices) to a
+            list of interaction labels, e.g. ``{1: ['x', 'y'], (1, 2): ['xx']}``.
+        strict: If ``True``, raise ``ValueError`` when any ``(key, op)``
+            entry in ``control`` matches no label in ``labels`` (e.g. a
+            typo, a wrong qubit index, or an interaction absent from the
+            basis). Defaults to ``False`` (silently ignore such entries).
+
+    Returns:
+        The list of indices into ``labels`` that match the control dict.
+
+    Raises:
+        ValueError: If ``strict`` is ``True`` and one or more ``(key, op)``
+            entries are not present among ``labels``.
+    """
+    keep = []
+    matched = set()
+    for idx, label in enumerate(labels):
+        non_id = [(pos, c.lower()) for pos, c in enumerate(label) if c != 'I']
+        if len(non_id) == 0:
+            continue
+        sites = [pos + 1 for pos, _ in non_id]
+        ops = ''.join(c for _, c in non_id)
+        key = tuple(sites) if len(sites) > 1 else sites[0]
+        allowed = control.get(key)
+        if allowed is not None and ops in allowed:
+            keep.append(idx)
+            matched.add((key, ops))
+    if strict:
+        requested = {(key, op) for key, ops in control.items() for op in ops}
+        missing = requested - matched
+        if missing:
+            pretty = ", ".join(f"{op!r} on qubit(s) {key}"
+                               for key, op in sorted(missing, key=str))
+            raise ValueError(
+                f"Interaction(s) not present in the basis: {pretty}. "
+                f"Check the qubit index/tuple, the operator label, and its "
+                f"ordering against the available labels.")
+    return keep
+
+
 def filter_basis_by_control(basis: lie.Basis, control: dict) -> lie.Basis:
     """Filter a Basis keeping only operators that match a control dict.
 
@@ -197,17 +248,7 @@ def filter_basis_by_control(basis: lie.Basis, control: dict) -> lie.Basis:
         A new ``Basis`` containing only the matching operators. The
         returned basis preserves ``basis._n_qubits_override`` if set.
     """
-    keep = []
-    for idx, label in enumerate(basis.labels):
-        non_id = [(pos, c.lower()) for pos, c in enumerate(label) if c != 'I']
-        if len(non_id) == 0:
-            continue
-        sites = [pos + 1 for pos, _ in non_id]
-        ops = ''.join(c for _, c in non_id)
-        key = tuple(sites) if len(sites) > 1 else sites[0]
-        allowed = control.get(key)
-        if allowed is not None and ops in allowed:
-            keep.append(idx)
+    keep = control_to_indices(list(basis.labels), control)
     b = basis.basis[keep]
     l = [basis.labels[i] for i in keep]
     n_qubits = basis._n_qubits_override if basis._n_qubits_override is not None else None
@@ -562,6 +603,7 @@ def prepare_random_parameters(
     expander: np.ndarray | None = None,
     spread: float = 1.0,
     seed: int | None = None,
+    rng: np.random.Generator | None = None,
 ) -> np.ndarray:
     """Generate a random parameter vector for the projected subspace.
 
@@ -574,14 +616,20 @@ def prepare_random_parameters(
         expander: Optional constraint expansion ``np.ndarray``.
         spread: Half-width of the uniform sampling range. Defaults to 1.0.
         seed: Random seed for reproducibility. Defaults to ``None``.
+            Ignored when ``rng`` is provided.
+        rng: Optional NumPy ``Generator``. When given, values are drawn
+            from it and the global ``np.random`` state is left untouched.
 
     Returns:
         A parameter ``np.ndarray`` of the same length as ``proj_indices``
         with random values at projected positions and zeros elsewhere.
     """
-    np.random.seed(seed)
     num_indep_params = proj_indices.sum() if expander is None else expander.shape[1]
-    randoms = (2 * np.random.rand(num_indep_params) - 1) * spread 
+    if rng is None:
+        np.random.seed(seed)
+        randoms = (2 * np.random.rand(num_indep_params) - 1) * spread
+    else:
+        randoms = (2 * rng.random(num_indep_params) - 1) * spread
     if expander is not None:
         randoms = expander @ randoms
     parameters = np.zeros_like(proj_indices, dtype=randoms.dtype)
@@ -841,6 +889,136 @@ def golden_section_search(
 
     t_best = jnp.where(f1 < f2, x1, x2)
     f_best = jnp.where(f1 < f2, f1, f2)
+    return t_best, f_best
+
+
+def adam_line_search(
+    f: Callable[[Array], Array],
+    a_init: float | Array,
+    b_init: float | Array,
+    lr: float = 0.05,
+    num_steps: int = 30,
+    finite_difference: bool = True,
+    fd_step: float = 1e-3,
+    beta1: float = 0.9,
+    beta2: float = 0.999,
+    eps: float = 1e-8,
+    t_init: float | Array = 0.0,
+) -> tuple[Array, Array]:
+    """JIT-compatible 1-D Adam line search using JAX.
+
+    Minimises a scalar function `f` on the interval $[a, b]$ by running
+    a fixed number of Adam steps on the scalar variable ``t``, clipping
+    ``t`` back into the interval after every step. Uses
+    ``jax.lax.fori_loop`` (fixed step count), making it compatible with
+    JIT compilation.
+
+    The gradient ``df/dt`` is obtained either by a finite-difference
+    secant from successive evaluations (``finite_difference=True``;
+    derivative-free, one ``f`` evaluation per step) or by
+    ``jax.value_and_grad`` (``finite_difference=False``; exact, but
+    differentiates through ``f``). ``f`` must map a real scalar to a
+    real scalar.
+
+    Adam is not monotone, so the best iterate visited is tracked and
+    returned — the result is never worse than ``f(t_init)``.
+
+    Args:
+        f: Scalar-valued callable (real -> real).
+        a_init: Left endpoint of the search interval.
+        b_init: Right endpoint of the search interval.
+        lr: Adam learning rate. Defaults to 0.05.
+        num_steps: Number of Adam iterations. Defaults to 30.
+        finite_difference: If ``True`` (default), estimate the gradient
+            with a finite-difference secant; otherwise use
+            ``jax.value_and_grad``.
+        fd_step: Probe size for the finite-difference bootstrap.
+            Defaults to 1e-3.
+        beta1: First-moment decay. Defaults to 0.9.
+        beta2: Second-moment decay. Defaults to 0.999.
+        eps: Numerical-stability term. Defaults to 1e-8.
+        t_init: Starting point for ``t``. Defaults to 0.0.
+
+    Returns:
+        A tuple ``(t_best, f_best)`` of the best minimiser found and its
+        function value, matching the ``(x_min, f_min)`` contract of
+        :func:`golden_section_search`.
+
+    Example:
+        ```python
+        f = lambda x: (x - 2.0) ** 2
+        x_min, f_min = adam_line_search(f, 0.0, 5.0, lr=0.1, num_steps=200)
+        ```
+
+    References:
+        [Adam](https://arxiv.org/abs/1412.6980)
+    """
+    lo = jnp.minimum(a_init, b_init)
+    hi = jnp.maximum(a_init, b_init)
+    f64 = lambda x: jnp.asarray(x, dtype=jnp.float64)
+
+    def adam_update(i, t, m, v, g):
+        # Shared Adam moment update + bias correction + interval clip.
+        m = beta1 * m + (1.0 - beta1) * g
+        v = beta2 * v + (1.0 - beta2) * (g * g)
+        step = f64(i) + 1.0
+        m_hat = m / (1.0 - beta1 ** step)
+        v_hat = v / (1.0 - beta2 ** step)
+        t_new = jnp.clip(t - lr * m_hat / (jnp.sqrt(v_hat) + eps), lo, hi)
+        return t_new, m, v
+
+    t0 = jnp.clip(f64(t_init), lo, hi)
+    f0 = f64(f(t0))
+
+    if finite_difference:
+        # Bootstrap: one inward probe to seed (t_prev, f_prev).
+        direction = jnp.sign((lo + hi) / 2.0 - t0)
+        direction = jnp.where(direction == 0, -1.0, direction)
+        t_start = jnp.clip(t0 + direction * fd_step, lo, hi)
+        # state: (t, m, v, t_prev, f_prev, t_best, f_best)
+        state0 = (t_start, f64(0.0), f64(0.0), t0, f0, t0, f0)
+
+        def body_fun(i, state):
+            t, m, v, t_prev, f_prev, t_best, f_best = state
+            ft = f64(f(t))
+            improved = ft < f_best
+            t_best = jnp.where(improved, t, t_best)
+            f_best = jnp.where(improved, ft, f_best)
+            dt_ = t - t_prev
+            dt_safe = jnp.where(dt_ == 0, fd_step, dt_)   # guard exact-zero
+            g = (ft - f_prev) / dt_safe                   # secant slope
+            t_new, m, v = adam_update(i, t, m, v, g)
+            return (t_new, m, v, t, ft, t_best, f_best)
+
+        t, m, v, t_prev, f_prev, t_best, f_best = jax.lax.fori_loop(
+            0, num_steps, body_fun, state0)
+    else:
+        # When ``f`` maps the real ``t`` through complex intermediates (e.g.
+        # unitaries), JAX may emit a benign ComplexWarning while forming the
+        # real cotangent of ``t``; the gradient is correct (verified against
+        # finite differences).
+        value_and_grad = jax.value_and_grad(f)
+        # state: (t, m, v, t_best, f_best)
+        state0 = (t0, f64(0.0), f64(0.0), t0, f0)
+
+        def body_fun(i, state):
+            t, m, v, t_best, f_best = state
+            ft, g = value_and_grad(t)
+            ft = f64(ft)
+            improved = ft < f_best
+            t_best = jnp.where(improved, t, t_best)
+            f_best = jnp.where(improved, ft, f_best)
+            t_new, m, v = adam_update(i, t, m, v, g)
+            return (t_new, m, v, t_best, f_best)
+
+        t, m, v, t_best, f_best = jax.lax.fori_loop(
+            0, num_steps, body_fun, state0)
+
+    # Also consider the final iterate (evaluated once after the loop).
+    f_last = f64(f(t))
+    take_last = f_last < f_best
+    t_best = jnp.where(take_last, t, t_best)
+    f_best = jnp.where(take_last, f_last, f_best)
     return t_best, f_best
 
 

@@ -174,9 +174,11 @@ params = geope.Parameters(
              (1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']},
     target=U_T,
     piecewise_steps=10,
-    pulse_constraints=["ZZI", "ZIZ", "IZZ"],
+    pulse_constraints={(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']},
 )
 ```
+
+`pulse_constraints` uses the same `{qubit_index_or_tuple: [interaction]}` dict format as `control` — here it freezes the temporal shape of the three `zz` terms.
 
 | Approach | Use case |
 |----------|----------|
@@ -187,6 +189,7 @@ Other utilities:
 
 - `prepare_random_parameters(proj_indices, expander, spread, seed)` — random initial parameters respecting constraints.
 - `golden_section_search(f, a, b, tol)` — JIT-compatible 1-D **minimiser** (used internally by the line search).
+- `adam_line_search(f, a, b, lr, num_steps, finite_difference)` — JIT-compatible 1-D Adam **minimiser** (finite-difference or exact-gradient; used by the `"adam*"` line-search methods).
 - `merge_constraints(constraints)` — merges overlapping linear constraints.
 - `qft_unitary(n)`, `multicontrol_unitary(U, n_controls)` — common target unitaries.
 - `make_per_element_transform(transforms)` — helper to build a `param_transform` from per-element callables.
@@ -216,7 +219,7 @@ Parameters(basis=None, control=None, drift=None,
 | `piecewise_steps` | number of gate segments $N_g$ |
 | `fixed_drift` | whether drift is held fixed during optimisation |
 | `constraints` | list of constraint vectors / dicts |
-| `pulse_constraints` | list (or dict; values ignored) of projected-basis labels whose time-shape is fixed |
+| `pulse_constraints` | control-format dict `{site: [ops]}` (same format as `control`) of projected terms whose time-shape is fixed |
 | `bounds` | dict `{label: (lo, hi)}` — consumed by `Geope.bound(...)`, not by the main loop |
 | `init_spread` | half-width of uniform random init, in units of $\pi$ |
 | `seed` | random seed |
@@ -298,7 +301,6 @@ Extends `Engine` with geodesic-specific JIT functions:
 Geope(params,
       precision=0.9999999,
       max_step_size=0.9, gram_schmidt_step_size=1.3,
-      line_search_method="golden_section",
       verbose=False, history=None)
 ```
 
@@ -310,11 +312,25 @@ Geope(params,
 | `precision` | target fidelity |
 | `max_step_size` | maximum line-search step |
 | `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback |
-| `line_search_method` | `"golden_section"` or `"difference_step"` |
 | `verbose` | print per-step progress |
 | `history` | optional `History` logger (`None` = no logging) |
 
-The iteration cap is now an argument of `optimize(max_steps=1000)`, not a constructor field.
+The iteration cap and the line-search method are arguments of `optimize`, not constructor fields:
+
+```python
+optimize(max_steps=1000,
+         line_search_method="golden_section",
+         adam_lr=0.05, adam_steps=3)
+```
+
+| `optimize` argument | Description |
+|---------------------|-------------|
+| `max_steps` | maximum number of optimisation steps |
+| `line_search_method` | `"golden_section"`, `"difference_step"`, `"adam"`, `"adam_fd"` or `"adam_grad"` (`"adam"` aliases `"adam_fd"`) |
+| `adam_lr` | learning rate for the `"adam*"` line-search methods |
+| `adam_steps` | number of Adam iterations for the `"adam*"` line-search methods |
+
+The line-search method and its Adam hyperparameters bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; changing them between `optimize` calls triggers a one-off recompile.
 
 Live state and logging:
 
@@ -325,16 +341,16 @@ Live state and logging:
 ### `History` (`history.py`)
 
 ```python
-History(log_fn=None)
+History(logging_fn=None)
 ```
 
 An opt-in, configurable run log. Pass one to `Geope` (`history=History()`) and the full trajectory is recorded into `geope.history`; leave it `None` and no history is kept (the final answer still lives on `params`).
 
-By default each step records five columns — `parameters` (a full-basis snapshot), `fidelities`, `infidelities`, `step_sizes`, and an integer `steps` counter derived from the log length. Pass `log_fn` to record arbitrary per-step values instead: it receives the running `Geope` and returns a `dict` of `column -> value` (e.g. `History(log_fn=lambda g: {"fid": float(g.params.fidelity)})`).
+By default each step records five columns — `parameters` (a full-basis snapshot), `fidelities`, `infidelities`, `step_sizes`, and an integer `steps` counter derived from the log length. Pass `logging_fn` to record arbitrary per-step values instead: it receives the running `Geope` and returns a `dict` of `column -> value` (e.g. `History(logging_fn=lambda g: {"fid": float(g.params.fidelity)})`).
 
 | Member | Description |
 |--------|-------------|
-| `record(geope)` | append one row via `log_fn`; called by `Geope` each step |
+| `record(geope)` | append one row via `logging_fn`; called by `Geope` each step |
 | `reset()` | drop all rows |
 | `len(history)` | number of recorded rows |
 | `history.<col>` / `history["<col>"]` | a logged column (the same list) |
@@ -345,7 +361,7 @@ By default each step records five columns — `parameters` (a full-basis snapsho
 | `best_basis_coefficients` | best parameters mapped through `param_transform` if set |
 | `to_dict()` | best solution as a control-style dict (`{}` if unavailable) |
 
-The best-over-trajectory helpers need the default `fidelities`/`parameters` columns; under a custom `log_fn` that omits them they degrade to `None`/`{}` rather than raising. Note `params.parameters` is the single current array while `history.parameters` is the list of per-step snapshots. A `History` is meant for a single run.
+The best-over-trajectory helpers need the default `fidelities`/`parameters` columns; under a custom `logging_fn` that omits them they degrade to `None`/`{}` rather than raising. Note `params.parameters` is the single current array while `history.parameters` is the list of per-step snapshots. A `History` is meant for a single run.
 
 ## Core algorithm: `optimize()`
 
@@ -480,7 +496,7 @@ print(g.history.best_fidelity)         # best fidelity over the trajectory
 
 ### Practical implications
 
-- Null-space methods (`speed`, `length`, `robust`) must use `parameter_indices`, not `parameter_labels`, when `param_transform` is set — labels no longer correspond to optimised parameters. `Geope` raises `ValueError` otherwise.
+- `Gecko`'s null-space methods (`speed`, `length`, `robust`) must use `parameter_indices`, not `parameter_labels`, when `param_transform` is set — labels no longer correspond to optimised parameters. `Gecko` raises `ValueError` otherwise. (`Gecko` supports experimental parameters in every construction mode: when reusing a `Geope` the engine is already wrapped; when built from `params` it re-wraps a fresh engine.)
 - Internally `param_transform` mode uses `float64`; basis-coefficient mode uses `complex128`. Tolerances and bounds you supply should match.
 
 ## Phase-sensitive vs projective
@@ -499,11 +515,21 @@ Two pathologies to keep in mind for phase-sensitive mode:
 - **Traceless targets** (Hadamard, single-qubit $X/Y/Z$, etc.) make the gradient of $F_{\text{full}}$ vanish at $U = I$ in every direction; a random init near identity has no descent direction. Use larger `init_spread` or non-zero `init_values`.
 - **Stopping criterion**. `precision = 0.9999999` is meaningful for $F_{\text{proj}}$. For $F_{\text{full}}$ the same threshold is valid near the optimum (both fidelities agree as $U \to U_T$), but the optimiser may transit negative-fidelity regions on its way — that's geometry, not a bug.
 
-## Null-space optimisation
+## Null-space optimisation (`Gecko`)
 
 After the main GEOPE loop has converged, the null space of the Jacobian $\omega$ represents directions in parameter space that don't change the unitary to first order. Stepping along these lets you optimise secondary objectives while preserving fidelity.
 
-### Available objectives
+These passes live on a separate optimiser, **`Gecko`**, which post-processes a solution. A `Gecko` needs a built `GeopeEngine`; building one is expensive, so it can either build its own from a `Parameters`, or borrow a `Geope`'s already-built engine:
+
+- `Gecko(params=p)` — build a fresh engine from `p` and operate on whatever solution `p.parameters` holds.
+- `Gecko(geope=g)` — reuse `g.engine` and `g.params` (convenient straight after `g.optimize(...)`).
+- `Gecko(params=p, geope=g)` — reuse `g.engine` but verify it is compatible with the separately-supplied `p` (raises `ValueError` on mismatch).
+
+**The solution does not have to come from `Geope`.** `Gecko` operates on the current `params.parameters` — that array can be a `Geope` result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a `Parameters` object describing the same system (`basis`, `projected_basis`/`drift_basis`, `target`, `piecewise_steps`, and any `param_transform`) and call `Gecko(params=p)`; it builds its own engine and refines the imported solution while preserving its fidelity. (When `params` has never been evaluated, `Gecko` computes the baseline fidelity itself on construction.) The `geope=` modes are purely a convenience/efficiency option for when you already have a `Geope` whose engine you can reuse.
+
+In the reuse modes the engine and `Parameters` are shared with the source `Geope`, so a pass with `piecewise_steps_multiplier > 1` advances the shared state forward (`params.parameters`, `params.piecewise_steps`, and `engine.piecewise_steps` all move to the new count together).
+
+### Available objectives (methods on `Gecko`)
 
 | Method | Cost minimised | Purpose |
 |--------|----------------|---------|
@@ -517,7 +543,7 @@ After the main GEOPE loop has converged, the null space of the Jacobian $\omega$
 
 Each returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.
 
-### Null-space algorithm: `_null_space_optimisation()`
+### Null-space algorithm: `Gecko._null_space_optimisation()`
 
 ```
 1. Optionally subdivide piecewise steps (piecewise_steps_multiplier)
@@ -586,13 +612,38 @@ print(float(result.fidelity))        # final fidelity (lives on Parameters)
 print(result.to_dict())              # current solution as a control dict
 print(g.history.best_fidelity)       # best over the trajectory
 
-# Null-space passes — fidelity preserved (reuse the same optimiser)
-g.smooth(piecewise_steps_multiplier=2, smoothing_rate=0.05, diff_tol=1e-3)
-g.smooth_frequency(smoothing_rate=0.05, diff_tol=1e-3)
-g.bound({"x": (-1, 1), "z": (-1, 1)}, method='projected_gradient')
-g.robust(parameter_labels=["XII", "IXI", "IIX"], delta=0.01)
-g.speed(parameter_labels=["XII", "IXI", "IIX"])
-g.length()
+# Null-space passes — fidelity preserved — live on Gecko, which
+# reuses the converged optimiser's engine and Parameters.
+gk = geope.Gecko(geope=g)
+gk.smooth(piecewise_steps_multiplier=2, smoothing_rate=0.05, diff_tol=1e-3)
+gk.smooth_frequency(smoothing_rate=0.05, diff_tol=1e-3)
+gk.bound({"x": (-1, 1), "z": (-1, 1)}, method='projected_gradient')
+gk.robust(parameter_labels=["XII", "IXI", "IIX"], delta=0.01)
+gk.speed(parameter_labels=["XII", "IXI", "IIX"])
+gk.length()
+```
+
+### Refining a solution from another method
+
+`Gecko` does not require the solution to have been produced by `Geope`. Drop any
+fidelity-achieving solution — from a different optimiser, an analytic construction,
+or an imported result — into a `Parameters` describing the same system, then build a
+`Gecko` directly from it:
+
+```python
+# `phi` is a (piecewise_steps, K_full) parameter array obtained elsewhere.
+params = geope.Parameters(
+    basis=full,
+    control=control,
+    drift=drift,
+    target=target,
+    piecewise_steps=phi.shape[0],
+    init_values=phi,          # the externally-found solution
+)
+
+gk = geope.Gecko(params=params)   # builds its own engine; no Geope needed
+gk.smooth(piecewise_steps_multiplier=2, smoothing_rate=0.05, diff_tol=1e-3)
+print(float(gk.params.fidelity))  # baseline computed on construction, preserved by the pass
 ```
 
 ### Building a `Parameters` from pre-built bases

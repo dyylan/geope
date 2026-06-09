@@ -42,6 +42,27 @@ A golden-section line search then determines the optimal step size along this di
 
 Numerical benchmarks on Rydberg atom platforms show that GEOPE converges to solutions in many times **fewer iterations** than GRAPE across a range of multi-qubit gates (Toffoli, CCZ, QFT), and finds solutions that are out of reach for similar GRAPE implementations.
 
+## Gecko: null-space refinement
+
+A pulse that achieves the target fidelity is rarely unique — there is typically a whole manifold of control parameters $\mathbf{\Phi}$ that realise the same gate. **Gecko** exploits this freedom to refine a fidelity-achieving GEOPE solution without sacrificing fidelity.
+
+Once GEOPE has found a solution, the controllable directions span a tangent subspace whose orthogonal complement — the **Jacobian null space** — is the set of parameter moves that leave the realised unitary (and hence the fidelity) unchanged to first order. Gecko optimises a secondary **auxiliary cost** by moving only within this null space:
+
+$$\delta\mathbf{\Phi} \in \ker \mathbf{J}(\mathbf{\Phi}) \quad\Longrightarrow\quad F(\mathbf{\Phi} + \delta\mathbf{\Phi}, V) \approx F(\mathbf{\Phi}, V).$$
+
+This lets a solution be reshaped to satisfy experimental desiderata that the fidelity alone does not capture:
+
+- **Smoothing** — penalise sharp jumps between piecewise-constant segments (`smooth`, `smooth_frequency`).
+- **Pulse length and speed** — shorten the total evolution time or slow the control rate (`length`, `speed`).
+- **Robustness** — reduce sensitivity to control errors (`robust`).
+- **Bounds** — push parameters into hardware-allowed ranges (`bound`).
+
+Because all of these passes preserve fidelity by construction, they can be composed freely after optimisation. A `Gecko` object either builds its own engine from a `Parameters` object or reuses `Geope` objects engine.
+
+The Gecko method is described in the paper:
+
+> D. Lewis and R. Wiersema, *Pulse Quality Optimisation in Quantum Optimal Control*, [arXiv:2604.25768](https://arxiv.org/abs/2604.25768) (2026).
+
 ## Library overview
 
 The library is organised around a few core components:
@@ -53,6 +74,7 @@ The library is organised around a few core components:
 | `Engine` | Base engine that compiles JAX functions for computing unitaries and fidelities from a given basis. |
 | `GeopeEngine` | Extends `Engine` with JIT-compiled Jacobian, geodesic, and projection functions. Built internally by `Geope`. |
 | `Geope` | Top-level optimiser that runs the full GEOPE algorithm; requires a `Parameters` object. |
+| `Gecko` | Null-space ("auxiliary cost") optimiser that refines a fidelity-achieving solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Builds its own engine from a `Parameters`, or reuses a `Geope`'s. |
 | `utils` | Utilities for constructing restricted Pauli bases, Heisenberg and 2-local Hamiltonians, line search, and more. |
 
 A typical workflow is:
@@ -61,4 +83,4 @@ A typical workflow is:
 2. Build a `Parameters` object with that basis, the controllable and drift interactions, and the target unitary.
 3. Pass the `Parameters` to `Geope` and call `.optimize()`.
 
-See the [User Guide](user_guide.md) for a complete walkthrough of `Parameters`, pulse-shape constraints, experimental parameters via `param_transform`, and the auxiliary null-space passes (`smooth`, `smooth_frequency`, `speed`, `length`, `robust`, `bound`). The [Getting Started](examples/getting_started.ipynb) notebook gives a runnable first example.
+See the [User Guide](user_guide.md) for a complete walkthrough of `Parameters`, pulse-shape constraints, experimental parameters via `param_transform`, and the auxiliary null-space passes (`smooth`, `smooth_frequency`, `speed`, `length`, `robust`, `bound`), which live on `Gecko`. The [Getting Started](examples/getting_started.ipynb) notebook gives a runnable first example.

@@ -2,11 +2,12 @@
 Tests for geope/geope.py and geope/jacobian_manual.py.
 
 Tested items:
-  Functions:
+  Functions (geope.geope):
     - geodesic_hamiltonian
     - get_geodesic_hamiltonian_fn
     - linear_comb_projected_coeffs_multigate
     - hvp_forward_over_reverse
+  Functions (geope.gecko):
     - find_null_space
     - piecewise_smoothing
     - piecewise_bounding_mp
@@ -14,6 +15,7 @@ Tested items:
   Classes:
     - GeopeEngine
     - Geope
+    - Gecko
   jacobian_manual:
     - Ui / get_Ui_fn
     - scan_single_switch_matmul
@@ -39,6 +41,9 @@ from geope.geope import (
     get_geodesic_hamiltonian_fn,
     linear_comb_projected_coeffs_multigate,
     hvp_forward_over_reverse,
+)
+from geope.gecko import (
+    Gecko,
     find_null_space,
     piecewise_smoothing,
     piecewise_bounding_mp,
@@ -51,6 +56,7 @@ from geope.engine import Engine, fidelity
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
+    construct_restricted_pauli_basis,
 )
 
 
@@ -766,6 +772,116 @@ class TestGeopeEngine:
 
 
 # ---------------------------------------------------------------------------
+# Tests — build_pulse_expander (control-format pulse_constraints)
+# ---------------------------------------------------------------------------
+
+class TestBuildPulseExpander:
+    """`pulse_constraints` uses the control-format dict, same as `control`."""
+
+    @pytest.fixture(scope="class")
+    def engine_3q(self):
+        full = construct_full_pauli_basis(3)
+        proj = construct_restricted_pauli_basis(3, ['x', 'z', 'zz'])
+        eng = GeopeEngine(
+            target_unitary=jnp.eye(8, dtype=complex),
+            full_basis=full,
+            projected_basis=proj,
+            piecewise_steps=4,
+        )
+        return eng, proj
+
+    def test_control_dict_selects_expected_zz_indices(self, engine_3q):
+        eng, proj = engine_3q
+        labels = list(proj.labels)
+        n_proj = proj.lie_algebra_dim
+        L = eng.piecewise_steps
+        proj_params = np.random.default_rng(0).standard_normal((L, n_proj))
+
+        constraints = {(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']}
+        E, templates = eng.build_pulse_expander(constraints, False, n_proj, proj_params)
+
+        # The dict selects exactly the three two-body ZZ terms.
+        expected = {labels.index(lbl) for lbl in ("ZZI", "IZZ", "ZIZ")}
+        assert set(templates.keys()) == expected
+
+        # Each template is the unit-normalised time profile of its column.
+        for k, tmpl in templates.items():
+            ref = proj_params[:, k] / np.linalg.norm(proj_params[:, k])
+            np.testing.assert_allclose(tmpl, ref, atol=1e-12)
+            assert np.isclose(np.linalg.norm(tmpl), 1.0)
+
+        # One free column per constrained term + L columns per free term.
+        n_free = L * (n_proj - len(expected)) + len(expected)
+        assert E.shape == (L * n_proj, n_free)
+
+    def test_single_qubit_key(self, engine_3q):
+        eng, proj = engine_3q
+        labels = list(proj.labels)
+        n_proj = proj.lie_algebra_dim
+        L = eng.piecewise_steps
+        proj_params = np.random.default_rng(1).standard_normal((L, n_proj))
+
+        _, templates = eng.build_pulse_expander({1: ['x']}, False, n_proj, proj_params)
+        assert set(templates.keys()) == {labels.index("XII")}
+
+    def test_absent_interaction_raises(self, engine_3q):
+        eng, proj = engine_3q
+        n_proj = proj.lie_algebra_dim
+        proj_params = np.zeros((eng.piecewise_steps, n_proj))
+
+        # 'yy' is not in the restricted basis -> strict check raises.
+        with pytest.raises(ValueError, match="not present in the basis"):
+            eng.build_pulse_expander({(1, 2): ['yy']}, False, n_proj, proj_params)
+
+    def test_wrong_qubit_index_raises(self, engine_3q):
+        eng, proj = engine_3q
+        n_proj = proj.lie_algebra_dim
+        proj_params = np.zeros((eng.piecewise_steps, n_proj))
+
+        # Qubit 4 does not exist on a 3-qubit system.
+        with pytest.raises(ValueError, match="not present in the basis"):
+            eng.build_pulse_expander({(1, 4): ['zz']}, False, n_proj, proj_params)
+
+    def test_list_form_now_rejected(self, engine_3q):
+        eng, proj = engine_3q
+        n_proj = proj.lie_algebra_dim
+        proj_params = np.zeros((eng.piecewise_steps, n_proj))
+        # The legacy list-of-Pauli-labels form is no longer accepted in
+        # projected space.
+        with pytest.raises(TypeError):
+            eng.build_pulse_expander(["ZZI"], False, n_proj, proj_params)
+
+
+class TestParametersPulseConstraintsValidation:
+    """`Parameters` validates a dict `pulse_constraints` at construction."""
+
+    @staticmethod
+    def _control_3q():
+        return {1: ['x', 'z'], 2: ['x', 'z'], 3: ['x', 'z'],
+                (1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']}
+
+    def test_valid_dict_constructs(self):
+        p = Parameters(
+            basis=construct_full_pauli_basis(3),
+            control=self._control_3q(),
+            target=np.eye(8, dtype=complex),
+            piecewise_steps=4,
+            pulse_constraints={(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']},
+        )
+        assert p.pulse_constraints == {(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']}
+
+    def test_absent_interaction_raises_at_construction(self):
+        with pytest.raises(ValueError, match="not present in the basis"):
+            Parameters(
+                basis=construct_full_pauli_basis(3),
+                control=self._control_3q(),
+                target=np.eye(8, dtype=complex),
+                piecewise_steps=4,
+                pulse_constraints={(1, 2): ['xx']},  # only zz is controllable
+            )
+
+
+# ---------------------------------------------------------------------------
 # Tests — Geope
 # ---------------------------------------------------------------------------
 
@@ -818,8 +934,75 @@ class TestGeope:
         assert g.verbose is True
 
     def test_line_search_method(self, params_2q):
-        g = Geope(params_2q, line_search_method="golden_section")
+        # line-search config is an optimize() argument; max_steps=0 configures
+        # without running an iteration.
+        g = Geope(params_2q)
+        g.optimize(max_steps=0, line_search_method="golden_section")
         assert g.line_search_method == "golden_section"
+
+    def test_line_search_method_adam_stored(self, params_2q):
+        for m in ("adam", "adam_fd", "adam_grad"):
+            g = Geope(params_2q)
+            g.optimize(max_steps=0, line_search_method=m)
+            assert g.line_search_method == m
+            assert g.adam_lr == 0.05
+            assert g.adam_steps == 3
+
+    def test_line_search_method_adam_custom_hparams(self, params_2q):
+        g = Geope(params_2q)
+        g.optimize(max_steps=0, line_search_method="adam_fd",
+                   adam_lr=0.1, adam_steps=12)
+        assert g.adam_lr == 0.1
+        assert g.adam_steps == 12
+
+    def test_line_search_unset_before_optimize(self, params_2q):
+        # The line-search attributes are unset until optimize() configures them.
+        g = Geope(params_2q)
+        assert g.line_search_method is None
+        assert g.adam_lr is None
+        assert g.adam_steps is None
+
+    def test_adam_optimize_valid_fidelities(self, cnot, full_basis_2q, projected_basis_2q):
+        # both gradient modes must run inside the real loop and stay valid
+        for m in ("adam_fd", "adam_grad"):
+            p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
+            g = Geope(p, history=History())
+            g.optimize(max_steps=5, line_search_method=m)
+            for f in g.history.fidelities:
+                assert 0 <= f <= 1
+
+    def test_adam_optimize_improves_fidelity(self, cnot, full_basis_2q, projected_basis_2q):
+        for m in ("adam_fd", "adam_grad"):
+            p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
+            g = Geope(p, history=History())
+            f0 = float(g.params.fidelity)
+            g.optimize(max_steps=60, line_search_method=m)
+            assert g.history.best_fidelity > f0
+
+    def test_adam_alias_matches_adam_fd(self, params_2q):
+        # "adam" routes to the same finite-difference line search as "adam_fd".
+        # Compare the line-search output directly on identical inputs: the full
+        # optimize loop has a stochastic Gram-Schmidt fallback (global
+        # np.random), so comparing two optimize runs would be non-deterministic.
+        g_alias = Geope(params_2q)
+        g_alias.optimize(max_steps=0, line_search_method="adam")
+        g_fd = Geope(params_2q)
+        g_fd.optimize(max_steps=0, line_search_method="adam_fd")
+        steps = g_fd.engine.piecewise_steps
+        params_arr = params_2q.parameters
+        free_params = params_arr[:, g_fd.engine.proj_drift_indices].astype(np.complex128)
+        # a real, correctly-shaped search direction (deterministic geodesic step)
+        coeffs, *_ = g_fd.update_step(free_params, params_arr, steps)
+        _, fid_alias, dt_alias = g_alias.update_linesearch(params_arr, coeffs, steps)
+        _, fid_fd, dt_fd = g_fd.update_linesearch(params_arr, coeffs, steps)
+        assert jnp.isclose(dt_alias, dt_fd)
+        assert jnp.isclose(fid_alias, fid_fd)
+
+    def test_line_search_method_unknown_raises(self, params_2q):
+        # unknown methods are rejected when the line search first runs
+        g = Geope(params_2q)
+        with pytest.raises(ValueError):
+            g.optimize(max_steps=1, line_search_method="not_a_method")
 
     def test_engine_arg_rejected(self, engine_2q):
         """Passing a raw GeopeEngine must raise TypeError now."""
@@ -997,29 +1180,142 @@ class TestGeope:
         g = Geope(params_2q, gram_schmidt_step_size=1.5)
         assert g.gram_schmidt_step_size == 1.5
 
-    # --- smooth / bound exist --------------------------------------------
+    def test_gram_schmidt_seeded_reproducible(self, cnot, full_basis_2q, projected_basis_2q):
+        # The Gram-Schmidt fallback draws from a seeded per-instance RNG, so two
+        # runs with the same seed produce identical fidelity trajectories, while
+        # a different seed yields a different one (confirming the fallback fires).
+        def run(seed):
+            p = _params_2q(cnot, full_basis_2q, projected_basis_2q, seed=seed)
+            g = Geope(p, history=History(), precision=0.9999)
+            g.optimize(max_steps=80)
+            return [float(f) for f in g.history.fidelities]
+
+        assert run(42) == run(42)
+        assert run(42) != run(7)
+
+    # --- null-space passes now live on Gecko, not Geope ------------------
 
     def test_smooth_is_callable(self, params_2q):
-        g = Geope(params_2q)
-        assert callable(g.smooth)
+        gk = Gecko(geope=Geope(params_2q))
+        assert callable(gk.smooth)
 
     def test_bound_is_callable(self, params_2q):
-        g = Geope(params_2q)
-        assert callable(g.bound)
+        gk = Gecko(geope=Geope(params_2q))
+        assert callable(gk.bound)
+
+    def test_geope_has_no_null_space_methods(self, geope_2q):
+        for name in ("smooth", "smooth_frequency", "filter_frequency",
+                     "speed", "length", "robust", "bound"):
+            assert not hasattr(geope_2q, name)
 
     # --- get_update_linesearch (internal helper exposed on instance) ------
 
     def test_update_linesearch_returns_callable(self, geope_2q):
+        # Built lazily by optimize(); max_steps=0 configures without iterating.
+        geope_2q.optimize(max_steps=0)
         assert callable(geope_2q.update_linesearch)
 
     def test_gammas_and_omegas_returns_callable(self, geope_2q):
-        assert callable(geope_2q.gammas_and_omegas)
+        assert callable(geope_2q.engine.gammas_and_omegas)
 
     def test_update_step_returns_callable(self, geope_2q):
+        # Built lazily by optimize(); max_steps=0 configures without iterating.
+        geope_2q.optimize(max_steps=0)
         assert callable(geope_2q.update_step)
 
-    def test_bound_parameters_returns_callable(self, geope_2q):
-        assert callable(geope_2q.bound_parameters)
+
+# ---------------------------------------------------------------------------
+# Tests — Gecko (null-space / auxiliary-cost optimiser)
+# ---------------------------------------------------------------------------
+
+class TestGecko:
+    # --- construction modes ----------------------------------------------
+
+    def test_from_geope_reuses_engine_and_params(self, geope_2q):
+        gk = Gecko(geope=geope_2q)
+        assert gk.engine is geope_2q.engine
+        assert gk.params is geope_2q.params
+
+    def test_from_params_builds_own_engine(self, params_2q):
+        gk = Gecko(params=params_2q)
+        assert isinstance(gk.engine, GeopeEngine)
+        assert gk.params is params_2q
+
+    def test_both_compatible_reuses_engine(self, geope_2q):
+        gk = Gecko(params=geope_2q.params, geope=geope_2q)
+        assert gk.engine is geope_2q.engine
+
+    def test_both_incompatible_target_raises(self, geope_2q, identity_4x4,
+                                             full_basis_2q, projected_basis_2q):
+        other = _params_2q(identity_4x4, full_basis_2q, projected_basis_2q)
+        with pytest.raises(ValueError):
+            Gecko(params=other, geope=geope_2q)
+
+    def test_both_incompatible_projective_raises(self, geope_2q, cnot,
+                                                 full_basis_2q, projected_basis_2q):
+        other = _params_2q(cnot, full_basis_2q, projected_basis_2q, projective=False)
+        with pytest.raises(ValueError):
+            Gecko(params=other, geope=geope_2q)
+
+    def test_neither_raises(self):
+        with pytest.raises(ValueError):
+            Gecko()
+
+    # --- fidelity preservation + step-count consistency ------------------
+
+    def test_smooth_preserves_fidelity_and_subdivides(self, params_2q):
+        g = Geope(params_2q, precision=0.9999)
+        g.optimize(max_steps=400)
+        f0 = float(g.params.fidelity)
+        original_steps = g.engine.piecewise_steps
+
+        gk = Gecko(geope=g)
+        gk.smooth(piecewise_steps_multiplier=3, max_smoothing_steps=30)
+
+        assert abs(float(gk.params.fidelity) - f0) < 5e-3
+        new_steps = 3 * original_steps
+        assert g.params.piecewise_steps == new_steps
+        assert g.params.parameters.shape[0] == new_steps
+        assert g.engine.piecewise_steps == new_steps
+
+    def test_params_mode_from_subdivided_params(self, params_2q):
+        g = Geope(params_2q, precision=0.9999)
+        g.optimize(max_steps=400)
+        Gecko(geope=g).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=10)
+        # A fresh engine sized from the subdivided params must construct and run.
+        gk2 = Gecko(params=g.params)
+        assert gk2.engine.piecewise_steps == g.params.piecewise_steps
+        gk2.smooth(piecewise_steps_multiplier=1, max_smoothing_steps=5)
+
+    # --- experimental parameters (param_transform) -----------------------
+
+    def _exp_params(self, cnot, full_basis_2q, projected_basis_2q):
+        n_exp = projected_basis_2q.lie_algebra_dim
+        return _params_2q(
+            cnot, full_basis_2q, projected_basis_2q,
+            param_transform=lambda phi: phi,
+            n_experimental_params=n_exp,
+        )
+
+    def test_experimental_geope_mode(self, cnot, full_basis_2q, projected_basis_2q):
+        params = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
+        g = Geope(params, precision=0.9999)
+        g.optimize(max_steps=400)
+        f0 = float(g.params.fidelity)
+        gk = Gecko(geope=g)
+        assert gk._real_params is True
+        gk.speed(parameter_indices=(0,), max_optimization_steps=10)
+        assert abs(float(gk.params.fidelity) - f0) < 5e-3
+
+    def test_experimental_params_mode_rewraps(self, cnot, full_basis_2q, projected_basis_2q):
+        params = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
+        g = Geope(params, precision=0.9999)
+        g.optimize(max_steps=400)
+        gk = Gecko(params=g.params)
+        assert gk._real_params is True
+        # labels are not allowed under param_transform
+        with pytest.raises(ValueError):
+            gk.speed(parameter_labels=["XX"], max_optimization_steps=5)
 
 
 # ---------------------------------------------------------------------------
@@ -1071,9 +1367,9 @@ class TestHistory:
         g.optimize(max_steps=5)
         assert g.history.best_fidelity == max(g.history.fidelities)
 
-    def test_custom_log_fn(self, params_2q):
+    def test_custom_logging_fn(self, params_2q):
         g = Geope(params_2q,
-                  history=History(log_fn=lambda gg: {"fid": float(gg.params.fidelity)}),
+                  history=History(logging_fn=lambda gg: {"fid": float(gg.params.fidelity)}),
                   precision=0.0)
         g.optimize(max_steps=5)
         # only the custom column is logged

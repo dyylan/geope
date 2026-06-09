@@ -10,12 +10,8 @@
 
 ::: geope.geope.get_geodesic_hamiltonian_fn
 
-::: geope.geope.hvp_forward_over_reverse
+::: geope.geope.hvp_forward_over_reverse -->
 
-::: geope.geope.find_null_space
-
-::: geope.geope.piecewise_smoothing
-
-::: geope.geope.piecewise_bounding_mp
-
-::: geope.geope.piecewise_bounding_pg -->
+<!-- The null-space passes (find_null_space, piecewise_smoothing,
+piecewise_bounding_mp, piecewise_bounding_pg, ...) now live in
+geope.gecko — see api/gecko.md. -->

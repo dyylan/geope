@@ -8,6 +8,7 @@ from .lie import Basis
 from .utils import (
     construct_restricted_pauli_basis,
     filter_basis_by_control,
+    control_to_indices,
     prepare_random_parameters,
     merge_constraints,
 )
@@ -98,8 +99,16 @@ class Parameters:
                 each either an ``np.ndarray`` of size
                 ``projected_basis.lie_algebra_dim`` or a dict in the
                 ``control`` format.
-            pulse_constraints: Optional pulse-shape constraints config
-                (forwarded to ``Geope``).
+            pulse_constraints: Optional pulse-shape constraints whose
+                temporal profile is frozen during optimisation. In
+                projected space, a control-format dict
+                ``{qubit_index_or_tuple: [lowercase op labels]}`` (the
+                same format as ``control``), e.g.
+                ``{1: ['x'], (1, 2): ['zz']}``. In experimental space
+                (``param_transform`` set), a list of integer parameter
+                indices. Forwarded to ``Geope``. A dict that names an
+                interaction absent from the projected basis raises
+                ``ValueError``.
             bounds: Optional dict mapping interaction label to
                 ``(min, max)`` bound tuples.
             init_spread: Half-width of uniform initialisation. Defaults
@@ -154,6 +163,12 @@ class Parameters:
         self.control = control
         self.drift_config = drift
         self.pulse_constraints = pulse_constraints
+        # Fail fast on a pulse-shape constraint that names an interaction
+        # absent from the projected basis (typo, wrong qubit, etc.). The
+        # experimental-space form (a list of integer indices) is left alone.
+        if isinstance(pulse_constraints, dict):
+            control_to_indices(list(self.projected_basis.labels),
+                               pulse_constraints, strict=True)
         self.seed = seed
         self.init_spread = init_spread
         self.param_transform = param_transform
