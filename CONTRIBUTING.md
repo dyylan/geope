@@ -1,7 +1,6 @@
 # Contributing
 ## TODO (last updated: June 11th, 2026)
 - Make optimizers passable to geope.optimize.
-- Add logger where we can keep histories
 - Add callbacks.
 - Integrator parallel prefix scans for Jacobian calculations.
 - Add black linter check.
