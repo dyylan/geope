@@ -1,5 +1,28 @@
 # Contributing
 
+## Git Workflow
+
+### Reporting Issues
+
+Before opening a new issue, search the [issue tracker](../../issues) to see if it has already been reported. If it has, add a comment with any additional context. If it has not, open a new issue with a clear title and description, including steps to reproduce if applicable.
+
+### Contributing Code
+
+1. **Fork** the repository and clone your fork locally.
+2. **Create a branch** for your change:
+   ```bash
+   git checkout -b my-feature-or-fix
+   ```
+3. **Make your changes** and ensure existing tests still pass:
+   ```bash
+   pytest
+   ```
+4. **Commit** your changes with a clear message:
+   ```bash
+   git commit -m "Short description of what changed"
+   ```
+5. **Push** to your fork and open a **pull request** against `main`. Reference the related issue (e.g. `Closes #42`) in the PR description.
+
 ## Publish Package
 
 ### Prerequisites
