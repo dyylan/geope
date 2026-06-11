@@ -724,7 +724,7 @@ def multicontrol_unitary(local_unitary: np.ndarray, num_controls: int) -> np.nda
         The full multi-controlled unitary matrix.
     """
     dim = 2**(num_controls+1)
-    full_unitary = np.eye(dim)
+    full_unitary = np.eye(dim, dtype=np.asarray(local_unitary).dtype)
     indices = [dim - 2, dim - 1]
     full_unitary[np.ix_(indices, indices)] = local_unitary
     return full_unitary

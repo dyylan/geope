@@ -23,6 +23,14 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    # JAX casts complex cotangents to real inside its own backward pass when
+    # differentiating the real-valued fidelity through a complex unitary back
+    # to real parameters. This cannot be addressed at our call site.
+    "ignore:Casting complex values to real discards the imaginary part:numpy.exceptions.ComplexWarning:jax._src.lax.lax",
+]
+
 [project.optional-dependencies]
 docs = [
     "mkdocs==1.6.1",

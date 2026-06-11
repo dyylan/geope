@@ -119,6 +119,9 @@ class Gecko:
             _dtype = jnp.float64 if self._real_params else jnp.complex128
             free_params = jnp.array(
                 [p[self.engine.proj_drift_indices] for p in self.params.parameters]
+            )
+            free_params = (
+                jnp.real(free_params) if self._real_params else free_params
             ).astype(_dtype)
             self.params.fidelity = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
 
@@ -626,8 +629,12 @@ class Gecko:
             np.array([x for group in zip(*new_parameters) for x in group]) / piecewise_steps_multiplier)
 
         _dtype = jnp.float64 if self._real_params else jnp.complex128
-        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
-        proj_params = self.params.parameters[:, self.engine.projected_indices].astype(_dtype)
+        _drift = self.params.parameters[:, self.engine.proj_drift_indices]
+        _proj = self.params.parameters[:, self.engine.projected_indices]
+        if self._real_params:
+            _drift, _proj = jnp.real(_drift), jnp.real(_proj)
+        free_params = _drift.astype(_dtype)
+        proj_params = _proj.astype(_dtype)
 
         # Record the initial subdivided parameters (fidelity carried over unchanged)
         self.step_size = 0
@@ -746,7 +753,7 @@ def piecewise_smoothing_frequency(
         A tuple ``(updated_phi, cost)``.
     """
     null_space = expander @ null_space if expander is not None else null_space
-    phi = phi.astype(jnp.float64)
+    phi = jnp.real(phi).astype(jnp.float64)
     phi_flat = phi.flatten()
 
     def minimize_power(params_flat):
@@ -787,7 +794,7 @@ def piecewise_smoothing_frequency_filter(
         A tuple ``(updated_phi, cost)``.
     """
     null_space = expander @ null_space if expander is not None else null_space
-    phi = phi.astype(jnp.float64)
+    phi = jnp.real(phi).astype(jnp.float64)
     phi_flat = phi.flatten()
 
     def distance_to_filtered(params_flat):
@@ -829,7 +836,7 @@ def get_speed_null_space_fn(n_proj: int, parameter_indices: tuple[int, ...]) -> 
     @partial(jax.jit, static_argnames=("optimization_rate",))
     def step(phi, null_space, expander, optimization_rate=0.01):
         ns = expander @ null_space if expander is not None else null_space
-        phi_flat = phi.flatten().astype(jnp.float64)
+        phi_flat = jnp.real(phi).flatten().astype(jnp.float64)
         val, grad = cost_vg(phi_flat)
         x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
         sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
@@ -870,7 +877,7 @@ def get_length_null_space_fn(n_proj: int, parameter_indices: tuple[int, ...], dr
     @partial(jax.jit, static_argnames=("optimization_rate",))
     def step(phi, null_space, expander, optimization_rate=0.01):
         ns = expander @ null_space if expander is not None else null_space
-        phi_flat = phi.flatten().astype(jnp.float64)
+        phi_flat = jnp.real(phi).flatten().astype(jnp.float64)
         val, grad = cost_vg(phi_flat)
         x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
         sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
@@ -953,7 +960,7 @@ def get_robustness_null_space_fn(
     @partial(jax.jit, static_argnames=("optimization_rate",))
     def step(phi, null_space, expander, optimization_rate=0.01):
         ns = expander @ null_space if expander is not None else null_space
-        phi_flat = phi.flatten().astype(jnp.float64)
+        phi_flat = jnp.real(phi).flatten().astype(jnp.float64)
         val, grad = cost_vg(phi_flat)
         x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
         sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
@@ -989,7 +996,7 @@ def piecewise_smoothing(
     indep_params = phi.shape[1] # size of lie algebra of projected basis
     null_space = expander @ null_space if expander is not None else null_space
     phi_flat = phi.flatten()
-    phi_flat = phi_flat.astype(jnp.float64)
+    phi_flat = jnp.real(phi_flat).astype(jnp.float64)
     n_params = phi_flat.size  # phi = (piecewise_step_multiplier * K, K_non_drift)
     # Difference matrix
     D = jnp.eye(n_params, k=0) - jnp.eye(n_params, k=indep_params)
@@ -1031,7 +1038,7 @@ def piecewise_bounding_mp(
     null_space = expander @ null_space if expander is not None else null_space
     # Flatten parameters
     phi_flat = phi.flatten()
-    phi_flat = phi_flat.astype(jnp.float64)
+    phi_flat = jnp.real(phi_flat).astype(jnp.float64)
     n_params = phi_flat.size
     r,c = null_space.shape
 
@@ -1093,7 +1100,7 @@ def piecewise_bounding_pg(
     null_space = expander @ null_space if expander is not None else null_space
     # Flatten parameters
     phi_flat = phi.flatten()
-    phi_flat = phi_flat.astype(jnp.float64)
+    phi_flat = jnp.real(phi_flat).astype(jnp.float64)
 
     # Prepare bounds in flattened form
     lower_flat = lower_bounds.flatten()
