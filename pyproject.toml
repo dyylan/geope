@@ -4,12 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "GEOPE"
-version = "0.1.0"
+version = "0.0.1"
 requires-python = ">=3.10"
-authors = [
-    { name = "Dylan Lewis", email = "dlewis3@imperial.ac.uk"},
-    { name = "Roeland Wiersema", email = "roel.wier@gmail.com"},
-]
+
 dependencies = [
     "jax==0.8.0",
     "optax==0.2.4",
