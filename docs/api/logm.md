@@ -1,9 +1,9 @@
-# geope.logm
+# geope.jax.logm
 
-::: geope.logm.roots_legendre
+::: geope.jax.logm.roots_legendre
 
-::: geope.logm.sqrtm
+::: geope.jax.logm.sqrtm
 
-::: geope.logm.logm
+::: geope.jax.logm.logm
 
-::: geope.logm.rsf2csf
+::: geope.jax.logm.rsf2csf
