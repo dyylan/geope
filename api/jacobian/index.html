@@ -12,7 +12,7 @@
         <meta name="author" content="Dylan Lewis and Roeland Wiersema">
       
       
-        <link rel="canonical" href="https://dyylan.github.io/geope/api/jacobian_manual/">
+        <link rel="canonical" href="https://dyylan.github.io/geope/api/jacobian/">
       
       
       
@@ -22,7 +22,7 @@
     
     
       
-        <title>geope.jacobian_manual - Geodesic Pulse Engineering (GEOPE)</title>
+        <title>geope.jax.jacobian - Geodesic Pulse Engineering (GEOPE)</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#geopejacobian_manual" class="md-skip">
+        <a href="#geopejaxjacobian" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              geope.jacobian_manual
+              geope.jax.jacobian
             
           </span>
         </div>
@@ -845,7 +845,7 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.Ui" class="md-nav__link">
+  <a href="#geope.jax.jacobian.Ui" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;Ui
     </span>
@@ -854,7 +854,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.get_Ui_fn" class="md-nav__link">
+  <a href="#geope.jax.jacobian.get_Ui_fn" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_Ui_fn
     </span>
@@ -863,7 +863,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.scan_single_switch_matmul" class="md-nav__link">
+  <a href="#geope.jax.jacobian.scan_single_switch_matmul" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;scan_single_switch_matmul
     </span>
@@ -872,7 +872,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.get_apply_branch" class="md-nav__link">
+  <a href="#geope.jax.jacobian.get_apply_branch" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_apply_branch
     </span>
@@ -881,7 +881,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.scan_branch" class="md-nav__link">
+  <a href="#geope.jax.jacobian.scan_branch" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;scan_branch
     </span>
@@ -890,7 +890,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.get_scan_branch" class="md-nav__link">
+  <a href="#geope.jax.jacobian.get_scan_branch" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_scan_branch
     </span>
@@ -899,7 +899,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.manual_jacobian" class="md-nav__link">
+  <a href="#geope.jax.jacobian.manual_jacobian" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;manual_jacobian
     </span>
@@ -908,7 +908,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jacobian_manual.get_jacobian_manual" class="md-nav__link">
+  <a href="#geope.jax.jacobian.get_jacobian_manual" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jacobian_manual
     </span>
@@ -932,16 +932,16 @@
 
 
 
-<h1 id="geopejacobian_manual">geope.jacobian_manual<a class="headerlink" href="#geopejacobian_manual" title="Permanent link">¤</a></h1>
+<h1 id="geopejaxjacobian">geope.jax.jacobian<a class="headerlink" href="#geopejaxjacobian" title="Permanent link">¤</a></h1>
 
 
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.Ui" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">Ui</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.Ui" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">Ui</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.Ui" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.Ui" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
@@ -1026,10 +1026,10 @@
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.get_Ui_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">get_Ui_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.get_Ui_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_Ui_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.get_Ui_fn" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.get_Ui_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
@@ -1108,10 +1108,10 @@
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.scan_single_switch_matmul" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">scan_single_switch_matmul</span><span class="p">(</span><span class="n">carry</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.scan_single_switch_matmul" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">scan_single_switch_matmul</span><span class="p">(</span><span class="n">carry</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.scan_single_switch_matmul" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.scan_single_switch_matmul" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
@@ -1200,10 +1200,10 @@ inserting a Jacobian slice at the position indicated by <code>idx</code>.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.get_apply_branch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">get_apply_branch</span><span class="p">(</span><span class="n">gates</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.get_apply_branch" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_apply_branch</span><span class="p">(</span><span class="n">gates</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.get_apply_branch" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.get_apply_branch" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
@@ -1295,10 +1295,10 @@ Jacobian slice.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.scan_branch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">scan_branch</span><span class="p">(</span><span class="n">jac</span><span class="p">,</span> <span class="n">indices_i</span><span class="p">,</span> <span class="n">branch_fn</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.scan_branch" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">scan_branch</span><span class="p">(</span><span class="n">jac</span><span class="p">,</span> <span class="n">indices_i</span><span class="p">,</span> <span class="n">branch_fn</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.scan_branch" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.scan_branch" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
@@ -1399,10 +1399,10 @@ Jacobian slice.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.get_scan_branch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">get_scan_branch</span><span class="p">(</span><span class="n">branch_fn</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.get_scan_branch" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_scan_branch</span><span class="p">(</span><span class="n">branch_fn</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.get_scan_branch" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.get_scan_branch" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
@@ -1471,10 +1471,10 @@ Jacobian slice.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.manual_jacobian" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">manual_jacobian</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">Ui_fn</span><span class="p">,</span> <span class="n">jac_fn</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.manual_jacobian" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">manual_jacobian</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">Ui_fn</span><span class="p">,</span> <span class="n">jac_fn</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.manual_jacobian" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.manual_jacobian" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
@@ -1578,10 +1578,10 @@ per-gate Jacobian into the product chain.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jacobian_manual.get_jacobian_manual" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jacobian_manual</span><span class="o">.</span><span class="n">get_jacobian_manual</span><span class="p">(</span><span class="n">gate_basis</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.get_jacobian_manual" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_jacobian_manual</span><span class="p">(</span><span class="n">gate_basis</span><span class="p">)</span></code>
 
-<a href="#geope.jacobian_manual.get_jacobian_manual" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.get_jacobian_manual" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
