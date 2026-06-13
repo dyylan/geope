@@ -13,7 +13,7 @@ from typing import Callable, TYPE_CHECKING
 
 from .geope import GeopeEngine
 from .parameters import Parameters
-from .history import History
+from .utils.history import History
 
 if TYPE_CHECKING:
     from .geope import Geope
