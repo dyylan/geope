@@ -1,19 +1,23 @@
 from __future__ import annotations
 
-import time
-
 import numpy as np
 
 import jax
 import jax.numpy as jnp
 import optax
 
-from .engine import Engine, get_infidelity_fn
+from .engine import (
+    Engine,
+    get_infidelity_fn,
+    get_fidelity_full_fn,
+    get_infidelity_full_fn,
+)
 from .parameters import Parameters
 
 jax.config.update("jax_enable_x64", True)
 
 from .utils import prepare_random_parameters
+from .utils.history import History
 from functools import partial
 
 
@@ -24,9 +28,15 @@ class GrapeEngine(Engine):
                  full_basis,
                  projected_basis,
                  drift_basis=None,
-                 piecewise_steps=1):
+                 piecewise_steps=1,
+                 projective: bool = True):
         super(GrapeEngine, self).__init__(target_unitary, full_basis, projected_basis, drift_basis, piecewise_steps)
-        self.infid_U_fn = get_infidelity_fn(target_unitary)
+        self.projective = projective
+        if projective:
+            self.infid_U_fn = get_infidelity_fn(target_unitary)
+        else:
+            self.fid_U_fn = jax.jit(get_fidelity_full_fn(target_unitary))
+            self.infid_U_fn = get_infidelity_full_fn(target_unitary)
         self.infid_fn = lambda x: self.infid_U_fn(self.compute_U_fn(x))
         self.grad_fn = jax.value_and_grad(self.infid_fn)
         self.hess_fn = jax.jit(
@@ -104,103 +114,105 @@ class GrapeEngine(Engine):
 
 
 class Grape:
-    """
-    Handling the optimization of the phi parameters.
+    """Gradient/Hessian-based GRAPE optimiser for quantum gate synthesis.
 
-    Accepts either a Parameters object (new API) or a GrapeEngine (legacy API).
+    Mirrors the `Geope` usage pattern: it is constructed from a `Parameters`
+    object (the single source of truth for all configuration and the live
+    optimisation state), while the optimiser ``method``, its hyperparameters
+    and ``max_steps`` are arguments of :meth:`optimize`.
+
+    Attributes:
+        params: The bound `Parameters` object.
+        engine: The internal `GrapeEngine` constructed from ``params``.
+        precision: Target fidelity threshold.
+        method: Optimiser method from the most recent :meth:`optimize` call
+            (``'gd'``, ``'adam'``, ``'nr-trm'`` or ``'nr-rfo'``); ``None``
+            until :meth:`optimize` is first called.
+        step_size: Transient last step size (always 0 for GRAPE).
+        history: Optional `History` logger (``None`` unless supplied).
     """
 
     def __init__(self,
-                 params,
-                 drift_parameters=None,
-                 init_parameters=None,
-                 max_steps=100,
-                 precision=0.9999999,
-                 init_parameters_spread=0.1,
-                 method='nr-trm',
-                 seed: int | jax.Array | None = None,
-                 verbose=False,
-                 **optimizer_kwargs
-                 ):
+                 params: Parameters,
+                 precision: float = 0.9999999,
+                 verbose: bool = False,
+                 history: History | None = None) -> None:
+        """Initialise the Grape optimiser.
 
-        if isinstance(params, Parameters):
-            # --- New API: construct engine from Parameters ---
-            self.params = params
-            seed = params.seed
-            if isinstance(seed, int):
-                self._key = jax.random.key(seed)
-            elif isinstance(seed, jax.Array):
-                self._key = seed  # already a jax.Array key
-            else:
-                self._key = jax.random.key(0)
-            engine = GrapeEngine(
-                target_unitary=params.target,
-                full_basis=params.basis,
-                projected_basis=params.projected_basis,
-                drift_basis=params.drift_basis,
-                piecewise_steps=params.piecewise_steps,
+        ``Grape`` requires a `Parameters` object — the engine, initial
+        parameters, drift, seed, initialisation spread, projective flag and
+        ``param_transform`` are all read from it.
+
+        Args:
+            params: A `Parameters` instance bundling every input the
+                optimiser needs.
+            precision: Target fidelity. Defaults to 0.9999999.
+            verbose: Whether to print progress. Defaults to False.
+            history: Optional `History` logger. When supplied, the full run
+                trajectory is recorded into it; when ``None`` (default), no
+                history is kept.
+
+        Raises:
+            TypeError: If ``params`` is not a `Parameters` instance.
+        """
+        if not isinstance(params, Parameters):
+            raise TypeError(
+                "Grape requires a Parameters object as its first argument. "
+                "Build a Parameters object with `geope.Parameters(basis=..., "
+                "control=..., target=..., ...)` and pass that in."
             )
 
-            # Wrap compute_U_fn if param_transform is set
-            if params.param_transform is not None:
-                engine.wrap_param_transform(params)
-                init_parameters = self._init_for_param_transform(engine, params)
-                drift_parameters = None
-            else:
-                init_parameters = params.parameters
-                drift_parameters = params.drift_parameters
-
-            self.engine = engine
-            self._real_params = params.param_transform is not None
-            init_parameters_spread = params.init_spread
+        self.params = params
+        seed = params.seed
+        if isinstance(seed, int):
+            self._key = jax.random.key(seed)
+        elif isinstance(seed, jax.Array):
+            self._key = seed  # already a jax.Array key
         else:
-            # --- Legacy API: params is a GrapeEngine ---
-            self.engine = params
-            self.params = None
-            self._real_params = False
-            if isinstance(seed, int):
-                self._key = jax.random.key(seed)
-            elif isinstance(seed, jax.Array):
-                self._key = seed  # already a jax.Array key
-            else:
-                self._key = jax.random.key(0)
+            self._key = jax.random.key(0)
+        engine = GrapeEngine(
+            target_unitary=params.target,
+            full_basis=params.basis,
+            projected_basis=params.projected_basis,
+            drift_basis=params.drift_basis,
+            piecewise_steps=params.piecewise_steps,
+            projective=params.projective,
+        )
 
-        self.max_steps = max_steps
+        # Wrap compute_U_fn if param_transform is set
+        if params.param_transform is not None:
+            engine.wrap_param_transform(params)
+            init_parameters = self._init_for_param_transform(engine, params)
+            drift_parameters = None
+        else:
+            init_parameters = params.parameters
+            drift_parameters = params.drift_parameters
+
+        self.engine = engine
+        self._real_params = params.param_transform is not None
+
+        self.history = history
+        if self.history is not None:
+            self.history.params = params
+        self.step_size = 0
+
         self.precision = precision
-        self.init_parameters_spread = init_parameters_spread
-        # Determine optimizers
-        if method in ['gd', 'adam']:
-            learning_rate = optimizer_kwargs.get('learning_rate')
-            if method == 'gd':
-                optimizer = optax.sgd(learning_rate=learning_rate)
-            else:
-                optimizer = optax.adam(learning_rate=learning_rate)
-            self.update_step = get_update_step_gd(self.engine.proj_drift_indices, self.engine.grad_fn, optimizer)
-        elif method in ['nr-trm', 'nr-rfo']:
-            # Use backtracking for second order optimization
-            optimizer = optax.scale_by_backtracking_linesearch(max_backtracking_steps=100)
-            if method == 'nr-trm':
-                delta = optimizer_kwargs.get('delta')
-                self.update_step = get_update_step_trm(self.engine.proj_drift_indices,
-                                                       self.engine.infid_fn,
-                                                       self.engine.grad_fn,
-                                                       self.engine.hess_fn,
-                                                       optimizer,
-                                                       delta)
-            else:
-                kappa = optimizer_kwargs.get('kappa', 100)
-                self.update_step = get_update_step_rfo(self.engine.proj_drift_indices,
-                                                       self.engine.infid_fn,
-                                                       self.engine.grad_fn,
-                                                       self.engine.hess_fn,
-                                                       optimizer,
-                                                       kappa)
-        else:
-            raise NotImplementedError(f"Method {method} not implemented")
-        # Initialize parameters
+        self.init_parameters_spread = params.init_spread
+
+        # The optimiser method and its hyperparameters are arguments of
+        # optimize(), not the constructor. The JIT-compiled update_step bakes
+        # the method and hyperparameters into its closure, so it is built
+        # lazily by optimize() (via _configure_optimizer) and rebuilt only
+        # when that configuration changes. They stay unset until then.
+        self.method = None
+        self._optimizer_config = None
+        self.update_step = None
+        self.optimizer = None
+        self.optimizer_state = None
+
         self.verbose = verbose
-        self.init = partial(self._init, optimizer, method)
-        self.init(init_parameters, drift_parameters, seed)
+        # Initialize parameters
+        self.init(init_parameters, drift_parameters, params.seed)
 
     def _split_key(self) -> jax.Array:
         self._key, subkey = jax.random.split(self._key)
@@ -231,12 +243,24 @@ class Grape:
             maxval=params.init_spread * np.pi,
         ))
 
-    def _init(self, optimizer, method, init_parameters=None, drift_parameters=None, seed=None):
+    def init(self, init_parameters=None, drift_parameters=None, seed=None) -> None:
+        """(Re-)initialise optimiser state.
+
+        Sets up initial parameters, drift parameters and the live state
+        (``params.parameters`` / ``params.fidelity``), and records step 0
+        into ``history`` when one is attached.
+
+        Args:
+            init_parameters: Initial parameter array. Defaults to random.
+            drift_parameters: Fixed drift parameter values. Defaults to ones.
+            seed: Random seed (int) or JAX key for reproducibility.
+        """
         if isinstance(seed, int):
             self._key = jax.random.key(seed)
         elif isinstance(seed, jax.Array):
             self._key = seed  # already a jax.Array key
         # else: keep existing self._key unchanged
+
         # Initialize variables
         if init_parameters is None:
             self.init_parameters = np.array([prepare_random_parameters(self.engine.projected_indices,
@@ -248,8 +272,6 @@ class Grape:
                 self.init_parameters = np.array([init_parameters] * self.engine.piecewise_steps)
             else:
                 self.init_parameters = np.array(init_parameters)
-            # assert self.engine.full_basis.lie_algebra_dim == self.init_parameters.shape[0], \
-            #     "Drift parameters must be the same length as the size of the drift basis."
         if self.engine.drift_basis is not None:
             if drift_parameters is None:
                 self.drift_parameters = np.ones(self.engine.drift_basis.lie_algebra_dim)
@@ -259,53 +281,122 @@ class Grape:
                     "Drift parameters must be the same length as the size of the drift basis."
 
             self.init_parameters[:, self.engine.drift_indices] = np.tile(self.drift_parameters, (self.engine.piecewise_steps, 1))
-        self.parameters = [self.init_parameters]
+        else:
+            self.drift_parameters = None
+
+        self.params.parameters = np.array(self.init_parameters)
+        _dtype = np.float64 if self._real_params else np.complex128
+        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
+        self.params.fidelity = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
+        self.step_size = 0
+        # A change of parameters invalidates any optax state built for the
+        # previous parameter values; force a rebuild on the next optimize().
+        self.optimizer_state = None
+        self._optimizer_config = None
+        if self.history is not None:
+            self.history.reset()
+            self.history.record(self)        # step 0
+
+    def _configure_optimizer(self, method: str, optimizer_kwargs: dict) -> None:
+        """Select the optimiser method and (re)build its update function.
+
+        The JIT-compiled ``update_step`` closes over the method and its
+        hyperparameters, so it is recreated (and the optax state re-initialised
+        from the current parameters) whenever the configuration changes. The
+        current configuration is memoised in ``_optimizer_config`` so repeated
+        ``optimize()`` calls with unchanged settings reuse the compiled
+        function and continue the optimiser state.
+
+        Args:
+            method: ``'gd'``, ``'adam'``, ``'nr-trm'`` or ``'nr-rfo'``.
+            optimizer_kwargs: Method hyperparameters (``learning_rate`` for
+                ``'gd'``/``'adam'``, ``delta`` for ``'nr-trm'``, ``kappa`` for
+                ``'nr-rfo'``).
+        """
+        config = (method, tuple(sorted(optimizer_kwargs.items())))
+        if self._optimizer_config == config and self.optimizer_state is not None:
+            return
+        if method in ['gd', 'adam']:
+            learning_rate = optimizer_kwargs.get('learning_rate')
+            if method == 'gd':
+                optimizer = optax.sgd(learning_rate=learning_rate)
+            else:
+                optimizer = optax.adam(learning_rate=learning_rate)
+            self.update_step = get_update_step_gd(self.engine.proj_drift_indices, self.engine.grad_fn, optimizer)
+        elif method in ['nr-trm', 'nr-rfo']:
+            # Use backtracking for second order optimization
+            optimizer = optax.scale_by_backtracking_linesearch(max_backtracking_steps=100)
+            if method == 'nr-trm':
+                delta = optimizer_kwargs.get('delta')
+                self.update_step = get_update_step_trm(self.engine.proj_drift_indices,
+                                                       self.engine.infid_fn,
+                                                       self.engine.grad_fn,
+                                                       self.engine.hess_fn,
+                                                       optimizer,
+                                                       delta)
+            else:
+                kappa = optimizer_kwargs.get('kappa', 100)
+                self.update_step = get_update_step_rfo(self.engine.proj_drift_indices,
+                                                       self.engine.infid_fn,
+                                                       self.engine.grad_fn,
+                                                       self.engine.hess_fn,
+                                                       optimizer,
+                                                       kappa)
+        else:
+            raise NotImplementedError(f"Method {method} not implemented")
 
         _dtype = np.float64 if self._real_params else np.complex128
-        free_params = np.array([p[self.engine.proj_drift_indices] for p in self.parameters[-1]]).astype(_dtype)
-        self.optimizer_state = {}
+        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
+        self.optimizer = optimizer
+        self.optimizer_state = {"optimizer": optimizer.init(free_params)}
+        self.method = method
+        self._optimizer_config = config
 
-        self.fidelities = [self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))]
-        self.infidelities = [1 - self.fidelities[-1]]
-        self.step_sizes = [0]
-        self.steps = [0]
+    def optimize(self, max_steps: int = 100, method: str = 'nr-trm', **optimizer_kwargs) -> Parameters:
+        """Run the GRAPE optimisation loop.
 
-        self.optimizer_state["optimizer"] = optimizer.init(free_params)
+        Iterates gradient/Hessian update steps until the fidelity exceeds
+        ``self.precision`` or ``max_steps`` is reached.
 
-    def optimize(self):
+        Args:
+            max_steps: Maximum number of optimisation steps. Defaults to 100.
+            method: ``'gd'``, ``'adam'``, ``'nr-trm'`` (default) or
+                ``'nr-rfo'``.
+            **optimizer_kwargs: Method hyperparameters — ``learning_rate`` for
+                ``'gd'``/``'adam'``, ``delta`` for ``'nr-trm'``, ``kappa`` for
+                ``'nr-rfo'``.
+
+        Returns:
+            The bound `Parameters` instance, carrying the final
+            ``parameters`` (current array) and ``fidelity`` (scalar). The full
+            trajectory and ``best_*`` live on ``grape.history`` when a
+            `History` was supplied.
+        """
+        self._configure_optimizer(method, optimizer_kwargs)
+
         step = 0
-        while (self.fidelities[-1] < self.precision) and (step < self.max_steps):
+        _dtype = np.float64 if self._real_params else np.complex128
+        while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
-            _dtype = np.float64 if self._real_params else np.complex128
-            free_params = np.array([p[self.engine.proj_drift_indices] for p in self.parameters[-1]]).astype(
-                _dtype)
+            free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
             new_parameters, infidelity, self.optimizer_state = self.update_step(free_params, self.optimizer_state)
-            if self.verbose and infidelity < 1 - self.precision:
-                print(
-                    f"[{step}/{self.max_steps}] [Infidelity = {infidelity}] A solution!                                                                     ",
-                    end="\r")
             if self.verbose:
-                print(
-                    f"[{step}/{self.max_steps}] Infidelity = {infidelity}                                                                                             ",
-                    end="\r")
-            self.parameters.append(new_parameters)
-            self.infidelities.append(infidelity)
-            self.fidelities.append(1 - infidelity)
-            self.steps.append(step)
+                if infidelity < 1 - self.precision:
+                    print(
+                        f"[{step}/{max_steps}] [Infidelity = {infidelity}] A solution!                                                                     ",
+                        end="\r")
+                else:
+                    print(
+                        f"[{step}/{max_steps}] Infidelity = {infidelity}                                                                                             ",
+                        end="\r")
+            self.params.parameters = np.array(new_parameters)
+            self.params.fidelity = 1 - infidelity
+            self.step_size = 0
+            if self.history is not None:
+                self.history.record(self)
         if self.verbose:
             print("")
-        # Sync history to Parameters object if using new API
-        if self.params is not None:
-            self.params.parameters = self.parameters
-            self.params.fidelities = self.fidelities
-            self.params.infidelities = self.infidelities
-            self.params.step_sizes = getattr(self, 'step_sizes', [])
-            self.params.steps = self.steps
-            return self.params
-        if self.fidelities[-1] >= self.precision:
-            return True
-        else:
-            return False
+        return self.params
 
 
 def get_update_step_gd(proj_drift_indices, grad_fn, optimizer):
@@ -432,15 +523,6 @@ def newton_rfo_step(hessian, gradient, phi):
     # Cholesky solve
     cfac_reg = jax.scipy.linalg.cho_factor(hessian)
     return jax.scipy.linalg.cho_solve(cfac_reg, gradient)
-
-
-def infidelity(unitary, target_unitary):
-    # return 1 - jnp.abs(jnp.trace(target_unitary.conj().T @ unitary)) / len(target_unitary[0])
-    return 1 - jnp.abs(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
-
-
-def get_infidelity_fn(target_unitary):
-    return partial(infidelity, target_unitary=target_unitary)
 
 
 def hvp_forward_over_reverse(f, params, v):

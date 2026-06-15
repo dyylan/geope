@@ -1,13 +1,13 @@
 """
 Tests for geope/grape.py.
 
-Covers the GRAPE optimiser after its alignment with the geope.py
-`jax.random.key` + key-splitting RNG:
-  - end-to-end optimisation improves fidelity (Parameters API),
-  - reproducibility from an integer seed,
-  - a jax.random.key passed as the seed matches the equivalent int seed,
-  - the legacy GrapeEngine constructor path (which exercises Grape's own
-    _split_key / prepare_random_parameters draw).
+Covers the GRAPE optimiser after its public API was aligned with Geope:
+  - Parameters-only constructor (legacy GrapeEngine input removed),
+  - method / hyperparameters / max_steps passed to optimize(),
+  - Geope-style result model (params.parameters is the current array,
+    params.fidelity is a scalar, trajectory in an optional History),
+  - reproducibility from an integer seed and a jax.random.key seed,
+  - the param_transform path via GrapeEngine.wrap_param_transform.
 """
 
 import pytest
@@ -24,6 +24,7 @@ from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
 )
+from geope.utils.history import History
 
 
 # ---------------------------------------------------------------------------
@@ -62,87 +63,86 @@ def _params(cnot, full_basis_2q, projected_basis_2q, *, seed=42, piecewise_steps
 
 
 # ---------------------------------------------------------------------------
-# Tests
+# Tests — constructor / usage parity with Geope
 # ---------------------------------------------------------------------------
+
+class TestGrapeConstructor:
+    def test_requires_parameters(self, cnot, full_basis_2q, projected_basis_2q):
+        engine = GrapeEngine(
+            target_unitary=cnot,
+            full_basis=full_basis_2q,
+            projected_basis=projected_basis_2q,
+        )
+        with pytest.raises(TypeError):
+            Grape(engine)
+
+    def test_init_sets_geope_style_state(self, cnot, full_basis_2q, projected_basis_2q):
+        p = _params(cnot, full_basis_2q, projected_basis_2q)
+        g = Grape(p)
+        # params.parameters is the current array, not a list
+        assert isinstance(g.params.parameters, np.ndarray)
+        assert g.params.parameters.shape == (1, full_basis_2q.lie_algebra_dim)
+        # params.fidelity is a scalar
+        assert np.ndim(g.params.fidelity) == 0
+        # optimiser is built lazily
+        assert g.update_step is None
+
 
 class TestGrapeOptimize:
     def test_optimize_improves_fidelity(self, cnot, full_basis_2q, projected_basis_2q):
         p = _params(cnot, full_basis_2q, projected_basis_2q)
-        g = Grape(p, method="nr-trm", delta=1e-3, max_steps=100)
-        f0 = g.fidelities[0]
-        g.optimize()
-        assert g.fidelities[-1] > f0
-        assert g.fidelities[-1] > 0.99
-
-    def test_returns_parameters_object(self, cnot, full_basis_2q, projected_basis_2q):
-        p = _params(cnot, full_basis_2q, projected_basis_2q)
-        g = Grape(p, method="nr-trm", delta=1e-3, max_steps=10)
-        out = g.optimize()
+        g = Grape(p)
+        f0 = float(g.params.fidelity)
+        out = g.optimize(max_steps=100, method="nr-trm", delta=1e-3)
         assert out is p
+        assert float(g.params.fidelity) > f0
+        assert float(g.params.fidelity) > 0.99
+        # result is still a current array + scalar fidelity
+        assert g.params.parameters.shape == (1, full_basis_2q.lie_algebra_dim)
+        assert np.ndim(g.params.fidelity) == 0
+
+    def test_history_records_trajectory(self, cnot, full_basis_2q, projected_basis_2q):
+        p = _params(cnot, full_basis_2q, projected_basis_2q)
+        g = Grape(p, history=History())
+        g.optimize(max_steps=40, method="nr-trm", delta=1e-3)
+        assert len(g.history) > 1                      # step 0 + iterations
+        assert g.history.best_fidelity >= float(g.params.fidelity) - 1e-9
+
+    def test_adam_method_runs(self, cnot, full_basis_2q, projected_basis_2q):
+        p = _params(cnot, full_basis_2q, projected_basis_2q)
+        g = Grape(p)
+        f0 = float(g.params.fidelity)
+        g.optimize(max_steps=50, method="adam", learning_rate=0.1)
+        assert float(g.params.fidelity) >= f0
+
+    def test_unknown_method_raises(self, cnot, full_basis_2q, projected_basis_2q):
+        g = Grape(_params(cnot, full_basis_2q, projected_basis_2q))
+        with pytest.raises(NotImplementedError):
+            g.optimize(max_steps=1, method="nonsense")
 
 
 class TestGrapeReproducibility:
-    def test_same_seed_same_init(self, cnot, full_basis_2q, projected_basis_2q):
-        g1 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7),
-                   method="nr-trm", delta=1e-3, max_steps=0)
-        g2 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7),
-                   method="nr-trm", delta=1e-3, max_steps=0)
-        assert np.allclose(g1.init_parameters, g2.init_parameters)
+    def test_same_seed_same_result(self, cnot, full_basis_2q, projected_basis_2q):
+        g1 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7))
+        g1.optimize(max_steps=30, method="nr-trm", delta=1e-3)
+        g2 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7))
+        g2.optimize(max_steps=30, method="nr-trm", delta=1e-3)
+        assert np.allclose(g1.params.parameters, g2.params.parameters)
+        assert np.isclose(float(g1.params.fidelity), float(g2.params.fidelity))
 
     def test_different_seed_differs(self, cnot, full_basis_2q, projected_basis_2q):
-        g1 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7),
-                   method="nr-trm", delta=1e-3, max_steps=0)
-        g2 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=8),
-                   method="nr-trm", delta=1e-3, max_steps=0)
+        g1 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7))
+        g2 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=8))
         assert not np.allclose(g1.init_parameters, g2.init_parameters)
 
-    def test_trajectory_reproducible(self, cnot, full_basis_2q, projected_basis_2q):
-        g1 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7),
-                   method="nr-trm", delta=1e-3, max_steps=30)
-        g1.optimize()
-        g2 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7),
-                   method="nr-trm", delta=1e-3, max_steps=30)
-        g2.optimize()
-        assert np.allclose(np.array(g1.fidelities), np.array(g2.fidelities))
-
     def test_jax_key_seed_matches_int_seed(self, cnot, full_basis_2q, projected_basis_2q):
-        g_int = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7),
-                      method="nr-trm", delta=1e-3, max_steps=0)
-        g_key = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=jax.random.key(7)),
-                      method="nr-trm", delta=1e-3, max_steps=0)
+        g_int = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7))
+        g_key = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=jax.random.key(7)))
         assert np.allclose(g_int.init_parameters, g_key.init_parameters)
 
 
-class TestGrapeLegacyEngineAPI:
-    """The legacy `Grape(GrapeEngine, seed=...)` path draws its own initial
-    parameters via Grape._split_key / prepare_random_parameters(key=...)."""
-
-    def _engine(self, cnot, full_basis_2q, projected_basis_2q):
-        return GrapeEngine(
-            target_unitary=cnot,
-            full_basis=full_basis_2q,
-            projected_basis=projected_basis_2q,
-            piecewise_steps=1,
-        )
-
-    def test_legacy_init_reproducible(self, cnot, full_basis_2q, projected_basis_2q):
-        g1 = Grape(self._engine(cnot, full_basis_2q, projected_basis_2q),
-                   seed=11, method="nr-trm", delta=1e-3, max_steps=0)
-        g2 = Grape(self._engine(cnot, full_basis_2q, projected_basis_2q),
-                   seed=11, method="nr-trm", delta=1e-3, max_steps=0)
-        assert np.allclose(g1.init_parameters, g2.init_parameters)
-
-    def test_legacy_optimize_runs(self, cnot, full_basis_2q, projected_basis_2q):
-        g = Grape(self._engine(cnot, full_basis_2q, projected_basis_2q),
-                  seed=11, method="nr-trm", delta=1e-3, max_steps=20)
-        f0 = g.fidelities[0]
-        result = g.optimize()
-        assert isinstance(result, bool)
-        assert g.fidelities[-1] >= f0
-
-
 class TestGrapeParamTransform:
-    """The param_transform path now wraps compute_U_fn via
+    """The param_transform path wraps compute_U_fn via
     GrapeEngine.wrap_param_transform (mirroring GeopeEngine)."""
 
     def _exp_params(self, cnot, full_basis_2q, projected_basis_2q, seed=42):
@@ -159,25 +159,17 @@ class TestGrapeParamTransform:
 
     def test_wrap_param_transform_overrides_engine(self, cnot, full_basis_2q, projected_basis_2q):
         p = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
-        g = Grape(p, method="nr-trm", delta=1e-3, max_steps=0)
+        g = Grape(p)
         n_exp = projected_basis_2q.lie_algebra_dim
         assert g._real_params is True
         assert g.engine.drift_basis is None
-        # experimental space: indices are an all-true mask of length n_exp
         assert g.engine.proj_drift_indices.sum() == n_exp
-        assert g.init_parameters.shape == (1, n_exp)
+        assert g.params.parameters.shape == (1, n_exp)
 
     def test_optimize_improves_fidelity(self, cnot, full_basis_2q, projected_basis_2q):
         p = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
-        g = Grape(p, method="nr-trm", delta=1e-3, max_steps=100)
-        f0 = g.fidelities[0]
-        g.optimize()
-        assert g.fidelities[-1] > f0
-        assert g.fidelities[-1] > 0.99
-
-    def test_reproducible(self, cnot, full_basis_2q, projected_basis_2q):
-        g1 = Grape(self._exp_params(cnot, full_basis_2q, projected_basis_2q, seed=5),
-                   method="nr-trm", delta=1e-3, max_steps=0)
-        g2 = Grape(self._exp_params(cnot, full_basis_2q, projected_basis_2q, seed=5),
-                   method="nr-trm", delta=1e-3, max_steps=0)
-        assert np.allclose(g1.init_parameters, g2.init_parameters)
+        g = Grape(p)
+        f0 = float(g.params.fidelity)
+        g.optimize(max_steps=100, method="nr-trm", delta=1e-3)
+        assert float(g.params.fidelity) > f0
+        assert float(g.params.fidelity) > 0.99
