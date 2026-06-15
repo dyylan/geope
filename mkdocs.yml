@@ -104,6 +104,7 @@ nav:
         - "api/parameters.md"
         - "api/geope.md"
         - "api/gecko.md"
+        - "api/grape.md"
         - "api/engine.md"
         - "api/lie.md"
         # - "api/dexpm.md"
