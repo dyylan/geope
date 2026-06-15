@@ -367,37 +367,37 @@ class TestPrepareRandomParameters:
 
     def test_zero_where_not_projected(self):
         proj = np.array([True, False, True, False, True])
-        result = prepare_random_parameters(proj, seed=42)
+        result = prepare_random_parameters(proj, key=jax.random.key(42))
         assert result[1] == 0.0
         assert result[3] == 0.0
 
     def test_nonzero_where_projected(self):
         proj = np.array([True, False, True])
-        result = prepare_random_parameters(proj, seed=42)
+        result = prepare_random_parameters(proj, key=jax.random.key(42))
         assert result[0] != 0.0
         assert result[2] != 0.0
 
     def test_seed_reproducibility(self):
         proj = np.array([True, True, True])
-        r1 = prepare_random_parameters(proj, seed=42)
-        r2 = prepare_random_parameters(proj, seed=42)
+        r1 = prepare_random_parameters(proj, key=jax.random.key(42))
+        r2 = prepare_random_parameters(proj, key=jax.random.key(42))
         assert np.allclose(r1, r2)
 
     def test_different_seeds_differ(self):
         proj = np.array([True, True, True])
-        r1 = prepare_random_parameters(proj, seed=42)
-        r2 = prepare_random_parameters(proj, seed=99)
+        r1 = prepare_random_parameters(proj, key=jax.random.key(42))
+        r2 = prepare_random_parameters(proj, key=jax.random.key(99))
         assert not np.allclose(r1, r2)
 
     def test_spread(self):
         proj = np.array([True] * 100)
-        result = prepare_random_parameters(proj, spread=0.5, seed=0)
+        result = prepare_random_parameters(proj, spread=0.5, key=jax.random.key(0))
         assert np.all(np.abs(result) <= 0.5 + 1e-10)
 
     def test_with_expander(self):
         proj = np.array([True, True, True, True])
         expander = np.eye(4, 3)
-        result = prepare_random_parameters(proj, expander=expander, seed=42)
+        result = prepare_random_parameters(proj, expander=expander, key=jax.random.key(42))
         assert result.shape == (4,)
 
 
