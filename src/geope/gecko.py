@@ -661,7 +661,8 @@ class Gecko:
             expander = None
         fid=0
         while (diff > diff_tol) and (c < max_steps):
-            _, omegas_steps_phis = self.engine.gammas_and_omegas(free_params)
+            #TODO: Can we create a function that just returns `omegas_steps_phis`?
+            _, omegas_steps_phis = self.engine.gammas_and_omegas(free_params, jax.random.key(0))
             vh, num = find_null_space(omegas_steps_phis, expander)
 
             assert num > 0, "Nullspace is empty!"

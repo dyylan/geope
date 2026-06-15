@@ -602,8 +602,7 @@ def prepare_random_parameters(
     proj_indices: np.ndarray,
     expander: np.ndarray | None = None,
     spread: float = 1.0,
-    seed: int | None = None,
-    rng: np.random.Generator | None = None,
+    key: jax.Array = jax.random.key(0),
 ) -> np.ndarray:
     """Generate a random parameter vector for the projected subspace.
 
@@ -615,21 +614,15 @@ def prepare_random_parameters(
             parameter positions.
         expander: Optional constraint expansion ``np.ndarray``.
         spread: Half-width of the uniform sampling range. Defaults to 1.0.
-        seed: Random seed for reproducibility. Defaults to ``None``.
-            Ignored when ``rng`` is provided.
-        rng: Optional NumPy ``Generator``. When given, values are drawn
-            from it and the global ``np.random`` state is left untouched.
+        key: JAX random key. Defaults to ``jax.random.key(0)``.
 
     Returns:
         A parameter ``np.ndarray`` of the same length as ``proj_indices``
         with random values at projected positions and zeros elsewhere.
     """
     num_indep_params = proj_indices.sum() if expander is None else expander.shape[1]
-    if rng is None:
-        np.random.seed(seed)
-        randoms = (2 * np.random.rand(num_indep_params) - 1) * spread
-    else:
-        randoms = (2 * rng.random(num_indep_params) - 1) * spread
+    randoms = np.array(jax.random.uniform(
+        key, shape=(num_indep_params,), minval=-spread, maxval=spread))
     if expander is not None:
         randoms = expander @ randoms
     parameters = np.zeros_like(proj_indices, dtype=randoms.dtype)
