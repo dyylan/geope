@@ -9,7 +9,7 @@ from jax import Array
 from jax import numpy as jnp
 from typing import Callable
 
-from .lie import Basis
+from .basis import Basis
 
 
 def project_omegas(x: Array, basis: Array, dim: int) -> Array:

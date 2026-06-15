@@ -397,7 +397,7 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
 
         if t > 1:
             # Ensure that no column of S is parallel to another column of S
-            # or to a column of S_old by replacing columns of S by rand{−1, 1}
+            # or to a column of S_old by replacing columns of S by rand{-1, 1}
             for i in range(t):
                 S, S_old, key = jax.lax.while_loop(partial(needs_resampling2, i=i), partial(resample2, i=i),
                                                    (S, S_old, key))

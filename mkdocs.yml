@@ -108,6 +108,6 @@ nav:
         - "api/lie.md"
         # - "api/dexpm.md"
         # - "api/logm.md"
-        # - "api/jacobian_manual.md"
+        # - "api/jacobian.md"
         # - "api/pauli_projector.md"
         - "api/utils.md"

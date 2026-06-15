@@ -50,7 +50,7 @@ from geope.gecko import (
     piecewise_bounding_pg,
 )
 from geope.parameters import Parameters
-from geope.history import History
+from geope.utils.history import History
 from geope.lie import Basis, Hamiltonian, Unitary
 from geope.engine import Engine, fidelity
 from geope.utils import (
@@ -88,7 +88,7 @@ def _params_2q(cnot, full_basis_2q, projected_basis_2q, *,
         param_transform=param_transform,
         n_experimental_params=n_experimental_params,
     )
-from geope.jacobian_manual import (
+from geope.jax.jacobian import (
     Ui,
     get_Ui_fn,
     scan_single_switch_matmul,
@@ -98,7 +98,7 @@ from geope.jacobian_manual import (
     manual_jacobian,
     get_jacobian_manual,
 )
-from geope.dexpm import get_dexpm
+from geope.jax.dexpm import get_dexpm
 
 
 # ---------------------------------------------------------------------------

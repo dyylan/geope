@@ -7,7 +7,7 @@ from jax import Array
 import itertools as it
 from typing import Callable
 
-from . import lie
+from .. import lie
 
 
 @jax.jit
@@ -147,7 +147,7 @@ def restriction_function(restriction: list[str]) -> Callable[[tuple[int, ...]], 
     def check(comb):
         sorted_comb = sorted([c for c in comb if c != 0])
         return sorted_comb in restriction_int
-    return check 
+    return check
 
 
 def restriction_order_function(
@@ -174,10 +174,10 @@ def restriction_order_function(
             else:
                 for i,k in enumerate(interaction):
                     r[k-1] = mapping[label[i]]
-            restriction_int.append(r)    
+            restriction_int.append(r)
     def check(comb):
         return list(comb) in restriction_int
-    return check 
+    return check
 
 
 def control_to_indices(labels: list[str], control: dict,
@@ -310,16 +310,16 @@ def construct_restricted_pauli_basis(
             for c in comb:
                 if c == 0:
                     p = np.kron(p, I)
-                    s += 'I' 
+                    s += 'I'
                 elif c == 1:
                     p = np.kron(p, X)
-                    s += 'X' 
+                    s += 'X'
                 elif c == 2:
                     p = np.kron(p, Y)
-                    s += 'Y' 
+                    s += 'Y'
                 elif c == 3:
                     p = np.kron(p, Z)
-                    s += 'Z' 
+                    s += 'Z'
             b.append(p)
             l.append(s)
 
@@ -351,16 +351,16 @@ def construct_Heisenberg_pauli_basis(n: int) -> lie.Basis:
             for c in comb:
                 if c == 0:
                     p = np.kron(p, I)
-                    s += 'I' 
+                    s += 'I'
                 elif c == 1:
                     p = np.kron(p, X)
-                    s += 'X' 
+                    s += 'X'
                 elif c == 2:
                     p = np.kron(p, Y)
-                    s += 'Y' 
+                    s += 'Y'
                 elif c == 3:
                     p = np.kron(p, Z)
-                    s += 'Z' 
+                    s += 'Z'
             b.append(p)
             l.append(s)
 
@@ -391,16 +391,16 @@ def construct_two_body_pauli_basis(n: int) -> lie.Basis:
             for c in comb:
                 if c == 0:
                     p = np.kron(p, I)
-                    s += 'I' 
+                    s += 'I'
                 elif c == 1:
                     p = np.kron(p, X)
-                    s += 'X' 
+                    s += 'X'
                 elif c == 2:
                     p = np.kron(p, Y)
-                    s += 'Y' 
+                    s += 'Y'
                 elif c == 3:
                     p = np.kron(p, Z)
-                    s += 'Z' 
+                    s += 'Z'
             b.append(p)
             l.append(s)
 
@@ -431,16 +431,16 @@ def construct_full_pauli_basis(n: int) -> lie.Basis:
         for c in comb:
             if c == 0:
                 p = np.kron(p, I)
-                s += 'I' 
+                s += 'I'
             elif c == 1:
                 p = np.kron(p, X)
-                s += 'X' 
+                s += 'X'
             elif c == 2:
                 p = np.kron(p, Y)
-                s += 'Y' 
+                s += 'Y'
             elif c == 3:
                 p = np.kron(p, Z)
-                s += 'Z' 
+                s += 'Z'
         b.append(p)
         l.append(s)
 
@@ -498,13 +498,13 @@ def construct_full_spin_boson_basis(
         for c in comb:
             if c == 0:
                 p = np.kron(p, I)
-                s += 'I' 
+                s += 'I'
             elif c == 1:
                 p = np.kron(p, X)
-                s += 'X' 
+                s += 'X'
             elif c == 2:
                 p = np.kron(p, Y)
-                s += 'Y' 
+                s += 'Y'
             elif c == 3:
                 p = np.kron(p, Z)
                 s += 'Z'
@@ -569,16 +569,16 @@ def construct_restricted_spin_boson_basis(
             for c in comb:
                 if c == 0:
                     p = np.kron(p, I)
-                    s += 'I' 
+                    s += 'I'
                 elif c == 1:
                     p = np.kron(p, X)
-                    s += 'X' 
+                    s += 'X'
                 elif c == 2:
                     p = np.kron(p, Y)
-                    s += 'Y' 
+                    s += 'Y'
                 elif c == 3:
                     p = np.kron(p, Z)
-                    s += 'Z' 
+                    s += 'Z'
             for bos_comb in list(it.product([0,1,2], repeat=n_bosons)):
                 pb = np.copy(p)
                 sb = ''.join(s)
@@ -840,9 +840,9 @@ def golden_section_search(
     References:
         [Golden-section search](https://en.wikipedia.org/wiki/Golden-section_search)
     """
-    phi = (jnp.sqrt(5.0) - 1.0) / 2.0   
-    resphi = 1.0 - phi 
-    max_iter = jnp.array((jnp.ceil(jnp.log(tol / (b_init - a_init)) / jnp.log(phi))),int) 
+    phi = (jnp.sqrt(5.0) - 1.0) / 2.0
+    resphi = 1.0 - phi
+    max_iter = jnp.array((jnp.ceil(jnp.log(tol / (b_init - a_init)) / jnp.log(phi))),int)
 
     a = a_init
     b = b_init

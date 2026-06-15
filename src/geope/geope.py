@@ -8,7 +8,7 @@ from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
-from .pauli_projector import get_project_omegas_fn, get_project_omegas_fn_otf
+from .lie.pauli_projector import get_project_omegas_fn, get_project_omegas_fn_otf
 from .engine import (
     Engine,
     get_infidelity_fn,
@@ -17,10 +17,10 @@ from .engine import (
 )
 from .lie import Hamiltonian, Basis
 from .utils import golden_section_search, adam_line_search, prepare_random_parameters, merge_constraints, control_to_indices
-from .logm import logm
-from .jacobian_manual import get_jacobian_manual
+from .jax.logm import logm
+from .jax.jacobian import get_jacobian_manual
 from .parameters import Parameters
-from .history import History
+from .utils.history import History
 from functools import partial
 from typing import Callable
 import inspect

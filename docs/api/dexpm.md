@@ -1,13 +1,13 @@
-# geope.dexpm
+# geope.jax.dexpm
 
-::: geope.dexpm.Ui
+::: geope.jax.dexpm.Ui
 
-::: geope.dexpm.get_Ui_fn
+::: geope.jax.dexpm.get_Ui_fn
 
-::: geope.dexpm.dexpm_block
+::: geope.jax.dexpm.dexpm_block
 
-::: geope.dexpm.dexpm
+::: geope.jax.dexpm.dexpm
 
-::: geope.dexpm.dexpm_batched
+::: geope.jax.dexpm.dexpm_batched
 
-::: geope.dexpm.get_dexpm
+::: geope.jax.dexpm.get_dexpm
