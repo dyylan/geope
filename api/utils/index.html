@@ -2574,7 +2574,7 @@ a dictionary mapping qubit indices to interaction labels.</p>
 
 
 <h4 id="geope.utils.prepare_random_parameters" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">prepare_random_parameters</span><span class="p">(</span><span class="n">proj_indices</span><span class="p">,</span> <span class="n">expander</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">prepare_random_parameters</span><span class="p">(</span><span class="n">proj_indices</span><span class="p">,</span> <span class="n">expander</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">Array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">key</span><span class="o">&lt;</span><span class="n">fry</span><span class="o">&gt;</span><span class="p">)</span> <span class="n">overlaying</span><span class="p">:</span><span class="p">[</span><span class="mi">0</span> <span class="mi">0</span><span class="p">])</span></code>
 
 <a href="#geope.utils.prepare_random_parameters" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -2648,36 +2648,19 @@ parameter positions.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>seed</code>
+                <code>key</code>
             </td>
             <td>
-                  <code><span title="int">int</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Random seed for reproducibility. Defaults to <code>None</code>.
-Ignored when <code>rng</code> is provided.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>rng</code>
-            </td>
-            <td>
-                  <code><span title="numpy.random.Generator">Generator</span> | None</code>
+                  <code><span title="jax.Array">Array</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional NumPy <code>Generator</code>. When given, values are drawn
-from it and the global <code>np.random</code> state is left untouched.</p>
+                <p>JAX random key. Defaults to <code>jax.random.key(0)</code>.</p>
               </div>
             </td>
             <td>
-                  <code>None</code>
+                  <code>Array((), dtype=key&lt;fry&gt;) overlaying:
+[0 0]</code>
             </td>
           </tr>
       </tbody>

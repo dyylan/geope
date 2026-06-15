@@ -2100,11 +2100,11 @@ step 0 into <code>history</code> when one is attached.</p>
                 <code>seed</code>
             </td>
             <td>
-                  <code><span title="int">int</span> | None</code>
+                  <code><span title="int">int</span> | <span title="jax.Array">Array</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Random seed for reproducibility.</p>
+                <p>Random seed (int) or JAX key for reproducibility.</p>
               </div>
             </td>
             <td>
@@ -2649,7 +2649,7 @@ version. Used by pulse-shape constraints.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>update_step(free_params, params, piecewise_steps)</code></p>
+                <p><code>update_step(free_params, params, piecewise_steps, key)</code></p>
               </div>
             </td>
           </tr>
