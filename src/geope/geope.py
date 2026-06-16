@@ -86,7 +86,7 @@ class GeopeEngine(Engine):
         self.grad_fn = jax.value_and_grad(self.infid_fn)
         self.gammas_and_omegas = self._make_gammas_and_omegas()
 
-    def _make_gammas_and_omegas(self) -> Callable[[Array], tuple[Array, Array]]:
+    def _make_gammas_and_omegas(self) -> Callable[[Array, Array], tuple[Array, Array]]:
         """Build the JIT-compiled function that computes gammas and omegas.
 
         Gammas are the projected geodesic Hamiltonian coefficients;
@@ -98,7 +98,7 @@ class GeopeEngine(Engine):
         functions (see :meth:`wrap_param_transform`).
 
         Returns:
-            A JIT-compiled callable ``gammas_and_omegas(free_params)``.
+            A JIT-compiled callable ``gammas_and_omegas(free_params, key)``.
         """
         project_omegas_fn = self.project_omegas_fn
         jac_fn = self.jac_fn
@@ -108,9 +108,9 @@ class GeopeEngine(Engine):
         proj_indices = self.proj_indices_projdrift_basis
 
         @jax.jit
-        def gammas_and_omegas(free_params):
+        def gammas_and_omegas(free_params, key):
             unitary = compute_U_fn(free_params)
-            gammaU = geodesic_fn(unitary)
+            gammaU = geodesic_fn(unitary, key=key) # seed for logm
             gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (gammaU.shape[0])
 
             dUs = jnp.array(jac_fn(free_params))
@@ -365,6 +365,13 @@ class Geope:
             )
 
         self.params = params
+        seed = params.seed
+        if isinstance(seed, int):
+            self._key = jax.random.key(seed)
+        elif isinstance(seed,jax.Array):
+            self._key = seed  # already a jax.Array key
+        else:
+            self._key = jax.random.key(0)
         engine = GeopeEngine(
             target_unitary=params.target,
             full_basis=params.basis,
@@ -434,17 +441,19 @@ class Geope:
         _user_init = np.array(params.parameters)
         if _user_init.shape == (params.piecewise_steps, n_exp):
             return _user_init
-        rng = np.random.default_rng(params.seed)
-        return rng.uniform(
-            -params.init_spread * np.pi, params.init_spread * np.pi,
-            (params.piecewise_steps, n_exp))
+        return np.array(jax.random.uniform(
+            self._split_key(),
+            shape=(params.piecewise_steps, n_exp),
+            minval=-params.init_spread * np.pi,
+            maxval=params.init_spread * np.pi,
+        ))
 
     def init(
         self,
         init_parameters: np.ndarray | None = None,
         drift_parameters: np.ndarray | None = None,
         constraints: list[np.ndarray] | np.ndarray | None = None,
-        seed: int | None = None,
+        seed: int | jax.Array | None = None,
     ) -> None:
         """(Re-)initialise optimiser state.
 
@@ -456,11 +465,13 @@ class Geope:
             init_parameters: Initial parameter array. Defaults to random.
             drift_parameters: Fixed drift parameter values. Defaults to ones.
             constraints: Linear equality constraints.
-            seed: Random seed for reproducibility.
+            seed: Random seed (int) or JAX key for reproducibility. 
         """
-        # Dedicated RNG for stochastic fallbacks (e.g. the Gram-Schmidt
-        # escape direction), so a run is reproducible when ``seed`` is given.
-        self._rng = np.random.default_rng(seed)
+        if isinstance(seed, int):
+            self._key = jax.random.key(seed)
+        elif isinstance(seed,jax.Array):
+            self._key = seed  # already a jax.Array key
+        # else: keep existing self._key unchanged
 
         # Set constraints
         self.constraint_expander = None
@@ -487,17 +498,18 @@ class Geope:
             if init_parameters is not None:
                 self.init_parameters = np.array(init_parameters)
             else:
-                rng = np.random.default_rng(seed)
                 n_exp = self.params.n_experimental_params
-                self.init_parameters = rng.uniform(
-                    -self.init_parameters_spread * np.pi,
-                    self.init_parameters_spread * np.pi,
-                    (self.engine.piecewise_steps, n_exp))
+                self.init_parameters = np.array(jax.random.uniform(
+                    self._split_key(),
+                    shape=(self.engine.piecewise_steps, n_exp),
+                    minval=-self.init_parameters_spread * np.pi,
+                    maxval=self.init_parameters_spread * np.pi,
+                ))
         elif init_parameters is None:
             self.init_parameters = np.array([prepare_random_parameters(self.engine.projected_indices,
                                                                        expander=self.constraint_expander,
                                                                        spread=self.init_parameters_spread,
-                                                                       seed=seed) for _ in range(self.engine.piecewise_steps)])
+                                                                       key=self._split_key()) for _ in range(self.engine.piecewise_steps)])
         else:
             if np.array(init_parameters).shape == (self.engine.full_basis.lie_algebra_dim,):
                 self.init_parameters = np.array([init_parameters] * self.engine.piecewise_steps)
@@ -615,7 +627,7 @@ class Geope:
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
             free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
-            coeffs, new_params_update, fidelity, step_size = update_step(free_params, self.params.parameters, self.engine.piecewise_steps)
+            coeffs, new_params_update, fidelity, step_size = update_step(free_params, self.params.parameters, self.engine.piecewise_steps, self._split_key())
 
             if fidelity > self.precision:
                 if self.verbose:
@@ -697,6 +709,10 @@ class Geope:
             self.history.record(self)
         return fidelity
 
+    def _split_key(self) -> jax.Array:
+        self._key, subkey = jax.random.split(self._key)
+        return subkey
+
     def gram_schmidt(self, coeffs: Array) -> tuple[Array, Array, float]:
         """Generate a Gram-Schmidt orthogonal fallback direction.
 
@@ -712,11 +728,12 @@ class Geope:
         """
         if self._real_params:
             n_exp = self.params.n_experimental_params
-            proj_c = self._rng.standard_normal((self.engine.piecewise_steps, n_exp)) * 0.1
+            proj_c = np.array(jax.random.normal(self._split_key(),
+                                                shape=(self.engine.piecewise_steps, n_exp))) * 0.1
         else:
             proj_c = np.array(
                 [prepare_random_parameters(self.engine.projected_indices, self.constraint_expander,
-                                           rng=self._rng)[
+                                           key=self._split_key())[
                      self.engine.proj_drift_indices] for _ in
                  range(self.engine.piecewise_steps)])
             if self.engine.drift_basis is not None:
@@ -927,14 +944,14 @@ class Geope:
 
         Returns:
             A JIT-compiled callable
-            ``update_step(free_params, params, piecewise_steps)``
+            ``update_step(free_params, params, piecewise_steps, key)``
             returning ``(coeffs, new_params, fidelity, step_size)``.
         """
 
         @jax.jit
-        def update_step(free_params, params, piecewise_steps):
+        def update_step(free_params, params, piecewise_steps, key):
 
-            gammaU_params, omegas_steps_phis = self.engine.gammas_and_omegas(free_params)
+            gammaU_params, omegas_steps_phis = self.engine.gammas_and_omegas(free_params, key)
 
             if expander_override is not None:
                 expander_gates = expander_override
@@ -985,7 +1002,8 @@ def linear_comb_projected_coeffs_multigate(
     return sol.reshape(combination_vectors.shape[0], combination_vectors.shape[1])
 
 
-def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool = True) -> Array:
+def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool = True,
+                         key: Array = jax.random.key(0)) -> Array:
     """Compute the geodesic Hamiltonian between a unitary and a target.
 
     Computes the generator $g = -i\\log(U^\\dagger U_T) \\in \\mathfrak{u}(d)$
@@ -999,11 +1017,13 @@ def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool
         projective: If ``True``, subtract the global-phase generator
             (SU geodesic). If ``False``, keep it (U geodesic).
             Defaults to ``True``.
+        key: JAX random key forwarded to ``logm``. Defaults to
+            ``jax.random.key(0)``.
 
     Returns:
         The geodesic tangent ``Array`` $U g'$ at the current unitary.
     """
-    g = -1.j * logm(jnp.einsum('ji,jk->ik', unitary.conj(), target_unitary), key=jax.random.key(1111))
+    g = -1.j * logm(jnp.einsum('ji,jk->ik', unitary.conj(), target_unitary), key=key)
     if projective:
         Id = jnp.eye(g.shape[0])
         global_phase = jnp.real(jnp.einsum('ij,ji->', Id, g)) / g.shape[0]
@@ -1011,7 +1031,7 @@ def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool
     return unitary @ g
 
 
-def get_geodesic_hamiltonian_fn(target_unitary: Array, projective: bool = True) -> Callable[[Array], Array]:
+def get_geodesic_hamiltonian_fn(target_unitary: Array, projective: bool = True) -> Callable[[Array, Array], Array]:
     """Create a partial geodesic Hamiltonian function with a fixed target.
 
     Args:
@@ -1020,8 +1040,8 @@ def get_geodesic_hamiltonian_fn(target_unitary: Array, projective: bool = True) 
             Defaults to ``True``.
 
     Returns:
-        A ``Callable[[Array], Array]`` that accepts a single unitary
-        and returns the geodesic Hamiltonian.
+        A ``Callable[[Array, Array], Array]`` that accepts a unitary and a
+        JAX random key and returns the geodesic Hamiltonian.
     """
     return partial(geodesic_hamiltonian, target_unitary=target_unitary, projective=projective)
 

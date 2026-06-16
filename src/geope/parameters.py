@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Callable
 
+import jax
 import numpy as np
 
 from .lie import Basis
@@ -67,7 +68,7 @@ class Parameters:
                  pulse_constraints: dict | list | None = None,
                  bounds: dict | None = None,
                  init_spread: float = 0.1,
-                 seed: int | None = None,
+                 seed: int | jax.Array | None = None,
                  param_transform: Callable | None = None,
                  n_experimental_params: int | None = None,
                  projective: bool = True) -> None:
@@ -113,7 +114,7 @@ class Parameters:
                 ``(min, max)`` bound tuples.
             init_spread: Half-width of uniform initialisation. Defaults
                 to 0.1.
-            seed: Optional random seed.
+            seed: Optional random seed. Defaults to ``jax.random.key(0)``.
             param_transform: Optional callable mapping experimental
                 params to basis coefficients. May take
                 ``(phi,)`` or ``(phi, step_index)``.
@@ -219,12 +220,19 @@ class Parameters:
             else:
                 self.parameters = np.array(init_values)
         else:
+            if isinstance(seed, int):
+                key = jax.random.key(seed)
+            elif isinstance(seed, jax.Array):
+                key = seed
+            else:
+                key = jax.random.key(0)
+            keys = jax.random.split(key, piecewise_steps)
             self.parameters = np.array([
                 prepare_random_parameters(proj_indices,
                                           expander=self.constraint_expander,
                                           spread=init_spread,
-                                          seed=seed)
-                for _ in range(piecewise_steps)])
+                                          key=keys[i])
+                for i in range(piecewise_steps)])
 
         # --- Drift parameters ---
         if drift_values is not None and self.drift_basis is not None:

@@ -992,7 +992,7 @@ class TestGeope:
         params_arr = params_2q.parameters
         free_params = params_arr[:, g_fd.engine.proj_drift_indices].astype(np.complex128)
         # a real, correctly-shaped search direction (deterministic geodesic step)
-        coeffs, *_ = g_fd.update_step(free_params, params_arr, steps)
+        coeffs, *_ = g_fd.update_step(free_params, params_arr, steps, g_fd._split_key())
         _, fid_alias, dt_alias = g_alias.update_linesearch(params_arr, coeffs, steps)
         _, fid_fd, dt_fd = g_fd.update_linesearch(params_arr, coeffs, steps)
         assert jnp.isclose(dt_alias, dt_fd)
