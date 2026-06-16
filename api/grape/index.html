@@ -12,9 +12,13 @@
         <meta name="author" content="Dylan Lewis and Roeland Wiersema">
       
       
-        <link rel="canonical" href="https://dyylan.github.io/geope/api/pauli_projector/">
+        <link rel="canonical" href="https://dyylan.github.io/geope/api/grape/">
       
       
+        <link rel="prev" href="../gecko/">
+      
+      
+        <link rel="next" href="../engine/">
       
       
       <link rel="icon" href="../../_static/geope_logo.png">
@@ -22,7 +26,7 @@
     
     
       
-        <title>geope.lie.pauli_projector - Geodesic Pulse Engineering (GEOPE)</title>
+        <title>geope.grape - Geodesic Pulse Engineering (GEOPE)</title>
       
     
     
@@ -80,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#geopeliepauli_projector" class="md-skip">
+        <a href="#geopegrape" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              geope.lie.pauli_projector
+              geope.grape
             
           </span>
         </div>
@@ -282,10 +286,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../" class="md-tabs__link">
           
   
@@ -611,26 +617,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -643,7 +654,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             API Reference
@@ -746,10 +757,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../grape/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    geope.grape
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -760,6 +793,44 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#geope.grape.Grape" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Grape
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geope.grape.GrapeEngine" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GrapeEngine
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -868,36 +939,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.lie.pauli_projector.project_omegas" class="md-nav__link">
+  <a href="#geope.grape.Grape" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;project_omegas
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Grape
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.lie.pauli_projector.get_project_omegas_fn" class="md-nav__link">
+  <a href="#geope.grape.GrapeEngine" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_project_omegas_fn
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.lie.pauli_projector.get_kron_chain" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_kron_chain
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.lie.pauli_projector.get_project_omegas_fn_otf" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_project_omegas_fn_otf
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GrapeEngine
     </span>
   </a>
   
@@ -919,307 +972,244 @@
 
 
 
-<h1 id="geopeliepauli_projector">geope.lie.pauli_projector<a class="headerlink" href="#geopeliepauli_projector" title="Permanent link">¤</a></h1>
+<h1 id="geopegrape">geope.grape<a class="headerlink" href="#geopegrape" title="Permanent link">¤</a></h1>
 
 
-<div class="doc doc-object doc-function">
+<div class="doc doc-object doc-class">
 
 
-<h4 id="geope.lie.pauli_projector.project_omegas" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">lie</span><span class="o">.</span><span class="n">pauli_projector</span><span class="o">.</span><span class="n">project_omegas</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span></code>
 
-<a href="#geope.lie.pauli_projector.project_omegas" class="headerlink" title="Permanent link">¤</a></h4>
+<h4 id="geope.grape.Grape" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.grape.Grape</code>
+
+
+<a href="#geope.grape.Grape" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Project a batch of matrices onto a Lie algebra basis.</p>
-<p>Computes the trace inner product of each matrix in <code>x</code> with
-each basis element, normalised by the Hilbert-space dimension.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
+        <p>Gradient/Hessian-based GRAPE optimiser for quantum gate synthesis.</p>
+<p>Mirrors the <code>Geope</code> usage pattern: it is constructed from a <code>Parameters</code>
+object (the single source of truth for all configuration and the live
+optimisation state), while the optimiser <code>method</code>, its hyperparameters
+and <code>max_steps</code> are arguments of :meth:<code>optimize</code>.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
     <table>
       <thead>
         <tr>
           <th>Name</th>
           <th>Type</th>
           <th>Description</th>
-          <th>Default</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
+            <td><code><span title="geope.grape.Grape.params">params</span></code></td>
             <td>
-                <code>x</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>Array</code> of matrices to project, with shape <code>(N, d, d)</code>.</p>
+                <p>The bound <code>Parameters</code> object.</p>
               </div>
-            </td>
-            <td>
-                <em>required</em>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="geope.grape.Grape.engine">engine</span></code></td>
             <td>
-                <code>basis</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Basis tensor <code>Array</code> of shape <code>(K, d, d)</code>.</p>
+                <p>The internal <code>GrapeEngine</code> constructed from <code>params</code>.</p>
               </div>
-            </td>
-            <td>
-                <em>required</em>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="geope.grape.Grape.precision">precision</span></code></td>
             <td>
-                <code>dim</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Hilbert-space dimension <span class="arithmatex">\(d\)</span>.</p>
+                <p>Target fidelity threshold.</p>
               </div>
             </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.grape.Grape.method">method</span></code></td>
             <td>
-                <em>required</em>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optimiser method from the most recent :meth:<code>optimize</code> call
+(<code>'gd'</code>, <code>'adam'</code>, <code>'nr-trm'</code> or <code>'nr-rfo'</code>); <code>None</code>
+until :meth:<code>optimize</code> is first called.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.grape.Grape.step_size">step_size</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Transient last step size (always 0 for GRAPE).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.grape.Grape.history">history</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional <code>History</code> logger (<code>None</code> unless supplied).</p>
+              </div>
             </td>
           </tr>
       </tbody>
     </table>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Real <code>Array</code> of shape <code>(N, K)</code> of projected coefficients.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.grape.Grape.__dict__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.grape.Grape.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
 
     </div>
 
 </div>
 
-<div class="doc doc-object doc-function">
+<div class="doc doc-object doc-attribute">
 
 
-<h4 id="geope.lie.pauli_projector.get_project_omegas_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">lie</span><span class="o">.</span><span class="n">pauli_projector</span><span class="o">.</span><span class="n">get_project_omegas_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
 
-<a href="#geope.lie.pauli_projector.get_project_omegas_fn" class="headerlink" title="Permanent link">¤</a></h4>
+<h5 id="geope.grape.Grape.__doc__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
 
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
 
-    <div class="doc doc-contents first">
-
-        <p>Create a partial projection function with a fixed basis.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="../lie/#geope.lie.Basis">Basis</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Basis</code> instance whose matrices and dimension are bound.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+<a href="#geope.grape.Grape.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> that accepts an array of</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>matrices and returns the projected coefficients.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    <div class="doc doc-contents ">
 
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
 
     </div>
 
 </div>
 
-<div class="doc doc-object doc-function">
+<div class="doc doc-object doc-attribute">
 
 
-<h4 id="geope.lie.pauli_projector.get_kron_chain" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">lie</span><span class="o">.</span><span class="n">pauli_projector</span><span class="o">.</span><span class="n">get_kron_chain</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>
 
-<a href="#geope.lie.pauli_projector.get_kron_chain" class="headerlink" title="Permanent link">¤</a></h4>
+<h5 id="geope.grape.Grape.__module__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
 
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
 
-    <div class="doc doc-contents first">
-
-        <p>Build a JIT-compiled Kronecker product chain function.</p>
-<p>Constructs the four single-qubit Pauli matrices and returns
-a function that builds an <span class="arithmatex">\(n\)</span>-qubit Pauli string via iterated
-Kronecker products.</p>
+<a href="#geope.grape.Grape.__module__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>n</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of qubits.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    <div class="doc doc-contents ">
 
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A JIT-compiled <code>Callable[[Array], Array]</code> that accepts a</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>combination index array of length <code>n</code> (values 0–3) and</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>returns the corresponding <code>(2^n, 2^n)</code> Pauli matrix.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
 
     </div>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.grape.Grape.__weakref__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.grape.Grape.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+
+
+
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.lie.pauli_projector.get_project_omegas_fn_otf" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">lie</span><span class="o">.</span><span class="n">pauli_projector</span><span class="o">.</span><span class="n">get_project_omegas_fn_otf</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<h5 id="geope.grape.Grape.__init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-<a href="#geope.lie.pauli_projector.get_project_omegas_fn_otf" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.grape.Grape.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
-    <div class="doc doc-contents first">
+    <div class="doc doc-contents ">
 
-        <p>Create an on-the-fly omega projection function.</p>
-<p>Instead of storing the full basis in memory, Pauli strings are
-constructed on the fly via Kronecker products. Useful when the
-number of qubits exceeds 5.</p>
+        <p>Initialise the Grape optimiser.</p>
+<p><code>Grape</code> requires a <code>Parameters</code> object — the engine, initial
+parameters, drift, seed, initialisation spread, projective flag and
+<code>param_transform</code> are all read from it.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1235,14 +1225,15 @@ number of qubits exceeds 5.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>basis</code>
+                <code>params</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Basis</code> instance (only <code>basis.n</code> is used).</p>
+                <p>A <code>Parameters</code> instance bundling every input the
+optimiser needs.</p>
               </div>
             </td>
             <td>
@@ -1251,16 +1242,48 @@ number of qubits exceeds 5.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>batch_size</code>
+                <code>precision</code>
             </td>
             <td>
-                  <code><span title="int">int</span> | None</code>
+                  <code><span title="float">float</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional number of batches to split the
-Pauli combinations into. If <code>None</code>, a single vmap
-is used.</p>
+                <p>Target fidelity. Defaults to 0.9999999.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.9999999</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>verbose</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to print progress. Defaults to False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>history</code>
+            </td>
+            <td>
+                  <code><span title="geope.utils.history.History">History</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional <code>History</code> logger. When supplied, the full run
+trajectory is recorded into it; when <code>None</code> (default), no
+history is kept.</p>
               </div>
             </td>
             <td>
@@ -1271,6 +1294,199 @@ is used.</p>
     </table>
 
 
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>params</code> is not a <code>Parameters</code> instance.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.grape.Grape.init" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">init</span><span class="p">(</span><span class="n">init_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.grape.Grape.init" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>(Re-)initialise optimiser state.</p>
+<p>Sets up initial parameters, drift parameters and the live state
+(<code>params.parameters</code> / <code>params.fidelity</code>), and records step 0
+into <code>history</code> when one is attached.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>init_parameters</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Initial parameter array. Defaults to random.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>drift_parameters</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Fixed drift parameter values. Defaults to ones.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | <span title="jax.Array">Array</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Random seed (int) or JAX key for reproducibility.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.grape.Grape.optimize" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;nr-trm&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">optimizer_kwargs</span><span class="p">)</span></code>
+
+<a href="#geope.grape.Grape.optimize" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Run the GRAPE optimisation loop.</p>
+<p>Iterates gradient/Hessian update steps until the fidelity exceeds
+<code>self.precision</code> or <code>max_steps</code> is reached.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum number of optimisation steps. Defaults to 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>'gd'</code>, <code>'adam'</code>, <code>'nr-trm'</code> (default) or
+<code>'nr-rfo'</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;nr-trm&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>**optimizer_kwargs</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Method hyperparameters — <code>learning_rate</code> for
+<code>'gd'</code>/<code>'adam'</code>, <code>delta</code> for <code>'nr-trm'</code>, <code>kappa</code> for
+<code>'nr-rfo'</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
     <p><span class="doc-section-title">Returns:</span></p>
     <table>
       <thead>
@@ -1282,27 +1498,329 @@ is used.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A vmapped <code>Callable[[Array], Array]</code> that accepts a batch</p>
+                <p>The bound <code>Parameters</code> instance, carrying the final</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>of matrices and returns projected coefficients.</p>
+                <p><code>parameters</code> (current array) and <code>fidelity</code> (scalar). The full</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>trajectory and <code>best_*</code> live on <code>grape.history</code> when a</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>History</code> was supplied.</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="geope.grape.GrapeEngine" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.grape.GrapeEngine</code>
+
+
+<a href="#geope.grape.GrapeEngine" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>All jitted functions for Grape</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.grape.GrapeEngine.__dict__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.grape.GrapeEngine.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.grape.GrapeEngine.__weakref__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.grape.GrapeEngine.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.grape.GrapeEngine.__doc__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.grape.GrapeEngine.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.grape.GrapeEngine.__module__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.grape.GrapeEngine.__module__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.grape.GrapeEngine.__init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#geope.grape.GrapeEngine.__init__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.grape.GrapeEngine.wrap_param_transform" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">wrap_param_transform</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></code>
+
+<a href="#geope.grape.GrapeEngine.wrap_param_transform" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Replace <code>compute_U_fn</code> to honour <code>params.param_transform</code>.</p>
+<p>The user-facing experimental parameters are mapped to projected-basis
+coefficients via <code>params.param_transform</code>, embedded into the
+proj+drift basis, and combined with the drift before the original
+<code>compute_U_fn</code> is called. The infidelity, gradient, and Hessian
+functions are re-derived from the wrapped <code>compute_U_fn</code>, and the
+engine's indices are overridden so the rest of the pipeline operates
+in experimental space.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>params</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The <code>Parameters</code> object carrying <code>param_transform</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.grape.GrapeEngine.set_piecewise_steps" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">set_piecewise_steps</span><span class="p">(</span><span class="n">piecewise_steps</span><span class="p">)</span></code>
+
+<a href="#geope.grape.GrapeEngine.set_piecewise_steps" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Set the number of piecewise-constant gate segments.</p>
+<p>This is the single owned entry point for changing the segment
+count (e.g. when a null-space pass subdivides the pulse). The
+unitary computation scans over the parameter list, so no
+recompilation is needed — the integer is metadata used for
+shaping and expander construction.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>piecewise_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The new number of gate segments.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
 
     </div>
 
