@@ -243,7 +243,10 @@ class Grape:
             maxval=params.init_spread * np.pi,
         ))
 
-    def init(self, init_parameters=None, drift_parameters=None, seed=None) -> None:
+    def init(self,
+             init_parameters: np.ndarray | None = None,
+             drift_parameters: np.ndarray | None = None,
+             seed: int | jax.Array | None = None) -> None:
         """(Re-)initialise optimiser state.
 
         Sets up initial parameters, drift parameters and the live state
@@ -352,7 +355,7 @@ class Grape:
         self.method = method
         self._optimizer_config = config
 
-    def optimize(self, max_steps: int = 100, method: str = 'nr-trm', **optimizer_kwargs) -> Parameters:
+    def optimize(self, max_steps: int = 100, method: str = 'nr-trm', **optimizer_kwargs: float) -> Parameters:
         """Run the GRAPE optimisation loop.
 
         Iterates gradient/Hessian update steps until the fidelity exceeds
