@@ -15,6 +15,11 @@ from .gecko import (
     Gecko,
 )
 
+from .grape import (
+    GrapeEngine,
+    Grape,
+)
+
 from .parameters import (
     Parameters,
 )
