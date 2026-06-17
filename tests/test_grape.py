@@ -31,13 +31,11 @@ from geope.utils.history import History
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def cnot():
     return jnp.array(
-        [[1, 0, 0, 0],
-         [0, 1, 0, 0],
-         [0, 0, 0, 1],
-         [0, 0, 1, 0]],
+        [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]],
         dtype=complex,
     )
 
@@ -65,6 +63,7 @@ def _params(cnot, full_basis_2q, projected_basis_2q, *, seed=42, piecewise_steps
 # ---------------------------------------------------------------------------
 # Tests — constructor / usage parity with Geope
 # ---------------------------------------------------------------------------
+
 
 class TestGrapeConstructor:
     def test_requires_parameters(self, cnot, full_basis_2q, projected_basis_2q):
@@ -104,7 +103,7 @@ class TestGrapeOptimize:
         p = _params(cnot, full_basis_2q, projected_basis_2q)
         g = Grape(p, history=History())
         g.optimize(max_steps=40, method="nr-trm", delta=1e-3)
-        assert len(g.history) > 1                      # step 0 + iterations
+        assert len(g.history) > 1  # step 0 + iterations
         assert g.history.best_fidelity >= float(g.params.fidelity) - 1e-9
 
     def test_adam_method_runs(self, cnot, full_basis_2q, projected_basis_2q):
@@ -134,9 +133,13 @@ class TestGrapeReproducibility:
         g2 = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=8))
         assert not np.allclose(g1.init_parameters, g2.init_parameters)
 
-    def test_jax_key_seed_matches_int_seed(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_jax_key_seed_matches_int_seed(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         g_int = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=7))
-        g_key = Grape(_params(cnot, full_basis_2q, projected_basis_2q, seed=jax.random.key(7)))
+        g_key = Grape(
+            _params(cnot, full_basis_2q, projected_basis_2q, seed=jax.random.key(7))
+        )
         assert np.allclose(g_int.init_parameters, g_key.init_parameters)
 
 
@@ -156,7 +159,9 @@ class TestGrapeParamTransform:
             n_experimental_params=n_exp,
         )
 
-    def test_wrap_param_transform_overrides_engine(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_wrap_param_transform_overrides_engine(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         p = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
         g = Grape(p)
         n_exp = projected_basis_2q.lie_algebra_dim

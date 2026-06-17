@@ -58,9 +58,12 @@ def scan_single_switch_matmul(
     U, jacobian = carry
     idx, gate = x
     # If true, apply jacobian, else apply gate
-    U = jax.lax.cond(idx,
-                     lambda op: jnp.einsum("ij,jk->ik", jacobian, op),
-                     lambda op: jnp.einsum("ij,jk->ik", gate, op), U)
+    U = jax.lax.cond(
+        idx,
+        lambda op: jnp.einsum("ij,jk->ik", jacobian, op),
+        lambda op: jnp.einsum("ij,jk->ik", gate, op),
+        U,
+    )
     return (U, jacobian), None
 
 
@@ -82,7 +85,11 @@ def get_apply_branch(gates: Array) -> Callable[[Array, Array], tuple[Array, Arra
     # initialize U0
     U0 = jnp.eye(gates.shape[1], dtype=complex)
     # Apply the branch based on the idx
-    return jax.jit(lambda idx, jac: jax.lax.scan(scan_single_switch_matmul, (U0, jac), (idx, gates))[0])
+    return jax.jit(
+        lambda idx, jac: jax.lax.scan(
+            scan_single_switch_matmul, (U0, jac), (idx, gates)
+        )[0]
+    )
 
 
 def scan_branch(
@@ -100,6 +107,7 @@ def scan_branch(
     Returns:
         Stacked output ``Array`` of shape ``(d, d, K)``.
     """
+
     def body(carry, j):  # carry is unused (None)
         out = branch_fn(indices_i, jac[..., j])[0]
         return carry, out  # carry unchanged, out collected

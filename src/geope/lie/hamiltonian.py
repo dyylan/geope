@@ -34,10 +34,11 @@ class Hamiltonian:
             parameters: Coefficient ``np.ndarray`` of same length as the basis.
         """
         from .unitary import Unitary  # deferred — avoids circular import at module load
+
         self.basis = basis
         self.parameters = parameters
         self.matrix = self._matrix()
-        self.unitary = Unitary(spla.expm(1.j * self.matrix))
+        self.unitary = Unitary(spla.expm(1.0j * self.matrix))
 
     def geodesic_hamiltonian(self, target_unitary: np.ndarray) -> Hamiltonian:
         """Compute the geodesic Hamiltonian towards a target unitary.
@@ -49,7 +50,7 @@ class Hamiltonian:
             A ``Hamiltonian`` whose exponentiation yields the geodesic
             rotation from ``self.unitary`` to ``target_unitary``.
         """
-        g = -1.j * spla.logm(self.unitary.matrix.conj().T @ target_unitary)
+        g = -1.0j * spla.logm(self.unitary.matrix.conj().T @ target_unitary)
         g_params = Hamiltonian.parameters_from_hamiltonian(g, self.basis)
         return Hamiltonian(self.basis, g_params)
 
@@ -63,10 +64,13 @@ class Hamiltonian:
             Scalar fidelity ``Array`` in $[0, 1]$.
         """
         from .unitary import Unitary  # deferred — avoids circular import at module load
+
         return Unitary.unitary_fidelity(self.unitary.matrix, unitary_matrix)
 
     @staticmethod
-    def parameters_from_hamiltonian(hamiltonian: np.ndarray, basis: Basis) -> np.ndarray:
+    def parameters_from_hamiltonian(
+        hamiltonian: np.ndarray, basis: Basis
+    ) -> np.ndarray:
         """Extract Lie-algebra coefficients from a Hamiltonian matrix.
 
         Args:
@@ -77,7 +81,9 @@ class Hamiltonian:
             A real-valued parameter ``np.ndarray`` of length
             ``basis.lie_algebra_dim``.
         """
-        return np.real(np.einsum("ijk, kj->i", basis.basis, hamiltonian)) / (len(hamiltonian[0]))
+        return np.real(np.einsum("ijk, kj->i", basis.basis, hamiltonian)) / (
+            len(hamiltonian[0])
+        )
 
     def _matrix(self) -> np.ndarray:
         """Build the Hamiltonian matrix via einsum contraction."""

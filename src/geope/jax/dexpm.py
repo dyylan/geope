@@ -55,8 +55,7 @@ def dexpm_block(A: Array, x: Array) -> Array:
     """
     dim = A.shape[0]
     # Create block matrix
-    block_mat = jnp.block([[A, x],
-                           [jnp.zeros_like(A), A]])
+    block_mat = jnp.block([[A, x], [jnp.zeros_like(A), A]])
     # Take matrix exponential
     dblock_mat = jax.scipy.linalg.expm(1j * block_mat)
     # Upper right block contains derivative
@@ -101,7 +100,10 @@ def dexpm_batched(x: Array, basis: Array, batch_size: int) -> Array:
     # Construct argument of exponential
     A = jnp.tensordot(x, basis, axes=[[-1], [0]])
     # For each element in the basis, get the derivative. Stack in last axis.
-    return jnp.transpose(jax.lax.map(lambda b: dexpm_block(A, b), basis, batch_size=batch_size), axes=(1, 2, 0))
+    return jnp.transpose(
+        jax.lax.map(lambda b: dexpm_block(A, b), basis, batch_size=batch_size),
+        axes=(1, 2, 0),
+    )
 
 
 def get_dexpm(basis: Array, batch_size: int | None = None) -> Callable[[Array], Array]:

@@ -59,7 +59,9 @@ class Unitary:
         """
         return Unitary.unitary_fidelity(self.matrix, unitary_matrix)
 
-    def geodesic_hamiltonian(self, basis: Basis, target_unitary: np.ndarray) -> Hamiltonian:
+    def geodesic_hamiltonian(
+        self, basis: Basis, target_unitary: np.ndarray
+    ) -> Hamiltonian:
         """Compute the geodesic Hamiltonian towards a target unitary.
 
         Args:
@@ -70,8 +72,11 @@ class Unitary:
             A ``Hamiltonian`` whose exponentiation yields the geodesic
             rotation from ``self`` to ``target_unitary``.
         """
-        from .hamiltonian import Hamiltonian  # deferred — avoids circular import at module load
-        g = -1.j * spla.logm(self.matrix.conj().T @ target_unitary)
+        from .hamiltonian import (
+            Hamiltonian,
+        )  # deferred — avoids circular import at module load
+
+        g = -1.0j * spla.logm(self.matrix.conj().T @ target_unitary)
         params = Hamiltonian.parameters_from_hamiltonian(g, basis)
         return Hamiltonian(basis, params)
 
@@ -91,8 +96,12 @@ class Unitary:
         Raises:
             ValueError: If the matrix is not unitary or not square.
         """
-        if not np.allclose(np.eye(len(unitary_matrix)), unitary_matrix @ unitary_matrix.T.conj()):
-            raise ValueError("Matrix given to Unitary must be unitary: U U^dagger = U^dagger U = I")
+        if not np.allclose(
+            np.eye(len(unitary_matrix)), unitary_matrix @ unitary_matrix.T.conj()
+        ):
+            raise ValueError(
+                "Matrix given to Unitary must be unitary: U U^dagger = U^dagger U = I"
+            )
         if not unitary_matrix.shape[0] == unitary_matrix.shape[1]:
             raise ValueError("Matrix must be square")
         return unitary_matrix, int(np.log2(len(unitary_matrix)))
@@ -126,5 +135,10 @@ class Unitary:
             A real-valued parameter ``np.ndarray`` of length
             ``basis.lie_algebra_dim``.
         """
-        from .hamiltonian import Hamiltonian  # deferred — avoids circular import at module load
-        return Hamiltonian.parameters_from_hamiltonian(-1.j * spla.logm(unitary_matrix), basis)
+        from .hamiltonian import (
+            Hamiltonian,
+        )  # deferred — avoids circular import at module load
+
+        return Hamiltonian.parameters_from_hamiltonian(
+            -1.0j * spla.logm(unitary_matrix), basis
+        )

@@ -24,13 +24,18 @@ from functools import partial
 class GrapeEngine(Engine):
     """All jitted functions for Grape"""
 
-    def __init__(self, target_unitary,
-                 full_basis,
-                 projected_basis,
-                 drift_basis=None,
-                 piecewise_steps=1,
-                 projective: bool = True):
-        super(GrapeEngine, self).__init__(target_unitary, full_basis, projected_basis, drift_basis, piecewise_steps)
+    def __init__(
+        self,
+        target_unitary,
+        full_basis,
+        projected_basis,
+        drift_basis=None,
+        piecewise_steps=1,
+        projective: bool = True,
+    ):
+        super(GrapeEngine, self).__init__(
+            target_unitary, full_basis, projected_basis, drift_basis, piecewise_steps
+        )
         self.projective = projective
         if projective:
             self.infid_U_fn = get_infidelity_fn(target_unitary)
@@ -40,7 +45,10 @@ class GrapeEngine(Engine):
         self.infid_fn = lambda x: self.infid_U_fn(self.compute_U_fn(x))
         self.grad_fn = jax.value_and_grad(self.infid_fn)
         self.hess_fn = jax.jit(
-            lambda y: jax.vmap(lambda x: hvp_forward_over_reverse(self.infid_fn, y, x))(jnp.eye(y.size, dtype=y.dtype)))
+            lambda y: jax.vmap(lambda x: hvp_forward_over_reverse(self.infid_fn, y, x))(
+                jnp.eye(y.size, dtype=y.dtype)
+            )
+        )
 
     def wrap_param_transform(self, params: Parameters) -> None:
         """Replace ``compute_U_fn`` to honour ``params.param_transform``.
@@ -68,8 +76,9 @@ class GrapeEngine(Engine):
         tf_out_dim = _test_out.shape[0]
         n_proj = params.projected_basis.lie_algebra_dim
         if tf_out_dim != n_proj:
-            _extract = jnp.array(np.where(
-                np.array(self.projected_basis.overlap(params.basis)))[0])
+            _extract = jnp.array(
+                np.where(np.array(self.projected_basis.overlap(params.basis)))[0]
+            )
         else:
             _extract = None
 
@@ -79,11 +88,16 @@ class GrapeEngine(Engine):
         else:
             _drift = None
 
-        def _wrapped_compute_U(exp_params, _raw=raw_compute_U,
-                               _tf=params.param_transform,
-                               _pi=proj_idx_pd, _di=drift_idx_pd,
-                               _npd=n_proj_drift, _dr=_drift,
-                               _ext=_extract):
+        def _wrapped_compute_U(
+            exp_params,
+            _raw=raw_compute_U,
+            _tf=params.param_transform,
+            _pi=proj_idx_pd,
+            _di=drift_idx_pd,
+            _npd=n_proj_drift,
+            _dr=_drift,
+            _ext=_extract,
+        ):
             ctrl = jax.vmap(_tf)(exp_params)
             if _ext is not None:
                 ctrl = ctrl[:, _ext]
@@ -94,8 +108,10 @@ class GrapeEngine(Engine):
             full = full.at[:, _pi].set(ctrl)
             if _dr is not None:
                 full = full.at[:, _di].set(
-                    jnp.broadcast_to(_dr.astype(_dtype),
-                                     (exp_params.shape[0], _dr.shape[0])))
+                    jnp.broadcast_to(
+                        _dr.astype(_dtype), (exp_params.shape[0], _dr.shape[0])
+                    )
+                )
             return _raw(full)
 
         self.compute_U_fn = jax.jit(_wrapped_compute_U)
@@ -104,7 +120,9 @@ class GrapeEngine(Engine):
         self.grad_fn = jax.value_and_grad(self.infid_fn)
         self.hess_fn = jax.jit(
             lambda y: jax.vmap(lambda x: hvp_forward_over_reverse(self.infid_fn, y, x))(
-                jnp.eye(y.size, dtype=y.dtype)))
+                jnp.eye(y.size, dtype=y.dtype)
+            )
+        )
 
         # Override engine indices so _init/optimize work in experimental space.
         # All-true mask of length n_exp makes extract/expand a no-op.
@@ -132,11 +150,13 @@ class Grape:
         history: Optional `History` logger (``None`` unless supplied).
     """
 
-    def __init__(self,
-                 params: Parameters,
-                 precision: float = 0.9999999,
-                 verbose: bool = False,
-                 history: History | None = None) -> None:
+    def __init__(
+        self,
+        params: Parameters,
+        precision: float = 0.9999999,
+        verbose: bool = False,
+        history: History | None = None,
+    ) -> None:
         """Initialise the Grape optimiser.
 
         ``Grape`` requires a `Parameters` object — the engine, initial
@@ -218,7 +238,9 @@ class Grape:
         self._key, subkey = jax.random.split(self._key)
         return subkey
 
-    def _init_for_param_transform(self, engine: GrapeEngine, params: Parameters) -> np.ndarray:
+    def _init_for_param_transform(
+        self, engine: GrapeEngine, params: Parameters
+    ) -> np.ndarray:
         """Compute initial parameters in experimental-parameter space.
 
         If ``params.parameters`` is shaped ``(piecewise_steps, n_exp)``,
@@ -236,17 +258,21 @@ class Grape:
         _user_init = np.array(params.parameters)
         if _user_init.shape == (params.piecewise_steps, n_exp):
             return _user_init
-        return np.array(jax.random.uniform(
-            self._split_key(),
-            shape=(params.piecewise_steps, n_exp),
-            minval=-params.init_spread * np.pi,
-            maxval=params.init_spread * np.pi,
-        ))
+        return np.array(
+            jax.random.uniform(
+                self._split_key(),
+                shape=(params.piecewise_steps, n_exp),
+                minval=-params.init_spread * np.pi,
+                maxval=params.init_spread * np.pi,
+            )
+        )
 
-    def init(self,
-             init_parameters: np.ndarray | None = None,
-             drift_parameters: np.ndarray | None = None,
-             seed: int | jax.Array | None = None) -> None:
+    def init(
+        self,
+        init_parameters: np.ndarray | None = None,
+        drift_parameters: np.ndarray | None = None,
+        seed: int | jax.Array | None = None,
+    ) -> None:
         """(Re-)initialise optimiser state.
 
         Sets up initial parameters, drift parameters and the live state
@@ -266,13 +292,22 @@ class Grape:
 
         # Initialize variables
         if init_parameters is None:
-            self.init_parameters = np.array([prepare_random_parameters(self.engine.projected_indices,
-                                                                       expander=None,
-                                                                       spread=self.init_parameters_spread,
-                                                                       key=self._split_key()) for _ in range(self.engine.piecewise_steps)])
+            self.init_parameters = np.array(
+                [
+                    prepare_random_parameters(
+                        self.engine.projected_indices,
+                        expander=None,
+                        spread=self.init_parameters_spread,
+                        key=self._split_key(),
+                    )
+                    for _ in range(self.engine.piecewise_steps)
+                ]
+            )
         else:
             if (len(init_parameters.shape) == 1) and (self.engine.piecewise_steps > 1):
-                self.init_parameters = np.array([init_parameters] * self.engine.piecewise_steps)
+                self.init_parameters = np.array(
+                    [init_parameters] * self.engine.piecewise_steps
+                )
             else:
                 self.init_parameters = np.array(init_parameters)
         if self.engine.drift_basis is not None:
@@ -280,17 +315,25 @@ class Grape:
                 self.drift_parameters = np.ones(self.engine.drift_basis.lie_algebra_dim)
             else:
                 self.drift_parameters = np.array(drift_parameters)
-                assert self.engine.drift_basis.lie_algebra_dim == self.drift_parameters.shape[0], \
-                    "Drift parameters must be the same length as the size of the drift basis."
+                assert (
+                    self.engine.drift_basis.lie_algebra_dim
+                    == self.drift_parameters.shape[0]
+                ), "Drift parameters must be the same length as the size of the drift basis."
 
-            self.init_parameters[:, self.engine.drift_indices] = np.tile(self.drift_parameters, (self.engine.piecewise_steps, 1))
+            self.init_parameters[:, self.engine.drift_indices] = np.tile(
+                self.drift_parameters, (self.engine.piecewise_steps, 1)
+            )
         else:
             self.drift_parameters = None
 
         self.params.parameters = np.array(self.init_parameters)
         _dtype = np.float64 if self._real_params else np.complex128
-        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
-        self.params.fidelity = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
+        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(
+            _dtype
+        )
+        self.params.fidelity = self.engine.fid_U_fn(
+            self.engine.compute_U_fn(free_params)
+        )
         self.step_size = 0
         # A change of parameters invalidates any optax state built for the
         # previous parameter values; force a rebuild on the next optimize().
@@ -298,7 +341,7 @@ class Grape:
         self._optimizer_config = None
         if self.history is not None:
             self.history.reset()
-            self.history.record(self)        # step 0
+            self.history.record(self)  # step 0
 
     def _configure_optimizer(self, method: str, optimizer_kwargs: dict) -> None:
         """Select the optimiser method and (re)build its update function.
@@ -319,43 +362,55 @@ class Grape:
         config = (method, tuple(sorted(optimizer_kwargs.items())))
         if self._optimizer_config == config and self.optimizer_state is not None:
             return
-        if method in ['gd', 'adam']:
-            learning_rate = optimizer_kwargs.get('learning_rate')
-            if method == 'gd':
+        if method in ["gd", "adam"]:
+            learning_rate = optimizer_kwargs.get("learning_rate")
+            if method == "gd":
                 optimizer = optax.sgd(learning_rate=learning_rate)
             else:
                 optimizer = optax.adam(learning_rate=learning_rate)
-            self.update_step = get_update_step_gd(self.engine.proj_drift_indices, self.engine.grad_fn, optimizer)
-        elif method in ['nr-trm', 'nr-rfo']:
+            self.update_step = get_update_step_gd(
+                self.engine.proj_drift_indices, self.engine.grad_fn, optimizer
+            )
+        elif method in ["nr-trm", "nr-rfo"]:
             # Use backtracking for second order optimization
-            optimizer = optax.scale_by_backtracking_linesearch(max_backtracking_steps=100)
-            if method == 'nr-trm':
-                delta = optimizer_kwargs.get('delta')
-                self.update_step = get_update_step_trm(self.engine.proj_drift_indices,
-                                                       self.engine.infid_fn,
-                                                       self.engine.grad_fn,
-                                                       self.engine.hess_fn,
-                                                       optimizer,
-                                                       delta)
+            optimizer = optax.scale_by_backtracking_linesearch(
+                max_backtracking_steps=100
+            )
+            if method == "nr-trm":
+                delta = optimizer_kwargs.get("delta")
+                self.update_step = get_update_step_trm(
+                    self.engine.proj_drift_indices,
+                    self.engine.infid_fn,
+                    self.engine.grad_fn,
+                    self.engine.hess_fn,
+                    optimizer,
+                    delta,
+                )
             else:
-                kappa = optimizer_kwargs.get('kappa', 100)
-                self.update_step = get_update_step_rfo(self.engine.proj_drift_indices,
-                                                       self.engine.infid_fn,
-                                                       self.engine.grad_fn,
-                                                       self.engine.hess_fn,
-                                                       optimizer,
-                                                       kappa)
+                kappa = optimizer_kwargs.get("kappa", 100)
+                self.update_step = get_update_step_rfo(
+                    self.engine.proj_drift_indices,
+                    self.engine.infid_fn,
+                    self.engine.grad_fn,
+                    self.engine.hess_fn,
+                    optimizer,
+                    kappa,
+                )
         else:
             raise NotImplementedError(f"Method {method} not implemented")
 
         _dtype = np.float64 if self._real_params else np.complex128
-        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
+        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(
+            _dtype
+        )
         self.optimizer = optimizer
         self.optimizer_state = {"optimizer": optimizer.init(free_params)}
         self.method = method
         self._optimizer_config = config
 
-    def optimize(self, max_steps: int = 100, method: str = 'nr-trm', **optimizer_kwargs: float) -> Parameters:
+    def optimize(
+        self, max_steps: int = 100, method: str = "nr-trm", **optimizer_kwargs: float
+    ) -> Parameters:
         """Run the GRAPE optimisation loop.
 
         Iterates gradient/Hessian update steps until the fidelity exceeds
@@ -381,17 +436,23 @@ class Grape:
         _dtype = np.float64 if self._real_params else np.complex128
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
-            free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
-            new_parameters, infidelity, self.optimizer_state = self.update_step(free_params, self.optimizer_state)
+            free_params = self.params.parameters[
+                :, self.engine.proj_drift_indices
+            ].astype(_dtype)
+            new_parameters, infidelity, self.optimizer_state = self.update_step(
+                free_params, self.optimizer_state
+            )
             if self.verbose:
                 if infidelity < 1 - self.precision:
                     print(
                         f"[{step}/{max_steps}] [Infidelity = {infidelity}] A solution!                                                                     ",
-                        end="\r")
+                        end="\r",
+                    )
                 else:
                     print(
                         f"[{step}/{max_steps}] Infidelity = {infidelity}                                                                                             ",
-                        end="\r")
+                        end="\r",
+                    )
             self.params.parameters = np.array(new_parameters)
             self.params.fidelity = 1 - infidelity
             self.step_size = 0
@@ -410,11 +471,15 @@ def get_update_step_gd(proj_drift_indices, grad_fn, optimizer):
         # Get Hessian and gradients
         infidelity_new_phi, grads = grad_fn(free_params)
         # use the linesearch backtracking, make sure we pass a function that needs to get minimized.
-        updates, optimizer_state["optimizer"] = optimizer.update(grads, optimizer_state["optimizer"], free_params)
+        updates, optimizer_state["optimizer"] = optimizer.update(
+            grads, optimizer_state["optimizer"], free_params
+        )
         # Updates the parameters.
         free_params = optax.apply_updates(free_params, updates)
         # Expand the coefficients to the larger space
-        new_parameters = jnp.zeros((free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype)
+        new_parameters = jnp.zeros(
+            (free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype
+        )
         new_parameters = new_parameters.at[:, proj_drift_indices].set(free_params.real)
         return new_parameters, infidelity_new_phi, optimizer_state
 
@@ -431,15 +496,24 @@ def get_update_step_trm(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
         hessian = hess_fn(free_params)
         hessian = jnp.reshape(hessian, (hessian.shape[0], hessian.shape[0]))
         # Perform newton step to get update
-        grads_nr = newton_trm_step(hessian, grads.flatten(), delta).reshape(free_params.shape)
+        grads_nr = newton_trm_step(hessian, grads.flatten(), delta).reshape(
+            free_params.shape
+        )
         # use the linesearch backtracking, make sure we pass a function that needs to get minimized.
-        updates, optimizer_state["optimizer"] = optimizer.update(-grads_nr, optimizer_state["optimizer"], free_params,
-                                                                 value=infidelity_new_phi, grad=-grads_nr,
-                                                                 value_fn=fid_fn)
+        updates, optimizer_state["optimizer"] = optimizer.update(
+            -grads_nr,
+            optimizer_state["optimizer"],
+            free_params,
+            value=infidelity_new_phi,
+            grad=-grads_nr,
+            value_fn=fid_fn,
+        )
         # Updates the parameters.
         free_params = optax.apply_updates(free_params, updates)
         # Expand the coefficients to the larger space
-        new_parameters = jnp.zeros((free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype)
+        new_parameters = jnp.zeros(
+            (free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype
+        )
         new_parameters = new_parameters.at[:, proj_drift_indices].set(free_params.real)
         return new_parameters, infidelity_new_phi, optimizer_state
 
@@ -450,7 +524,7 @@ def get_update_step_trm(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
 def newton_trm_step(hessian, gradient, delta):
     Σ, U = jnp.linalg.eigh(hessian)
     # Shift spectrum by a delta
-    sigma = jnp.max(jnp.array([0., delta - jnp.min(Σ)]))
+    sigma = jnp.max(jnp.array([0.0, delta - jnp.min(Σ)]))
     Σreg = Σ + sigma
     # Solve system
     cfac_reg = jax.scipy.linalg.cho_factor(U @ (jnp.diag(Σreg) @ U.conj().T))
@@ -471,13 +545,20 @@ def get_update_step_rfo(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
         grads_nr = newton_rfo_step(hessian, grads.flatten(), kappa)
         grads_nr = grads_nr.reshape(free_params.shape)
         # use the linesearch backtracking, make sure we pass a function that needs to get minimized.
-        updates, optimizer_state["optimizer"] = optimizer.update(-grads_nr, optimizer_state["optimizer"], free_params,
-                                                                 value=infidelity_new_phi, grad=-grads_nr,
-                                                                 value_fn=fid_fn)
+        updates, optimizer_state["optimizer"] = optimizer.update(
+            -grads_nr,
+            optimizer_state["optimizer"],
+            free_params,
+            value=infidelity_new_phi,
+            grad=-grads_nr,
+            value_fn=fid_fn,
+        )
         # Updates the parameters.
         free_params = optax.apply_updates(free_params, updates)
         # Expand the coefficients to the larger space
-        new_parameters = jnp.zeros((free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype)
+        new_parameters = jnp.zeros(
+            (free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype
+        )
         new_parameters = new_parameters.at[:, proj_drift_indices].set(free_params.real)
         return new_parameters, infidelity_new_phi, optimizer_state
 
@@ -488,7 +569,7 @@ def get_update_step_rfo(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
 def condition_loop(hessian, g, kappa):
     nparams = hessian.shape[0]
     phi = 0.9  # 0.9 seems to work well
-    max_cond = kappa # 1e4 is from Spinach Settings
+    max_cond = kappa  # 1e4 is from Spinach Settings
     max_iter = 300  # 0.9**300 = 1e-14
     g = jnp.expand_dims(g, axis=1)
 
@@ -497,13 +578,12 @@ def condition_loop(hessian, g, kappa):
         # jax.debug.print("alpha {}", a)
         # jax.debug.print("i {} - kappa: {}", i, kappa)
         # jax.debug.print("max_cond {}", max_cond)
-        H_aug = jnp.block([[H * a ** 2, g * a],
-                           [g.T * a, 0.]])
+        H_aug = jnp.block([[H * a**2, g * a], [g.T * a, 0.0]])
         # Regularize
-        sigma = jnp.min(jnp.array([0., jnp.min(jnp.linalg.eigvalsh(H_aug))]))
+        sigma = jnp.min(jnp.array([0.0, jnp.min(jnp.linalg.eigvalsh(H_aug))]))
         H_aug = H_aug - jnp.eye(H_aug.shape[0]) * sigma
         # Grab original Hamiltonian
-        H = H_aug[:nparams, :nparams] / a ** 2
+        H = H_aug[:nparams, :nparams] / a**2
         return jnp.linalg.cond(H), i + 1, a * phi, H
 
     def cond_fn(val):
@@ -512,8 +592,9 @@ def condition_loop(hessian, g, kappa):
         # Stop at max iterations
         cond2 = val[1] < max_iter
         return jax.lax.bitwise_and(cond1, cond2)
+
     # set initial alpha
-    alpha_0 = 1. # Other choices are possible but this seems to work well.
+    alpha_0 = 1.0  # Other choices are possible but this seems to work well.
     return jax.lax.while_loop(cond_fn, body_fn, (jnp.inf, 0, alpha_0, hessian))
 
 

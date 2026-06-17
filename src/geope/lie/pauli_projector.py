@@ -57,10 +57,14 @@ def get_kron_chain(n: int) -> Callable[[Array], Array]:
         combination index array of length ``n`` (values 0–3) and
         returns the corresponding ``(2^n, 2^n)`` Pauli matrix.
     """
-    paulis = jnp.stack([jnp.eye(2).astype(complex),
-                        jnp.array([[0, 1], [1, 0]], complex),
-                        jnp.array([[0, -1j], [1j, 0]], complex),
-                        jnp.array([[1, 0], [0, -1]], complex)])
+    paulis = jnp.stack(
+        [
+            jnp.eye(2).astype(complex),
+            jnp.array([[0, 1], [1, 0]], complex),
+            jnp.array([[0, -1j], [1j, 0]], complex),
+            jnp.array([[1, 0], [0, -1]], complex),
+        ]
+    )
 
     @jax.jit
     def kron_chain(comb):
@@ -72,7 +76,9 @@ def get_kron_chain(n: int) -> Callable[[Array], Array]:
     return kron_chain
 
 
-def get_project_omegas_fn_otf(basis: Basis, batch_size: int | None = None) -> Callable[[Array], Array]:
+def get_project_omegas_fn_otf(
+    basis: Basis, batch_size: int | None = None
+) -> Callable[[Array], Array]:
     """Create an on-the-fly omega projection function.
 
     Instead of storing the full basis in memory, Pauli strings are
@@ -96,7 +102,8 @@ def get_project_omegas_fn_otf(basis: Basis, batch_size: int | None = None) -> Ca
     @jax.jit
     def projector(c, x):
         pauli = kron_chain(c)
-        return jnp.real(jnp.einsum('ij,ji->', pauli, x)) / x.shape[0]
+        return jnp.real(jnp.einsum("ij,ji->", pauli, x)) / x.shape[0]
+
     # vmap over combinations
     vmap_projector = jax.vmap(projector, in_axes=(0, None))
     if batch_size is None:
@@ -110,6 +117,7 @@ def get_project_omegas_fn_otf(basis: Basis, batch_size: int | None = None) -> Ca
             padding = np.tile(combs[-1:], (remainder, 1))
             combs = np.concatenate([combs, padding], axis=0)
         combs = combs.reshape((batch_size, combs.shape[0] // batch_size, -1))
+
         # scan over combs
         def batched_vmap_projector(c, x):
             @jax.jit

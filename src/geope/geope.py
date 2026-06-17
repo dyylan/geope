@@ -16,7 +16,13 @@ from .engine import (
     get_infidelity_full_fn,
 )
 from .lie import Hamiltonian, Basis
-from .utils import golden_section_search, adam_line_search, prepare_random_parameters, merge_constraints, control_to_indices
+from .utils import (
+    golden_section_search,
+    adam_line_search,
+    prepare_random_parameters,
+    merge_constraints,
+    control_to_indices,
+)
 from .jax.logm import logm
 from .jax.jacobian import get_jacobian_manual
 from .parameters import Parameters
@@ -41,13 +47,16 @@ class GeopeEngine(Engine):
         grad_fn: Value-and-gradient of the infidelity.
     """
 
-    def __init__(self, target_unitary: np.ndarray,
-                 full_basis: Basis,
-                 projected_basis: Basis,
-                 drift_basis: Basis | None = None,
-                 piecewise_steps: int = 1,
-                 batch_size: int | None = None,
-                 projective: bool = True) -> None:
+    def __init__(
+        self,
+        target_unitary: np.ndarray,
+        full_basis: Basis,
+        projected_basis: Basis,
+        drift_basis: Basis | None = None,
+        piecewise_steps: int = 1,
+        batch_size: int | None = None,
+        projective: bool = True,
+    ) -> None:
         """Initialise the GeopeEngine.
 
         Args:
@@ -64,19 +73,25 @@ class GeopeEngine(Engine):
                 If ``False``, use the full (U) geodesic and
                 $F_{\\mathrm{full}} = \\mathrm{Re}\\,\\mathrm{Tr}(U_T^\\dagger U)/d$.
         """
-        super(GeopeEngine, self).__init__(target_unitary, full_basis, projected_basis, drift_basis, piecewise_steps)
+        super(GeopeEngine, self).__init__(
+            target_unitary, full_basis, projected_basis, drift_basis, piecewise_steps
+        )
         self.projective = projective
         if full_basis.n > 5:
             # TODO: We will probably have to batch the jacobian function here as well
             # We should calculate the jacobians of the expms and stitch together the
             # matrices for the gradient ourselves.
-            self.project_omegas_fn = jax.jit(get_project_omegas_fn_otf(self.full_basis, batch_size=batch_size))
+            self.project_omegas_fn = jax.jit(
+                get_project_omegas_fn_otf(self.full_basis, batch_size=batch_size)
+            )
             self.jac_fn = get_jacobian_manual(self.proj_drift_basis.basis)
             del self.full_basis
         else:
             self.project_omegas_fn = jax.jit(get_project_omegas_fn(self.full_basis))
         self.jac_fn = jax.jacobian(self.compute_U_fn, argnums=0, holomorphic=True)
-        self.geo_fn = jax.jit(get_geodesic_hamiltonian_fn(target_unitary, projective=projective))
+        self.geo_fn = jax.jit(
+            get_geodesic_hamiltonian_fn(target_unitary, projective=projective)
+        )
         if projective:
             self.infid_U_fn = get_infidelity_fn(target_unitary)
         else:
@@ -110,12 +125,16 @@ class GeopeEngine(Engine):
         @jax.jit
         def gammas_and_omegas(free_params, key):
             unitary = compute_U_fn(free_params)
-            gammaU = geodesic_fn(unitary, key=key) # seed for logm
-            gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (gammaU.shape[0])
+            gammaU = geodesic_fn(unitary, key=key)  # seed for logm
+            gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(
+                axis=0
+            ) / (gammaU.shape[0])
 
             dUs = jnp.array(jac_fn(free_params))
             dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
-            omegas_steps_phis = jnp.array([project_omegas_fn(1.j * omegaUs) for omegaUs in dUs_t])
+            omegas_steps_phis = jnp.array(
+                [project_omegas_fn(1.0j * omegaUs) for omegaUs in dUs_t]
+            )
 
             if np.any(proj_drift_basis):
                 omegas_steps_phis = omegas_steps_phis.at[:, proj_indices, :].get()
@@ -152,14 +171,17 @@ class GeopeEngine(Engine):
         _step_dependent = len(inspect.signature(params.param_transform).parameters) >= 2
 
         # Detect whether transform outputs full-basis or projected-basis coefficients
-        _test_out = (params.param_transform(jnp.zeros(n_exp), 0)
-                     if _step_dependent
-                     else params.param_transform(jnp.zeros(n_exp)))
+        _test_out = (
+            params.param_transform(jnp.zeros(n_exp), 0)
+            if _step_dependent
+            else params.param_transform(jnp.zeros(n_exp))
+        )
         tf_out_dim = _test_out.shape[0]
         n_proj = params.projected_basis.lie_algebra_dim
         if tf_out_dim != n_proj:
-            _extract = jnp.array(np.where(
-                np.array(self.projected_basis.overlap(params.basis)))[0])
+            _extract = jnp.array(
+                np.where(np.array(self.projected_basis.overlap(params.basis)))[0]
+            )
         else:
             _extract = None
 
@@ -168,11 +190,17 @@ class GeopeEngine(Engine):
         else:
             _drift = None
 
-        def _wrapped_compute_U(exp_params, _raw=raw_compute_U,
-                               _tf=params.param_transform,
-                               _pi=proj_idx_pd, _di=drift_idx_pd,
-                               _npd=n_proj_drift, _dr=_drift,
-                               _ext=_extract, _step_dep=_step_dependent):
+        def _wrapped_compute_U(
+            exp_params,
+            _raw=raw_compute_U,
+            _tf=params.param_transform,
+            _pi=proj_idx_pd,
+            _di=drift_idx_pd,
+            _npd=n_proj_drift,
+            _dr=_drift,
+            _ext=_extract,
+            _step_dep=_step_dependent,
+        ):
             if _step_dep:
                 ctrl = jax.vmap(_tf)(exp_params, jnp.arange(exp_params.shape[0]))
             else:
@@ -186,8 +214,10 @@ class GeopeEngine(Engine):
             full = full.at[:, _pi].set(ctrl)
             if _dr is not None:
                 full = full.at[:, _di].set(
-                    jnp.broadcast_to(_dr.astype(_dtype),
-                                     (exp_params.shape[0], _dr.shape[0])))
+                    jnp.broadcast_to(
+                        _dr.astype(_dtype), (exp_params.shape[0], _dr.shape[0])
+                    )
+                )
             return _raw(full)
 
         self.compute_U_fn = jax.jit(_wrapped_compute_U)
@@ -267,9 +297,11 @@ class GeopeEngine(Engine):
             if not isinstance(pulse_constraints, dict):
                 raise TypeError(
                     "pulse_constraints must be a control-format dict in "
-                    "projected space, e.g. {(1, 2): ['zz']}.")
-            pulse_indices = control_to_indices(proj_labels, pulse_constraints,
-                                               strict=True)
+                    "projected space, e.g. {(1, 2): ['zz']}."
+                )
+            pulse_indices = control_to_indices(
+                proj_labels, pulse_constraints, strict=True
+            )
         pulse_set = set(pulse_indices)
         non_pulse = [k for k in range(n_proj) if k not in pulse_set]
 
@@ -326,13 +358,15 @@ class Geope:
             holding the full run trajectory.
     """
 
-    def __init__(self,
-                 params: Parameters,
-                 precision: float = 0.9999999,
-                 max_step_size: float = 0.9,
-                 gram_schmidt_step_size: float = 1.3,
-                 verbose: bool = False,
-                 history: History | None = None) -> None:
+    def __init__(
+        self,
+        params: Parameters,
+        precision: float = 0.9999999,
+        max_step_size: float = 0.9,
+        gram_schmidt_step_size: float = 1.3,
+        verbose: bool = False,
+        history: History | None = None,
+    ) -> None:
         """Initialise the Geope optimiser.
 
         ``Geope`` requires a `Parameters` object — the engine, initial
@@ -368,7 +402,7 @@ class Geope:
         seed = params.seed
         if isinstance(seed, int):
             self._key = jax.random.key(seed)
-        elif isinstance(seed,jax.Array):
+        elif isinstance(seed, jax.Array):
             self._key = seed  # already a jax.Array key
         else:
             self._key = jax.random.key(0)
@@ -423,7 +457,9 @@ class Geope:
         # Initialize parameters
         self.init(init_parameters, drift_parameters, constraints, params.seed)
 
-    def _init_for_param_transform(self, engine: GeopeEngine, params: Parameters) -> np.ndarray:
+    def _init_for_param_transform(
+        self, engine: GeopeEngine, params: Parameters
+    ) -> np.ndarray:
         """Compute initial parameters in experimental-parameter space.
 
         If ``params.parameters`` is shaped ``(piecewise_steps, n_exp)``,
@@ -441,12 +477,14 @@ class Geope:
         _user_init = np.array(params.parameters)
         if _user_init.shape == (params.piecewise_steps, n_exp):
             return _user_init
-        return np.array(jax.random.uniform(
-            self._split_key(),
-            shape=(params.piecewise_steps, n_exp),
-            minval=-params.init_spread * np.pi,
-            maxval=params.init_spread * np.pi,
-        ))
+        return np.array(
+            jax.random.uniform(
+                self._split_key(),
+                shape=(params.piecewise_steps, n_exp),
+                minval=-params.init_spread * np.pi,
+                maxval=params.init_spread * np.pi,
+            )
+        )
 
     def init(
         self,
@@ -465,11 +503,11 @@ class Geope:
             init_parameters: Initial parameter array. Defaults to random.
             drift_parameters: Fixed drift parameter values. Defaults to ones.
             constraints: Linear equality constraints.
-            seed: Random seed (int) or JAX key for reproducibility. 
+            seed: Random seed (int) or JAX key for reproducibility.
         """
         if isinstance(seed, int):
             self._key = jax.random.key(seed)
-        elif isinstance(seed,jax.Array):
+        elif isinstance(seed, jax.Array):
             self._key = seed  # already a jax.Array key
         # else: keep existing self._key unchanged
 
@@ -477,7 +515,9 @@ class Geope:
         self.constraint_expander = None
         if constraints is not None:
             expander = np.eye(self.engine.projected_basis.lie_algebra_dim)
-            constraints = constraints if isinstance(constraints, list) else [constraints]
+            constraints = (
+                constraints if isinstance(constraints, list) else [constraints]
+            )
             self.constraints = [np.array(c) for c in merge_constraints(constraints)]
             del_indices = []
             for c in self.constraints:
@@ -499,53 +539,102 @@ class Geope:
                 self.init_parameters = np.array(init_parameters)
             else:
                 n_exp = self.params.n_experimental_params
-                self.init_parameters = np.array(jax.random.uniform(
-                    self._split_key(),
-                    shape=(self.engine.piecewise_steps, n_exp),
-                    minval=-self.init_parameters_spread * np.pi,
-                    maxval=self.init_parameters_spread * np.pi,
-                ))
+                self.init_parameters = np.array(
+                    jax.random.uniform(
+                        self._split_key(),
+                        shape=(self.engine.piecewise_steps, n_exp),
+                        minval=-self.init_parameters_spread * np.pi,
+                        maxval=self.init_parameters_spread * np.pi,
+                    )
+                )
         elif init_parameters is None:
-            self.init_parameters = np.array([prepare_random_parameters(self.engine.projected_indices,
-                                                                       expander=self.constraint_expander,
-                                                                       spread=self.init_parameters_spread,
-                                                                       key=self._split_key()) for _ in range(self.engine.piecewise_steps)])
+            self.init_parameters = np.array(
+                [
+                    prepare_random_parameters(
+                        self.engine.projected_indices,
+                        expander=self.constraint_expander,
+                        spread=self.init_parameters_spread,
+                        key=self._split_key(),
+                    )
+                    for _ in range(self.engine.piecewise_steps)
+                ]
+            )
         else:
-            if np.array(init_parameters).shape == (self.engine.full_basis.lie_algebra_dim,):
-                self.init_parameters = np.array([init_parameters] * self.engine.piecewise_steps)
-            elif np.array(init_parameters).shape == (self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim):
+            if np.array(init_parameters).shape == (
+                self.engine.full_basis.lie_algebra_dim,
+            ):
+                self.init_parameters = np.array(
+                    [init_parameters] * self.engine.piecewise_steps
+                )
+            elif np.array(init_parameters).shape == (
+                self.engine.piecewise_steps,
+                self.engine.full_basis.lie_algebra_dim,
+            ):
                 self.init_parameters = np.array(init_parameters)
-            elif np.array(init_parameters).shape == (self.engine.projected_basis.lie_algebra_dim,):
-                self.init_parameters = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
-                self.init_parameters[:, self.engine.projected_indices] = np.array(init_parameters)
-            elif np.array(init_parameters).shape == (self.engine.piecewise_steps, self.engine.projected_basis.lie_algebra_dim):
-                self.init_parameters = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
-                self.init_parameters[:, self.engine.projected_indices] = np.array(init_parameters)
+            elif np.array(init_parameters).shape == (
+                self.engine.projected_basis.lie_algebra_dim,
+            ):
+                self.init_parameters = np.zeros(
+                    (
+                        self.engine.piecewise_steps,
+                        self.engine.full_basis.lie_algebra_dim,
+                    )
+                )
+                self.init_parameters[:, self.engine.projected_indices] = np.array(
+                    init_parameters
+                )
+            elif np.array(init_parameters).shape == (
+                self.engine.piecewise_steps,
+                self.engine.projected_basis.lie_algebra_dim,
+            ):
+                self.init_parameters = np.zeros(
+                    (
+                        self.engine.piecewise_steps,
+                        self.engine.full_basis.lie_algebra_dim,
+                    )
+                )
+                self.init_parameters[:, self.engine.projected_indices] = np.array(
+                    init_parameters
+                )
             else:
-                raise ValueError("Initial parameters must be of shape (full_basis.lie_algebra_dim,) or (full_basis.lie_algebra_dim, piecewise_steps) or (projected_basis.lie_algebra_dim,) or (piecewise_steps, projected_basis.lie_algebra_dim)")
+                raise ValueError(
+                    "Initial parameters must be of shape (full_basis.lie_algebra_dim,) or (full_basis.lie_algebra_dim, piecewise_steps) or (projected_basis.lie_algebra_dim,) or (piecewise_steps, projected_basis.lie_algebra_dim)"
+                )
         if not self._real_params:
             if drift_parameters is not None and self.engine.drift_basis is None:
-                raise ValueError("Drift parameters are set but no drift basis is defined.")
+                raise ValueError(
+                    "Drift parameters are set but no drift basis is defined."
+                )
             if self.engine.drift_basis is not None:
                 if drift_parameters is None:
-                    self.drift_parameters = np.ones(self.engine.drift_basis.lie_algebra_dim)
+                    self.drift_parameters = np.ones(
+                        self.engine.drift_basis.lie_algebra_dim
+                    )
                 else:
                     self.drift_parameters = np.array(drift_parameters)
-                    assert self.engine.drift_basis.lie_algebra_dim == self.drift_parameters.shape[0], \
-                        "Drift parameters must be the same length as the size of the drift basis."
-                self.init_parameters[:, self.engine.drift_indices] = np.tile(self.drift_parameters, (self.engine.piecewise_steps, 1))
+                    assert (
+                        self.engine.drift_basis.lie_algebra_dim
+                        == self.drift_parameters.shape[0]
+                    ), "Drift parameters must be the same length as the size of the drift basis."
+                self.init_parameters[:, self.engine.drift_indices] = np.tile(
+                    self.drift_parameters, (self.engine.piecewise_steps, 1)
+                )
             else:
                 self.drift_parameters = None
         else:
             self.drift_parameters = None
         self.params.parameters = np.array(self.init_parameters)
         _dtype = np.float64 if self._real_params else np.complex128
-        free_params = jnp.array([p[self.engine.proj_drift_indices] for p in self.params.parameters]).astype(_dtype)
-        self.params.fidelity = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
+        free_params = jnp.array(
+            [p[self.engine.proj_drift_indices] for p in self.params.parameters]
+        ).astype(_dtype)
+        self.params.fidelity = self.engine.fid_U_fn(
+            self.engine.compute_U_fn(free_params)
+        )
         self.step_size = 0
         if self.history is not None:
             self.history.reset()
-            self.history.record(self)        # step 0
+            self.history.record(self)  # step 0
 
     def _configure_line_search(
         self,
@@ -575,14 +664,18 @@ class Geope:
         self.adam_lr = adam_lr
         self.adam_steps = adam_steps
         self.update_linesearch = self.get_update_linesearch(
-            self.engine.fid_U_fn, self.engine.compute_U_fn)
+            self.engine.fid_U_fn, self.engine.compute_U_fn
+        )
         self.update_step = self.get_update_step()
         self._linesearch_config = config
 
-    def optimize(self, max_steps: int = 1000,
-                 line_search_method: str = "golden_section",
-                 adam_lr: float = 0.05,
-                 adam_steps: int = 3) -> Parameters:
+    def optimize(
+        self,
+        max_steps: int = 1000,
+        line_search_method: str = "golden_section",
+        adam_lr: float = 0.05,
+        adam_steps: int = 3,
+    ) -> Parameters:
         """Run the GEOPE optimisation loop.
 
         Iterates geodesic update steps until the fidelity exceeds
@@ -626,25 +719,36 @@ class Geope:
         _dtype = jnp.float64 if self._real_params else jnp.complex128
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
-            free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(_dtype)
-            coeffs, new_params_update, fidelity, step_size = update_step(free_params, self.params.parameters, self.engine.piecewise_steps, self._split_key())
+            free_params = self.params.parameters[
+                :, self.engine.proj_drift_indices
+            ].astype(_dtype)
+            coeffs, new_params_update, fidelity, step_size = update_step(
+                free_params,
+                self.params.parameters,
+                self.engine.piecewise_steps,
+                self._split_key(),
+            )
 
             if fidelity > self.precision:
                 if self.verbose:
                     print(
                         f"[{step}/{max_steps}] [Fidelity = {fidelity}] A solution!                                                                     ",
-                        end="\r")
-            elif (fidelity > self.params.fidelity) and not jnp.isclose(fidelity, self.params.fidelity,
-                                                                       atol=(1 - self.precision) / 100):
+                        end="\r",
+                    )
+            elif (fidelity > self.params.fidelity) and not jnp.isclose(
+                fidelity, self.params.fidelity, atol=(1 - self.precision) / 100
+            ):
                 if self.verbose:
                     print(
                         f"[{step}/{max_steps}] [Fidelity = {fidelity}] Omega geodesic gave a positive fidelity update for this step...                 ",
-                        end="\r")
+                        end="\r",
+                    )
             else:
                 if self.verbose:
                     print(
                         f"[{step}/{max_steps}] [Fidelity = {self.params.fidelity}] Omega geodesic gave a negative fidelity update for this step. Moving phi away...    ",
-                        end="\r")
+                        end="\r",
+                    )
                 if self.gram_schmidt_step_size:
                     new_params_update, fidelity, step_size = self.gram_schmidt(coeffs)
                 pass
@@ -683,19 +787,38 @@ class Geope:
         if self._real_params:
             # Experimental space: only (piecewise_steps, n_exp) is valid
             new_params = np.array(params)
-        elif params.shape == (self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim):
-            new_params = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
+        elif params.shape == (
+            self.engine.piecewise_steps,
+            self.engine.full_basis.lie_algebra_dim,
+        ):
+            new_params = np.zeros(
+                (self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim)
+            )
             new_params = params
-        elif params.shape == (self.engine.piecewise_steps, self.engine.proj_drift_basis.lie_algebra_dim):
-            new_params = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
+        elif params.shape == (
+            self.engine.piecewise_steps,
+            self.engine.proj_drift_basis.lie_algebra_dim,
+        ):
+            new_params = np.zeros(
+                (self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim)
+            )
             new_params[:, self.engine.proj_drift_indices] = params
-        elif params.shape == (self.engine.piecewise_steps, self.engine.projected_basis.lie_algebra_dim):
-            new_params = np.zeros((self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim))
+        elif params.shape == (
+            self.engine.piecewise_steps,
+            self.engine.projected_basis.lie_algebra_dim,
+        ):
+            new_params = np.zeros(
+                (self.engine.piecewise_steps, self.engine.full_basis.lie_algebra_dim)
+            )
             new_params[:, self.engine.projected_indices] = params
             if self.engine.drift_basis is not None:
-                new_params[:, self.engine.drift_indices] = jnp.tile(self.drift_parameters, (self.engine.piecewise_steps, 1))
+                new_params[:, self.engine.drift_indices] = jnp.tile(
+                    self.drift_parameters, (self.engine.piecewise_steps, 1)
+                )
         else:
-            ValueError("Parameter shape does not match with full basis, projected & drift basis, or projected basis.")
+            ValueError(
+                "Parameter shape does not match with full basis, projected & drift basis, or projected basis."
+            )
         if fidelity is None:
             _dtype = jnp.float64 if self._real_params else jnp.complex128
             free_params = new_params[:, self.engine.proj_drift_indices].astype(_dtype)
@@ -728,26 +851,43 @@ class Geope:
         """
         if self._real_params:
             n_exp = self.params.n_experimental_params
-            proj_c = np.array(jax.random.normal(self._split_key(),
-                                                shape=(self.engine.piecewise_steps, n_exp))) * 0.1
+            proj_c = (
+                np.array(
+                    jax.random.normal(
+                        self._split_key(), shape=(self.engine.piecewise_steps, n_exp)
+                    )
+                )
+                * 0.1
+            )
         else:
             proj_c = np.array(
-                [prepare_random_parameters(self.engine.projected_indices, self.constraint_expander,
-                                           key=self._split_key())[
-                     self.engine.proj_drift_indices] for _ in
-                 range(self.engine.piecewise_steps)])
+                [
+                    prepare_random_parameters(
+                        self.engine.projected_indices,
+                        self.constraint_expander,
+                        key=self._split_key(),
+                    )[self.engine.proj_drift_indices]
+                    for _ in range(self.engine.piecewise_steps)
+                ]
+            )
             if self.engine.drift_basis is not None:
-                proj_c[:, self.engine.drift_indices_projdrift_basis] = jnp.tile(self.drift_parameters,
-                                                                                (self.engine.piecewise_steps, 1))
+                proj_c[:, self.engine.drift_indices_projdrift_basis] = jnp.tile(
+                    self.drift_parameters, (self.engine.piecewise_steps, 1)
+                )
         proj_c_con = np.concatenate(proj_c, axis=0)
         coeffs_con = np.concatenate(coeffs, axis=0)
 
         # Use the Gram-Schmidt procedure to generate a perpendicular vector to the previous coefficients.
-        proj_c = jnp.reshape(proj_c_con - (((proj_c_con @ coeffs_con) / (coeffs_con @ coeffs_con)) * coeffs_con),
-                             coeffs.shape)
+        proj_c = jnp.reshape(
+            proj_c_con
+            - (((proj_c_con @ coeffs_con) / (coeffs_con @ coeffs_con)) * coeffs_con),
+            coeffs.shape,
+        )
         return self._update_parameters_gram_schmidt(proj_c)
 
-    def _update_parameters_gram_schmidt(self, coeffs: np.ndarray) -> tuple[np.ndarray, Array, float]:
+    def _update_parameters_gram_schmidt(
+        self, coeffs: np.ndarray
+    ) -> tuple[np.ndarray, Array, float]:
         """Evaluate the best signed Gram-Schmidt step.
 
         Tests both positive and negative directions and returns the
@@ -767,19 +907,29 @@ class Geope:
             for sign in [1, -1]:
                 new_exp = current_params + sign * scaled_gs_step * coeffs
                 fids[sign] = self.engine.fid_U_fn(
-                    self.engine.compute_U_fn(jnp.array(new_exp, dtype=_dtype)))
+                    self.engine.compute_U_fn(jnp.array(new_exp, dtype=_dtype))
+                )
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
             new_parameters = current_params + sign * scaled_gs_step * coeffs
         else:
             for sign in [1, -1]:
                 cs = np.copy(coeffs)
-                cs[:, self.engine.proj_indices_projdrift_basis] = cs[:,
-                                                                  self.engine.proj_indices_projdrift_basis] * sign * scaled_gs_step
+                cs[:, self.engine.proj_indices_projdrift_basis] = (
+                    cs[:, self.engine.proj_indices_projdrift_basis]
+                    * sign
+                    * scaled_gs_step
+                )
                 u = np.eye(self.engine.full_basis.dim)
                 for i, c in enumerate(cs):
-                    u = Hamiltonian(self.engine.proj_drift_basis,
-                                    self.params.parameters[i][self.engine.proj_drift_indices] + c).unitary.matrix @ u
+                    u = (
+                        Hamiltonian(
+                            self.engine.proj_drift_basis,
+                            self.params.parameters[i][self.engine.proj_drift_indices]
+                            + c,
+                        ).unitary.matrix
+                        @ u
+                    )
                 fids[sign] = self.engine.fid_U_fn(u)
 
             if fids[1] > fids[-1]:
@@ -788,10 +938,16 @@ class Geope:
             else:
                 sign = -1
                 fidelity = fids[-1]
-            coeffs[:, self.engine.proj_indices_projdrift_basis] = coeffs[:,
-                                                                  self.engine.proj_indices_projdrift_basis] * sign * scaled_gs_step
+            coeffs[:, self.engine.proj_indices_projdrift_basis] = (
+                coeffs[:, self.engine.proj_indices_projdrift_basis]
+                * sign
+                * scaled_gs_step
+            )
             coeffs[:, self.engine.drift_indices_projdrift_basis] = 0
-            new_parameters = np.array(self.params.parameters)[:, self.engine.proj_drift_indices] + coeffs
+            new_parameters = (
+                np.array(self.params.parameters)[:, self.engine.proj_drift_indices]
+                + coeffs
+            )
 
         # if self.parameter_bounds is not None:
         #     new_parameters, fidelity = self.bound_parameters(new_parameters, scaled_gs_step)
@@ -814,10 +970,15 @@ class Geope:
         else:
             proj_params = self.params.parameters[:, self.engine.projected_indices]
         E_pulse, pulse_templates = self.engine.build_pulse_expander(
-            self.pulse_constraints, getattr(self, "_real_params", False),
-            self.params.n_experimental_params, np.array(proj_params).real)
+            self.pulse_constraints,
+            getattr(self, "_real_params", False),
+            self.params.n_experimental_params,
+            np.array(proj_params).real,
+        )
         if self.constraint_expander is not None:
-            E_gate = np.kron(np.eye(self.engine.piecewise_steps), self.constraint_expander)
+            E_gate = np.kron(
+                np.eye(self.engine.piecewise_steps), self.constraint_expander
+            )
             combined = E_gate @ np.linalg.pinv(E_gate) @ E_pulse
         else:
             combined = E_pulse
@@ -889,8 +1050,12 @@ class Geope:
             pos_raw = (self.upper_bounds - params) / coeffs
             neg_raw = (self.lower_bounds - params) / coeffs
 
-            pos_coeffs_t_max = jnp.minimum(jnp.maximum(pos_raw, 0), self.max_step_size/piecewise_steps)
-            neg_coeffs_t_max = jnp.minimum(jnp.maximum(neg_raw, 0), self.max_step_size/piecewise_steps)
+            pos_coeffs_t_max = jnp.minimum(
+                jnp.maximum(pos_raw, 0), self.max_step_size / piecewise_steps
+            )
+            neg_coeffs_t_max = jnp.minimum(
+                jnp.maximum(neg_raw, 0), self.max_step_size / piecewise_steps
+            )
 
             t_max_arr = pos_coeffs_t_max + neg_coeffs_t_max
             t_max = jnp.min(t_max_arr)
@@ -900,22 +1065,28 @@ class Geope:
         def update_linesearch(params, coeffs, piecewise_steps):
             sliced_params = params.at[:, self.engine.proj_drift_indices].get()
             f = partial(infidelity_t, params=sliced_params, coeffs=coeffs)
-            max_step_size = self.max_step_size/piecewise_steps
+            max_step_size = self.max_step_size / piecewise_steps
             if self.line_search_method == "golden_section":
-                dt, infid = golden_section_search(f, -max_step_size, 0., tol=1e-5)
+                dt, infid = golden_section_search(f, -max_step_size, 0.0, tol=1e-5)
             elif self.line_search_method == "difference_step":
                 tol = 0.1 * f(0)
-                dt, infid = golden_section_search(f, -max_step_size, 0., tol=tol)
+                dt, infid = golden_section_search(f, -max_step_size, 0.0, tol=tol)
             elif self.line_search_method in ("adam", "adam_fd"):
                 dt, infid = adam_line_search(
-                    f, -max_step_size, 0.,
-                    lr=self.adam_lr, num_steps=self.adam_steps,
+                    f,
+                    -max_step_size,
+                    0.0,
+                    lr=self.adam_lr,
+                    num_steps=self.adam_steps,
                     finite_difference=True,
                 )
             elif self.line_search_method == "adam_grad":
                 dt, infid = adam_line_search(
-                    f, -max_step_size, 0.,
-                    lr=self.adam_lr, num_steps=self.adam_steps,
+                    f,
+                    -max_step_size,
+                    0.0,
+                    lr=self.adam_lr,
+                    num_steps=self.adam_steps,
                     finite_difference=False,
                 )
             else:
@@ -931,7 +1102,9 @@ class Geope:
 
         return update_linesearch
 
-    def get_update_step(self, expander_override: Array | None = None) -> Callable[..., tuple[Array, Array, Array, Array]]:
+    def get_update_step(
+        self, expander_override: Array | None = None
+    ) -> Callable[..., tuple[Array, Array, Array, Array]]:
         """Build a JIT-compiled geodesic update step function.
 
         Computes the optimal linear combination of omegas that matches
@@ -951,28 +1124,41 @@ class Geope:
         @jax.jit
         def update_step(free_params, params, piecewise_steps, key):
 
-            gammaU_params, omegas_steps_phis = self.engine.gammas_and_omegas(free_params, key)
+            gammaU_params, omegas_steps_phis = self.engine.gammas_and_omegas(
+                free_params, key
+            )
 
             if expander_override is not None:
                 expander_gates = expander_override
             elif self.constraint_expander is not None:
-                expander_gates = jnp.kron(jnp.eye(self.engine.piecewise_steps),
-                                          self.constraint_expander)
+                expander_gates = jnp.kron(
+                    jnp.eye(self.engine.piecewise_steps), self.constraint_expander
+                )
             else:
                 expander_gates = None
 
-            sol = linear_comb_projected_coeffs_multigate(omegas_steps_phis, gammaU_params, expander_gates)
+            sol = linear_comb_projected_coeffs_multigate(
+                omegas_steps_phis, gammaU_params, expander_gates
+            )
 
             # Expand the coefficients
-            coeffs = jnp.zeros((self.engine.piecewise_steps, self.engine.proj_drift_basis.lie_algebra_dim))
+            coeffs = jnp.zeros(
+                (
+                    self.engine.piecewise_steps,
+                    self.engine.proj_drift_basis.lie_algebra_dim,
+                )
+            )
             coeffs = coeffs.at[:, self.engine.proj_indices_projdrift_basis].set(sol)
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
 
-            new_params, fidelity_new_phi, step_size = self.update_linesearch(params, coeffs, piecewise_steps)
+            new_params, fidelity_new_phi, step_size = self.update_linesearch(
+                params, coeffs, piecewise_steps
+            )
 
             return coeffs, new_params, fidelity_new_phi, step_size
 
         return update_step
+
 
 def linear_comb_projected_coeffs_multigate(
     combination_vectors: Array, target_vector: Array, expander: Array | None
@@ -1002,8 +1188,12 @@ def linear_comb_projected_coeffs_multigate(
     return sol.reshape(combination_vectors.shape[0], combination_vectors.shape[1])
 
 
-def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool = True,
-                         key: Array = jax.random.key(0)) -> Array:
+def geodesic_hamiltonian(
+    unitary: Array,
+    target_unitary: Array,
+    projective: bool = True,
+    key: Array = jax.random.key(0),
+) -> Array:
     """Compute the geodesic Hamiltonian between a unitary and a target.
 
     Computes the generator $g = -i\\log(U^\\dagger U_T) \\in \\mathfrak{u}(d)$
@@ -1023,15 +1213,17 @@ def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool
     Returns:
         The geodesic tangent ``Array`` $U g'$ at the current unitary.
     """
-    g = -1.j * logm(jnp.einsum('ji,jk->ik', unitary.conj(), target_unitary), key=key)
+    g = -1.0j * logm(jnp.einsum("ji,jk->ik", unitary.conj(), target_unitary), key=key)
     if projective:
         Id = jnp.eye(g.shape[0])
-        global_phase = jnp.real(jnp.einsum('ij,ji->', Id, g)) / g.shape[0]
+        global_phase = jnp.real(jnp.einsum("ij,ji->", Id, g)) / g.shape[0]
         g = g - global_phase * Id
     return unitary @ g
 
 
-def get_geodesic_hamiltonian_fn(target_unitary: Array, projective: bool = True) -> Callable[[Array, Array], Array]:
+def get_geodesic_hamiltonian_fn(
+    target_unitary: Array, projective: bool = True
+) -> Callable[[Array, Array], Array]:
     """Create a partial geodesic Hamiltonian function with a fixed target.
 
     Args:
@@ -1043,7 +1235,9 @@ def get_geodesic_hamiltonian_fn(target_unitary: Array, projective: bool = True) 
         A ``Callable[[Array, Array], Array]`` that accepts a unitary and a
         JAX random key and returns the geodesic Hamiltonian.
     """
-    return partial(geodesic_hamiltonian, target_unitary=target_unitary, projective=projective)
+    return partial(
+        geodesic_hamiltonian, target_unitary=target_unitary, projective=projective
+    )
 
 
 def hvp_forward_over_reverse(
@@ -1061,4 +1255,3 @@ def hvp_forward_over_reverse(
     """
     v = v.reshape(params.shape)
     return jax.jvp(jax.grad(f), (params,), (v,))[1]
-

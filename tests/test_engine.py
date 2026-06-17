@@ -37,6 +37,7 @@ from geope.utils import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _pauli_basis_1q():
     """Single-qubit Pauli basis (X, Y, Z)."""
     X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -48,6 +49,7 @@ def _pauli_basis_1q():
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def identity_2x2():
@@ -67,10 +69,7 @@ def hadamard():
 @pytest.fixture
 def cnot():
     return jnp.array(
-        [[1, 0, 0, 0],
-         [0, 1, 0, 0],
-         [0, 0, 0, 1],
-         [0, 0, 1, 0]],
+        [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]],
         dtype=complex,
     )
 
@@ -88,6 +87,7 @@ def projected_basis_2q():
 # ---------------------------------------------------------------------------
 # Tests — fidelity
 # ---------------------------------------------------------------------------
+
 
 class TestFidelity:
     def test_identity_with_itself(self, identity_2x2):
@@ -128,6 +128,7 @@ class TestFidelity:
 # Tests — get_fidelity_fn
 # ---------------------------------------------------------------------------
 
+
 class TestGetFidelityFn:
     def test_returns_callable(self, cnot):
         fn = get_fidelity_fn(cnot)
@@ -145,6 +146,7 @@ class TestGetFidelityFn:
 # ---------------------------------------------------------------------------
 # Tests — compute_matrices_params_list_fn / get_compute_matrices_params_list_fn
 # ---------------------------------------------------------------------------
+
 
 class TestComputeMatricesParamsListFn:
     def test_zero_params_gives_identity(self):
@@ -168,8 +170,7 @@ class TestComputeMatricesParamsListFn:
     def test_multi_gate(self):
         """Two gates composed: U2 @ U1."""
         basis = _pauli_basis_1q()
-        params = jnp.array([[0.1, 0.2, 0.3],
-                             [0.4, 0.5, 0.6]], dtype=complex)
+        params = jnp.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], dtype=complex)
         U = compute_matrices_params_list_fn(params, basis)
         assert U.shape == (2, 2)
         assert jnp.allclose(U @ U.conj().T, jnp.eye(2), atol=1e-10)
@@ -201,6 +202,7 @@ class TestGetComputeMatricesParamsListFn:
 # Tests — Engine
 # ---------------------------------------------------------------------------
 
+
 class TestEngine:
     def test_init_stores_bases(self, cnot, full_basis_2q, projected_basis_2q):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
@@ -214,7 +216,9 @@ class TestEngine:
         assert eng.projected_indices.dtype == bool
         assert eng.projected_indices.sum() == projected_basis_2q.lie_algebra_dim
 
-    def test_no_drift_gives_false_indices(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_no_drift_gives_false_indices(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
         assert not np.any(eng.drift_indices)
         assert eng.drift_basis is None
@@ -225,7 +229,9 @@ class TestEngine:
 
     def test_proj_drift_basis_no_drift(self, cnot, full_basis_2q, projected_basis_2q):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert eng.proj_drift_basis.lie_algebra_dim == projected_basis_2q.lie_algebra_dim
+        assert (
+            eng.proj_drift_basis.lie_algebra_dim == projected_basis_2q.lie_algebra_dim
+        )
 
     def test_with_drift_basis(self, cnot, full_basis_2q, projected_basis_2q):
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
@@ -235,13 +241,17 @@ class TestEngine:
         assert np.any(eng.drift_indices)
         assert eng.drift_basis is drift
 
-    def test_with_drift_proj_drift_larger(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_with_drift_proj_drift_larger(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         """proj_drift_basis should include both projected and drift generators."""
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
         I = np.eye(2, dtype=complex)
         drift = Basis(np.stack([np.kron(Z, I), np.kron(I, Z)]), labels=["ZI", "IZ"])
         eng = Engine(cnot, full_basis_2q, projected_basis_2q, drift_basis=drift)
-        assert eng.proj_drift_basis.lie_algebra_dim >= projected_basis_2q.lie_algebra_dim
+        assert (
+            eng.proj_drift_basis.lie_algebra_dim >= projected_basis_2q.lie_algebra_dim
+        )
 
     def test_gates_stored(self, cnot, full_basis_2q, projected_basis_2q):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=4)
@@ -266,16 +276,22 @@ class TestEngine:
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
         assert jnp.isclose(eng.fid_U_fn(cnot), 1.0, atol=1e-12)
 
-    def test_fid_U_fn_identity_less_than_one(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_fid_U_fn_identity_less_than_one(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
         fid = eng.fid_U_fn(jnp.eye(4, dtype=complex))
         assert fid < 1.0
 
-    def test_proj_indices_projdrift_basis(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_proj_indices_projdrift_basis(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
         assert eng.proj_indices_projdrift_basis.dtype == bool
 
-    def test_drift_indices_projdrift_basis(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_drift_indices_projdrift_basis(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         eng = Engine(cnot, full_basis_2q, projected_basis_2q)
         assert eng.drift_indices_projdrift_basis.dtype == bool
         assert not np.any(eng.drift_indices_projdrift_basis)

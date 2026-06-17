@@ -53,25 +53,27 @@ class Parameters:
         infidelity: ``1 - fidelity`` (``None`` before a run).
     """
 
-    def __init__(self,
-                 basis: Basis | None = None,
-                 control: dict | None = None,
-                 drift: dict | None = None,
-                 projected_basis: Basis | None = None,
-                 drift_basis: Basis | None = None,
-                 init_values: dict | np.ndarray | None = None,
-                 drift_values: dict | np.ndarray | None = None,
-                 target: np.ndarray | None = None,
-                 piecewise_steps: int = 1,
-                 fixed_drift: bool = True,
-                 constraints: list | None = None,
-                 pulse_constraints: dict | list | None = None,
-                 bounds: dict | None = None,
-                 init_spread: float = 0.1,
-                 seed: int | jax.Array | None = None,
-                 param_transform: Callable | None = None,
-                 n_experimental_params: int | None = None,
-                 projective: bool = True) -> None:
+    def __init__(
+        self,
+        basis: Basis | None = None,
+        control: dict | None = None,
+        drift: dict | None = None,
+        projected_basis: Basis | None = None,
+        drift_basis: Basis | None = None,
+        init_values: dict | np.ndarray | None = None,
+        drift_values: dict | np.ndarray | None = None,
+        target: np.ndarray | None = None,
+        piecewise_steps: int = 1,
+        fixed_drift: bool = True,
+        constraints: list | None = None,
+        pulse_constraints: dict | list | None = None,
+        bounds: dict | None = None,
+        init_spread: float = 0.1,
+        seed: int | jax.Array | None = None,
+        param_transform: Callable | None = None,
+        n_experimental_params: int | None = None,
+        projective: bool = True,
+    ) -> None:
         """Initialise a Parameters bundle.
 
         Args:
@@ -128,6 +130,7 @@ class Parameters:
         # --- Basis ---
         if basis is None:
             from .utils import construct_full_pauli_basis
+
             basis = construct_full_pauli_basis(2)
         self.basis = basis
 
@@ -137,10 +140,12 @@ class Parameters:
         if projected_basis is not None:
             self.projected_basis = projected_basis
         elif control is not None:
-            if basis.dim != 2 ** basis.n:
+            if basis.dim != 2**basis.n:
                 self.projected_basis = filter_basis_by_control(basis, control)
             else:
-                self.projected_basis = construct_restricted_pauli_basis(basis.n, control)
+                self.projected_basis = construct_restricted_pauli_basis(
+                    basis.n, control
+                )
         else:
             self.projected_basis = basis
 
@@ -150,7 +155,7 @@ class Parameters:
         if drift_basis is not None:
             self.drift_basis = drift_basis
         elif drift is not None:
-            if basis.dim != 2 ** basis.n:
+            if basis.dim != 2**basis.n:
                 self.drift_basis = filter_basis_by_control(basis, drift)
             else:
                 self.drift_basis = construct_restricted_pauli_basis(basis.n, drift)
@@ -168,15 +173,18 @@ class Parameters:
         # absent from the projected basis (typo, wrong qubit, etc.). The
         # experimental-space form (a list of integer indices) is left alone.
         if isinstance(pulse_constraints, dict):
-            control_to_indices(list(self.projected_basis.labels),
-                               pulse_constraints, strict=True)
+            control_to_indices(
+                list(self.projected_basis.labels), pulse_constraints, strict=True
+            )
         self.seed = seed
         self.init_spread = init_spread
         self.param_transform = param_transform
         self.projective = projective
-        self.n_experimental_params = (n_experimental_params
-                                      if n_experimental_params is not None
-                                      else self.projected_basis.lie_algebra_dim)
+        self.n_experimental_params = (
+            n_experimental_params
+            if n_experimental_params is not None
+            else self.projected_basis.lie_algebra_dim
+        )
 
         # --- Constraints ---
         self.constraint_arrays = None
@@ -186,7 +194,8 @@ class Parameters:
             for c in constraints:
                 if isinstance(c, dict):
                     constraint_arrays.append(
-                        self.projected_basis.generate_parameter_list(c))
+                        self.projected_basis.generate_parameter_list(c)
+                    )
                 else:
                     constraint_arrays.append(c)
             merged = merge_constraints(constraint_arrays)
@@ -227,18 +236,24 @@ class Parameters:
             else:
                 key = jax.random.key(0)
             keys = jax.random.split(key, piecewise_steps)
-            self.parameters = np.array([
-                prepare_random_parameters(proj_indices,
-                                          expander=self.constraint_expander,
-                                          spread=init_spread,
-                                          key=keys[i])
-                for i in range(piecewise_steps)])
+            self.parameters = np.array(
+                [
+                    prepare_random_parameters(
+                        proj_indices,
+                        expander=self.constraint_expander,
+                        spread=init_spread,
+                        key=keys[i],
+                    )
+                    for i in range(piecewise_steps)
+                ]
+            )
 
         # --- Drift parameters ---
         if drift_values is not None and self.drift_basis is not None:
             if isinstance(drift_values, dict):
                 self.drift_parameters = np.array(
-                    self.drift_basis.generate_parameter_list(drift_values))
+                    self.drift_basis.generate_parameter_list(drift_values)
+                )
             else:
                 self.drift_parameters = np.array(drift_values)
         elif self.drift_basis is not None:
@@ -264,6 +279,7 @@ class Parameters:
         """
         if self.param_transform is not None:
             import jax
+
             return np.array(jax.vmap(self.param_transform)(self.parameters))
         return self.parameters
 
@@ -278,7 +294,9 @@ class Parameters:
         if coeffs is None:
             return {}
         proj_indices = np.array(self.projected_basis.overlap(self.basis), dtype=bool)
-        proj_coeffs = coeffs[0][proj_indices] if coeffs.ndim > 1 else coeffs[proj_indices]
+        proj_coeffs = (
+            coeffs[0][proj_indices] if coeffs.ndim > 1 else coeffs[proj_indices]
+        )
 
         result: dict = {}
         for label, value in zip(self.projected_basis.labels, proj_coeffs):

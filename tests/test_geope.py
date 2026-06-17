@@ -60,12 +60,23 @@ from geope.utils import (
 )
 
 
-def _params_2q(cnot, full_basis_2q, projected_basis_2q, *,
-               drift_basis=None, drift_values=None,
-               init_values=None, constraints=None,
-               piecewise_steps=1, seed=42, init_spread=0.1,
-               pulse_constraints=None, projective=True,
-               param_transform=None, n_experimental_params=None):
+def _params_2q(
+    cnot,
+    full_basis_2q,
+    projected_basis_2q,
+    *,
+    drift_basis=None,
+    drift_values=None,
+    init_values=None,
+    constraints=None,
+    piecewise_steps=1,
+    seed=42,
+    init_spread=0.1,
+    pulse_constraints=None,
+    projective=True,
+    param_transform=None,
+    n_experimental_params=None,
+):
     """Build a Parameters bundle from the raw test fixtures.
 
     Helper for tests that need to construct a ``Geope`` from the
@@ -88,6 +99,8 @@ def _params_2q(cnot, full_basis_2q, projected_basis_2q, *,
         param_transform=param_transform,
         n_experimental_params=n_experimental_params,
     )
+
+
 from geope.jax.jacobian import (
     Ui,
     get_Ui_fn,
@@ -104,6 +117,7 @@ from geope.jax.dexpm import get_dexpm
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def identity_2x2():
@@ -123,10 +137,7 @@ def hadamard():
 @pytest.fixture
 def cnot():
     return jnp.array(
-        [[1, 0, 0, 0],
-         [0, 1, 0, 0],
-         [0, 0, 0, 1],
-         [0, 0, 1, 0]],
+        [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]],
         dtype=complex,
     )
 
@@ -170,6 +181,7 @@ def geope_2q(params_2q):
 # Helpers — small bases for jacobian_manual tests
 # ---------------------------------------------------------------------------
 
+
 def _pauli_basis_1q():
     """Single-qubit Pauli basis (X, Y, Z) — 3 generators, 2×2."""
     X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -181,6 +193,7 @@ def _pauli_basis_1q():
 # ---------------------------------------------------------------------------
 # Tests — jacobian_manual.Ui / get_Ui_fn
 # ---------------------------------------------------------------------------
+
 
 class TestUi:
     def test_zero_params_gives_identity(self):
@@ -214,6 +227,7 @@ class TestUi:
 # Tests — scan_single_switch_matmul
 # ---------------------------------------------------------------------------
 
+
 class TestScanSingleSwitchMatmul:
     def test_applies_gate_when_idx_false(self):
         U = jnp.eye(2, dtype=complex)
@@ -226,7 +240,7 @@ class TestScanSingleSwitchMatmul:
     def test_applies_jacobian_when_idx_true(self):
         U = jnp.eye(2, dtype=complex)
         jac = jnp.array([[0, -1j], [1j, 0]], dtype=complex)  # Y
-        gate = jnp.array([[0, 1], [1, 0]], dtype=complex)    # X (ignored)
+        gate = jnp.array([[0, 1], [1, 0]], dtype=complex)  # X (ignored)
         (U_out, _), _ = scan_single_switch_matmul((U, jac), (True, gate))
         assert jnp.allclose(U_out, jac, atol=1e-12)
 
@@ -234,6 +248,7 @@ class TestScanSingleSwitchMatmul:
 # ---------------------------------------------------------------------------
 # Tests — get_apply_branch
 # ---------------------------------------------------------------------------
+
 
 class TestGetApplyBranch:
     def test_single_gate_identity(self):
@@ -267,6 +282,7 @@ class TestGetApplyBranch:
 # Tests — scan_branch / get_scan_branch
 # ---------------------------------------------------------------------------
 
+
 class TestScanBranch:
     def test_output_shape(self):
         I = jnp.eye(2, dtype=complex)
@@ -290,6 +306,7 @@ class TestScanBranch:
 # Tests — manual_jacobian
 # ---------------------------------------------------------------------------
 
+
 class TestManualJacobian:
     def test_output_shape_single_gate(self):
         basis = _pauli_basis_1q()
@@ -304,8 +321,7 @@ class TestManualJacobian:
         basis = _pauli_basis_1q()
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
-        params = jnp.array([[0.1, 0.2, 0.3],
-                            [0.4, 0.5, 0.6]])
+        params = jnp.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
         result = manual_jacobian(params, Ui_fn, jac_fn)
         assert result.shape == (2, 2, 2, 3)
 
@@ -323,6 +339,7 @@ class TestManualJacobian:
 # ---------------------------------------------------------------------------
 # Tests — get_jacobian_manual
 # ---------------------------------------------------------------------------
+
 
 class TestGetJacobianManual:
     def test_returns_callable(self):
@@ -343,7 +360,9 @@ class TestGetJacobianManual:
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.5, -0.3, 0.1]])
-        assert jnp.allclose(fn(params), manual_jacobian(params, Ui_fn, jac_fn), atol=1e-10)
+        assert jnp.allclose(
+            fn(params), manual_jacobian(params, Ui_fn, jac_fn), atol=1e-10
+        )
 
     def test_agrees_with_jax_jacobian(self):
         """Compare manual jacobian against jax.jacobian for a single gate."""
@@ -368,6 +387,7 @@ class TestGetJacobianManual:
 # ---------------------------------------------------------------------------
 # Tests — geodesic_hamiltonian
 # ---------------------------------------------------------------------------
+
 
 class TestGeodesicHamiltonian:
     def test_identity_to_identity_2x2(self, identity_2x2):
@@ -409,6 +429,7 @@ class TestGeodesicHamiltonian:
 # Tests — get_geodesic_hamiltonian_fn
 # ---------------------------------------------------------------------------
 
+
 class TestGetGeodesicHamiltonianFn:
     def test_returns_callable(self, hadamard):
         fn = get_geodesic_hamiltonian_fn(hadamard)
@@ -430,24 +451,26 @@ class TestGetGeodesicHamiltonianFn:
 # Tests — linear_comb_projected_coeffs_multigate
 # ---------------------------------------------------------------------------
 
+
 class TestLinearCombProjectedCoeffsMultigate:
     def test_identity_system_no_expander(self):
         """With identity-like combo vectors, lstsq should recover the target."""
-        comb_vecs = jnp.array([
-            [[1.0, 0.0, 0.0, 0.0],
-             [0.0, 1.0, 0.0, 0.0],
-             [0.0, 0.0, 1.0, 0.0]],
-        ])
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+            ]
+        )
         target = jnp.array([0.5, 0.3, 0.1, 0.0])
         result = linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
         assert result.shape == (1, 3)
         assert jnp.allclose(result[0], jnp.array([0.5, 0.3, 0.1]), atol=1e-10)
 
     def test_with_expander(self):
-        comb_vecs = jnp.array([
-            [[1.0, 0.0, 0.0],
-             [0.0, 1.0, 0.0]],
-        ])
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            ]
+        )
         target = jnp.array([0.5, 0.3, 0.0])
         expander = jnp.eye(2, dtype=float)
         result = linear_comb_projected_coeffs_multigate(comb_vecs, target, expander)
@@ -461,10 +484,11 @@ class TestLinearCombProjectedCoeffsMultigate:
         assert result.shape == (n_gates, n_params)
 
     def test_zero_target(self):
-        comb_vecs = jnp.array([
-            [[1.0, 0.0],
-             [0.0, 1.0]],
-        ])
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0], [0.0, 1.0]],
+            ]
+        )
         target = jnp.zeros(2)
         result = linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
         assert jnp.allclose(result, 0, atol=1e-10)
@@ -473,6 +497,7 @@ class TestLinearCombProjectedCoeffsMultigate:
 # ---------------------------------------------------------------------------
 # Tests — hvp_forward_over_reverse
 # ---------------------------------------------------------------------------
+
 
 class TestHvpForwardOverReverse:
     def test_quadratic_function(self):
@@ -486,7 +511,7 @@ class TestHvpForwardOverReverse:
         assert jnp.allclose(result, expected, atol=1e-6)
 
     def test_output_shape(self):
-        f = lambda x: jnp.sum(x ** 2)
+        f = lambda x: jnp.sum(x**2)
         params = jnp.array([1.0, 2.0, 3.0])
         v = jnp.ones(3)
         result = hvp_forward_over_reverse(f, params, v)
@@ -494,7 +519,7 @@ class TestHvpForwardOverReverse:
 
     def test_identity_hessian(self):
         """f(x) = 0.5 ||x||^2  ⇒  H = I  ⇒  Hv = v."""
-        f = lambda x: 0.5 * jnp.sum(x ** 2)
+        f = lambda x: 0.5 * jnp.sum(x**2)
         params = jnp.array([1.0, 2.0])
         v = jnp.array([3.0, 4.0])
         result = hvp_forward_over_reverse(f, params, v)
@@ -505,32 +530,34 @@ class TestHvpForwardOverReverse:
 # Tests — find_null_space
 # ---------------------------------------------------------------------------
 
+
 class TestFindNullSpace:
     def test_rank_deficient(self):
         """Rank-2 matrix in 3-col space ⇒ 1-D null space."""
-        omegas = jnp.array([
-            [[1.0, 0.0, 0.0],
-             [0.0, 1.0, 0.0],
-             [0.0, 0.0, 0.0]],
-        ])
+        omegas = jnp.array(
+            [
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]],
+            ]
+        )
         vh, num = find_null_space(omegas, None)
         assert int(num) == 2
         assert vh.shape[0] == 3
 
     def test_full_rank(self):
-        omegas = jnp.array([
-            [[1.0, 0.0, 0.0],
-             [0.0, 1.0, 0.0],
-             [0.0, 0.0, 1.0]],
-        ])
+        omegas = jnp.array(
+            [
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            ]
+        )
         vh, num = find_null_space(omegas, None)
         assert int(num) == 3
 
     def test_with_expander(self):
-        omegas = jnp.array([
-            [[1.0, 0.0],
-             [0.0, 1.0]],
-        ])
+        omegas = jnp.array(
+            [
+                [[1.0, 0.0], [0.0, 1.0]],
+            ]
+        )
         expander = jnp.eye(2)
         vh, num = find_null_space(omegas, expander)
         assert int(num) == 2
@@ -542,10 +569,11 @@ class TestFindNullSpace:
         assert int(num) == 0
 
     def test_returns_vh_and_num(self):
-        omegas = jnp.array([
-            [[1.0, 2.0],
-             [3.0, 4.0]],
-        ])
+        omegas = jnp.array(
+            [
+                [[1.0, 2.0], [3.0, 4.0]],
+            ]
+        )
         vh, num = find_null_space(omegas, None)
         assert vh.ndim == 2
         assert num.ndim == 0  # scalar
@@ -554,6 +582,7 @@ class TestFindNullSpace:
 # ---------------------------------------------------------------------------
 # Tests — piecewise_smoothing
 # ---------------------------------------------------------------------------
+
 
 class TestPiecewiseSmoothing:
     def test_output_shape(self):
@@ -564,8 +593,7 @@ class TestPiecewiseSmoothing:
         assert diff.shape == ()
 
     def test_diff_nonnegative(self):
-        phi = jnp.array([[0.5, 0.3, 0.1],
-                          [0.4, 0.2, 0.6]], dtype=jnp.float64)
+        phi = jnp.array([[0.5, 0.3, 0.1], [0.4, 0.2, 0.6]], dtype=jnp.float64)
         null_space = jnp.eye(6, 3, dtype=jnp.float64)
         _, diff = piecewise_smoothing(phi, null_space, None, smoothing_rate=0.01)
         assert diff >= 0
@@ -582,13 +610,16 @@ class TestPiecewiseSmoothing:
         phi = jnp.ones((2, 3), dtype=jnp.float64)
         null_space = jnp.eye(6, 2, dtype=jnp.float64)
         expander = jnp.eye(6, dtype=jnp.float64)
-        result, diff = piecewise_smoothing(phi, null_space, expander, smoothing_rate=0.01)
+        result, diff = piecewise_smoothing(
+            phi, null_space, expander, smoothing_rate=0.01
+        )
         assert result.shape == phi.shape
 
 
 # ---------------------------------------------------------------------------
 # Tests — piecewise_bounding_mp
 # ---------------------------------------------------------------------------
+
 
 class TestPiecewiseBoundingMp:
     def _make_inputs(self, n_gates=2, n_params=3, phi_val=0.5):
@@ -600,34 +631,32 @@ class TestPiecewiseBoundingMp:
 
     def test_output_shape(self):
         phi, ns, lo, hi = self._make_inputs()
-        result, diff = piecewise_bounding_mp(phi, ns, None,
-                                             bounding_rate=0.01,
-                                             lower_bounds=lo,
-                                             upper_bounds=hi)
+        result, diff = piecewise_bounding_mp(
+            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
+        )
         assert result.shape == phi.shape
         assert diff.shape == ()
 
     def test_diff_nonnegative(self):
         phi, ns, lo, hi = self._make_inputs()
-        _, diff = piecewise_bounding_mp(phi, ns, None,
-                                        bounding_rate=0.01,
-                                        lower_bounds=lo,
-                                        upper_bounds=hi)
+        _, diff = piecewise_bounding_mp(
+            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
+        )
         assert diff >= 0
 
     def test_with_expander(self):
         phi, ns, lo, hi = self._make_inputs()
         expander = jnp.eye(phi.size, dtype=jnp.float64)
-        result, _ = piecewise_bounding_mp(phi, ns, expander,
-                                          bounding_rate=0.01,
-                                          lower_bounds=lo,
-                                          upper_bounds=hi)
+        result, _ = piecewise_bounding_mp(
+            phi, ns, expander, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
+        )
         assert result.shape == phi.shape
 
 
 # ---------------------------------------------------------------------------
 # Tests — piecewise_bounding_pg
 # ---------------------------------------------------------------------------
+
 
 class TestPiecewiseBoundingPg:
     def _make_inputs(self, n_gates=2, n_params=3, phi_val=0.5):
@@ -639,36 +668,32 @@ class TestPiecewiseBoundingPg:
 
     def test_output_shape(self):
         phi, ns, lo, hi = self._make_inputs(phi_val=2.0)
-        result, val = piecewise_bounding_pg(phi, ns, None,
-                                            bounding_rate=0.01,
-                                            lower_bounds=lo,
-                                            upper_bounds=hi)
+        result, val = piecewise_bounding_pg(
+            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
+        )
         assert result.shape == phi.shape
         assert val.shape == ()
 
     def test_within_bounds_zero_cost(self):
         phi, ns, lo, hi = self._make_inputs(phi_val=0.5)
-        _, val = piecewise_bounding_pg(phi, ns, None,
-                                       bounding_rate=0.01,
-                                       lower_bounds=lo,
-                                       upper_bounds=hi)
+        _, val = piecewise_bounding_pg(
+            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
+        )
         assert jnp.isclose(val, 0.0, atol=1e-10)
 
     def test_outside_bounds_positive_cost(self):
         phi, ns, lo, hi = self._make_inputs(phi_val=2.0)
-        _, val = piecewise_bounding_pg(phi, ns, None,
-                                       bounding_rate=0.01,
-                                       lower_bounds=lo,
-                                       upper_bounds=hi)
+        _, val = piecewise_bounding_pg(
+            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
+        )
         assert val > 0
 
     def test_with_expander(self):
         phi, ns, lo, hi = self._make_inputs(phi_val=2.0)
         expander = jnp.eye(phi.size, dtype=jnp.float64)
-        result, _ = piecewise_bounding_pg(phi, ns, expander,
-                                          bounding_rate=0.01,
-                                          lower_bounds=lo,
-                                          upper_bounds=hi)
+        result, _ = piecewise_bounding_pg(
+            phi, ns, expander, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
+        )
         assert result.shape == phi.shape
 
 
@@ -676,16 +701,26 @@ class TestPiecewiseBoundingPg:
 # Tests — GeopeEngine
 # ---------------------------------------------------------------------------
 
+
 class TestGeopeEngine:
     def test_init_has_expected_attributes(self, engine_2q):
-        for attr in ("compute_U_fn", "fid_U_fn", "jac_fn", "geo_fn",
-                      "project_omegas_fn", "infid_fn", "grad_fn"):
+        for attr in (
+            "compute_U_fn",
+            "fid_U_fn",
+            "jac_fn",
+            "geo_fn",
+            "project_omegas_fn",
+            "infid_fn",
+            "grad_fn",
+        ):
             assert hasattr(engine_2q, attr), f"Missing attribute: {attr}"
 
     def test_gates_stored(self, engine_2q):
         assert engine_2q.piecewise_steps == 1
 
-    def test_projected_indices_shape(self, engine_2q, full_basis_2q, projected_basis_2q):
+    def test_projected_indices_shape(
+        self, engine_2q, full_basis_2q, projected_basis_2q
+    ):
         assert engine_2q.projected_indices.shape == (full_basis_2q.lie_algebra_dim,)
         assert engine_2q.projected_indices.dtype == bool
         assert engine_2q.projected_indices.sum() == projected_basis_2q.lie_algebra_dim
@@ -695,7 +730,10 @@ class TestGeopeEngine:
 
     def test_proj_drift_basis(self, engine_2q, projected_basis_2q):
         """Without drift, proj_drift_basis should match projected_basis dimensions."""
-        assert engine_2q.proj_drift_basis.lie_algebra_dim == projected_basis_2q.lie_algebra_dim
+        assert (
+            engine_2q.proj_drift_basis.lie_algebra_dim
+            == projected_basis_2q.lie_algebra_dim
+        )
 
     def test_compute_U_fn_zero_params(self, engine_2q):
         """Zero parameters ⇒ identity unitary."""
@@ -775,13 +813,14 @@ class TestGeopeEngine:
 # Tests — build_pulse_expander (control-format pulse_constraints)
 # ---------------------------------------------------------------------------
 
+
 class TestBuildPulseExpander:
     """`pulse_constraints` uses the control-format dict, same as `control`."""
 
     @pytest.fixture(scope="class")
     def engine_3q(self):
         full = construct_full_pauli_basis(3)
-        proj = construct_restricted_pauli_basis(3, ['x', 'z', 'zz'])
+        proj = construct_restricted_pauli_basis(3, ["x", "z", "zz"])
         eng = GeopeEngine(
             target_unitary=jnp.eye(8, dtype=complex),
             full_basis=full,
@@ -797,7 +836,7 @@ class TestBuildPulseExpander:
         L = eng.piecewise_steps
         proj_params = np.random.default_rng(0).standard_normal((L, n_proj))
 
-        constraints = {(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']}
+        constraints = {(1, 2): ["zz"], (2, 3): ["zz"], (1, 3): ["zz"]}
         E, templates = eng.build_pulse_expander(constraints, False, n_proj, proj_params)
 
         # The dict selects exactly the three two-body ZZ terms.
@@ -821,7 +860,7 @@ class TestBuildPulseExpander:
         L = eng.piecewise_steps
         proj_params = np.random.default_rng(1).standard_normal((L, n_proj))
 
-        _, templates = eng.build_pulse_expander({1: ['x']}, False, n_proj, proj_params)
+        _, templates = eng.build_pulse_expander({1: ["x"]}, False, n_proj, proj_params)
         assert set(templates.keys()) == {labels.index("XII")}
 
     def test_absent_interaction_raises(self, engine_3q):
@@ -831,7 +870,7 @@ class TestBuildPulseExpander:
 
         # 'yy' is not in the restricted basis -> strict check raises.
         with pytest.raises(ValueError, match="not present in the basis"):
-            eng.build_pulse_expander({(1, 2): ['yy']}, False, n_proj, proj_params)
+            eng.build_pulse_expander({(1, 2): ["yy"]}, False, n_proj, proj_params)
 
     def test_wrong_qubit_index_raises(self, engine_3q):
         eng, proj = engine_3q
@@ -840,7 +879,7 @@ class TestBuildPulseExpander:
 
         # Qubit 4 does not exist on a 3-qubit system.
         with pytest.raises(ValueError, match="not present in the basis"):
-            eng.build_pulse_expander({(1, 4): ['zz']}, False, n_proj, proj_params)
+            eng.build_pulse_expander({(1, 4): ["zz"]}, False, n_proj, proj_params)
 
     def test_list_form_now_rejected(self, engine_3q):
         eng, proj = engine_3q
@@ -857,8 +896,14 @@ class TestParametersPulseConstraintsValidation:
 
     @staticmethod
     def _control_3q():
-        return {1: ['x', 'z'], 2: ['x', 'z'], 3: ['x', 'z'],
-                (1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']}
+        return {
+            1: ["x", "z"],
+            2: ["x", "z"],
+            3: ["x", "z"],
+            (1, 2): ["zz"],
+            (2, 3): ["zz"],
+            (1, 3): ["zz"],
+        }
 
     def test_valid_dict_constructs(self):
         p = Parameters(
@@ -866,9 +911,9 @@ class TestParametersPulseConstraintsValidation:
             control=self._control_3q(),
             target=np.eye(8, dtype=complex),
             piecewise_steps=4,
-            pulse_constraints={(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']},
+            pulse_constraints={(1, 2): ["zz"], (2, 3): ["zz"], (1, 3): ["zz"]},
         )
-        assert p.pulse_constraints == {(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']}
+        assert p.pulse_constraints == {(1, 2): ["zz"], (2, 3): ["zz"], (1, 3): ["zz"]}
 
     def test_absent_interaction_raises_at_construction(self):
         with pytest.raises(ValueError, match="not present in the basis"):
@@ -877,13 +922,14 @@ class TestParametersPulseConstraintsValidation:
                 control=self._control_3q(),
                 target=np.eye(8, dtype=complex),
                 piecewise_steps=4,
-                pulse_constraints={(1, 2): ['xx']},  # only zz is controllable
+                pulse_constraints={(1, 2): ["xx"]},  # only zz is controllable
             )
 
 
 # ---------------------------------------------------------------------------
 # Tests — Geope
 # ---------------------------------------------------------------------------
+
 
 class TestGeope:
     # --- initialisation ---------------------------------------------------
@@ -911,17 +957,23 @@ class TestGeope:
         g = Geope(p)
         assert g.params.parameters.shape == (1, n)
 
-    def test_init_with_gate_shaped_params(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_init_with_gate_shaped_params(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         n = full_basis_2q.lie_algebra_dim
         init = np.zeros((2, n))
-        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
-                       piecewise_steps=2, init_values=init)
+        p = _params_2q(
+            cnot, full_basis_2q, projected_basis_2q, piecewise_steps=2, init_values=init
+        )
         g = Geope(p)
         assert g.params.parameters.shape == (2, n)
 
-    def test_init_bad_params_shape_raises(self, cnot, full_basis_2q, projected_basis_2q):
-        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
-                       init_values=np.zeros((5, 5, 5)))
+    def test_init_bad_params_shape_raises(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        p = _params_2q(
+            cnot, full_basis_2q, projected_basis_2q, init_values=np.zeros((5, 5, 5))
+        )
         with pytest.raises(ValueError):
             Geope(p)
 
@@ -950,8 +1002,9 @@ class TestGeope:
 
     def test_line_search_method_adam_custom_hparams(self, params_2q):
         g = Geope(params_2q)
-        g.optimize(max_steps=0, line_search_method="adam_fd",
-                   adam_lr=0.1, adam_steps=12)
+        g.optimize(
+            max_steps=0, line_search_method="adam_fd", adam_lr=0.1, adam_steps=12
+        )
         assert g.adam_lr == 0.1
         assert g.adam_steps == 12
 
@@ -962,7 +1015,9 @@ class TestGeope:
         assert g.adam_lr is None
         assert g.adam_steps is None
 
-    def test_adam_optimize_valid_fidelities(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_adam_optimize_valid_fidelities(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         # both gradient modes must run inside the real loop and stay valid
         for m in ("adam_fd", "adam_grad"):
             p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
@@ -971,7 +1026,9 @@ class TestGeope:
             for f in g.history.fidelities:
                 assert 0 <= f <= 1
 
-    def test_adam_optimize_improves_fidelity(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_adam_optimize_improves_fidelity(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         for m in ("adam_fd", "adam_grad"):
             p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
             g = Geope(p, history=History())
@@ -990,7 +1047,9 @@ class TestGeope:
         g_fd.optimize(max_steps=0, line_search_method="adam_fd")
         steps = g_fd.engine.piecewise_steps
         params_arr = params_2q.parameters
-        free_params = params_arr[:, g_fd.engine.proj_drift_indices].astype(np.complex128)
+        free_params = params_arr[:, g_fd.engine.proj_drift_indices].astype(
+            np.complex128
+        )
         # a real, correctly-shaped search direction (deterministic geodesic step)
         coeffs, *_ = g_fd.update_step(free_params, params_arr, steps, g_fd._split_key())
         _, fid_alias, dt_alias = g_alias.update_linesearch(params_arr, coeffs, steps)
@@ -1140,8 +1199,9 @@ class TestGeope:
         constraint = np.zeros(n_proj)
         constraint[0] = 1
         constraint[1] = 1
-        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
-                       constraints=[constraint])
+        p = _params_2q(
+            cnot, full_basis_2q, projected_basis_2q, constraints=[constraint]
+        )
         g = Geope(p)
         assert g.constraint_expander is not None
         assert g.constraint_expander.shape[0] == n_proj
@@ -1157,20 +1217,28 @@ class TestGeope:
     def test_init_with_drift(self, cnot, full_basis_2q, projected_basis_2q):
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
         I2 = np.eye(2, dtype=complex)
-        drift_basis = Basis(np.stack([np.kron(Z, I2), np.kron(I2, Z)]),
-                            labels=["ZI", "IZ"])
-        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
-                       drift_basis=drift_basis)
+        drift_basis = Basis(
+            np.stack([np.kron(Z, I2), np.kron(I2, Z)]), labels=["ZI", "IZ"]
+        )
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, drift_basis=drift_basis)
         g = Geope(p)
         assert 0 <= g.params.fidelity <= 1
 
-    def test_init_with_drift_custom_params(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_init_with_drift_custom_params(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
         I2 = np.eye(2, dtype=complex)
-        drift_basis = Basis(np.stack([np.kron(Z, I2), np.kron(I2, Z)]),
-                            labels=["ZI", "IZ"])
-        p = _params_2q(cnot, full_basis_2q, projected_basis_2q,
-                       drift_basis=drift_basis, drift_values=[0.5, 0.5])
+        drift_basis = Basis(
+            np.stack([np.kron(Z, I2), np.kron(I2, Z)]), labels=["ZI", "IZ"]
+        )
+        p = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            drift_basis=drift_basis,
+            drift_values=[0.5, 0.5],
+        )
         g = Geope(p)
         assert np.allclose(g.drift_parameters, [0.5, 0.5])
 
@@ -1180,7 +1248,9 @@ class TestGeope:
         g = Geope(params_2q, gram_schmidt_step_size=1.5)
         assert g.gram_schmidt_step_size == 1.5
 
-    def test_gram_schmidt_seeded_reproducible(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_gram_schmidt_seeded_reproducible(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         # The Gram-Schmidt fallback draws from a seeded per-instance RNG, so two
         # runs with the same seed produce identical fidelity trajectories, while
         # a different seed yields a different one (confirming the fallback fires).
@@ -1204,8 +1274,15 @@ class TestGeope:
         assert callable(gk.bound)
 
     def test_geope_has_no_null_space_methods(self, geope_2q):
-        for name in ("smooth", "smooth_frequency", "filter_frequency",
-                     "speed", "length", "robust", "bound"):
+        for name in (
+            "smooth",
+            "smooth_frequency",
+            "filter_frequency",
+            "speed",
+            "length",
+            "robust",
+            "bound",
+        ):
             assert not hasattr(geope_2q, name)
 
     # --- get_update_linesearch (internal helper exposed on instance) ------
@@ -1228,6 +1305,7 @@ class TestGeope:
 # Tests — Gecko (null-space / auxiliary-cost optimiser)
 # ---------------------------------------------------------------------------
 
+
 class TestGecko:
     # --- construction modes ----------------------------------------------
 
@@ -1245,14 +1323,16 @@ class TestGecko:
         gk = Gecko(params=geope_2q.params, geope=geope_2q)
         assert gk.engine is geope_2q.engine
 
-    def test_both_incompatible_target_raises(self, geope_2q, identity_4x4,
-                                             full_basis_2q, projected_basis_2q):
+    def test_both_incompatible_target_raises(
+        self, geope_2q, identity_4x4, full_basis_2q, projected_basis_2q
+    ):
         other = _params_2q(identity_4x4, full_basis_2q, projected_basis_2q)
         with pytest.raises(ValueError):
             Gecko(params=other, geope=geope_2q)
 
-    def test_both_incompatible_projective_raises(self, geope_2q, cnot,
-                                                 full_basis_2q, projected_basis_2q):
+    def test_both_incompatible_projective_raises(
+        self, geope_2q, cnot, full_basis_2q, projected_basis_2q
+    ):
         other = _params_2q(cnot, full_basis_2q, projected_basis_2q, projective=False)
         with pytest.raises(ValueError):
             Gecko(params=other, geope=geope_2q)
@@ -1292,7 +1372,9 @@ class TestGecko:
     def _exp_params(self, cnot, full_basis_2q, projected_basis_2q):
         n_exp = projected_basis_2q.lie_algebra_dim
         return _params_2q(
-            cnot, full_basis_2q, projected_basis_2q,
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
             param_transform=lambda phi: phi,
             n_experimental_params=n_exp,
         )
@@ -1307,7 +1389,9 @@ class TestGecko:
         gk.speed(parameter_indices=(0,), max_optimization_steps=10)
         assert abs(float(gk.params.fidelity) - f0) < 5e-3
 
-    def test_experimental_params_mode_rewraps(self, cnot, full_basis_2q, projected_basis_2q):
+    def test_experimental_params_mode_rewraps(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
         params = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
         g = Geope(params, precision=0.9999)
         g.optimize(max_steps=400)
@@ -1322,6 +1406,7 @@ class TestGecko:
 # Tests — History (opt-in run log)
 # ---------------------------------------------------------------------------
 
+
 class TestHistory:
     def test_no_history_is_none(self, params_2q):
         g = Geope(params_2q)
@@ -1334,7 +1419,12 @@ class TestHistory:
         g = Geope(params_2q, history=History())
         g.optimize(max_steps=3)
         assert set(g.history.keys()) == {
-            "parameters", "fidelities", "infidelities", "step_sizes", "steps"}
+            "parameters",
+            "fidelities",
+            "infidelities",
+            "step_sizes",
+            "steps",
+        }
 
     def test_attribute_is_item(self, params_2q):
         g = Geope(params_2q, history=History())
@@ -1368,9 +1458,11 @@ class TestHistory:
         assert g.history.best_fidelity == max(g.history.fidelities)
 
     def test_custom_logging_fn(self, params_2q):
-        g = Geope(params_2q,
-                  history=History(logging_fn=lambda gg: {"fid": float(gg.params.fidelity)}),
-                  precision=0.0)
+        g = Geope(
+            params_2q,
+            history=History(logging_fn=lambda gg: {"fid": float(gg.params.fidelity)}),
+            precision=0.0,
+        )
         g.optimize(max_steps=5)
         # only the custom column is logged
         assert list(g.history.keys()) == ["fid"]

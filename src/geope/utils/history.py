@@ -18,11 +18,13 @@ def _default_logging_fn(geope) -> dict:
     p = geope.params
     n = len(geope.history) if geope.history is not None else 0
     return {
-        "parameters":   np.array(p.parameters),   # snapshot copy of current params (full-basis)
-        "fidelities":   p.fidelity,
+        "parameters": np.array(
+            p.parameters
+        ),  # snapshot copy of current params (full-basis)
+        "fidelities": p.fidelity,
         "infidelities": 1 - p.fidelity,
-        "step_sizes":   geope.step_size,           # transient: last line-search step size
-        "steps":        n,                         # 0, 1, 2, ... derived from log length
+        "step_sizes": geope.step_size,  # transient: last line-search step size
+        "steps": n,  # 0, 1, 2, ... derived from log length
     }
 
 
@@ -47,7 +49,7 @@ class History:
         # ``logs`` must be set first so ``__getattr__`` can guard on it.
         self.logs: dict = {}
         self.logging_fn = logging_fn or _default_logging_fn
-        self.params = None   # back-ref to the Parameters, set by Geope
+        self.params = None  # back-ref to the Parameters, set by Geope
 
     def record(self, geope) -> dict:
         """Append one row by calling ``logging_fn(geope)``; returns the row."""
@@ -90,6 +92,7 @@ class History:
     def to_dataframe(self):
         """Return the recorded logs as a ``pandas.DataFrame``."""
         import pandas as pd
+
         return pd.DataFrame(self.logs)
 
     # --- Best over the trajectory -----------------------------------------
@@ -131,6 +134,7 @@ class History:
             )
         if self.params.param_transform is not None:
             import jax
+
             return np.array(jax.vmap(self.params.param_transform)(bp))
         return bp
 
@@ -144,8 +148,12 @@ class History:
         if coeffs is None:
             return {}
         params = self.params
-        proj_indices = np.array(params.projected_basis.overlap(params.basis), dtype=bool)
-        proj_coeffs = coeffs[0][proj_indices] if coeffs.ndim > 1 else coeffs[proj_indices]
+        proj_indices = np.array(
+            params.projected_basis.overlap(params.basis), dtype=bool
+        )
+        proj_coeffs = (
+            coeffs[0][proj_indices] if coeffs.ndim > 1 else coeffs[proj_indices]
+        )
 
         result: dict = {}
         for label, value in zip(params.projected_basis.labels, proj_coeffs):

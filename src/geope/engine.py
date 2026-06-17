@@ -37,12 +37,14 @@ class Engine:
         fid_U_fn: JIT-compiled function to compute fidelity against the target unitary.
     """
 
-    def __init__(self,
-                 target_unitary: np.ndarray,
-                 full_basis: Basis,
-                 projected_basis: Basis,
-                 drift_basis: Basis | None = None,
-                 piecewise_steps: int = 1) -> None:
+    def __init__(
+        self,
+        target_unitary: np.ndarray,
+        full_basis: Basis,
+        projected_basis: Basis,
+        drift_basis: Basis | None = None,
+        piecewise_steps: int = 1,
+    ) -> None:
         """Initialise the Engine.
 
         Args:
@@ -60,21 +62,32 @@ class Engine:
         self.piecewise_steps = piecewise_steps
 
         # Get the projected indices in the full space
-        self.projected_indices = np.array(projected_basis.overlap(full_basis), dtype=bool)
+        self.projected_indices = np.array(
+            projected_basis.overlap(full_basis), dtype=bool
+        )
         if drift_basis is None:
             self.drift_indices = np.full(full_basis.lie_algebra_dim, False)
         else:
-            self.drift_indices = np.array(drift_basis.overlap(full_basis),
-                                          dtype=bool)
+            self.drift_indices = np.array(drift_basis.overlap(full_basis), dtype=bool)
         self.proj_drift_indices = self.projected_indices + self.drift_indices
-        self.proj_drift_basis = Basis(full_basis.basis[self.projected_indices + self.drift_indices], labels=list(
-            np.array(full_basis.labels)[self.projected_indices + self.drift_indices]))
+        self.proj_drift_basis = Basis(
+            full_basis.basis[self.projected_indices + self.drift_indices],
+            labels=list(
+                np.array(full_basis.labels)[self.projected_indices + self.drift_indices]
+            ),
+        )
 
-        self.proj_indices_projdrift_basis = np.delete(self.projected_indices, ~self.proj_drift_indices)
-        self.drift_indices_projdrift_basis = np.delete(self.drift_indices, ~self.proj_drift_indices)
+        self.proj_indices_projdrift_basis = np.delete(
+            self.projected_indices, ~self.proj_drift_indices
+        )
+        self.drift_indices_projdrift_basis = np.delete(
+            self.drift_indices, ~self.proj_drift_indices
+        )
 
         # Get the Jax functions from the helper functions
-        self.compute_U_fn = jax.jit(get_compute_matrices_params_list_fn(self.proj_drift_basis.basis))
+        self.compute_U_fn = jax.jit(
+            get_compute_matrices_params_list_fn(self.proj_drift_basis.basis)
+        )
         self.fid_U_fn = jax.jit(get_fidelity_fn(target_unitary))
 
     def set_piecewise_steps(self, piecewise_steps: int) -> None:
@@ -105,7 +118,9 @@ def fidelity(unitary: Array, target_unitary: Array) -> Array:
     Returns:
         A scalar fidelity ``Array`` in the range $[0, 1]$.
     """
-    return jnp.abs(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+    return jnp.abs(jnp.einsum("ji,ji->", target_unitary.conj(), unitary)) / len(
+        target_unitary[0]
+    )
 
 
 def get_fidelity_fn(target_unitary: Array) -> Callable[[Array], Array]:
@@ -131,7 +146,9 @@ def infidelity(unitary: Array, target_unitary: Array) -> Array:
     Returns:
         A scalar infidelity ``Array`` in $[0, 1]$.
     """
-    return 1 - jnp.abs(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+    return 1 - jnp.abs(jnp.einsum("ji,ji->", target_unitary.conj(), unitary)) / len(
+        target_unitary[0]
+    )
 
 
 def get_infidelity_fn(target_unitary: Array) -> Callable[[Array], Array]:
@@ -160,7 +177,9 @@ def fidelity_full(unitary: Array, target_unitary: Array) -> Array:
     Returns:
         A scalar fidelity ``Array`` in $[-1, 1]$.
     """
-    return jnp.real(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+    return jnp.real(jnp.einsum("ji,ji->", target_unitary.conj(), unitary)) / len(
+        target_unitary[0]
+    )
 
 
 def get_fidelity_full_fn(target_unitary: Array) -> Callable[[Array], Array]:
@@ -185,7 +204,9 @@ def infidelity_full(unitary: Array, target_unitary: Array) -> Array:
     Returns:
         A scalar infidelity ``Array`` in $[0, 2]$.
     """
-    return 1 - jnp.real(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+    return 1 - jnp.real(jnp.einsum("ji,ji->", target_unitary.conj(), unitary)) / len(
+        target_unitary[0]
+    )
 
 
 def get_infidelity_full_fn(target_unitary: Array) -> Callable[[Array], Array]:
@@ -215,6 +236,7 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
     Returns:
         The product unitary ``Array`` of shape ``(d, d)``.
     """
+
     def step(U, params):
         A = jnp.tensordot(params, basis, axes=[[-1], [0]])
         Ui = jax.scipy.linalg.expm(1j * A)
