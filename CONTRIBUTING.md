@@ -9,19 +9,25 @@ Before opening a new issue, search the [issue tracker](../../issues) to see if i
 ### Contributing Code
 
 1. **Fork** the repository and clone your fork locally.
-2. **Create a branch** for your change:
+2. **Install the development tooling** and the [pre-commit](https://pre-commit.com) hooks. The hooks run [Black](https://black.readthedocs.io) on every commit so contributions are consistently formatted before they reach CI:
+   ```bash
+   pip install -e ".[dev]"
+   pre-commit install
+   ```
+   You can format the whole repository on demand with `pre-commit run --all-files`.
+3. **Create a branch** for your change:
    ```bash
    git checkout -b my-feature-or-fix
    ```
-3. **Make your changes** and ensure existing tests still pass:
+4. **Make your changes** and ensure existing tests still pass:
    ```bash
    pytest
    ```
-4. **Commit** your changes with a clear message:
+5. **Commit** your changes with a clear message:
    ```bash
    git commit -m "Short description of what changed"
    ```
-5. **Push** to your fork and open a **pull request** against `main`. Reference the related issue (e.g. `Closes #42`) in the PR description.
+6. **Push** to your fork and open a **pull request** against `main`. Reference the related issue (e.g. `Closes #42`) in the PR description.
 
 ## Publish Package
 
