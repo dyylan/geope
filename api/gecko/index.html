@@ -977,18 +977,15 @@
 parameters within the Jacobian null space so that fidelity is preserved
 while an auxiliary cost is improved — smoothing, frequency shaping,
 pulse length, gate speed, robustness, or parameter bounds.</p>
-<p>A <code>Gecko</code> always needs a built <code>GeopeEngine</code>. Constructing one is
-expensive (JIT compilation), so a <code>Gecko</code> can either build its own
-engine from a <code>Parameters</code> object, or borrow a <code>Geope</code>'s already-built
-engine:</p>
-<ul>
-<li><code>Gecko(params=p)</code> — build a fresh engine from <code>p</code>.</li>
-<li><code>Gecko(geope=g)</code> — reuse <code>g.engine</code> and <code>g.params</code> directly.</li>
-<li><code>Gecko(params=p, geope=g)</code> — reuse <code>g.engine</code> but first verify it
-  is compatible with the separately-supplied <code>p</code> (raises <code>ValueError</code>
-  on mismatch).</li>
-<li><code>Gecko()</code> — raises <code>ValueError</code>.</li>
-</ul>
+<p>A <code>Gecko</code> is constructed from a <code>Parameters</code> object — the same object a
+<code>Geope</code> uses. The optimisation functions are read off <code>params</code> (built
+lazily and cached there), so to post-process a <code>Geope</code> solution, pass that
+<code>Geope</code>'s <code>params</code>::</p>
+<pre><code>g = Geope(p); g.optimize()
+Gecko(g.params).smooth(...)
+</code></pre>
+<p>Because the functions are cached on <code>params</code>, the <code>Gecko</code> reuses the
+<code>Geope</code>'s already-compiled traces rather than recompiling.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1008,16 +1005,6 @@ engine:</p>
             <td>
               <div class="doc-md-description">
                 <p>The bound <code>Parameters</code> object (live optimisation state).</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.gecko.Gecko.engine">engine</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The <code>GeopeEngine</code> (reused from a <code>Geope</code> or freshly built).</p>
               </div>
             </td>
           </tr>
@@ -1075,13 +1062,11 @@ experimental / <code>param_transform</code> mode).</p>
       </tbody>
     </table>
         <p>.. note::
-    In the <code>geope</code> and <code>params+geope</code> reuse modes the engine and
-    <code>Parameters</code> are <strong>shared</strong> with the source <code>Geope</code>. A null-space
-    pass with <code>piecewise_steps_multiplier &gt; 1</code> subdivides the pulse and
-    advances <code>params.parameters</code> / <code>params.piecewise_steps</code> /
-    <code>engine.piecewise_steps</code> together — so the shared <code>Geope</code>'s state
-    moves forward too, and a later <code>geope.optimize()</code> continues from
-    the subdivided pulse.</p>
+    The <code>Parameters</code> object is <strong>shared</strong> with the source <code>Geope</code>. A
+    null-space pass with <code>piecewise_steps_multiplier &gt; 1</code> subdivides the
+    pulse and advances <code>params.parameters</code> / <code>params.piecewise_steps</code>
+    in place — so the shared <code>Geope</code>'s state moves forward too, and a later
+    <code>geope.optimize()</code> continues from the subdivided pulse.</p>
 
 
 
@@ -1210,7 +1195,7 @@ errors defaults to 'strict'.</p>
 
 
 <h5 id="geope.gecko.Gecko.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">geope</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#geope.gecko.Gecko.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1236,33 +1221,17 @@ errors defaults to 'strict'.</p>
                 <code>params</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a> | None</code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Parameters</code> instance. Required unless <code>geope</code> is
-given (a <code>Geope</code> already carries its own <code>geope.params</code>).</p>
+                <p>A <code>Parameters</code> instance — the same object a <code>Geope</code> uses.
+Pass a <code>Geope</code>'s <code>geope.params</code> to post-process its solution;
+the cached optimisation functions are reused.</p>
               </div>
             </td>
             <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>geope</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.geope.Geope" href="../geope/#geope.geope.Geope">Geope</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An optional <code>Geope</code> whose engine (and, when <code>params</code> is
-omitted, whose <code>Parameters</code>) is reused instead of rebuilding.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
+                <em>required</em>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -1313,12 +1282,11 @@ trajectory is recorded into it.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="ValueError">ValueError</span></code>
+                  <code><span title="TypeError">TypeError</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If neither <code>params</code> nor <code>geope</code> is given, or if
-both are given but the engine is incompatible with <code>params</code>.</p>
+                <p>If <code>params</code> is not a <code>Parameters</code> instance.</p>
               </div>
             </td>
           </tr>

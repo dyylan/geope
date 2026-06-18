@@ -908,11 +908,11 @@
 <tbody>
 <tr>
 <td><a href="parameters/">parameters</a></td>
-<td>The <code>Parameters</code> state object — the central hub of the Basis → Parameters → Optimizer pipeline.</td>
+<td>The <code>Parameters</code> state object — the central hub of the Basis → Parameters → Optimizer pipeline, and the source of the (lazily built, cached) optimisation functions.</td>
 </tr>
 <tr>
 <td><a href="geope/">geope</a></td>
-<td>The top-level <code>Geope</code> optimiser and <code>GeopeEngine</code> for geodesic quantum gate synthesis.</td>
+<td>The top-level <code>Geope</code> optimiser for geodesic quantum gate synthesis.</td>
 </tr>
 <tr>
 <td><a href="gecko/">gecko</a></td>
@@ -920,7 +920,7 @@
 </tr>
 <tr>
 <td><a href="engine/">engine</a></td>
-<td>The base <code>Engine</code> for compiling quantum unitaries using Lie-algebraic methods, plus fidelity helpers.</td>
+<td>Pure function factories for the optimisation primitives (unitary, fidelity, geodesic, Jacobian, Hessian, gammas/omegas).</td>
 </tr>
 <tr>
 <td><a href="lie/">lie</a></td>

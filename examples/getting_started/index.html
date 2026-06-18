@@ -1144,7 +1144,7 @@
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Drift basis labels:     </span><span class="si">{</span><span class="n">drift_basis</span><span class="o">.</span><span class="n">labels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="3-create-the-parameters-and-optimiser">3. Create the parameters and optimiser<a class="headerlink" href="#3-create-the-parameters-and-optimiser" title="Permanent link">¤</a></h2>
-<p><code>Parameters</code> bundles the problem definition — the bases, target, initial/drift values, number of piecewise steps and seed. Pass it to <code>Geope</code>, which builds the <code>GeopeEngine</code>, precompiles the JAX functions (unitary computation, Jacobian, geodesic Hamiltonian, fidelity) and wraps them in an optimisation loop.</p>
+<p><code>Parameters</code> bundles the problem definition — the bases, target, initial/drift values, number of piecewise steps and seed. Pass it to <code>Geope</code>, which builds the JAX functions (cached on <code>Parameters</code>, compiled lazily on first <code>optimize()</code>) (unitary computation, Jacobian, geodesic Hamiltonian, fidelity) and wraps them in an optimisation loop.</p>
 <p>An optional <code>History</code> logger records the per-step trajectory (parameters, fidelities, …). Without it, only the live/final state on <code>Parameters</code> is kept.</p>
 <p>The number of piecewise steps is set on <code>Parameters</code> (<code>piecewise_steps</code>).</p>
 <div class="highlight"><pre><span></span><code><span class="n">params</span> <span class="o">=</span> <span class="n">Parameters</span><span class="p">(</span>

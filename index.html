@@ -1061,7 +1061,7 @@
 <li><strong>Robustness</strong> — reduce sensitivity to control errors (<code>robust</code>).</li>
 <li><strong>Bounds</strong> — push parameters into hardware-allowed ranges (<code>bound</code>).</li>
 </ul>
-<p>Because all of these passes preserve fidelity by construction, they can be composed freely after optimisation. A <code>Gecko</code> object either builds its own engine from a <code>Parameters</code> object or reuses <code>Geope</code> objects engine.</p>
+<p>Because all of these passes preserve fidelity by construction, they can be composed freely after optimisation. A <code>Gecko</code> is constructed from a <code>Parameters</code> object — pass a <code>Geope</code>'s <code>geope.params</code> to reuse its cached, already-compiled functions.</p>
 <p>The Gecko method is described in the paper:</p>
 <blockquote>
 <p>D. Lewis and R. Wiersema, <em>Pulse Quality Optimisation in Quantum Optimal Control</em>, <a href="https://arxiv.org/abs/2604.25768">arXiv:2604.25768</a> (2026).</p>
@@ -1082,15 +1082,11 @@
 </tr>
 <tr>
 <td><code>Parameters</code></td>
-<td>State object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and <code>param_transform</code>. The single user-facing entry point.</td>
+<td>State object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and <code>param_transform</code>. The single user-facing entry point; it also lazily builds and caches the optimisation functions (unitary, fidelity, Jacobian, geodesic, …).</td>
 </tr>
 <tr>
-<td><code>Engine</code></td>
-<td>Base engine that compiles JAX functions for computing unitaries and fidelities from a given basis.</td>
-</tr>
-<tr>
-<td><code>GeopeEngine</code></td>
-<td>Extends <code>Engine</code> with JIT-compiled Jacobian, geodesic, and projection functions. Built internally by <code>Geope</code>.</td>
+<td><code>engine</code></td>
+<td>Pure function factories for the optimisation primitives (unitary, fidelity, geodesic Hamiltonian, Jacobian, Hessian, gammas/omegas). They return un-jitted callables; JIT happens once when the optimiser is first run.</td>
 </tr>
 <tr>
 <td><code>Geope</code></td>
@@ -1098,7 +1094,7 @@
 </tr>
 <tr>
 <td><code>Gecko</code></td>
-<td>Kernel ("auxiliary cost") optimiser that refines a solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Builds its own engine from a <code>Parameters</code>, or reuses a <code>Geope</code> engine.</td>
+<td>Kernel ("auxiliary cost") optimiser that refines a solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Constructed from a <code>Parameters</code> object (pass a <code>Geope</code>'s <code>geope.params</code> to reuse its cached, already-compiled functions).</td>
 </tr>
 <tr>
 <td><code>utils</code></td>

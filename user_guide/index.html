@@ -669,28 +669,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#engine-and-optimiser" class="md-nav__link">
+  <a href="#metadata-functions-and-optimiser" class="md-nav__link">
     <span class="md-ellipsis">
-      Engine and optimiser
+      Metadata, functions, and optimiser
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Engine and optimiser">
+    <nav class="md-nav" aria-label="Metadata, functions, and optimiser">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#engine-enginepy" class="md-nav__link">
+  <a href="#algebraic-metadata-cached-on-parameters" class="md-nav__link">
     <span class="md-ellipsis">
-      Engine (engine.py)
+      Algebraic metadata (cached on Parameters)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#geopeengine-geopepy" class="md-nav__link">
+  <a href="#optimisation-functions-enginepy-cached-on-parameters" class="md-nav__link">
     <span class="md-ellipsis">
-      GeopeEngine (geope.py)
+      Optimisation functions (engine.py, cached on Parameters)
     </span>
   </a>
   
@@ -1404,28 +1404,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#engine-and-optimiser" class="md-nav__link">
+  <a href="#metadata-functions-and-optimiser" class="md-nav__link">
     <span class="md-ellipsis">
-      Engine and optimiser
+      Metadata, functions, and optimiser
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Engine and optimiser">
+    <nav class="md-nav" aria-label="Metadata, functions, and optimiser">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#engine-enginepy" class="md-nav__link">
+  <a href="#algebraic-metadata-cached-on-parameters" class="md-nav__link">
     <span class="md-ellipsis">
-      Engine (engine.py)
+      Algebraic metadata (cached on Parameters)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#geopeengine-geopepy" class="md-nav__link">
+  <a href="#optimisation-functions-enginepy-cached-on-parameters" class="md-nav__link">
     <span class="md-ellipsis">
-      GeopeEngine (geope.py)
+      Optimisation functions (engine.py, cached on Parameters)
     </span>
   </a>
   
@@ -1671,18 +1671,23 @@ U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\a
 <p>where each <span class="arithmatex">\(H_g = \sum_k \phi_{g,k}\,G_k\)</span> is a linear combination of basis generators on segment <span class="arithmatex">\(g\)</span>.</p>
 <p>The core algorithm is the <strong>geodesic method</strong>: at each step it computes the shortest path on <span class="arithmatex">\(U(d)\)</span> from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.</p>
 <p>The entry point is <code>Parameters</code> — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, <code>param_transform</code>, bounds, init values, seed, projective flag). Pass it to <code>Geope</code> and call <code>.optimize(max_steps=...)</code>. The returned <code>Parameters</code> carries the live/final <code>parameters</code> and <code>fidelity</code> (and <code>to_dict()</code>); the full run trajectory and <code>best_*</code> helpers live on an opt-in <code>History</code> logger (<code>geope.history</code>).</p>
-<p>The lower-level classes <code>Engine</code> and <code>GeopeEngine</code> are still available for inspection and for advanced users who want to build the JIT-compiled functions directly, but <code>Geope</code> itself only accepts a <code>Parameters</code>.</p>
+<p>The optimisation functions themselves (unitary computation, fidelity, Jacobian,
+geodesic Hamiltonian, gammas/omegas, Hessian) are <strong>pure function factories</strong> in
+<code>engine.py</code>. They are built lazily and cached on the <code>Parameters</code> object on first
+use, so there is no separate engine object — <code>Geope</code>, <code>Grape</code> and <code>Gecko</code> all read
+the functions straight off the (shared) <code>Parameters</code>. The factories return
+un-jitted callables; JIT compilation happens once, when the optimiser's
+<code>update_step</code> is first traced inside <code>optimize()</code>.</p>
 <h2 id="class-hierarchy">Class hierarchy<a class="headerlink" href="#class-hierarchy" title="Permanent link">¤</a></h2>
 <div class="highlight"><pre><span></span><code>Basis, Hamiltonian, Unitary      (lie.py)
 
-Engine                           (engine.py)
-  └── GeopeEngine                (geope.py)
-
+engine.py  — pure function factories (get_jacobian_fn, get_geodesic_hamiltonian_fn,
+             get_gammas_and_omegas_fn, get_hessian_fn, fidelity helpers, …)
+                ↓ built lazily &amp; cached on
 Parameters                       (parameters.py)
                 ↘
-                  Geope          (geope.py)
-                ↗
-GeopeEngine
+                  Geope / Grape  (geope.py / grape.py)
+                  Gecko          (gecko.py)
 </code></pre></div>
 <h2 id="lie-group-classes-liepy">Lie group classes (<code>lie.py</code>)<a class="headerlink" href="#lie-group-classes-liepy" title="Permanent link">¤</a></h2>
 <h3 id="basis"><code>Basis</code><a class="headerlink" href="#basis" title="Permanent link">¤</a></h3>
@@ -1769,7 +1774,7 @@ GeopeEngine
 </table>
 <p>Key methods:</p>
 <ul>
-<li><code>overlap(other)</code> — boolean mask over <code>other</code>'s basis, true where there is nonzero trace overlap with <code>self</code>. Used by <code>Engine</code> to build index masks.</li>
+<li><code>overlap(other)</code> — boolean mask over <code>other</code>'s basis, true where there is nonzero trace overlap with <code>self</code>. Used by <code>Parameters</code> to build its index masks.</li>
 <li><code>verify()</code> — orthogonality check under the trace inner product.</li>
 <li><code>linear_span(parameters)</code> — <span class="arithmatex">\(\sum_i \phi_i G_i\)</span>.</li>
 <li><code>generate_parameter_list(parameter_map)</code> — converts a dict like <code>{1: {"x": 0.5}, (1,2): {"zz": 0.3}}</code> to a flat parameter array.</li>
@@ -2076,51 +2081,44 @@ GeopeEngine
 </tbody>
 </table>
 <p>The full run trajectory and the <code>best_*</code> helpers live on the opt-in <a href="#history-historypy"><code>History</code></a> logger, not on <code>Parameters</code>.</p>
-<h2 id="engine-and-optimiser">Engine and optimiser<a class="headerlink" href="#engine-and-optimiser" title="Permanent link">¤</a></h2>
-<h3 id="engine-enginepy"><code>Engine</code> (<code>engine.py</code>)<a class="headerlink" href="#engine-enginepy" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">Engine</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span>
-       <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</code></pre></div>
-<p>Computes index masks between the three bases and JIT-compiles the unitary and fidelity functions.</p>
-<p>Index masks (boolean arrays):</p>
+<h2 id="metadata-functions-and-optimiser">Metadata, functions, and optimiser<a class="headerlink" href="#metadata-functions-and-optimiser" title="Permanent link">¤</a></h2>
+<h3 id="algebraic-metadata-cached-on-parameters">Algebraic metadata (cached on <code>Parameters</code>)<a class="headerlink" href="#algebraic-metadata-cached-on-parameters" title="Permanent link">¤</a></h3>
+<p><code>Parameters</code> derives the index masks relating the three bases as cached
+properties (computed once from <code>basis</code> / <code>projected_basis</code> / <code>drift_basis</code>):</p>
 <ul>
-<li><code>projected_indices</code> — shape <span class="arithmatex">\((K_{\text{full}},)\)</span>, which full-basis elements are controllable (<code>projected_basis.overlap(full_basis)</code>).</li>
+<li><code>projected_indices</code> — shape <span class="arithmatex">\((K_{\text{full}},)\)</span>, which full-basis elements are controllable (<code>projected_basis.overlap(basis)</code>).</li>
 <li><code>drift_indices</code> — shape <span class="arithmatex">\((K_{\text{full}},)\)</span>, which are fixed drift.</li>
 <li><code>proj_drift_indices</code> = <code>projected_indices | drift_indices</code>.</li>
 <li><code>proj_indices_projdrift_basis</code> — projected mask within the proj+drift subspace, shape <span class="arithmatex">\((K_{\text{pd}},)\)</span>.</li>
 <li><code>drift_indices_projdrift_basis</code> — drift mask within the proj+drift subspace.</li>
-</ul>
-<p>Derived basis:</p>
-<ul>
 <li><code>proj_drift_basis</code> — <code>Basis</code> containing only the projected + drift elements; used for all JIT computations.</li>
 </ul>
-<p>JIT functions:</p>
+<h3 id="optimisation-functions-enginepy-cached-on-parameters">Optimisation functions (<code>engine.py</code>, cached on <code>Parameters</code>)<a class="headerlink" href="#optimisation-functions-enginepy-cached-on-parameters" title="Permanent link">¤</a></h3>
+<p>The optimisation primitives are <strong>pure function factories</strong> in <code>engine.py</code>. Each
+is built lazily and cached on the <code>Parameters</code> object on first access, so the
+optimisers read them as <code>params.&lt;name&gt;</code> (there is no engine object). They return
+<strong>un-jitted</strong> callables that fuse into the optimiser's <code>@jax.jit update_step</code> —
+so compilation happens once, on the first <code>optimize()</code> call, not at construction.</p>
 <ul>
-<li><code>compute_U_fn(params_list)</code> — scans over piecewise steps via <code>jax.lax.scan</code>:
-  <span class="arithmatex">\(\,U = \prod_g \exp\!\bigl(i \sum_i \phi_{g,i}\,G_i\bigr).\)</span>
-  Input shape: <span class="arithmatex">\((N_g, K_{\text{pd}})\)</span>.</li>
-<li><code>fid_U_fn(U)</code> — <span class="arithmatex">\(|\mathrm{Tr}(U_T^\dagger U)|/d\)</span> when <code>projective=True</code>, <span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d\)</span> when <code>projective=False</code>.</li>
+<li><code>params.compute_U_fn(params_list)</code> — scans over piecewise steps via <code>jax.lax.scan</code>:
+  <span class="arithmatex">\(\,U = \prod_g \exp\!\bigl(i \sum_i \phi_{g,i}\,G_i\bigr).\)</span> Input shape: <span class="arithmatex">\((N_g, K_{\text{pd}})\)</span>.</li>
+<li><code>params.fid_U_fn(U)</code> — <span class="arithmatex">\(|\mathrm{Tr}(U_T^\dagger U)|/d\)</span> when <code>projective=True</code>, <span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d\)</span> when <code>projective=False</code>.</li>
+<li><code>params.project_omegas_fn</code> — projects matrices onto the full Pauli basis via trace inner products <span class="arithmatex">\(\mathrm{Tr}(G_i M)\)</span>. For <span class="arithmatex">\(n &gt; 5\)</span> uses on-the-fly batched projection to manage memory.</li>
+<li><code>params.jac_fn</code> — Jacobian <span class="arithmatex">\(\partial U/\partial\phi_{g,k}\)</span> (JAX autodiff, <code>holomorphic=True</code>; a real/imag-split Jacobian under <code>param_transform</code>).</li>
+<li><code>params.geo_fn</code> — geodesic tangent at <span class="arithmatex">\(U\)</span>: <span class="arithmatex">\(U \cdot \bigl(-i\log(U^\dagger U_T)\bigr)\)</span>, with the global-phase generator subtracted when <code>projective=True</code>.</li>
+<li><code>params.gammas_and_omegas</code> — the combined geodesic-coefficients-and-Jacobian-projection used by the GEOPE update step.</li>
+<li><code>params.infid_U_fn</code>, <code>params.infid_fn</code>, <code>params.grad_fn</code>, <code>params.hess_fn</code> — infidelity helpers; <code>grad_fn</code>/<code>hess_fn</code> are used by GRAPE.</li>
 </ul>
-<h3 id="geopeengine-geopepy"><code>GeopeEngine</code> (<code>geope.py</code>)<a class="headerlink" href="#geopeengine-geopepy" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">GeopeEngine</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">full_basis</span><span class="p">,</span> <span class="n">projected_basis</span><span class="p">,</span>
-            <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</code></pre></div>
-<p>Extends <code>Engine</code> with geodesic-specific JIT functions:</p>
-<ul>
-<li><code>project_omegas_fn</code> — projects matrices onto the full Pauli basis via trace inner products <span class="arithmatex">\(\mathrm{Tr}(G_i M)\)</span>. For <span class="arithmatex">\(n &gt; 5\)</span> uses on-the-fly batched projection (<code>batch_size</code>) to manage memory.</li>
-<li><code>jac_fn</code> — Jacobian <span class="arithmatex">\(\partial U/\partial\phi_{g,k}\)</span>. For <span class="arithmatex">\(n \le 5\)</span>, JAX autodiff with <code>holomorphic=True</code>. For <span class="arithmatex">\(n &gt; 5\)</span>, manual block-exponential derivative via <code>dexpm.py</code>.</li>
-<li><code>geo_fn</code> — geodesic tangent at <span class="arithmatex">\(U\)</span>: <span class="arithmatex">\(U \cdot \bigl(-i\log(U^\dagger U_T)\bigr)\)</span>, with the global-phase generator subtracted when <code>projective=True</code>.</li>
-<li><code>infid_U_fn</code> — bound to <span class="arithmatex">\(1 - F_{\text{proj}}\)</span> or <span class="arithmatex">\(1 - F_{\text{full}}\)</span> to match <code>projective</code>.</li>
-<li><code>infid_fn</code>, <code>grad_fn</code> — infidelity of <span class="arithmatex">\(\phi\)</span> and its gradient (used by fallback methods and by the line search).</li>
-</ul>
+<p>Because the functions are cached on <code>Parameters</code>, sharing one <code>Parameters</code>
+between a <code>Geope</code> and a <code>Gecko</code> reuses the identical callables — so JAX reuses
+the compiled traces instead of recompiling.</p>
 <h3 id="geope-geopepy"><code>Geope</code> (<code>geope.py</code>)<a class="headerlink" href="#geope-geopepy" title="Permanent link">¤</a></h3>
 <div class="highlight"><pre><span></span><code><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span>
       <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
       <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span>
       <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
-<p><code>Geope</code> requires a <code>Parameters</code> object as its single positional argument. The engine, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and <code>param_transform</code> are all read from <code>params</code>. Passing a raw <code>GeopeEngine</code> raises <code>TypeError</code>.</p>
+<p><code>Geope</code> requires a <code>Parameters</code> object as its single positional argument. The optimisation functions, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and <code>param_transform</code> are all read from <code>params</code>. Passing anything other than a <code>Parameters</code> raises <code>TypeError</code>.</p>
 <table>
 <thead>
 <tr>
@@ -2373,14 +2371,13 @@ F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 </ul>
 <h2 id="null-space-optimisation-gecko">Null-space optimisation (<code>Gecko</code>)<a class="headerlink" href="#null-space-optimisation-gecko" title="Permanent link">¤</a></h2>
 <p>After the main GEOPE loop has converged, the null space of the Jacobian <span class="arithmatex">\(\omega\)</span> represents directions in parameter space that don't change the unitary to first order. Stepping along these lets you optimise secondary objectives while preserving fidelity.</p>
-<p>These passes live on a separate optimiser, <strong><code>Gecko</code></strong>, which post-processes a solution. A <code>Gecko</code> needs a built <code>GeopeEngine</code>; building one is expensive, so it can either build its own from a <code>Parameters</code>, or borrow a <code>Geope</code>'s already-built engine:</p>
+<p>These passes live on a separate optimiser, <strong><code>Gecko</code></strong>, which post-processes a solution. A <code>Gecko</code> is constructed from a <code>Parameters</code> object — the same object a <code>Geope</code> uses:</p>
 <ul>
-<li><code>Gecko(params=p)</code> — build a fresh engine from <code>p</code> and operate on whatever solution <code>p.parameters</code> holds.</li>
-<li><code>Gecko(geope=g)</code> — reuse <code>g.engine</code> and <code>g.params</code> (convenient straight after <code>g.optimize(...)</code>).</li>
-<li><code>Gecko(params=p, geope=g)</code> — reuse <code>g.engine</code> but verify it is compatible with the separately-supplied <code>p</code> (raises <code>ValueError</code> on mismatch).</li>
+<li><code>Gecko(p)</code> — operate on whatever solution <code>p.parameters</code> holds.</li>
+<li><code>Gecko(g.params)</code> — post-process a <code>Geope</code> result straight after <code>g.optimize(...)</code>. Because the optimisation functions are cached on <code>params</code>, this reuses <code>Geope</code>'s already-compiled functions rather than recompiling.</li>
 </ul>
-<p><strong>The solution does not have to come from <code>Geope</code>.</strong> <code>Gecko</code> operates on the current <code>params.parameters</code> — that array can be a <code>Geope</code> result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a <code>Parameters</code> object describing the same system (<code>basis</code>, <code>projected_basis</code>/<code>drift_basis</code>, <code>target</code>, <code>piecewise_steps</code>, and any <code>param_transform</code>) and call <code>Gecko(params=p)</code>; it builds its own engine and refines the imported solution while preserving its fidelity. (When <code>params</code> has never been evaluated, <code>Gecko</code> computes the baseline fidelity itself on construction.) The <code>geope=</code> modes are purely a convenience/efficiency option for when you already have a <code>Geope</code> whose engine you can reuse.</p>
-<p>In the reuse modes the engine and <code>Parameters</code> are shared with the source <code>Geope</code>, so a pass with <code>piecewise_steps_multiplier &gt; 1</code> advances the shared state forward (<code>params.parameters</code>, <code>params.piecewise_steps</code>, and <code>engine.piecewise_steps</code> all move to the new count together).</p>
+<p><strong>The solution does not have to come from <code>Geope</code>.</strong> <code>Gecko</code> operates on the current <code>params.parameters</code> — that array can be a <code>Geope</code> result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a <code>Parameters</code> object describing the same system (<code>basis</code>, <code>projected_basis</code>/<code>drift_basis</code>, <code>target</code>, <code>piecewise_steps</code>, and any <code>param_transform</code>) and call <code>Gecko(p)</code>; it refines the imported solution while preserving its fidelity. (When <code>params</code> has never been evaluated, <code>Gecko</code> computes the baseline fidelity itself on construction.)</p>
+<p>When you pass a <code>Geope</code>'s <code>params</code>, the <code>Parameters</code> object is shared with that <code>Geope</code>, so a pass with <code>piecewise_steps_multiplier &gt; 1</code> advances the shared state forward (<code>params.parameters</code> and <code>params.piecewise_steps</code> move to the new count together).</p>
 <h3 id="available-objectives-methods-on-gecko">Available objectives (methods on <code>Gecko</code>)<a class="headerlink" href="#available-objectives-methods-on-gecko" title="Permanent link">¤</a></h3>
 <table>
 <thead>
@@ -2489,8 +2486,8 @@ projected_basis  (dim K_proj)    — only the controllable elements
 <span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>       <span class="c1"># best over the trajectory</span>
 
 <span class="c1"># Null-space passes — fidelity preserved — live on Gecko, which</span>
-<span class="c1"># reuses the converged optimiser&#39;s engine and Parameters.</span>
-<span class="n">gk</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Gecko</span><span class="p">(</span><span class="n">geope</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+<span class="c1"># shares the converged optimiser&#39;s Parameters (and its cached functions).</span>
+<span class="n">gk</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Gecko</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
 <span class="n">gk</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
 <span class="n">gk</span><span class="o">.</span><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
 <span class="n">gk</span><span class="o">.</span><span class="n">bound</span><span class="p">({</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)},</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">)</span>
@@ -2513,7 +2510,7 @@ or an imported result — into a <code>Parameters</code> describing the same sys
     <span class="n">init_values</span><span class="o">=</span><span class="n">phi</span><span class="p">,</span>          <span class="c1"># the externally-found solution</span>
 <span class="p">)</span>
 
-<span class="n">gk</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Gecko</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)</span>   <span class="c1"># builds its own engine; no Geope needed</span>
+<span class="n">gk</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Gecko</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>          <span class="c1"># no Geope needed</span>
 <span class="n">gk</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">gk</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span><span class="p">))</span>  <span class="c1"># baseline computed on construction, preserved by the pass</span>
 </code></pre></div>
