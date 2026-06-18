@@ -47,6 +47,7 @@ CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=
 # Jacobian factory
 # ---------------------------------------------------------------------------
 
+
 class TestJacobianFactory:
     def test_matches_finite_difference_1q(self):
         basis = _pauli_basis_1q()
@@ -73,6 +74,7 @@ class TestJacobianFactory:
 # ---------------------------------------------------------------------------
 # Hessian factory
 # ---------------------------------------------------------------------------
+
 
 class TestHessianFactory:
     def test_matches_jax_hessian_quadratic(self):
@@ -101,14 +103,19 @@ class TestHessianFactory:
 # Gammas / Omegas factories — split halves match the combined function
 # ---------------------------------------------------------------------------
 
+
 class TestGammasOmegas:
     @pytest.fixture
     def pieces(self):
         # Source the (un-jitted) building blocks the way the optimiser does:
         # straight off a Parameters object — no engine involved.
-        p = Parameters(basis=construct_full_pauli_basis(2),
-                       projected_basis=construct_Heisenberg_pauli_basis(2),
-                       target=CNOT, piecewise_steps=2, seed=0)
+        p = Parameters(
+            basis=construct_full_pauli_basis(2),
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+            piecewise_steps=2,
+            seed=0,
+        )
         proj_indices = p.proj_indices_projdrift_basis
         has_pd = p.proj_drift_basis.lie_algebra_dim > 0
         K = p.proj_drift_basis.lie_algebra_dim
@@ -121,9 +128,17 @@ class TestGammasOmegas:
         gammas = get_gammas_fn(p.compute_U_fn, p.geo_fn, p.project_omegas_fn)
         omegas = get_omegas_fn(p.jac_fn, p.project_omegas_fn, proj_indices, has_pd)
         combined = get_gammas_and_omegas_fn(
-            p.compute_U_fn, p.jac_fn, p.geo_fn, p.project_omegas_fn, proj_indices, has_pd)
+            p.compute_U_fn,
+            p.jac_fn,
+            p.geo_fn,
+            p.project_omegas_fn,
+            proj_indices,
+            has_pd,
+        )
         g_c, o_c = combined(free, key)
-        np.testing.assert_allclose(np.array(gammas(free, key)), np.array(g_c), atol=1e-10)
+        np.testing.assert_allclose(
+            np.array(gammas(free, key)), np.array(g_c), atol=1e-10
+        )
         np.testing.assert_allclose(np.array(omegas(free)), np.array(o_c), atol=1e-10)
 
     def test_omega_restriction_shape(self, pieces):
@@ -138,6 +153,7 @@ class TestGammasOmegas:
 # ---------------------------------------------------------------------------
 # Parameters-derived metadata (the algebraic index masks)
 # ---------------------------------------------------------------------------
+
 
 class TestParametersMetadata:
     def test_no_drift_masks(self):
@@ -154,6 +170,7 @@ class TestParametersMetadata:
 
     def test_with_drift_masks(self):
         from geope.lie import Basis
+
         fb = construct_full_pauli_basis(2)
         pb = construct_Heisenberg_pauli_basis(2)
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
@@ -174,17 +191,22 @@ class TestParametersMetadata:
 # Lazy build / caching: functions are not built until accessed, then memoised
 # ---------------------------------------------------------------------------
 
+
 class TestLazyCaching:
     def test_functions_cached_on_params(self):
-        p = Parameters(basis=construct_full_pauli_basis(2),
-                       projected_basis=construct_Heisenberg_pauli_basis(2),
-                       target=CNOT)
-        assert p.compute_U_fn is p.compute_U_fn          # cached (same object)
+        p = Parameters(
+            basis=construct_full_pauli_basis(2),
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+        )
+        assert p.compute_U_fn is p.compute_U_fn  # cached (same object)
         assert p.gammas_and_omegas is p.gammas_and_omegas
 
     def test_geodesic_self_is_zero(self):
-        p = Parameters(basis=construct_full_pauli_basis(2),
-                       projected_basis=construct_Heisenberg_pauli_basis(2),
-                       target=CNOT)
+        p = Parameters(
+            basis=construct_full_pauli_basis(2),
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+        )
         g = p.geo_fn(jnp.array(CNOT), key=jax.random.key(0))
         assert np.allclose(np.array(g), 0, atol=1e-10)

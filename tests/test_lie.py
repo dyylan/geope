@@ -35,6 +35,7 @@ from geope.utils import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _single_qubit_basis():
     """Single-qubit Pauli basis (X, Y, Z) — 3 generators, 2×2."""
     X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -46,6 +47,7 @@ def _single_qubit_basis():
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def basis_1q():
@@ -80,10 +82,7 @@ def hadamard():
 @pytest.fixture
 def cnot():
     return np.array(
-        [[1, 0, 0, 0],
-         [0, 1, 0, 0],
-         [0, 0, 0, 1],
-         [0, 0, 1, 0]],
+        [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]],
         dtype=complex,
     )
 
@@ -91,6 +90,7 @@ def cnot():
 # ===================================================================
 # Tests — Basis
 # ===================================================================
+
 
 class TestBasisInit:
     def test_1q_shape(self, basis_1q):
@@ -174,8 +174,6 @@ class TestBasisInteraction:
         assert isinstance(imap, dict)
 
 
-
-
 class TestBasisApplyInteractionGraph:
     def test_removes_two_body_terms(self, full_basis_2q):
         original_dim = full_basis_2q.lie_algebra_dim
@@ -197,7 +195,9 @@ class TestBasisApplyInteractionMap:
     def test_filters_by_map(self, full_basis_2q):
         imap = {(1,): ["x", "z"], (2,): ["x", "z"], (1, 2): ["xx", "zz"]}
         full_basis_2q.apply_interaction_map(imap)
-        for iq, il in zip(full_basis_2q.interaction_qubits, full_basis_2q.interaction_labels):
+        for iq, il in zip(
+            full_basis_2q.interaction_qubits, full_basis_2q.interaction_labels
+        ):
             assert iq in imap
             assert il in imap[iq]
 
@@ -303,6 +303,7 @@ class TestBasisGenerateBounds:
 # Tests — Hamiltonian
 # ===================================================================
 
+
 class TestHamiltonian:
     def test_init_creates_matrix(self, basis_1q):
         params = np.array([1.0, 0.0, 0.0])
@@ -393,6 +394,7 @@ class TestHamiltonianParametersFromHamiltonian:
 # ===================================================================
 # Tests — Unitary
 # ===================================================================
+
 
 class TestUnitary:
     def test_identity(self):

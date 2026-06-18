@@ -34,6 +34,7 @@ from geope.utils import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _pauli_basis_1q():
     """Single-qubit Pauli basis (X, Y, Z)."""
     X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -45,6 +46,7 @@ def _pauli_basis_1q():
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def identity_2x2():
@@ -64,10 +66,7 @@ def hadamard():
 @pytest.fixture
 def cnot():
     return jnp.array(
-        [[1, 0, 0, 0],
-         [0, 1, 0, 0],
-         [0, 0, 0, 1],
-         [0, 0, 1, 0]],
+        [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]],
         dtype=complex,
     )
 
@@ -85,6 +84,7 @@ def projected_basis_2q():
 # ---------------------------------------------------------------------------
 # Tests — fidelity
 # ---------------------------------------------------------------------------
+
 
 class TestFidelity:
     def test_identity_with_itself(self, identity_2x2):
@@ -125,6 +125,7 @@ class TestFidelity:
 # Tests — get_fidelity_fn
 # ---------------------------------------------------------------------------
 
+
 class TestGetFidelityFn:
     def test_returns_callable(self, cnot):
         fn = get_fidelity_fn(cnot)
@@ -142,6 +143,7 @@ class TestGetFidelityFn:
 # ---------------------------------------------------------------------------
 # Tests — compute_matrices_params_list_fn / get_compute_matrices_params_list_fn
 # ---------------------------------------------------------------------------
+
 
 class TestComputeMatricesParamsListFn:
     def test_zero_params_gives_identity(self):
@@ -165,8 +167,7 @@ class TestComputeMatricesParamsListFn:
     def test_multi_gate(self):
         """Two gates composed: U2 @ U1."""
         basis = _pauli_basis_1q()
-        params = jnp.array([[0.1, 0.2, 0.3],
-                             [0.4, 0.5, 0.6]], dtype=complex)
+        params = jnp.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], dtype=complex)
         U = compute_matrices_params_list_fn(params, basis)
         assert U.shape == (2, 2)
         assert jnp.allclose(U @ U.conj().T, jnp.eye(2), atol=1e-10)
@@ -192,4 +193,3 @@ class TestGetComputeMatricesParamsListFn:
         U_fn = fn(params)
         U_direct = compute_matrices_params_list_fn(params, basis)
         assert jnp.allclose(U_fn, U_direct, atol=1e-12)
-

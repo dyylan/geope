@@ -67,6 +67,7 @@ from geope.lie import Basis
 # Tests — trace_dot_jit
 # ===================================================================
 
+
 class TestTraceDotJit:
     def test_identity(self):
         I = jnp.eye(2, dtype=complex)
@@ -89,6 +90,7 @@ class TestTraceDotJit:
 # ===================================================================
 # Tests — traces
 # ===================================================================
+
 
 class TestTraces:
     def test_self_trace(self):
@@ -116,6 +118,7 @@ class TestTraces:
 # ===================================================================
 # Tests — check_xy_comb
 # ===================================================================
+
 
 class TestCheckXYComb:
     def test_single_body(self):
@@ -147,6 +150,7 @@ class TestCheckXYComb:
 # Tests — check_Heisenberg_comb
 # ===================================================================
 
+
 class TestCheckHeisenbergComb:
     def test_single_body(self):
         assert check_Heisenberg_comb((1, 0)) is True
@@ -169,6 +173,7 @@ class TestCheckHeisenbergComb:
 # Tests — check_2_local_comb
 # ===================================================================
 
+
 class TestCheck2LocalComb:
     def test_single_body(self):
         assert check_2_local_comb((1, 0)) is True
@@ -184,6 +189,7 @@ class TestCheck2LocalComb:
 # ===================================================================
 # Tests — restriction_function
 # ===================================================================
+
 
 class TestRestrictionFunction:
     def test_single_restriction(self):
@@ -207,12 +213,13 @@ class TestRestrictionFunction:
 # Tests — restriction_order_function
 # ===================================================================
 
+
 class TestRestrictionOrderFunction:
     def test_single_qubit(self):
         restriction = {1: ["x"], 2: ["z"]}
         fn = restriction_order_function(2, restriction)
-        assert fn((1, 0)) is True   # X on qubit 1
-        assert fn((0, 3)) is True   # Z on qubit 2
+        assert fn((1, 0)) is True  # X on qubit 1
+        assert fn((0, 3)) is True  # Z on qubit 2
         assert fn((0, 1)) is False  # X on qubit 2
 
     def test_two_body(self):
@@ -225,6 +232,7 @@ class TestRestrictionOrderFunction:
 # ===================================================================
 # Tests — construct_*_pauli_basis
 # ===================================================================
+
 
 class TestConstructFullPauliBasis:
     def test_1q(self):
@@ -304,6 +312,7 @@ class TestConstructRestrictedPauliBasis:
 # Tests — creation_annihilation_operators
 # ===================================================================
 
+
 class TestCreationAnnihilationOperators:
     def test_shapes(self):
         a0, am, ap = creation_annihilation_operators(3)
@@ -332,6 +341,7 @@ class TestCreationAnnihilationOperators:
 # Tests — construct_*_spin_boson_basis
 # ===================================================================
 
+
 class TestConstructSpinBosonBasis:
     def test_full_spin_boson_shape(self):
         b = construct_full_spin_boson_basis(1, 1, boson_truncation=2)
@@ -346,7 +356,9 @@ class TestConstructSpinBosonBasis:
 
     def test_restricted_subset(self):
         full = construct_full_spin_boson_basis(1, 1, boson_truncation=2)
-        restricted = construct_restricted_spin_boson_basis(1, 1, ["x", "z"], boson_truncation=2)
+        restricted = construct_restricted_spin_boson_basis(
+            1, 1, ["x", "z"], boson_truncation=2
+        )
         assert restricted.lie_algebra_dim <= full.lie_algebra_dim
 
     def test_restricted_dict(self):
@@ -358,6 +370,7 @@ class TestConstructSpinBosonBasis:
 # ===================================================================
 # Tests — prepare_random_parameters
 # ===================================================================
+
 
 class TestPrepareRandomParameters:
     def test_output_shape(self):
@@ -397,13 +410,16 @@ class TestPrepareRandomParameters:
     def test_with_expander(self):
         proj = np.array([True, True, True, True])
         expander = np.eye(4, 3)
-        result = prepare_random_parameters(proj, expander=expander, key=jax.random.key(42))
+        result = prepare_random_parameters(
+            proj, expander=expander, key=jax.random.key(42)
+        )
         assert result.shape == (4,)
 
 
 # ===================================================================
 # Tests — multikron
 # ===================================================================
+
 
 class TestMultikron:
     def test_two_matrices(self):
@@ -433,6 +449,7 @@ class TestMultikron:
 # Tests — multicontrol_unitary
 # ===================================================================
 
+
 class TestMulticontrolUnitary:
     def test_single_control(self):
         X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -459,6 +476,7 @@ class TestMulticontrolUnitary:
 # Tests — qft_unitary
 # ===================================================================
 
+
 class TestQftUnitary:
     def test_shape(self):
         U = qft_unitary(2)
@@ -482,6 +500,7 @@ class TestQftUnitary:
 # Tests — golden_section_search_np
 # ===================================================================
 
+
 class TestGoldenSectionSearchNp:
     def test_returns_tuple(self):
         f = lambda x: (x - 2) ** 2
@@ -499,7 +518,7 @@ class TestGoldenSectionSearchNp:
         assert np.isclose(fx, f(x), atol=1e-10)
 
     def test_narrow_interval(self):
-        f = lambda x: x ** 2
+        f = lambda x: x**2
         x, fx = golden_section_search_np(f, -0.01, 0.01, tol=1e-8)
         assert -0.01 <= x <= 0.01
 
@@ -507,6 +526,7 @@ class TestGoldenSectionSearchNp:
 # ===================================================================
 # Tests — golden_section_search (JAX version)
 # ===================================================================
+
 
 class TestGoldenSectionSearch:
     def test_returns_tuple(self):
@@ -536,6 +556,7 @@ class TestGoldenSectionSearch:
 # Tests — adam_line_search
 # ===================================================================
 
+
 @pytest.mark.parametrize("fd", [True, False], ids=["adam_fd", "adam_grad"])
 class TestAdamLineSearch:
     def test_returns_tuple(self, fd):
@@ -551,8 +572,9 @@ class TestAdamLineSearch:
     def test_minimises_quadratic(self, fd):
         # interior minimum at x = 2, reachable from t_init=0
         f = lambda x: (x - 2.0) ** 2
-        x, fx = adam_line_search(f, 0.0, 5.0, lr=0.05, num_steps=500,
-                                 finite_difference=fd)
+        x, fx = adam_line_search(
+            f, 0.0, 5.0, lr=0.05, num_steps=500, finite_difference=fd
+        )
         assert jnp.isclose(x, 2.0, atol=0.1)
         assert float(fx) < 1e-2
         assert jnp.isclose(fx, f(x), atol=1e-8)
@@ -560,34 +582,36 @@ class TestAdamLineSearch:
     def test_clips_to_boundary_when_min_outside(self, fd):
         # unconstrained min at x=2, but the interval caps at 0 -> best is x=0
         f = lambda x: (x - 2.0) ** 2
-        x, fx = adam_line_search(f, -0.9, 0.0, lr=0.1, num_steps=100,
-                                 finite_difference=fd)
+        x, fx = adam_line_search(
+            f, -0.9, 0.0, lr=0.1, num_steps=100, finite_difference=fd
+        )
         assert -0.9 <= float(x) <= 0.0
         assert float(fx) <= f(0.0) + 1e-6
 
     def test_returns_best_not_worse_than_start(self, fd):
         # a large lr can overshoot; best-so-far must never exceed f(t_init)
         f = lambda x: (x - 2.0) ** 2
-        x, fx = adam_line_search(f, 0.0, 5.0, lr=0.9, num_steps=50,
-                                 finite_difference=fd)
+        x, fx = adam_line_search(
+            f, 0.0, 5.0, lr=0.9, num_steps=50, finite_difference=fd
+        )
         assert jnp.isclose(fx, f(x), atol=1e-8)
         assert float(fx) <= f(0.0) + 1e-9
 
     def test_jittable(self, fd):
         f = lambda x: (x - 2.0) ** 2
-        x, fx = jax.jit(
-            lambda: adam_line_search(f, 0.0, 5.0, finite_difference=fd)
-        )()
+        x, fx = jax.jit(lambda: adam_line_search(f, 0.0, 5.0, finite_difference=fd))()
         assert bool(jnp.isfinite(x)) and bool(jnp.isfinite(fx))
 
 
 def test_adam_fd_and_grad_agree():
     # both gradient modes should converge to the same interior minimum
     f = lambda x: (x - 2.0) ** 2
-    x_fd, _ = adam_line_search(f, 0.0, 5.0, lr=0.05, num_steps=500,
-                               finite_difference=True)
-    x_grad, _ = adam_line_search(f, 0.0, 5.0, lr=0.05, num_steps=500,
-                                 finite_difference=False)
+    x_fd, _ = adam_line_search(
+        f, 0.0, 5.0, lr=0.05, num_steps=500, finite_difference=True
+    )
+    x_grad, _ = adam_line_search(
+        f, 0.0, 5.0, lr=0.05, num_steps=500, finite_difference=False
+    )
     assert jnp.isclose(x_fd, 2.0, atol=0.1)
     assert jnp.isclose(x_grad, 2.0, atol=0.1)
     assert jnp.abs(x_fd - x_grad) < 0.1
@@ -596,6 +620,7 @@ def test_adam_fd_and_grad_agree():
 # ===================================================================
 # Tests — merge_constraints
 # ===================================================================
+
 
 class TestMergeConstraints:
     def test_no_overlap(self):

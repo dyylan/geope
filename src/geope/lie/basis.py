@@ -33,13 +33,15 @@ class Basis:
         shape: Shape of the underlying basis tensor ``(K, d, d)``.
     """
 
-    def __init__(self,
-                 basis: np.ndarray,
-                 labels: list[str] | None = None,
-                 local_dim: int = 2,
-                 n_qubits: int | None = None,
-                 interaction_graph: list[tuple[int, ...]] | None = None,
-                 interaction_map: dict[tuple[int, ...], list[str]] | None = None) -> None:
+    def __init__(
+        self,
+        basis: np.ndarray,
+        labels: list[str] | None = None,
+        local_dim: int = 2,
+        n_qubits: int | None = None,
+        interaction_graph: list[tuple[int, ...]] | None = None,
+        interaction_map: dict[tuple[int, ...], list[str]] | None = None,
+    ) -> None:
         """Initialise a Basis.
 
         Args:
@@ -57,15 +59,23 @@ class Basis:
             interaction_map: Optional dictionary mapping qubit tuples to lists
                 of interaction labels to keep.
         """
-        assert basis.ndim == 3, '`basis` must be a rank 3 tensor'
+        assert basis.ndim == 3, "`basis` must be a rank 3 tensor"
         self._basis = basis
         self._labels = labels if labels is not None else []
         self._n_qubits_override = n_qubits
         self._plot_labels = self._generate_plot_labels()
         self._interaction_labels = self._generate_interaction_labels()
         self._interaction_qubits = self._generate_interaction_qubits()
-        self._interaction_graph = self.apply_interaction_graph(interaction_graph) if interaction_graph is not None else self._generate_interaction_graph()
-        self._interaction_map = self.apply_interaction_map(interaction_map) if interaction_map is not None else self._generate_interaction_map()
+        self._interaction_graph = (
+            self.apply_interaction_graph(interaction_graph)
+            if interaction_graph is not None
+            else self._generate_interaction_graph()
+        )
+        self._interaction_map = (
+            self.apply_interaction_map(interaction_map)
+            if interaction_map is not None
+            else self._generate_interaction_map()
+        )
         self._local_dim = local_dim
         self._dim = basis.shape[1]
         self._lie_algebra_dim = basis.shape[0]
@@ -85,7 +95,7 @@ class Basis:
             A ``(d, d)`` ``np.ndarray`` equal to $\sum_k \phi_k B_k$.
         """
         parameters = np.reshape(parameters, (-1, 1, 1))
-        return np.einsum('nij,nij->ij', parameters, self._basis)
+        return np.einsum("nij,nij->ij", parameters, self._basis)
 
     def overlap(self, other: Basis) -> np.ndarray:
         """Compute the overlap mask between this basis and another.
@@ -113,7 +123,9 @@ class Basis:
         out = utils.traces(self.basis, self.basis)
         return np.allclose(np.diag(np.diag(out)), out)
 
-    def apply_interaction_graph(self, interaction_graph: list[tuple[int, ...]]) -> list[tuple[int, ...]]:
+    def apply_interaction_graph(
+        self, interaction_graph: list[tuple[int, ...]]
+    ) -> list[tuple[int, ...]]:
         """Apply an interaction graph to the basis.
 
         Removes any multi-body basis elements whose qubit indices are not
@@ -132,12 +144,14 @@ class Basis:
         self._interaction_graph = interaction_graph
         del_indices = []
         for i, interaction in enumerate(self.interaction_qubits):
-            if (interaction not in interaction_graph) and (len(interaction)>1):
+            if (interaction not in interaction_graph) and (len(interaction) > 1):
                 del_indices.append(i)
         self._remove_basis_elements(del_indices)
         return interaction_graph
 
-    def apply_interaction_map(self, interaction_map: dict[tuple[int, ...], list[str]]) -> dict[tuple[int, ...], list[str]]:
+    def apply_interaction_map(
+        self, interaction_map: dict[tuple[int, ...], list[str]]
+    ) -> dict[tuple[int, ...], list[str]]:
         """Apply an interaction map to the basis.
 
         Removes basis elements whose qubit-index tuple is not a key in the
@@ -154,7 +168,7 @@ class Basis:
         self._interaction_map = interaction_map
         del_indices = []
         for i, interaction in enumerate(self.interaction_qubits):
-            if (interaction not in interaction_map.keys()):
+            if interaction not in interaction_map.keys():
                 del_indices.append(i)
             elif self.interaction_labels[i] not in interaction_map[interaction]:
                 del_indices.append(i)
@@ -167,8 +181,8 @@ class Basis:
             new_labels = []
             for label in self.labels:
                 new_label = "$"
-                for i,c in enumerate(label):
-                    new_label += "" if c=="I" else f"{c}_{{{i+1}}}"
+                for i, c in enumerate(label):
+                    new_label += "" if c == "I" else f"{c}_{{{i+1}}}"
                 new_label += "$"
                 new_labels.append(new_label)
             return new_labels
@@ -182,7 +196,7 @@ class Basis:
             for label in self.labels:
                 new_label = ""
                 for c in label:
-                    new_label += "" if c=="I" else f"{c}".lower()
+                    new_label += "" if c == "I" else f"{c}".lower()
                 new_labels.append(new_label)
             return new_labels
         else:
@@ -193,7 +207,7 @@ class Basis:
         if self.labels:
             interaction_qubits = []
             for label in self.plot_labels:
-                qubits = re.findall(r'\d+', label)
+                qubits = re.findall(r"\d+", label)
                 interaction_qubits.append(tuple([int(q) for q in qubits]))
             return interaction_qubits
         else:
@@ -211,7 +225,9 @@ class Basis:
         """Build the default interaction map from basis element metadata."""
         interaction_map = {}
         for i, interaction in enumerate(self.interaction_qubits):
-            interaction_map.setdefault(interaction, []).append(self.interaction_labels[i])
+            interaction_map.setdefault(interaction, []).append(
+                self.interaction_labels[i]
+            )
         return interaction_map
 
     def _remove_basis_elements(self, indices: list[int]) -> bool:
@@ -296,7 +312,9 @@ class Basis:
         """Return the number of basis elements."""
         return self._basis.shape[0]
 
-    def generate_parameter_list(self, parameter_map: dict[int | tuple[int, ...], dict[str, float]]) -> list[float]:
+    def generate_parameter_list(
+        self, parameter_map: dict[int | tuple[int, ...], dict[str, float]]
+    ) -> list[float]:
         """Generate a parameter vector from a human-readable parameter map.
 
         Args:
@@ -316,7 +334,7 @@ class Basis:
                     new_label += ""
                 else:
                     new_label += f"{c}".lower()
-                    qubits.append(i+1)
+                    qubits.append(i + 1)
             qubits = tuple(qubits) if len(qubits) > 1 else qubits[0]
 
             interactions = parameter_map.get(qubits)
@@ -326,7 +344,6 @@ class Basis:
             else:
                 parameter_list.append(0)
         return parameter_list
-
 
     def generate_bounds(
         self, bounds_map: dict[str, tuple[float, float]], piecewise_steps: int
@@ -352,7 +369,7 @@ class Basis:
                     new_label += ""
                 else:
                     new_label += f"{c}".lower()
-                    qubits.append(i+1)
+                    qubits.append(i + 1)
             qubits = tuple(qubits) if len(qubits) > 1 else qubits[0]
 
             bounds = bounds_map.get(new_label)

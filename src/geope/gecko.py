@@ -52,10 +52,9 @@ class Gecko:
         ``geope.optimize()`` continues from the subdivided pulse.
     """
 
-    def __init__(self,
-                 params: Parameters,
-                 history: History | None = None,
-                 verbose: bool = False) -> None:
+    def __init__(
+        self, params: Parameters, history: History | None = None, verbose: bool = False
+    ) -> None:
         """Initialise the Gecko optimiser.
 
         Args:
@@ -86,7 +85,9 @@ class Gecko:
             free_params = (
                 jnp.real(free_params) if self._real_params else free_params
             ).astype(_dtype)
-            self.params.fidelity = self.params.fid_U_fn(self.params.compute_U_fn(free_params))
+            self.params.fidelity = self.params.fid_U_fn(
+                self.params.compute_U_fn(free_params)
+            )
 
         self.history = history
         if self.history is not None:
@@ -95,7 +96,9 @@ class Gecko:
         self.verbose = verbose
         self.pulse_constraints = self.params.pulse_constraints
         self.constraint_expander = self.params.constraint_expander
-        self.drift_parameters = None if self._real_params else self.params.drift_parameters
+        self.drift_parameters = (
+            None if self._real_params else self.params.drift_parameters
+        )
         # Bounding-only state, set lazily in bound().
         self.parameter_bounds = None
         self.lower_bounds = None
@@ -139,12 +142,14 @@ class Gecko:
             A tuple ``(success, iters)`` where `success` is ``True`` if
             `diff_tol` was reached.
         """
-        success, iters = self._null_space_optimisation(piecewise_smoothing,
-                                                        piecewise_steps_multiplier=piecewise_steps_multiplier,
-                                                        max_steps=max_smoothing_steps,
-                                                        rate=smoothing_rate,
-                                                        diff_tol=diff_tol,
-                                                        label="Smoothing")
+        success, iters = self._null_space_optimisation(
+            piecewise_smoothing,
+            piecewise_steps_multiplier=piecewise_steps_multiplier,
+            max_steps=max_smoothing_steps,
+            rate=smoothing_rate,
+            diff_tol=diff_tol,
+            label="Smoothing",
+        )
         return success, iters
 
     def smooth_frequency(
@@ -249,7 +254,9 @@ class Gecko:
         if parameter_labels is None:
             if default_all:
                 return tuple(range(len(proj_labels)))
-            raise ValueError("Either parameter_labels or parameter_indices must be provided")
+            raise ValueError(
+                "Either parameter_labels or parameter_indices must be provided"
+            )
         return tuple(proj_labels.index(label) for label in parameter_labels)
 
     def speed(
@@ -281,8 +288,11 @@ class Gecko:
             parameter_labels, parameter_indices, default_all=False
         )
         real = getattr(self, "_real_params", False)
-        n_proj = (self.params.n_experimental_params if real
-                  else self.params.projected_basis.lie_algebra_dim)
+        n_proj = (
+            self.params.n_experimental_params
+            if real
+            else self.params.projected_basis.lie_algebra_dim
+        )
         speed_fn = get_speed_null_space_fn(n_proj, parameter_indices)
         success, iters = self._null_space_optimisation(
             speed_fn,
@@ -324,13 +334,24 @@ class Gecko:
             parameter_labels, parameter_indices, default_all=True
         )
         real = getattr(self, "_real_params", False)
-        n_proj = (self.params.n_experimental_params if real
-                  else self.params.projected_basis.lie_algebra_dim)
+        n_proj = (
+            self.params.n_experimental_params
+            if real
+            else self.params.projected_basis.lie_algebra_dim
+        )
         drift_sq_norm = 0.0
-        if not real and self.params.drift_basis is not None and getattr(self, "drift_parameters", None) is not None:
-            drift_per_gate = np.array(self.drift_parameters) / piecewise_steps_multiplier
-            drift_sq_norm = float(np.sum(drift_per_gate ** 2))
-        length_fn = get_length_null_space_fn(n_proj, parameter_indices, drift_sq_norm=drift_sq_norm)
+        if (
+            not real
+            and self.params.drift_basis is not None
+            and getattr(self, "drift_parameters", None) is not None
+        ):
+            drift_per_gate = (
+                np.array(self.drift_parameters) / piecewise_steps_multiplier
+            )
+            drift_sq_norm = float(np.sum(drift_per_gate**2))
+        length_fn = get_length_null_space_fn(
+            n_proj, parameter_indices, drift_sq_norm=drift_sq_norm
+        )
         success, iters = self._null_space_optimisation(
             length_fn,
             piecewise_steps_multiplier=piecewise_steps_multiplier,
@@ -387,7 +408,8 @@ class Gecko:
             n_projdrift = self.params.proj_drift_basis.lie_algebra_dim
             drift_params = (
                 self.drift_parameters
-                if hasattr(self, "drift_parameters") and self.params.drift_basis is not None
+                if hasattr(self, "drift_parameters")
+                and self.params.drift_basis is not None
                 else None
             )
             proj_idx_pd = self.params.proj_indices_projdrift_basis
@@ -445,8 +467,9 @@ class Gecko:
             ValueError: If an unsupported `method` is provided.
         """
         self.parameter_bounds = parameter_bounds
-        bounds = self.params.proj_drift_basis.generate_bounds(self.parameter_bounds,
-                                                              self.params.piecewise_steps)
+        bounds = self.params.proj_drift_basis.generate_bounds(
+            self.parameter_bounds, self.params.piecewise_steps
+        )
         self.lower_bounds = jnp.array(bounds[0], dtype=jnp.float64)
         self.upper_bounds = jnp.array(bounds[1], dtype=jnp.float64)
 
@@ -457,14 +480,15 @@ class Gecko:
         else:
             raise ValueError(f"Bounding method {method} not implemented.")
 
-        success, iters = self._null_space_optimisation(piecewise_bounding,
-                                                        max_steps=max_bounding_steps,
-                                                        rate=bounding_rate,
-                                                        diff_tol=diff_tol,
-                                                        label="Bounding",
-                                                        lower_bounds=self.lower_bounds[:,self.params.proj_indices_projdrift_basis],
-                                                        upper_bounds=self.upper_bounds[:,self.params.proj_indices_projdrift_basis],
-                                                        )
+        success, iters = self._null_space_optimisation(
+            piecewise_bounding,
+            max_steps=max_bounding_steps,
+            rate=bounding_rate,
+            diff_tol=diff_tol,
+            label="Bounding",
+            lower_bounds=self.lower_bounds[:, self.params.proj_indices_projdrift_basis],
+            upper_bounds=self.upper_bounds[:, self.params.proj_indices_projdrift_basis],
+        )
         return success, iters
 
     def get_free_params_update_smoothing(self) -> Callable[[Array, np.ndarray], Array]:
@@ -491,24 +515,34 @@ class Gecko:
 
         @jax.jit
         def update_free_params_smoothing(proj_params, params):
-            free_params = jnp.zeros((self.params.piecewise_steps, self.params.proj_drift_basis.lie_algebra_dim),
-                                    dtype=_dtype)
-            free_params = free_params.at[:, self.params.proj_indices_projdrift_basis].set(proj_params)
-            free_params = free_params.at[:, self.params.drift_indices_projdrift_basis].set(
-                params[:, self.params.drift_indices])
+            free_params = jnp.zeros(
+                (
+                    self.params.piecewise_steps,
+                    self.params.proj_drift_basis.lie_algebra_dim,
+                ),
+                dtype=_dtype,
+            )
+            free_params = free_params.at[
+                :, self.params.proj_indices_projdrift_basis
+            ].set(proj_params)
+            free_params = free_params.at[
+                :, self.params.drift_indices_projdrift_basis
+            ].set(params[:, self.params.drift_indices])
             return free_params
 
         return update_free_params_smoothing
 
-    def _null_space_optimisation(self,
-                                 null_space_function: Callable[..., tuple[Array, Array]],
-                                 *,
-                                 piecewise_steps_multiplier: int = 1,
-                                 rate: float = 0.01,
-                                 max_steps: int = 100,
-                                 diff_tol: float = 0.1,
-                                 label: str | None = None,
-                                 **kwargs) -> tuple[bool, int]:
+    def _null_space_optimisation(
+        self,
+        null_space_function: Callable[..., tuple[Array, Array]],
+        *,
+        piecewise_steps_multiplier: int = 1,
+        rate: float = 0.01,
+        max_steps: int = 100,
+        diff_tol: float = 0.1,
+        label: str | None = None,
+        **kwargs,
+    ) -> tuple[bool, int]:
         """Run a generic null-space optimisation loop.
 
         Iteratively applies `null_space_function` to move parameters
@@ -536,9 +570,14 @@ class Gecko:
         new_count = self.params.piecewise_steps * piecewise_steps_multiplier
         self.params.piecewise_steps = new_count
 
-        new_parameters = [list(np.copy(self.params.parameters)) for _ in range(piecewise_steps_multiplier)]
+        new_parameters = [
+            list(np.copy(self.params.parameters))
+            for _ in range(piecewise_steps_multiplier)
+        ]
         self.params.parameters = (
-            np.array([x for group in zip(*new_parameters) for x in group]) / piecewise_steps_multiplier)
+            np.array([x for group in zip(*new_parameters) for x in group])
+            / piecewise_steps_multiplier
+        )
 
         _dtype = jnp.float64 if self._real_params else jnp.complex128
         if self._real_params:
@@ -564,28 +603,41 @@ class Gecko:
         pulse_templates = None
         if self.pulse_constraints is not None:
             E_pulse, pulse_templates = build_pulse_expander(
-                self.params.piecewise_steps, self.params.projected_basis,
-                self.pulse_constraints, self._real_params,
-                self.params.n_experimental_params, np.array(proj_params).real)
+                self.params.piecewise_steps,
+                self.params.projected_basis,
+                self.pulse_constraints,
+                self._real_params,
+                self.params.n_experimental_params,
+                np.array(proj_params).real,
+            )
             if self.constraint_expander is not None:
-                E_gate = np.kron(np.eye(self.params.piecewise_steps), self.constraint_expander)
+                E_gate = np.kron(
+                    np.eye(self.params.piecewise_steps), self.constraint_expander
+                )
                 expander = jnp.array(E_gate @ np.linalg.pinv(E_gate) @ E_pulse)
             else:
                 expander = jnp.array(E_pulse)
         elif self.constraint_expander is not None:
-            expander = jnp.kron(jnp.eye(self.params.piecewise_steps), jnp.array(self.constraint_expander))
+            expander = jnp.kron(
+                jnp.eye(self.params.piecewise_steps),
+                jnp.array(self.constraint_expander),
+            )
         else:
             expander = None
-        fid=0
+        fid = 0
         while (diff > diff_tol) and (c < max_steps):
-            #TODO: Can we create a function that just returns `omegas_steps_phis`?
-            _, omegas_steps_phis = self.params.gammas_and_omegas(free_params, jax.random.key(0))
+            # TODO: Can we create a function that just returns `omegas_steps_phis`?
+            _, omegas_steps_phis = self.params.gammas_and_omegas(
+                free_params, jax.random.key(0)
+            )
             vh, num = find_null_space(omegas_steps_phis, expander)
 
             assert num > 0, "Nullspace is empty!"
             null_space = vh[num:, :].T.conj()
 
-            proj_params, diff = null_space_function(proj_params, null_space, expander, rate, **kwargs)
+            proj_params, diff = null_space_function(
+                proj_params, null_space, expander, rate, **kwargs
+            )
 
             if pulse_templates is not None:
                 proj_params = np.array(proj_params)
@@ -600,14 +652,19 @@ class Gecko:
             c += 1
             print(
                 f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                      ",
-                end="\r")
-        print(f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        ")
+                end="\r",
+            )
+        print(
+            f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        "
+        )
         success = diff_tol >= diff
         if self._real_params:
             new_params = np.array([np.real(p) for p in free_params])
         else:
             new_params = np.zeros_like(self.params.parameters)
-            new_params[:, self.params.proj_drift_indices] = [p.real for p in free_params]
+            new_params[:, self.params.proj_drift_indices] = [
+                p.real for p in free_params
+            ]
         self.params.parameters = new_params
         self.params.fidelity = fid
         self.step_size = rate
@@ -684,7 +741,9 @@ def piecewise_smoothing_frequency(
 
     val, grad = jax.value_and_grad(minimize_power)(phi_flat)
     x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
-    sol = null_space @ (smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x) + 1e-12))
+    sol = null_space @ (
+        smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x) + 1e-12)
+    )
     sol = phi + sol.reshape(phi.shape)
     return sol, val
 
@@ -727,12 +786,16 @@ def piecewise_smoothing_frequency_filter(
 
     val, grad = jax.value_and_grad(distance_to_filtered)(phi_flat)
     x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
-    sol = null_space @ (smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x) + 1e-12))
+    sol = null_space @ (
+        smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x) + 1e-12)
+    )
     sol = phi + sol.reshape(phi.shape)
     return sol, val
 
 
-def get_speed_null_space_fn(n_proj: int, parameter_indices: tuple[int, ...]) -> Callable:
+def get_speed_null_space_fn(
+    n_proj: int, parameter_indices: tuple[int, ...]
+) -> Callable:
     """Build a JIT-compiled peak-amplitude minimisation step.
 
     Cost: $\\max_{g,k\\in P}|\\phi_k(g)|$.
@@ -767,7 +830,9 @@ def get_speed_null_space_fn(n_proj: int, parameter_indices: tuple[int, ...]) -> 
     return step
 
 
-def get_length_null_space_fn(n_proj: int, parameter_indices: tuple[int, ...], drift_sq_norm: float = 0.0) -> Callable:
+def get_length_null_space_fn(
+    n_proj: int, parameter_indices: tuple[int, ...], drift_sq_norm: float = 0.0
+) -> Callable:
     """Build a JIT-compiled pulse-length minimisation step.
 
     Cost: $\\sum_g \\sqrt{\\sum_{k\\in P}\\phi_k(g)^2 + \\|d_g\\|^2 + \\varepsilon}$
@@ -790,7 +855,7 @@ def get_length_null_space_fn(n_proj: int, parameter_indices: tuple[int, ...], dr
         n_steps = phi_flat.size // n_proj
         phi_mat = phi_flat.reshape(n_steps, n_proj)
         selected = phi_mat[:, _pi]
-        per_step_norms = jnp.sqrt(jnp.sum(selected ** 2, axis=1) + _dsq + 1e-30)
+        per_step_norms = jnp.sqrt(jnp.sum(selected**2, axis=1) + _dsq + 1e-30)
         return jnp.sum(per_step_norms)
 
     cost_vg = jax.jit(jax.value_and_grad(cost))
@@ -849,7 +914,7 @@ def get_robustness_null_space_fn(
     """
     sample_deltas = jnp.linspace(-delta, delta, num_samples)
     n_robust = len(parameter_indices)
-    grids = jnp.meshgrid(*([sample_deltas] * n_robust), indexing='ij')
+    grids = jnp.meshgrid(*([sample_deltas] * n_robust), indexing="ij")
     delta_combinations = jnp.stack([g.ravel() for g in grids], axis=-1)
     _pi = tuple(parameter_indices)
 
@@ -857,10 +922,13 @@ def get_robustness_null_space_fn(
         n_steps = proj_flat_real.size // n_proj
         proj_params = proj_flat_real.reshape(n_steps, n_proj)
         free_params = jnp.zeros((n_steps, n_projdrift), dtype=jnp.complex128)
-        free_params = free_params.at[:, proj_indices].set(proj_params.astype(jnp.complex128))
+        free_params = free_params.at[:, proj_indices].set(
+            proj_params.astype(jnp.complex128)
+        )
         if drift_params is not None:
             free_params = free_params.at[:, drift_indices].set(
-                jnp.tile(jnp.array(drift_params, dtype=jnp.complex128), (n_steps, 1)))
+                jnp.tile(jnp.array(drift_params, dtype=jnp.complex128), (n_steps, 1))
+            )
         return free_params
 
     def min_fidelity_cost(proj_flat_real):
@@ -871,7 +939,9 @@ def get_robustness_null_space_fn(
             for k, pidx in enumerate(_pi):
                 gate_idxs = jnp.arange(n_steps) * n_proj + pidx
                 perturbation = perturbation.at[gate_idxs].set(delta_vec[k])
-            return fid_U_fn(compute_U_fn(_make_free_params(proj_flat_real + perturbation)))
+            return fid_U_fn(
+                compute_U_fn(_make_free_params(proj_flat_real + perturbation))
+            )
 
         fidelities = jax.vmap(fid_at_deltas)(delta_combinations)
         return jnp.real(1.0 - jnp.min(fidelities))
@@ -914,7 +984,7 @@ def piecewise_smoothing(
         A tuple ``(updated_phi, cost)`` where ``cost`` is the squared
         norm of the difference vector.
     """
-    indep_params = phi.shape[1] # size of lie algebra of projected basis
+    indep_params = phi.shape[1]  # size of lie algebra of projected basis
     null_space = expander @ null_space if expander is not None else null_space
     phi_flat = phi.flatten()
     phi_flat = jnp.real(phi_flat).astype(jnp.float64)
@@ -926,7 +996,9 @@ def piecewise_smoothing(
     A = D @ null_space  # A = (piecewise_step_multiplier * K + K_non_drift, dim(ker(J)))
     b = D @ phi_flat  # b = (piecewise_step_multiplier * K + K_non_drift,)
     x, _, _, _ = jnp.linalg.lstsq(A, -b)
-    sol = null_space @ (smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x)))
+    sol = null_space @ (
+        smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x))
+    )
     sol = phi + sol.reshape(phi.shape)
     return sol, jnp.linalg.norm(b) ** 2  # Difference is given by phi @ D.T @ D @ phi
 
@@ -961,7 +1033,7 @@ def piecewise_bounding_mp(
     phi_flat = phi.flatten()
     phi_flat = jnp.real(phi_flat).astype(jnp.float64)
     n_params = phi_flat.size
-    r,c = null_space.shape
+    r, c = null_space.shape
 
     # Prepare bounds in flattened form
     lower_flat = lower_bounds.flatten()
@@ -977,17 +1049,21 @@ def piecewise_bounding_mp(
     zero_r = jnp.zeros((r, n_params))
     zero_c = jnp.zeros((n_params, c))
     eye_n = jnp.eye(n_params)
-    eye_d = jnp.diag(1/range)
+    eye_d = jnp.diag(1 / range)
     eye_c = jnp.eye(c)
-    D = jnp.block([[eye_d, -eye_d],[zero, zero]])
-    N = jnp.block([[null_space, zero_r],[zero_c, eye_n]])
+    D = jnp.block([[eye_d, -eye_d], [zero, zero]])
+    N = jnp.block([[null_space, zero_r], [zero_c, eye_n]])
     E = jnp.block([eye_c, zero_c.T]).T
 
     # We have D (phi + Nullspace @ x) as difference vector
     A = D @ N @ E  # A = (piecewise_step_multiplier * K + K_non_drift, dim(ker(J)))
-    b = D @ phi_mid + D @ N @ zero_mid  # b = (piecewise_step_multiplier * K + K_non_drift,)
+    b = (
+        D @ phi_mid + D @ N @ zero_mid
+    )  # b = (piecewise_step_multiplier * K + K_non_drift,)
     x, _, _, _ = jnp.linalg.lstsq(A, -b)
-    sol = null_space @ (bounding_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x)))
+    sol = null_space @ (
+        bounding_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x))
+    )
     sol = phi + sol.reshape(phi.shape)
     return sol, jnp.linalg.norm(b) ** 2  # Difference is given by phi @ D.T @ D @ phi
 
@@ -1038,7 +1114,7 @@ def piecewise_bounding_pg(
 
     x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
 
-    sol = null_space @ (bounding_rate * x / (jnp.linalg.norm(x)+1e-12))
+    sol = null_space @ (bounding_rate * x / (jnp.linalg.norm(x) + 1e-12))
     sol = phi + sol.reshape(phi.shape)
 
     return sol, val

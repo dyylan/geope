@@ -31,7 +31,9 @@ def fidelity(unitary: Array, target_unitary: Array) -> Array:
     Returns:
         A scalar fidelity ``Array`` in the range $[0, 1]$.
     """
-    return jnp.abs(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+    return jnp.abs(jnp.einsum("ji,ji->", target_unitary.conj(), unitary)) / len(
+        target_unitary[0]
+    )
 
 
 def get_fidelity_fn(target_unitary: Array) -> Callable[[Array], Array]:
@@ -57,7 +59,9 @@ def infidelity(unitary: Array, target_unitary: Array) -> Array:
     Returns:
         A scalar infidelity ``Array`` in $[0, 1]$.
     """
-    return 1 - jnp.abs(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+    return 1 - jnp.abs(jnp.einsum("ji,ji->", target_unitary.conj(), unitary)) / len(
+        target_unitary[0]
+    )
 
 
 def get_infidelity_fn(target_unitary: Array) -> Callable[[Array], Array]:
@@ -86,7 +90,9 @@ def fidelity_full(unitary: Array, target_unitary: Array) -> Array:
     Returns:
         A scalar fidelity ``Array`` in $[-1, 1]$.
     """
-    return jnp.real(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+    return jnp.real(jnp.einsum("ji,ji->", target_unitary.conj(), unitary)) / len(
+        target_unitary[0]
+    )
 
 
 def get_fidelity_full_fn(target_unitary: Array) -> Callable[[Array], Array]:
@@ -111,7 +117,9 @@ def infidelity_full(unitary: Array, target_unitary: Array) -> Array:
     Returns:
         A scalar infidelity ``Array`` in $[0, 2]$.
     """
-    return 1 - jnp.real(jnp.einsum('ji,ji->', target_unitary.conj(), unitary)) / len(target_unitary[0])
+    return 1 - jnp.real(jnp.einsum("ji,ji->", target_unitary.conj(), unitary)) / len(
+        target_unitary[0]
+    )
 
 
 def get_infidelity_full_fn(target_unitary: Array) -> Callable[[Array], Array]:
@@ -141,6 +149,7 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
     Returns:
         The product unitary ``Array`` of shape ``(d, d)``.
     """
+
     def step(U, params):
         A = jnp.tensordot(params, basis, axes=[[-1], [0]])
         Ui = jax.scipy.linalg.expm(1j * A)
@@ -165,8 +174,12 @@ def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], 
     return partial(compute_matrices_params_list_fn, basis=basis)
 
 
-def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool = True,
-                         key: Array = jax.random.key(0)) -> Array:
+def geodesic_hamiltonian(
+    unitary: Array,
+    target_unitary: Array,
+    projective: bool = True,
+    key: Array = jax.random.key(0),
+) -> Array:
     """Compute the geodesic Hamiltonian between a unitary and a target.
 
     Computes the generator $g = -i\\log(U^\\dagger U_T) \\in \\mathfrak{u}(d)$
@@ -186,15 +199,17 @@ def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool
     Returns:
         The geodesic tangent ``Array`` $U g'$ at the current unitary.
     """
-    g = -1.j * logm(jnp.einsum('ji,jk->ik', unitary.conj(), target_unitary), key=key)
+    g = -1.0j * logm(jnp.einsum("ji,jk->ik", unitary.conj(), target_unitary), key=key)
     if projective:
         Id = jnp.eye(g.shape[0])
-        global_phase = jnp.real(jnp.einsum('ij,ji->', Id, g)) / g.shape[0]
+        global_phase = jnp.real(jnp.einsum("ij,ji->", Id, g)) / g.shape[0]
         g = g - global_phase * Id
     return unitary @ g
 
 
-def get_geodesic_hamiltonian_fn(target_unitary: Array, projective: bool = True) -> Callable[[Array, Array], Array]:
+def get_geodesic_hamiltonian_fn(
+    target_unitary: Array, projective: bool = True
+) -> Callable[[Array, Array], Array]:
     """Create a partial geodesic Hamiltonian function with a fixed target.
 
     Args:
@@ -206,7 +221,9 @@ def get_geodesic_hamiltonian_fn(target_unitary: Array, projective: bool = True) 
         A ``Callable[[Array, Array], Array]`` that accepts a unitary and a
         JAX random key and returns the geodesic Hamiltonian.
     """
-    return partial(geodesic_hamiltonian, target_unitary=target_unitary, projective=projective)
+    return partial(
+        geodesic_hamiltonian, target_unitary=target_unitary, projective=projective
+    )
 
 
 def hvp_forward_over_reverse(
@@ -265,10 +282,13 @@ def get_gammas_fn(
     Returns:
         A ``Callable[[Array, Array], Array]`` ``gammas(free_params, key)``.
     """
+
     def gammas(free_params: Array, key: Array) -> Array:
         unitary = compute_U_fn(free_params)
         gammaU = geo_fn(unitary, key=key)  # seed for logm
-        return project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (gammaU.shape[0])
+        return project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (
+            gammaU.shape[0]
+        )
 
     return gammas
 
@@ -297,10 +317,13 @@ def get_omegas_fn(
     Returns:
         A ``Callable[[Array], Array]`` ``omegas(free_params)``.
     """
+
     def omegas(free_params: Array) -> Array:
         dUs = jnp.array(jac_fn(free_params))
         dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
-        omegas_steps_phis = jnp.array([project_omegas_fn(1.j * omegaUs) for omegaUs in dUs_t])
+        omegas_steps_phis = jnp.array(
+            [project_omegas_fn(1.0j * omegaUs) for omegaUs in dUs_t]
+        )
         if has_proj_drift:
             omegas_steps_phis = omegas_steps_phis.at[:, proj_indices, :].get()
         return omegas_steps_phis
@@ -338,14 +361,19 @@ def get_gammas_and_omegas_fn(
         A ``Callable[[Array, Array], tuple[Array, Array]]``
         ``gammas_and_omegas(free_params, key) -> (gammaU_params, omegas)``.
     """
+
     def gammas_and_omegas(free_params: Array, key: Array) -> tuple[Array, Array]:
         unitary = compute_U_fn(free_params)
         gammaU = geo_fn(unitary, key=key)  # seed for logm
-        gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (gammaU.shape[0])
+        gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(
+            axis=0
+        ) / (gammaU.shape[0])
 
         dUs = jnp.array(jac_fn(free_params))
         dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
-        omegas_steps_phis = jnp.array([project_omegas_fn(1.j * omegaUs) for omegaUs in dUs_t])
+        omegas_steps_phis = jnp.array(
+            [project_omegas_fn(1.0j * omegaUs) for omegaUs in dUs_t]
+        )
 
         if has_proj_drift:
             omegas_steps_phis = omegas_steps_phis.at[:, proj_indices, :].get()
@@ -368,9 +396,11 @@ def get_hessian_fn(infid_fn: Callable[[Array], Array]) -> Callable[[Array], Arra
     Returns:
         A ``Callable[[Array], Array]`` ``hess(y)`` returning the Hessian.
     """
+
     def hess(y: Array) -> Array:
         return jax.vmap(lambda x: hvp_forward_over_reverse(infid_fn, y, x))(
-            jnp.eye(y.size, dtype=y.dtype))
+            jnp.eye(y.size, dtype=y.dtype)
+        )
 
     return hess
 
@@ -404,14 +434,17 @@ def wrap_compute_U_param_transform(
     _step_dependent = len(inspect.signature(params.param_transform).parameters) >= 2
 
     # Detect whether transform outputs full-basis or projected-basis coefficients
-    _test_out = (params.param_transform(jnp.zeros(n_exp), 0)
-                 if _step_dependent
-                 else params.param_transform(jnp.zeros(n_exp)))
+    _test_out = (
+        params.param_transform(jnp.zeros(n_exp), 0)
+        if _step_dependent
+        else params.param_transform(jnp.zeros(n_exp))
+    )
     tf_out_dim = _test_out.shape[0]
     n_proj = params.projected_basis.lie_algebra_dim
     if tf_out_dim != n_proj:
-        _extract = jnp.array(np.where(
-            np.array(params.projected_basis.overlap(params.basis)))[0])
+        _extract = jnp.array(
+            np.where(np.array(params.projected_basis.overlap(params.basis)))[0]
+        )
     else:
         _extract = None
 
@@ -420,11 +453,17 @@ def wrap_compute_U_param_transform(
     else:
         _drift = None
 
-    def _wrapped_compute_U(exp_params, _raw=raw_compute_U,
-                           _tf=params.param_transform,
-                           _pi=proj_idx_pd, _di=drift_idx_pd,
-                           _npd=n_proj_drift, _dr=_drift,
-                           _ext=_extract, _step_dep=_step_dependent):
+    def _wrapped_compute_U(
+        exp_params,
+        _raw=raw_compute_U,
+        _tf=params.param_transform,
+        _pi=proj_idx_pd,
+        _di=drift_idx_pd,
+        _npd=n_proj_drift,
+        _dr=_drift,
+        _ext=_extract,
+        _step_dep=_step_dependent,
+    ):
         if _step_dep:
             ctrl = jax.vmap(_tf)(exp_params, jnp.arange(exp_params.shape[0]))
         else:
@@ -438,14 +477,18 @@ def wrap_compute_U_param_transform(
         full = full.at[:, _pi].set(ctrl)
         if _dr is not None:
             full = full.at[:, _di].set(
-                jnp.broadcast_to(_dr.astype(_dtype),
-                                 (exp_params.shape[0], _dr.shape[0])))
+                jnp.broadcast_to(
+                    _dr.astype(_dtype), (exp_params.shape[0], _dr.shape[0])
+                )
+            )
         return _raw(full)
 
     return _wrapped_compute_U
 
 
-def get_split_jacobian_fn(compute_U_fn: Callable[[Array], Array]) -> Callable[[Array], Array]:
+def get_split_jacobian_fn(
+    compute_U_fn: Callable[[Array], Array]
+) -> Callable[[Array], Array]:
     """Build a real/imag-split Jacobian of ``compute_U_fn``.
 
     Used on the ``param_transform`` path: differentiating through the
@@ -461,6 +504,7 @@ def get_split_jacobian_fn(compute_U_fn: Callable[[Array], Array]) -> Callable[[A
     Returns:
         A ``Callable[[Array], Array]`` returning the complex Jacobian.
     """
+
     def _split_U(x):
         U = compute_U_fn(x)
         return jnp.stack([jnp.real(U), jnp.imag(U)])

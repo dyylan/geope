@@ -142,11 +142,16 @@ def restriction_function(restriction: list[str]) -> Callable[[tuple[int, ...]], 
         A ``Callable[[tuple[int, ...]], bool]`` that accepts a Pauli
         index tuple and returns ``True`` if it matches any allowed pattern.
     """
-    mapping = {'x': 1, 'y': 2, 'z': 3}
-    restriction_int = [sorted([mapping[char] for char in res if char in mapping]) for res in restriction]
+    mapping = {"x": 1, "y": 2, "z": 3}
+    restriction_int = [
+        sorted([mapping[char] for char in res if char in mapping])
+        for res in restriction
+    ]
+
     def check(comb):
         sorted_comb = sorted([c for c in comb if c != 0])
         return sorted_comb in restriction_int
+
     return check
 
 
@@ -164,24 +169,27 @@ def restriction_order_function(
         A ``Callable[[tuple[int, ...]], bool]`` that accepts a Pauli
         index tuple and returns ``True`` if it matches the restriction.
     """
-    mapping = {'x': 1, 'y': 2, 'z': 3}
+    mapping = {"x": 1, "y": 2, "z": 3}
     restriction_int = []
     for interaction in restriction.keys():
         for label in restriction[interaction]:
             r = [0] * n
             if type(interaction) is int:
-                r[interaction-1] = mapping[label[0]]
+                r[interaction - 1] = mapping[label[0]]
             else:
-                for i,k in enumerate(interaction):
-                    r[k-1] = mapping[label[i]]
+                for i, k in enumerate(interaction):
+                    r[k - 1] = mapping[label[i]]
             restriction_int.append(r)
+
     def check(comb):
         return list(comb) in restriction_int
+
     return check
 
 
-def control_to_indices(labels: list[str], control: dict,
-                       strict: bool = False) -> list[int]:
+def control_to_indices(
+    labels: list[str], control: dict, strict: bool = False
+) -> list[int]:
     """Map Pauli labels to the indices selected by a control-format dict.
 
     For each label, build the qubit-index key (a single integer for
@@ -208,11 +216,11 @@ def control_to_indices(labels: list[str], control: dict,
     keep = []
     matched = set()
     for idx, label in enumerate(labels):
-        non_id = [(pos, c.lower()) for pos, c in enumerate(label) if c != 'I']
+        non_id = [(pos, c.lower()) for pos, c in enumerate(label) if c != "I"]
         if len(non_id) == 0:
             continue
         sites = [pos + 1 for pos, _ in non_id]
-        ops = ''.join(c for _, c in non_id)
+        ops = "".join(c for _, c in non_id)
         key = tuple(sites) if len(sites) > 1 else sites[0]
         allowed = control.get(key)
         if allowed is not None and ops in allowed:
@@ -222,12 +230,14 @@ def control_to_indices(labels: list[str], control: dict,
         requested = {(key, op) for key, ops in control.items() for op in ops}
         missing = requested - matched
         if missing:
-            pretty = ", ".join(f"{op!r} on qubit(s) {key}"
-                               for key, op in sorted(missing, key=str))
+            pretty = ", ".join(
+                f"{op!r} on qubit(s) {key}" for key, op in sorted(missing, key=str)
+            )
             raise ValueError(
                 f"Interaction(s) not present in the basis: {pretty}. "
                 f"Check the qubit index/tuple, the operator label, and its "
-                f"ordering against the available labels.")
+                f"ordering against the available labels."
+            )
     return keep
 
 
@@ -251,7 +261,9 @@ def filter_basis_by_control(basis: lie.Basis, control: dict) -> lie.Basis:
     keep = control_to_indices(list(basis.labels), control)
     b = basis.basis[keep]
     l = [basis.labels[i] for i in keep]
-    n_qubits = basis._n_qubits_override if basis._n_qubits_override is not None else None
+    n_qubits = (
+        basis._n_qubits_override if basis._n_qubits_override is not None else None
+    )
     return lie.Basis(b, labels=l, n_qubits=n_qubits)
 
 
@@ -271,11 +283,12 @@ def make_per_element_transform(transforms: list[Callable | None]) -> Callable:
     Example:
         ``transforms = [lambda x: jnp.exp(1j*x), jnp.cos, None]``.
     """
+
     def param_transform(phi):
-        return jnp.array([
-            f(phi[k]) if f is not None else phi[k]
-            for k, f in enumerate(transforms)
-        ])
+        return jnp.array(
+            [f(phi[k]) if f is not None else phi[k] for k, f in enumerate(transforms)]
+        )
+
     return param_transform
 
 
@@ -304,22 +317,22 @@ def construct_restricted_pauli_basis(
     elif type(restriction) is dict:
         restriction = restriction_order_function(n, restriction)
     for comb in list(it.product([0, 1, 2, 3], repeat=n))[1:]:
-        p = 1.
-        s = ''
+        p = 1.0
+        s = ""
         if restriction(comb):
             for c in comb:
                 if c == 0:
                     p = np.kron(p, I)
-                    s += 'I'
+                    s += "I"
                 elif c == 1:
                     p = np.kron(p, X)
-                    s += 'X'
+                    s += "X"
                 elif c == 2:
                     p = np.kron(p, Y)
-                    s += 'Y'
+                    s += "Y"
                 elif c == 3:
                     p = np.kron(p, Z)
-                    s += 'Z'
+                    s += "Z"
             b.append(p)
             l.append(s)
 
@@ -345,22 +358,22 @@ def construct_Heisenberg_pauli_basis(n: int) -> lie.Basis:
     b = []
     l = []
     for comb in list(it.product([0, 1, 2, 3], repeat=n))[1:]:
-        p = 1.
-        s = ''
+        p = 1.0
+        s = ""
         if check_Heisenberg_comb(comb):
             for c in comb:
                 if c == 0:
                     p = np.kron(p, I)
-                    s += 'I'
+                    s += "I"
                 elif c == 1:
                     p = np.kron(p, X)
-                    s += 'X'
+                    s += "X"
                 elif c == 2:
                     p = np.kron(p, Y)
-                    s += 'Y'
+                    s += "Y"
                 elif c == 3:
                     p = np.kron(p, Z)
-                    s += 'Z'
+                    s += "Z"
             b.append(p)
             l.append(s)
 
@@ -385,22 +398,22 @@ def construct_two_body_pauli_basis(n: int) -> lie.Basis:
     b = []
     l = []
     for comb in list(it.product([0, 1, 2, 3], repeat=n))[1:]:
-        p = 1.
-        s = ''
+        p = 1.0
+        s = ""
         if len(np.nonzero(comb)[0]) <= 2:
             for c in comb:
                 if c == 0:
                     p = np.kron(p, I)
-                    s += 'I'
+                    s += "I"
                 elif c == 1:
                     p = np.kron(p, X)
-                    s += 'X'
+                    s += "X"
                 elif c == 2:
                     p = np.kron(p, Y)
-                    s += 'Y'
+                    s += "Y"
                 elif c == 3:
                     p = np.kron(p, Z)
-                    s += 'Z'
+                    s += "Z"
             b.append(p)
             l.append(s)
 
@@ -426,28 +439,30 @@ def construct_full_pauli_basis(n: int) -> lie.Basis:
     b = []
     l = []
     for comb in list(it.product([0, 1, 2, 3], repeat=n))[1:]:
-        p = 1.
-        s = ''
+        p = 1.0
+        s = ""
         for c in comb:
             if c == 0:
                 p = np.kron(p, I)
-                s += 'I'
+                s += "I"
             elif c == 1:
                 p = np.kron(p, X)
-                s += 'X'
+                s += "X"
             elif c == 2:
                 p = np.kron(p, Y)
-                s += 'Y'
+                s += "Y"
             elif c == 3:
                 p = np.kron(p, Z)
-                s += 'Z'
+                s += "Z"
         b.append(p)
         l.append(s)
 
     return lie.Basis(np.stack(b), labels=l)
 
 
-def creation_annihilation_operators(boson_truncation: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def creation_annihilation_operators(
+    boson_truncation: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build truncated bosonic creation and annihilation operators.
 
     Args:
@@ -493,34 +508,34 @@ def construct_full_spin_boson_basis(
     b = []
     l = []
     for comb in list(it.product([0, 1, 2, 3], repeat=n_spins))[1:]:
-        p = 1.
-        s = ''
+        p = 1.0
+        s = ""
         for c in comb:
             if c == 0:
                 p = np.kron(p, I)
-                s += 'I'
+                s += "I"
             elif c == 1:
                 p = np.kron(p, X)
-                s += 'X'
+                s += "X"
             elif c == 2:
                 p = np.kron(p, Y)
-                s += 'Y'
+                s += "Y"
             elif c == 3:
                 p = np.kron(p, Z)
-                s += 'Z'
-        for bos_comb in list(it.product([0,1,2], repeat=n_bosons)):
+                s += "Z"
+        for bos_comb in list(it.product([0, 1, 2], repeat=n_bosons)):
             pb = np.copy(p)
-            sb = ''.join(s)
+            sb = "".join(s)
             for bos_c in bos_comb:
                 if bos_c == 0:
                     pb = np.kron(pb, a_0)
-                    sb += 'i'
+                    sb += "i"
                 elif bos_c == 1:
-                    pb = np.kron(pb, (a_minus + a_plus)/a_norm)
-                    sb += 'q'
+                    pb = np.kron(pb, (a_minus + a_plus) / a_norm)
+                    sb += "q"
                 elif bos_c == 2:
-                    pb = np.kron(pb, 1.j * (a_plus - a_minus)/a_norm)
-                    sb += 'p'
+                    pb = np.kron(pb, 1.0j * (a_plus - a_minus) / a_norm)
+                    sb += "p"
             b.append(pb)
             l.append(sb)
 
@@ -563,35 +578,35 @@ def construct_restricted_spin_boson_basis(
     elif type(restriction) is dict:
         restriction = restriction_order_function(n_spins, restriction)
     for comb in list(it.product([0, 1, 2, 3], repeat=n_spins))[1:]:
-        p = 1.
-        s = ''
+        p = 1.0
+        s = ""
         if restriction(comb):
             for c in comb:
                 if c == 0:
                     p = np.kron(p, I)
-                    s += 'I'
+                    s += "I"
                 elif c == 1:
                     p = np.kron(p, X)
-                    s += 'X'
+                    s += "X"
                 elif c == 2:
                     p = np.kron(p, Y)
-                    s += 'Y'
+                    s += "Y"
                 elif c == 3:
                     p = np.kron(p, Z)
-                    s += 'Z'
-            for bos_comb in list(it.product([0,1,2], repeat=n_bosons)):
+                    s += "Z"
+            for bos_comb in list(it.product([0, 1, 2], repeat=n_bosons)):
                 pb = np.copy(p)
-                sb = ''.join(s)
+                sb = "".join(s)
                 for bos_c in bos_comb:
                     if bos_c == 0:
                         pb = np.kron(pb, a_0)
-                        sb += 'i'
+                        sb += "i"
                     elif bos_c == 1:
-                        pb = np.kron(pb, (a_minus + a_plus)/a_norm)
-                        sb += 'q'
+                        pb = np.kron(pb, (a_minus + a_plus) / a_norm)
+                        sb += "q"
                     elif bos_c == 2:
-                        pb = np.kron(pb, 1.j * (a_plus - a_minus)/a_norm)
-                        sb += 'p'
+                        pb = np.kron(pb, 1.0j * (a_plus - a_minus) / a_norm)
+                        sb += "p"
                 b.append(pb)
                 l.append(sb)
 
@@ -621,8 +636,11 @@ def prepare_random_parameters(
         with random values at projected positions and zeros elsewhere.
     """
     num_indep_params = proj_indices.sum() if expander is None else expander.shape[1]
-    randoms = np.array(jax.random.uniform(
-        key, shape=(num_indep_params,), minval=-spread, maxval=spread))
+    randoms = np.array(
+        jax.random.uniform(
+            key, shape=(num_indep_params,), minval=-spread, maxval=spread
+        )
+    )
     if expander is not None:
         randoms = expander @ randoms
     parameters = np.zeros_like(proj_indices, dtype=randoms.dtype)
@@ -716,11 +734,12 @@ def multicontrol_unitary(local_unitary: np.ndarray, num_controls: int) -> np.nda
     Returns:
         The full multi-controlled unitary matrix.
     """
-    dim = 2**(num_controls+1)
+    dim = 2 ** (num_controls + 1)
     full_unitary = np.eye(dim, dtype=np.asarray(local_unitary).dtype)
     indices = [dim - 2, dim - 1]
     full_unitary[np.ix_(indices, indices)] = local_unitary
     return full_unitary
+
 
 def qft_unitary(num_qubits: int) -> np.ndarray:
     """Construct the Quantum Fourier Transform unitary.
@@ -731,9 +750,12 @@ def qft_unitary(num_qubits: int) -> np.ndarray:
     Returns:
         A $2^n \\times 2^n$ QFT unitary matrix.
     """
-    w = np.exp(1.j * 2 * np.pi / 2 ** num_qubits)
-    qft_unitary = (1 / np.sqrt(2 ** num_qubits)) * np.array([[w ** (i * j) for i in range(2 ** num_qubits)] for j in range(2 ** num_qubits)])
+    w = np.exp(1.0j * 2 * np.pi / 2**num_qubits)
+    qft_unitary = (1 / np.sqrt(2**num_qubits)) * np.array(
+        [[w ** (i * j) for i in range(2**num_qubits)] for j in range(2**num_qubits)]
+    )
     return qft_unitary
+
 
 def golden_section_search_np(
     f: Callable[[float], float], a: float, b: float, tol: float = 1e-5
@@ -835,13 +857,15 @@ def golden_section_search(
     """
     phi = (jnp.sqrt(5.0) - 1.0) / 2.0
     resphi = 1.0 - phi
-    max_iter = jnp.array((jnp.ceil(jnp.log(tol / (b_init - a_init)) / jnp.log(phi))),int)
+    max_iter = jnp.array(
+        (jnp.ceil(jnp.log(tol / (b_init - a_init)) / jnp.log(phi))), int
+    )
 
     a = a_init
     b = b_init
 
     x1 = a + resphi * (b - a)
-    x2 = a + phi   * (b - a)
+    x2 = a + phi * (b - a)
     f1 = f(x1)
     f2 = f(x2)
 
@@ -955,8 +979,8 @@ def adam_line_search(
         m = beta1 * m + (1.0 - beta1) * g
         v = beta2 * v + (1.0 - beta2) * (g * g)
         step = f64(i) + 1.0
-        m_hat = m / (1.0 - beta1 ** step)
-        v_hat = v / (1.0 - beta2 ** step)
+        m_hat = m / (1.0 - beta1**step)
+        v_hat = v / (1.0 - beta2**step)
         t_new = jnp.clip(t - lr * m_hat / (jnp.sqrt(v_hat) + eps), lo, hi)
         return t_new, m, v
 
@@ -978,13 +1002,14 @@ def adam_line_search(
             t_best = jnp.where(improved, t, t_best)
             f_best = jnp.where(improved, ft, f_best)
             dt_ = t - t_prev
-            dt_safe = jnp.where(dt_ == 0, fd_step, dt_)   # guard exact-zero
-            g = (ft - f_prev) / dt_safe                   # secant slope
+            dt_safe = jnp.where(dt_ == 0, fd_step, dt_)  # guard exact-zero
+            g = (ft - f_prev) / dt_safe  # secant slope
             t_new, m, v = adam_update(i, t, m, v, g)
             return (t_new, m, v, t, ft, t_best, f_best)
 
         t, m, v, t_prev, f_prev, t_best, f_best = jax.lax.fori_loop(
-            0, num_steps, body_fun, state0)
+            0, num_steps, body_fun, state0
+        )
     else:
         # When ``f`` maps the real ``t`` through complex intermediates (e.g.
         # unitaries), JAX may emit a benign ComplexWarning while forming the
@@ -1004,8 +1029,7 @@ def adam_line_search(
             t_new, m, v = adam_update(i, t, m, v, g)
             return (t_new, m, v, t_best, f_best)
 
-        t, m, v, t_best, f_best = jax.lax.fori_loop(
-            0, num_steps, body_fun, state0)
+        t, m, v, t_best, f_best = jax.lax.fori_loop(0, num_steps, body_fun, state0)
 
     # Also consider the final iterate (evaluated once after the loop).
     f_last = f64(f(t))
@@ -1052,12 +1076,10 @@ def merge_constraints(
                 scale = cons[i, overlap][0] / cons[j, overlap][0]
 
                 # check consistency on overlapping indices
-                if not np.allclose(cons[i, overlap],
-                                   cons[j, overlap] * scale,
-                                   rtol=rtol, atol=atol):
-                    raise ValueError(
-                        f"Inconsistent constraints at rows {i} and {j}"
-                    )
+                if not np.allclose(
+                    cons[i, overlap], cons[j, overlap] * scale, rtol=rtol, atol=atol
+                ):
+                    raise ValueError(f"Inconsistent constraints at rows {i} and {j}")
 
                 # merge: prefer non-zero from row i, otherwise scaled row j
                 cons[i] = np.where(cons[i] != 0, cons[i], cons[j] * scale)

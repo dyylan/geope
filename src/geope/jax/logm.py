@@ -23,15 +23,18 @@ import jax.numpy as jnp
 from jax import jit, vmap, jvp
 from jax import lax
 
-from jax._src.numpy.util import (
-    promote_dtypes_complex)
+from jax._src.numpy.util import promote_dtypes_complex
 from jax._src.typing import Array, ArrayLike
 
-_no_chkfinite_doc = textwrap.dedent("""
+_no_chkfinite_doc = textwrap.dedent(
+    """
 Does not support the Scipy argument ``check_finite=True``,
 because compiled JAX code cannot perform checks of array values at runtime.
-""")
-_no_overwrite_and_chkfinite_doc = _no_chkfinite_doc + "\nDoes not support the Scipy argument ``overwrite_*=True``."
+"""
+)
+_no_overwrite_and_chkfinite_doc = (
+    _no_chkfinite_doc + "\nDoes not support the Scipy argument ``overwrite_*=True``."
+)
 
 
 @partial(jit, static_argnums=(1,))
@@ -65,7 +68,12 @@ def roots_legendre(n: int, max_n: int = 10) -> tuple[Array, Array]:
         z, z_old, pp = data
         p1 = 1.0
         p2 = 0.0
-        p1, p2 = lax.fori_loop(0, n, lambda i, p: (((2.0 * i + 1.0) * z * p[0] - i * p[1]) / (i + 1.0), p[0]), (p1, p2))
+        p1, p2 = lax.fori_loop(
+            0,
+            n,
+            lambda i, p: (((2.0 * i + 1.0) * z * p[0] - i * p[1]) / (i + 1.0), p[0]),
+            (p1, p2),
+        )
         pp = n * (z * p1 - p2) / (z * z - 1.0)
         z_old = z
         z = z_old - p1 / pp
@@ -76,10 +84,15 @@ def roots_legendre(n: int, max_n: int = 10) -> tuple[Array, Array]:
         x, w = data
         z = jnp.cos(jnp.pi * (i + 1.0 - 0.25) / (n + 0.5))
         z1 = z + 1.0
-        z, _, pp = lax.while_loop(lambda data: jnp.abs(data[0] - data[1]) > eps, perform_newton_method_refinement,
-                                  (z, z1, 0.0))
+        z, _, pp = lax.while_loop(
+            lambda data: jnp.abs(data[0] - data[1]) > eps,
+            perform_newton_method_refinement,
+            (z, z1, 0.0),
+        )
         x = lax.cond(i < max_n, lambda: x.at[i].set(-z), lambda: x)
-        w = lax.cond(i < max_n, lambda: w.at[i].set(2.0 / ((1.0 - z * z) * pp * pp)), lambda: w)
+        w = lax.cond(
+            i < max_n, lambda: w.at[i].set(2.0 / ((1.0 - z * z) * pp * pp)), lambda: w
+        )
 
         x = lax.cond(n - i - 1 < max_n, lambda: x.at[n - i - 1].set(z), lambda: x)
         w = lax.cond(n - i - 1 < max_n, lambda: w.at[n - i - 1].set(w[i]), lambda: w)
@@ -115,8 +128,7 @@ def _sqrtm_triu(T: Array) -> Array:
         j, U = data
         i = j - 1 - l
         s = lax.fori_loop(i + 1, j, lambda k, val: val + U[i, k] * U[k, j], 0.0)
-        value = jnp.where(T[i, j] == s, 0.0,
-                          (T[i, j] - s) / (diag[i] + diag[j]))
+        value = jnp.where(T[i, j] == s, 0.0, (T[i, j] - s) / (diag[i] + diag[j]))
         return j, U.at[i, j].set(value)
 
     def j_loop(j, U):
@@ -137,10 +149,13 @@ def _sqrtm(A: ArrayLike) -> Array:
     Returns:
         Matrix square root of shape ``(N, N)``.
     """
-    T, Z = jax.scipy.linalg.schur(A, output='complex')
+    T, Z = jax.scipy.linalg.schur(A, output="complex")
     sqrt_T = _sqrtm_triu(T)
-    return jnp.matmul(jnp.matmul(Z, sqrt_T, precision=lax.Precision.HIGHEST),
-                      jnp.conj(Z.T), precision=lax.Precision.HIGHEST)
+    return jnp.matmul(
+        jnp.matmul(Z, sqrt_T, precision=lax.Precision.HIGHEST),
+        jnp.conj(Z.T),
+        precision=lax.Precision.HIGHEST,
+    )
 
 
 def sqrtm(A: ArrayLike, blocksize: int = 1) -> Array:
@@ -197,24 +212,37 @@ def _fractional_power_superdiag_entry(
 
         if jnp.isrealobj(l1):
             #  for real values U is always 0 so return early to avoid casting to complex value
-            return t12 * jnp.exp(p / 2 * (log_l2 + log_l1)) * (2 * jnp.sinh(p * (jnp.arctanh(z)))) / (l2 - l1)
+            return (
+                t12
+                * jnp.exp(p / 2 * (log_l2 + log_l1))
+                * (2 * jnp.sinh(p * (jnp.arctanh(z))))
+                / (l2 - l1)
+            )
 
         # Equation 5.3
         U = jnp.ceil(((log_l2 - log_l1).imag - jnp.pi) / (2 * jnp.pi))
 
-        return t12 * jnp.exp(p / 2 * (log_l2 + log_l1)) * (
-                2 * jnp.sinh(p * (jnp.arctanh(z) + jnp.pi * 1.0j * U.astype(l1.dtype)))) / (l2 - l1)
+        return (
+            t12
+            * jnp.exp(p / 2 * (log_l2 + log_l1))
+            * (2 * jnp.sinh(p * (jnp.arctanh(z) + jnp.pi * 1.0j * U.astype(l1.dtype))))
+            / (l2 - l1)
+        )
 
     case = lax.select(l1 == l2, 0, 2)
-    case = lax.select(jnp.logical_or(jnp.abs(l1) < jnp.abs(l2) / 2, jnp.abs(l2) < jnp.abs(l1) / 2), 1, case)
+    case = lax.select(
+        jnp.logical_or(jnp.abs(l1) < jnp.abs(l2) / 2, jnp.abs(l2) < jnp.abs(l1) / 2),
+        1,
+        case,
+    )
 
     return lax.switch(
         case,
         [
             lambda: t12 * p * l1 ** (p - 1),
-            lambda: t12 * ((l2 ** p) - (l1 ** p)) / (l2 - l1),
-            last_case
-        ]
+            lambda: t12 * ((l2**p) - (l1**p)) / (l2 - l1),
+            last_case,
+        ],
     )
 
 
@@ -247,7 +275,9 @@ def _logm_superdiag_entry(l1: Array, l2: Array, t12: Array) -> Array:
         log_diff = jnp.log(l2) - jnp.log(l1)
         U = jnp.ceil((log_diff.imag - jnp.pi) / (2 * jnp.pi))
 
-        return t12 * 2.0 * (jnp.arctanh(z) + jnp.pi * 1j * U.astype(l1.dtype)) / (l2 - l1)
+        return (
+            t12 * 2.0 * (jnp.arctanh(z) + jnp.pi * 1j * U.astype(l1.dtype)) / (l2 - l1)
+        )
 
     case = lax.select(l1 == l2, 0, 2)
     case = lax.select(jnp.abs(l2 - l1) > jnp.abs(l1 + l2) / 2, 1, case)
@@ -257,8 +287,8 @@ def _logm_superdiag_entry(l1: Array, l2: Array, t12: Array) -> Array:
         [
             lambda: t12 / l1,
             lambda: t12 * (jnp.log(l2) - jnp.log(l1)) / (l2 - l1),
-            last_case
-        ]
+            last_case,
+        ],
     )
 
 
@@ -345,19 +375,26 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
     def resample(data, i: int):
         X, key = data
         key, subkey = jax.random.split(key)
-        rand_val = jax.random.randint(subkey, shape=X.shape[0], minval=0, maxval=2) * 2 - 1
+        rand_val = (
+            jax.random.randint(subkey, shape=X.shape[0], minval=0, maxval=2) * 2 - 1
+        )
         X = X.at[:, i].set(rand_val.astype(X.dtype))
         return X, key
 
     if t > 1:
         for i in range(1, t):
             key, subkey = jax.random.split(key)
-            rand_val = jax.random.randint(subkey, shape=[X.shape[0]], minval=0, maxval=2) * 2 - 1
+            rand_val = (
+                jax.random.randint(subkey, shape=[X.shape[0]], minval=0, maxval=2) * 2
+                - 1
+            )
             X = X.at[:, i].set(rand_val.astype(X.dtype))
         for i in range(t):
             #  resample if column of X is parallel to a previous column
             #  Parrarel vectors will are equal or opposite in this case so their dot product is n
-            X, key = jax.lax.while_loop(partial(needs_resampling, i=i), partial(resample, i=i), (X, key))
+            X, key = jax.lax.while_loop(
+                partial(needs_resampling, i=i), partial(resample, i=i), (X, key)
+            )
 
     X /= n
 
@@ -370,7 +407,9 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
     def resample2(data, i: int):
         S, S_old, key = data
         key, subkey = jax.random.split(key)
-        rand_val = jax.random.randint(subkey, shape=S.shape[0], minval=0, maxval=2) * 2 - 1
+        rand_val = (
+            jax.random.randint(subkey, shape=S.shape[0], minval=0, maxval=2) * 2 - 1
+        )
         S = S.at[:, i].set(rand_val.astype(S.dtype))
         return S, S_old, key
 
@@ -385,7 +424,11 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
         ind_j = jnp.argmax(summed_abs_cols)
         ind_best = ind[ind_j]
 
-        est, k = jax.lax.cond(jnp.logical_and(k >= 2, est <= est_old), (lambda: (est_old, itmax_)), (lambda: (est, k)))
+        est, k = jax.lax.cond(
+            jnp.logical_and(k >= 2, est <= est_old),
+            (lambda: (est_old, itmax_)),
+            (lambda: (est, k)),
+        )
 
         est_old = est
         S_old = S
@@ -399,16 +442,27 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
             # Ensure that no column of S is parallel to another column of S
             # or to a column of S_old by replacing columns of S by rand{-1, 1}
             for i in range(t):
-                S, S_old, key = jax.lax.while_loop(partial(needs_resampling2, i=i), partial(resample2, i=i),
-                                                   (S, S_old, key))
+                S, S_old, key = jax.lax.while_loop(
+                    partial(needs_resampling2, i=i),
+                    partial(resample2, i=i),
+                    (S, S_old, key),
+                )
 
         Z = A.T @ S
         h = jnp.abs(Z).max(1)
-        k = jax.lax.cond(jnp.logical_and(k >= 2, (jnp.max(h) == h[ind_best]).all()), lambda old_k: itmax_,
-                         lambda old_k: old_k, k)
-        ind = jnp.argsort(h, descending=True)[:t + len(ind_hist)].astype(ind_hist.dtype)
+        k = jax.lax.cond(
+            jnp.logical_and(k >= 2, (jnp.max(h) == h[ind_best]).all()),
+            lambda old_k: itmax_,
+            lambda old_k: old_k,
+            k,
+        )
+        ind = jnp.argsort(h, descending=True)[: t + len(ind_hist)].astype(
+            ind_hist.dtype
+        )
         if t > 1:
-            k = jax.lax.cond(jnp.isin(ind[:t], ind_hist).all(), lambda: itmax_, lambda: k)
+            k = jax.lax.cond(
+                jnp.isin(ind[:t], ind_hist).all(), lambda: itmax_, lambda: k
+            )
             # put not seen indices first
             seen = jnp.isin(ind, ind_hist)
             idx = jnp.argsort(seen, stable=True)
@@ -425,14 +479,17 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
         A, X, S, ind, ind_hist, est_old, key, k = x
         return k < itmax
 
-    A, X, S, ind, ind_hist, est, key, k = jax.lax.while_loop(main_loop_cond, main_loop_body,
-                                                             (A, X, S, ind, ind_hist, est_old, key, k))
+    A, X, S, ind, ind_hist, est, key, k = jax.lax.while_loop(
+        main_loop_cond, main_loop_body, (A, X, S, ind, ind_hist, est_old, key, k)
+    )
 
     return est
 
 
 @jit
-def _inverse_squaring(T_0: Array, theta: tuple[float], key: ArrayLike) -> tuple[Array, int, int]:
+def _inverse_squaring(
+    T_0: Array, theta: tuple[float], key: ArrayLike
+) -> tuple[Array, int, int]:
     """Inverse scaling and squaring pre-processing for the matrix logarithm.
 
     Implements lines 3–34 of Algorithm 4.1 in Al-Mohy & Higham (2012).
@@ -504,12 +561,16 @@ def _inverse_squaring(T_0: Array, theta: tuple[float], key: ArrayLike) -> tuple[
 
             j_1 = jnp.min(ind)
             m = jax.lax.select(j_1 <= 6, j_1, m)
-            should_continue = jnp.logical_and(jnp.logical_and(a_3 / 2 <= theta[5], k < 2), m == 0)
+            should_continue = jnp.logical_and(
+                jnp.logical_and(a_3 / 2 <= theta[5], k < 2), m == 0
+            )
             k = jax.lax.select(should_continue, k + 1, k)
             return m, k, should_continue
 
         # 17
-        m, k, should_continue = jax.lax.cond(a_3 < theta[7], fun, lambda m, k: (m, k, False), m, k)
+        m, k, should_continue = jax.lax.cond(
+            a_3 < theta[7], fun, lambda m, k: (m, k, False), m, k
+        )
         # should continue is goto 33 from original algorithm
         d_5 = normest(T, 5, key) ** (1 / 5)
         a_4 = jnp.maximum(d_4, d_5)
@@ -541,7 +602,9 @@ def _inverse_squaring(T_0: Array, theta: tuple[float], key: ArrayLike) -> tuple[
     R = lax.fori_loop(0, T.shape[-1] - 1, replace_superdiag_fn, R)
 
     has_principal_branch = jnp.logical_or(diag.real > 0, diag.imag != 0).all()
-    R = lax.select(has_principal_branch, R, T - jnp.identity(T.shape[-1]).astype(T.dtype))
+    R = lax.select(
+        has_principal_branch, R, T - jnp.identity(T.shape[-1]).astype(T.dtype)
+    )
 
     return R, s, m
 
@@ -571,8 +634,27 @@ def _logm_triu(T: Array, key: ArrayLike) -> Array:
     #  Bounds defined in table 2.1 from Awad H. et al.
     #  first entry set to NaN to offset indexes by 1 because they start from 1 in the paper
     theta_m = jnp.array(
-        [float('nan'), 1.59e-5, 2.31e-3, 1.94e-2, 6.21e-2, 1.28e-1, 2.06e-1, 2.88e-1, 3.67e-1, 4.39e-1, 5.03e-1,
-         5.60e-1, 6.09e-1, 6.52e-1, 6.89e-1, 7.21e-1, 7.49e-1], dtype=T.dtype).real
+        [
+            float("nan"),
+            1.59e-5,
+            2.31e-3,
+            1.94e-2,
+            6.21e-2,
+            1.28e-1,
+            2.06e-1,
+            2.88e-1,
+            3.67e-1,
+            4.39e-1,
+            5.03e-1,
+            5.60e-1,
+            6.09e-1,
+            6.52e-1,
+            6.89e-1,
+            7.21e-1,
+            7.49e-1,
+        ],
+        dtype=T.dtype,
+    ).real
     R, s, m = _inverse_squaring(T_0, theta_m, key=key)
 
     # line 36 of algorithm 4.1
@@ -583,8 +665,13 @@ def _logm_triu(T: Array, key: ArrayLike) -> Array:
     weights = (weights / 2.0).astype(R.dtype)
     identity = jnp.identity(n, dtype=T.dtype)
     U = jnp.zeros_like(R)
-    U = lax.fori_loop(0, m, lambda i, U: U + jax.scipy.linalg.solve_triangular(identity + R * nodes[i], R * weights[i]),
-                      U)
+    U = lax.fori_loop(
+        0,
+        m,
+        lambda i, U: U
+        + jax.scipy.linalg.solve_triangular(identity + R * nodes[i], R * weights[i]),
+        U,
+    )
     U = U * jnp.exp2(s)
 
     has_principal_branch = jnp.logical_or(diag.real > 0, diag.imag != 0).all()
@@ -636,18 +723,27 @@ def logm(A: ArrayLike, key: ArrayLike) -> Array:
         return logm_T, Z
 
     if jnp.isrealobj(A):
-        T, Z = jax.scipy.linalg.schur(A, output='real')
-        keep_it_real = jnp.logical_and(jnp.array_equal(T, jnp.triu(T)), jnp.min(jnp.diag(T)) >= 0)
-        logm_T, Z = lax.cond(keep_it_real, perform_real_logm, perform_complex_logm, T, Z)
+        T, Z = jax.scipy.linalg.schur(A, output="real")
+        keep_it_real = jnp.logical_and(
+            jnp.array_equal(T, jnp.triu(T)), jnp.min(jnp.diag(T)) >= 0
+        )
+        logm_T, Z = lax.cond(
+            keep_it_real, perform_real_logm, perform_complex_logm, T, Z
+        )
     else:
-        T, Z = jax.scipy.linalg.schur(A, output='complex')
+        T, Z = jax.scipy.linalg.schur(A, output="complex")
         logm_T = _logm_triu(T, key=key)
-    return jnp.matmul(jnp.matmul(Z, logm_T, precision=lax.Precision.HIGHEST),
-                      jnp.conj(Z.T), precision=lax.Precision.HIGHEST)
+    return jnp.matmul(
+        jnp.matmul(Z, logm_T, precision=lax.Precision.HIGHEST),
+        jnp.conj(Z.T),
+        precision=lax.Precision.HIGHEST,
+    )
 
 
-@partial(jit, static_argnames=('check_finite',))
-def rsf2csf(T: ArrayLike, Z: ArrayLike, check_finite: bool = True) -> tuple[Array, Array]:
+@partial(jit, static_argnames=("check_finite",))
+def rsf2csf(
+    T: ArrayLike, Z: ArrayLike, check_finite: bool = True
+) -> tuple[Array, Array]:
     """Convert real Schur form to complex Schur form.
 
     JAX implementation of ``scipy.linalg.rsf2csf``.
@@ -676,7 +772,9 @@ def rsf2csf(T: ArrayLike, Z: ArrayLike, check_finite: bool = True) -> tuple[Arra
     if Z_arr.ndim != 2 or Z_arr.shape[0] != Z_arr.shape[1]:
         raise ValueError("Input 'Z' must be square.")
     if T_arr.shape[0] != Z_arr.shape[0]:
-        raise ValueError(f"Input array shapes must match: Z: {Z_arr.shape} vs. T: {T_arr.shape}")
+        raise ValueError(
+            f"Input array shapes must match: Z: {Z_arr.shape} vs. T: {T_arr.shape}"
+        )
 
     T_arr, Z_arr = promote_dtypes_complex(T_arr, Z_arr)
     eps = jnp.finfo(T_arr.dtype).eps
@@ -718,7 +816,10 @@ def rsf2csf(T: ArrayLike, Z: ArrayLike, check_finite: bool = True) -> tuple[Arra
             jnp.abs(T[m, m - 1]) > eps * (jnp.abs(T[m - 1, m - 1]) + jnp.abs(T[m, m])),
             _update_T_Z,
             lambda m, T, Z: (T, Z),
-            m, T, Z)
+            m,
+            T,
+            Z,
+        )
         T = T.at[m, m - 1].set(0.0)
         return T, Z
 
