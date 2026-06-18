@@ -13,9 +13,10 @@ Tested items:
     - piecewise_bounding_mp
     - piecewise_bounding_pg
   Classes:
-    - GeopeEngine
     - Geope
     - Gecko
+  Functions:
+    - build_pulse_expander
   jacobian_manual:
     - Ui / get_Ui_fn
     - scan_single_switch_matmul
@@ -35,11 +36,13 @@ import jax.numpy as jnp
 jax.config.update("jax_enable_x64", True)
 
 from geope.geope import (
-    GeopeEngine,
     Geope,
+    build_pulse_expander,
+    linear_comb_projected_coeffs_multigate,
+)
+from geope.engine import (
     geodesic_hamiltonian,
     get_geodesic_hamiltonian_fn,
-    linear_comb_projected_coeffs_multigate,
     hvp_forward_over_reverse,
 )
 from geope.gecko import (
@@ -52,7 +55,7 @@ from geope.gecko import (
 from geope.parameters import Parameters
 from geope.utils.history import History
 from geope.lie import Basis, Hamiltonian, Unitary
-from geope.engine import Engine, fidelity
+from geope.engine import fidelity
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
@@ -141,16 +144,6 @@ def full_basis_2q():
 def projected_basis_2q():
     """Heisenberg 2-qubit basis (9 elements ⊂ 15) — a proper subset of the full basis."""
     return construct_Heisenberg_pauli_basis(2)
-
-
-@pytest.fixture
-def engine_2q(cnot, full_basis_2q, projected_basis_2q):
-    return GeopeEngine(
-        target_unitary=cnot,
-        full_basis=full_basis_2q,
-        projected_basis=projected_basis_2q,
-        piecewise_steps=1,
-    )
 
 
 @pytest.fixture
@@ -672,104 +665,6 @@ class TestPiecewiseBoundingPg:
         assert result.shape == phi.shape
 
 
-# ---------------------------------------------------------------------------
-# Tests — GeopeEngine
-# ---------------------------------------------------------------------------
-
-class TestGeopeEngine:
-    def test_init_has_expected_attributes(self, engine_2q):
-        for attr in ("compute_U_fn", "fid_U_fn", "jac_fn", "geo_fn",
-                      "project_omegas_fn", "infid_fn", "grad_fn"):
-            assert hasattr(engine_2q, attr), f"Missing attribute: {attr}"
-
-    def test_gates_stored(self, engine_2q):
-        assert engine_2q.piecewise_steps == 1
-
-    def test_projected_indices_shape(self, engine_2q, full_basis_2q, projected_basis_2q):
-        assert engine_2q.projected_indices.shape == (full_basis_2q.lie_algebra_dim,)
-        assert engine_2q.projected_indices.dtype == bool
-        assert engine_2q.projected_indices.sum() == projected_basis_2q.lie_algebra_dim
-
-    def test_no_drift_indices(self, engine_2q):
-        assert not np.any(engine_2q.drift_indices)
-
-    def test_proj_drift_basis(self, engine_2q, projected_basis_2q):
-        """Without drift, proj_drift_basis should match projected_basis dimensions."""
-        assert engine_2q.proj_drift_basis.lie_algebra_dim == projected_basis_2q.lie_algebra_dim
-
-    def test_compute_U_fn_zero_params(self, engine_2q):
-        """Zero parameters ⇒ identity unitary."""
-        n = engine_2q.proj_drift_basis.lie_algebra_dim
-        params = jnp.zeros((1, n), dtype=complex)
-        U = engine_2q.compute_U_fn(params)
-        assert U.shape == (4, 4)
-        assert jnp.allclose(U, jnp.eye(4), atol=1e-10)
-
-    def test_compute_U_fn_returns_unitary(self, engine_2q):
-        """Random parameters ⇒ result should be unitary."""
-        n = engine_2q.proj_drift_basis.lie_algebra_dim
-        rng = np.random.default_rng(0)
-        params = jnp.array(rng.standard_normal((1, n)), dtype=complex)
-        U = engine_2q.compute_U_fn(params)
-        # U U† ≈ I
-        assert jnp.allclose(U @ U.conj().T, jnp.eye(4), atol=1e-10)
-
-    def test_fid_U_fn_self(self, engine_2q, cnot):
-        """Fidelity of target with itself = 1."""
-        assert jnp.isclose(engine_2q.fid_U_fn(cnot), 1.0, atol=1e-10)
-
-    def test_fid_U_fn_identity_less_than_one(self, engine_2q):
-        fid = engine_2q.fid_U_fn(jnp.eye(4, dtype=complex))
-        assert fid < 1.0
-
-    def test_fid_U_fn_range(self, engine_2q):
-        rng = np.random.default_rng(1)
-        n = engine_2q.proj_drift_basis.lie_algebra_dim
-        params = jnp.array(rng.standard_normal((1, n)), dtype=complex)
-        U = engine_2q.compute_U_fn(params)
-        fid = engine_2q.fid_U_fn(U)
-        assert 0 <= fid <= 1.0
-
-    def test_geo_fn_self(self, engine_2q, cnot):
-        result = engine_2q.geo_fn(cnot)
-        assert result.shape == (4, 4)
-        assert jnp.allclose(result, 0, atol=1e-10)
-
-    def test_project_omegas_fn_shape(self, engine_2q):
-        dim = engine_2q.full_basis.dim
-        x = jnp.eye(dim, dtype=complex).reshape(1, dim, dim)
-        result = engine_2q.project_omegas_fn(x)
-        assert result.shape[0] == 1
-
-    def test_jac_fn_callable(self, engine_2q):
-        assert callable(engine_2q.jac_fn)
-
-    def test_with_drift_basis(self, cnot, full_basis_2q, projected_basis_2q):
-        """Engine with an explicit drift basis."""
-        Z = np.array([[1, 0], [0, -1]], dtype=complex)
-        I = np.eye(2, dtype=complex)
-        drift_matrices = np.stack([np.kron(Z, I), np.kron(I, Z)])
-        drift_basis = Basis(drift_matrices, labels=["ZI", "IZ"])
-
-        eng = GeopeEngine(
-            target_unitary=cnot,
-            full_basis=full_basis_2q,
-            projected_basis=projected_basis_2q,
-            drift_basis=drift_basis,
-            piecewise_steps=1,
-        )
-        assert np.any(eng.drift_indices)
-        assert eng.drift_basis is not None
-
-    def test_multiple_gates(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = GeopeEngine(
-            target_unitary=cnot,
-            full_basis=full_basis_2q,
-            projected_basis=projected_basis_2q,
-            piecewise_steps=3,
-        )
-        assert eng.piecewise_steps == 3
-
 
 # ---------------------------------------------------------------------------
 # Tests — build_pulse_expander (control-format pulse_constraints)
@@ -779,26 +674,18 @@ class TestBuildPulseExpander:
     """`pulse_constraints` uses the control-format dict, same as `control`."""
 
     @pytest.fixture(scope="class")
-    def engine_3q(self):
-        full = construct_full_pauli_basis(3)
+    def pulse_setup_3q(self):
         proj = construct_restricted_pauli_basis(3, ['x', 'z', 'zz'])
-        eng = GeopeEngine(
-            target_unitary=jnp.eye(8, dtype=complex),
-            full_basis=full,
-            projected_basis=proj,
-            piecewise_steps=4,
-        )
-        return eng, proj
+        return proj, 4  # (projected_basis, piecewise_steps)
 
-    def test_control_dict_selects_expected_zz_indices(self, engine_3q):
-        eng, proj = engine_3q
+    def test_control_dict_selects_expected_zz_indices(self, pulse_setup_3q):
+        proj, L = pulse_setup_3q
         labels = list(proj.labels)
         n_proj = proj.lie_algebra_dim
-        L = eng.piecewise_steps
         proj_params = np.random.default_rng(0).standard_normal((L, n_proj))
 
         constraints = {(1, 2): ['zz'], (2, 3): ['zz'], (1, 3): ['zz']}
-        E, templates = eng.build_pulse_expander(constraints, False, n_proj, proj_params)
+        E, templates = build_pulse_expander(L, proj, constraints, False, n_proj, proj_params)
 
         # The dict selects exactly the three two-body ZZ terms.
         expected = {labels.index(lbl) for lbl in ("ZZI", "IZZ", "ZIZ")}
@@ -814,42 +701,41 @@ class TestBuildPulseExpander:
         n_free = L * (n_proj - len(expected)) + len(expected)
         assert E.shape == (L * n_proj, n_free)
 
-    def test_single_qubit_key(self, engine_3q):
-        eng, proj = engine_3q
+    def test_single_qubit_key(self, pulse_setup_3q):
+        proj, L = pulse_setup_3q
         labels = list(proj.labels)
         n_proj = proj.lie_algebra_dim
-        L = eng.piecewise_steps
         proj_params = np.random.default_rng(1).standard_normal((L, n_proj))
 
-        _, templates = eng.build_pulse_expander({1: ['x']}, False, n_proj, proj_params)
+        _, templates = build_pulse_expander(L, proj, {1: ['x']}, False, n_proj, proj_params)
         assert set(templates.keys()) == {labels.index("XII")}
 
-    def test_absent_interaction_raises(self, engine_3q):
-        eng, proj = engine_3q
+    def test_absent_interaction_raises(self, pulse_setup_3q):
+        proj, L = pulse_setup_3q
         n_proj = proj.lie_algebra_dim
-        proj_params = np.zeros((eng.piecewise_steps, n_proj))
+        proj_params = np.zeros((L, n_proj))
 
         # 'yy' is not in the restricted basis -> strict check raises.
         with pytest.raises(ValueError, match="not present in the basis"):
-            eng.build_pulse_expander({(1, 2): ['yy']}, False, n_proj, proj_params)
+            build_pulse_expander(L, proj, {(1, 2): ['yy']}, False, n_proj, proj_params)
 
-    def test_wrong_qubit_index_raises(self, engine_3q):
-        eng, proj = engine_3q
+    def test_wrong_qubit_index_raises(self, pulse_setup_3q):
+        proj, L = pulse_setup_3q
         n_proj = proj.lie_algebra_dim
-        proj_params = np.zeros((eng.piecewise_steps, n_proj))
+        proj_params = np.zeros((L, n_proj))
 
         # Qubit 4 does not exist on a 3-qubit system.
         with pytest.raises(ValueError, match="not present in the basis"):
-            eng.build_pulse_expander({(1, 4): ['zz']}, False, n_proj, proj_params)
+            build_pulse_expander(L, proj, {(1, 4): ['zz']}, False, n_proj, proj_params)
 
-    def test_list_form_now_rejected(self, engine_3q):
-        eng, proj = engine_3q
+    def test_list_form_now_rejected(self, pulse_setup_3q):
+        proj, L = pulse_setup_3q
         n_proj = proj.lie_algebra_dim
-        proj_params = np.zeros((eng.piecewise_steps, n_proj))
+        proj_params = np.zeros((L, n_proj))
         # The legacy list-of-Pauli-labels form is no longer accepted in
         # projected space.
         with pytest.raises(TypeError):
-            eng.build_pulse_expander(["ZZI"], False, n_proj, proj_params)
+            build_pulse_expander(L, proj, ["ZZI"], False, n_proj, proj_params)
 
 
 class TestParametersPulseConstraintsValidation:
@@ -988,9 +874,9 @@ class TestGeope:
         g_alias.optimize(max_steps=0, line_search_method="adam")
         g_fd = Geope(params_2q)
         g_fd.optimize(max_steps=0, line_search_method="adam_fd")
-        steps = g_fd.engine.piecewise_steps
+        steps = g_fd.params.piecewise_steps
         params_arr = params_2q.parameters
-        free_params = params_arr[:, g_fd.engine.proj_drift_indices].astype(np.complex128)
+        free_params = params_arr[:, g_fd.params.proj_drift_indices].astype(np.complex128)
         # a real, correctly-shaped search direction (deterministic geodesic step)
         coeffs, *_ = g_fd.update_step(free_params, params_arr, steps, g_fd._split_key())
         _, fid_alias, dt_alias = g_alias.update_linesearch(params_arr, coeffs, steps)
@@ -1004,10 +890,10 @@ class TestGeope:
         with pytest.raises(ValueError):
             g.optimize(max_steps=1, line_search_method="not_a_method")
 
-    def test_engine_arg_rejected(self, engine_2q):
-        """Passing a raw GeopeEngine must raise TypeError now."""
+    def test_non_parameters_arg_rejected(self):
+        """Passing anything other than a Parameters must raise TypeError."""
         with pytest.raises(TypeError):
-            Geope(engine_2q)
+            Geope("not a Parameters object")
 
     # --- reinit -----------------------------------------------------------
 
@@ -1097,39 +983,39 @@ class TestGeope:
 
     def test_add_parameters_full_shape(self, params_2q):
         g = Geope(params_2q, history=History())
-        n = g.engine.full_basis.lie_algebra_dim
-        new_params = np.zeros((g.engine.piecewise_steps, n))
+        n = g.params.basis.lie_algebra_dim
+        new_params = np.zeros((g.params.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
         assert len(g.history) == 2
 
     def test_add_parameters_proj_drift_shape(self, params_2q):
         g = Geope(params_2q)
-        n = g.engine.proj_drift_basis.lie_algebra_dim
-        new_params = np.zeros((g.engine.piecewise_steps, n))
+        n = g.params.proj_drift_basis.lie_algebra_dim
+        new_params = np.zeros((g.params.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
 
     def test_add_parameters_projected_shape(self, params_2q):
         g = Geope(params_2q)
-        n = g.engine.projected_basis.lie_algebra_dim
-        new_params = np.zeros((g.engine.piecewise_steps, n))
+        n = g.params.projected_basis.lie_algebra_dim
+        new_params = np.zeros((g.params.piecewise_steps, n))
         fid = g.add_parameters(new_params)
         assert 0 <= fid <= 1
 
     def test_add_parameters_with_fidelity(self, params_2q):
         g = Geope(params_2q)
-        n = g.engine.full_basis.lie_algebra_dim
-        new_params = np.zeros((g.engine.piecewise_steps, n))
+        n = g.params.basis.lie_algebra_dim
+        new_params = np.zeros((g.params.piecewise_steps, n))
         g.add_parameters(new_params, fidelity=0.75, step_size=0.1)
         assert g.params.fidelity == 0.75
         assert g.step_size == 0.1
 
     def test_add_parameters_step_tracking(self, params_2q):
         g = Geope(params_2q, history=History())
-        n = g.engine.full_basis.lie_algebra_dim
+        n = g.params.basis.lie_algebra_dim
         for _ in range(3):
-            g.add_parameters(np.zeros((g.engine.piecewise_steps, n)))
+            g.add_parameters(np.zeros((g.params.piecewise_steps, n)))
         assert len(g.history) == 4  # initial + 3
         assert g.history.steps[-1] == 3
 
@@ -1196,11 +1082,11 @@ class TestGeope:
     # --- null-space passes now live on Gecko, not Geope ------------------
 
     def test_smooth_is_callable(self, params_2q):
-        gk = Gecko(geope=Geope(params_2q))
+        gk = Gecko(Geope(params_2q).params)
         assert callable(gk.smooth)
 
     def test_bound_is_callable(self, params_2q):
-        gk = Gecko(geope=Geope(params_2q))
+        gk = Gecko(Geope(params_2q).params)
         assert callable(gk.bound)
 
     def test_geope_has_no_null_space_methods(self, geope_2q):
@@ -1216,7 +1102,7 @@ class TestGeope:
         assert callable(geope_2q.update_linesearch)
 
     def test_gammas_and_omegas_returns_callable(self, geope_2q):
-        assert callable(geope_2q.engine.gammas_and_omegas)
+        assert callable(geope_2q.params.gammas_and_omegas)
 
     def test_update_step_returns_callable(self, geope_2q):
         # Built lazily by optimize(); max_steps=0 configures without iterating.
@@ -1231,34 +1117,27 @@ class TestGeope:
 class TestGecko:
     # --- construction modes ----------------------------------------------
 
-    def test_from_geope_reuses_engine_and_params(self, geope_2q):
-        gk = Gecko(geope=geope_2q)
-        assert gk.engine is geope_2q.engine
-        assert gk.params is geope_2q.params
-
-    def test_from_params_builds_own_engine(self, params_2q):
-        gk = Gecko(params=params_2q)
-        assert isinstance(gk.engine, GeopeEngine)
+    def test_from_params(self, params_2q):
+        gk = Gecko(params_2q)
         assert gk.params is params_2q
 
-    def test_both_compatible_reuses_engine(self, geope_2q):
-        gk = Gecko(params=geope_2q.params, geope=geope_2q)
-        assert gk.engine is geope_2q.engine
+    def test_shares_geope_params(self, geope_2q):
+        gk = Gecko(geope_2q.params)
+        assert gk.params is geope_2q.params
 
-    def test_both_incompatible_target_raises(self, geope_2q, identity_4x4,
-                                             full_basis_2q, projected_basis_2q):
-        other = _params_2q(identity_4x4, full_basis_2q, projected_basis_2q)
-        with pytest.raises(ValueError):
-            Gecko(params=other, geope=geope_2q)
+    def test_reuses_geope_cached_functions(self, geope_2q):
+        # Sharing the Parameters reuses the cached (and thus already-compiled)
+        # optimisation functions instead of rebuilding them.
+        gk = Gecko(geope_2q.params)
+        assert gk.params.compute_U_fn is geope_2q.params.compute_U_fn
+        assert gk.params.gammas_and_omegas is geope_2q.params.gammas_and_omegas
 
-    def test_both_incompatible_projective_raises(self, geope_2q, cnot,
-                                                 full_basis_2q, projected_basis_2q):
-        other = _params_2q(cnot, full_basis_2q, projected_basis_2q, projective=False)
-        with pytest.raises(ValueError):
-            Gecko(params=other, geope=geope_2q)
+    def test_non_parameters_raises(self, geope_2q):
+        with pytest.raises(TypeError):
+            Gecko(geope_2q)  # a Geope, not its Parameters
 
-    def test_neither_raises(self):
-        with pytest.raises(ValueError):
+    def test_missing_params_raises(self):
+        with pytest.raises(TypeError):
             Gecko()
 
     # --- fidelity preservation + step-count consistency ------------------
@@ -1267,24 +1146,24 @@ class TestGecko:
         g = Geope(params_2q, precision=0.9999)
         g.optimize(max_steps=400)
         f0 = float(g.params.fidelity)
-        original_steps = g.engine.piecewise_steps
+        original_steps = g.params.piecewise_steps
 
-        gk = Gecko(geope=g)
+        gk = Gecko(g.params)
         gk.smooth(piecewise_steps_multiplier=3, max_smoothing_steps=30)
 
         assert abs(float(gk.params.fidelity) - f0) < 5e-3
         new_steps = 3 * original_steps
+        # Gecko shares g.params, so subdivision advances the source Geope too.
         assert g.params.piecewise_steps == new_steps
         assert g.params.parameters.shape[0] == new_steps
-        assert g.engine.piecewise_steps == new_steps
 
     def test_params_mode_from_subdivided_params(self, params_2q):
         g = Geope(params_2q, precision=0.9999)
         g.optimize(max_steps=400)
-        Gecko(geope=g).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=10)
-        # A fresh engine sized from the subdivided params must construct and run.
-        gk2 = Gecko(params=g.params)
-        assert gk2.engine.piecewise_steps == g.params.piecewise_steps
+        Gecko(g.params).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=10)
+        # A Gecko sized from the subdivided params must construct and run.
+        gk2 = Gecko(g.params)
+        assert gk2.params.piecewise_steps == g.params.piecewise_steps
         gk2.smooth(piecewise_steps_multiplier=1, max_smoothing_steps=5)
 
     # --- experimental parameters (param_transform) -----------------------
@@ -1302,7 +1181,7 @@ class TestGecko:
         g = Geope(params, precision=0.9999)
         g.optimize(max_steps=400)
         f0 = float(g.params.fidelity)
-        gk = Gecko(geope=g)
+        gk = Gecko(g.params)
         assert gk._real_params is True
         gk.speed(parameter_indices=(0,), max_optimization_steps=10)
         assert abs(float(gk.params.fidelity) - f0) < 5e-3

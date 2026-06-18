@@ -14,21 +14,26 @@ The core algorithm is the **geodesic method**: at each step it computes the shor
 
 The entry point is `Parameters` — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, `param_transform`, bounds, init values, seed, projective flag). Pass it to `Geope` and call `.optimize(max_steps=...)`. The returned `Parameters` carries the live/final `parameters` and `fidelity` (and `to_dict()`); the full run trajectory and `best_*` helpers live on an opt-in `History` logger (`geope.history`).
 
-The lower-level classes `Engine` and `GeopeEngine` are still available for inspection and for advanced users who want to build the JIT-compiled functions directly, but `Geope` itself only accepts a `Parameters`.
+The optimisation functions themselves (unitary computation, fidelity, Jacobian,
+geodesic Hamiltonian, gammas/omegas, Hessian) are **pure function factories** in
+`engine.py`. They are built lazily and cached on the `Parameters` object on first
+use, so there is no separate engine object — `Geope`, `Grape` and `Gecko` all read
+the functions straight off the (shared) `Parameters`. The factories return
+un-jitted callables; JIT compilation happens once, when the optimiser's
+`update_step` is first traced inside `optimize()`.
 
 ## Class hierarchy
 
 ```
 Basis, Hamiltonian, Unitary      (lie.py)
 
-Engine                           (engine.py)
-  └── GeopeEngine                (geope.py)
-
+engine.py  — pure function factories (get_jacobian_fn, get_geodesic_hamiltonian_fn,
+             get_gammas_and_omegas_fn, get_hessian_fn, fidelity helpers, …)
+                ↓ built lazily & cached on
 Parameters                       (parameters.py)
                 ↘
-                  Geope          (geope.py)
-                ↗
-GeopeEngine
+                  Geope / Grape  (geope.py / grape.py)
+                  Gecko          (gecko.py)
 ```
 
 ## Lie group classes (`lie.py`)
@@ -66,7 +71,7 @@ Key properties:
 
 Key methods:
 
-- `overlap(other)` — boolean mask over `other`'s basis, true where there is nonzero trace overlap with `self`. Used by `Engine` to build index masks.
+- `overlap(other)` — boolean mask over `other`'s basis, true where there is nonzero trace overlap with `self`. Used by `Parameters` to build its index masks.
 - `verify()` — orthogonality check under the trace inner product.
 - `linear_span(parameters)` — $\sum_i \phi_i G_i$.
 - `generate_parameter_list(parameter_map)` — converts a dict like `{1: {"x": 0.5}, (1,2): {"zz": 0.3}}` to a flat parameter array.
@@ -249,51 +254,40 @@ Live optimisation state — seeded at construction and updated in place by `Geop
 
 The full run trajectory and the `best_*` helpers live on the opt-in [`History`](#history-historypy) logger, not on `Parameters`.
 
-## Engine and optimiser
+## Metadata, functions, and optimiser
 
-### `Engine` (`engine.py`)
+### Algebraic metadata (cached on `Parameters`)
 
-```python
-Engine(target_unitary, full_basis, projected_basis,
-       drift_basis=None, piecewise_steps=1)
-```
+`Parameters` derives the index masks relating the three bases as cached
+properties (computed once from `basis` / `projected_basis` / `drift_basis`):
 
-Computes index masks between the three bases and JIT-compiles the unitary and fidelity functions.
-
-Index masks (boolean arrays):
-
-- `projected_indices` — shape $(K_{\text{full}},)$, which full-basis elements are controllable (`projected_basis.overlap(full_basis)`).
+- `projected_indices` — shape $(K_{\text{full}},)$, which full-basis elements are controllable (`projected_basis.overlap(basis)`).
 - `drift_indices` — shape $(K_{\text{full}},)$, which are fixed drift.
 - `proj_drift_indices` = `projected_indices | drift_indices`.
 - `proj_indices_projdrift_basis` — projected mask within the proj+drift subspace, shape $(K_{\text{pd}},)$.
 - `drift_indices_projdrift_basis` — drift mask within the proj+drift subspace.
-
-Derived basis:
-
 - `proj_drift_basis` — `Basis` containing only the projected + drift elements; used for all JIT computations.
 
-JIT functions:
+### Optimisation functions (`engine.py`, cached on `Parameters`)
 
-- `compute_U_fn(params_list)` — scans over piecewise steps via `jax.lax.scan`:
-  $\,U = \prod_g \exp\!\bigl(i \sum_i \phi_{g,i}\,G_i\bigr).$
-  Input shape: $(N_g, K_{\text{pd}})$.
-- `fid_U_fn(U)` — $|\mathrm{Tr}(U_T^\dagger U)|/d$ when `projective=True`, $\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d$ when `projective=False`.
+The optimisation primitives are **pure function factories** in `engine.py`. Each
+is built lazily and cached on the `Parameters` object on first access, so the
+optimisers read them as `params.<name>` (there is no engine object). They return
+**un-jitted** callables that fuse into the optimiser's `@jax.jit update_step` —
+so compilation happens once, on the first `optimize()` call, not at construction.
 
-### `GeopeEngine` (`geope.py`)
+- `params.compute_U_fn(params_list)` — scans over piecewise steps via `jax.lax.scan`:
+  $\,U = \prod_g \exp\!\bigl(i \sum_i \phi_{g,i}\,G_i\bigr).$ Input shape: $(N_g, K_{\text{pd}})$.
+- `params.fid_U_fn(U)` — $|\mathrm{Tr}(U_T^\dagger U)|/d$ when `projective=True`, $\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d$ when `projective=False`.
+- `params.project_omegas_fn` — projects matrices onto the full Pauli basis via trace inner products $\mathrm{Tr}(G_i M)$. For $n > 5$ uses on-the-fly batched projection to manage memory.
+- `params.jac_fn` — Jacobian $\partial U/\partial\phi_{g,k}$ (JAX autodiff, `holomorphic=True`; a real/imag-split Jacobian under `param_transform`).
+- `params.geo_fn` — geodesic tangent at $U$: $U \cdot \bigl(-i\log(U^\dagger U_T)\bigr)$, with the global-phase generator subtracted when `projective=True`.
+- `params.gammas_and_omegas` — the combined geodesic-coefficients-and-Jacobian-projection used by the GEOPE update step.
+- `params.infid_U_fn`, `params.infid_fn`, `params.grad_fn`, `params.hess_fn` — infidelity helpers; `grad_fn`/`hess_fn` are used by GRAPE.
 
-```python
-GeopeEngine(target_unitary, full_basis, projected_basis,
-            drift_basis=None, piecewise_steps=1,
-            batch_size=None, projective=True)
-```
-
-Extends `Engine` with geodesic-specific JIT functions:
-
-- `project_omegas_fn` — projects matrices onto the full Pauli basis via trace inner products $\mathrm{Tr}(G_i M)$. For $n > 5$ uses on-the-fly batched projection (`batch_size`) to manage memory.
-- `jac_fn` — Jacobian $\partial U/\partial\phi_{g,k}$. For $n \le 5$, JAX autodiff with `holomorphic=True`. For $n > 5$, manual block-exponential derivative via `dexpm.py`.
-- `geo_fn` — geodesic tangent at $U$: $U \cdot \bigl(-i\log(U^\dagger U_T)\bigr)$, with the global-phase generator subtracted when `projective=True`.
-- `infid_U_fn` — bound to $1 - F_{\text{proj}}$ or $1 - F_{\text{full}}$ to match `projective`.
-- `infid_fn`, `grad_fn` — infidelity of $\phi$ and its gradient (used by fallback methods and by the line search).
+Because the functions are cached on `Parameters`, sharing one `Parameters`
+between a `Geope` and a `Gecko` reuses the identical callables — so JAX reuses
+the compiled traces instead of recompiling.
 
 ### `Geope` (`geope.py`)
 
@@ -304,7 +298,7 @@ Geope(params,
       verbose=False, history=None)
 ```
 
-`Geope` requires a `Parameters` object as its single positional argument. The engine, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and `param_transform` are all read from `params`. Passing a raw `GeopeEngine` raises `TypeError`.
+`Geope` requires a `Parameters` object as its single positional argument. The optimisation functions, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and `param_transform` are all read from `params`. Passing anything other than a `Parameters` raises `TypeError`.
 
 | Parameter | Description |
 |-----------|-------------|
@@ -519,15 +513,14 @@ Two pathologies to keep in mind for phase-sensitive mode:
 
 After the main GEOPE loop has converged, the null space of the Jacobian $\omega$ represents directions in parameter space that don't change the unitary to first order. Stepping along these lets you optimise secondary objectives while preserving fidelity.
 
-These passes live on a separate optimiser, **`Gecko`**, which post-processes a solution. A `Gecko` needs a built `GeopeEngine`; building one is expensive, so it can either build its own from a `Parameters`, or borrow a `Geope`'s already-built engine:
+These passes live on a separate optimiser, **`Gecko`**, which post-processes a solution. A `Gecko` is constructed from a `Parameters` object — the same object a `Geope` uses:
 
-- `Gecko(params=p)` — build a fresh engine from `p` and operate on whatever solution `p.parameters` holds.
-- `Gecko(geope=g)` — reuse `g.engine` and `g.params` (convenient straight after `g.optimize(...)`).
-- `Gecko(params=p, geope=g)` — reuse `g.engine` but verify it is compatible with the separately-supplied `p` (raises `ValueError` on mismatch).
+- `Gecko(p)` — operate on whatever solution `p.parameters` holds.
+- `Gecko(g.params)` — post-process a `Geope` result straight after `g.optimize(...)`. Because the optimisation functions are cached on `params`, this reuses `Geope`'s already-compiled functions rather than recompiling.
 
-**The solution does not have to come from `Geope`.** `Gecko` operates on the current `params.parameters` — that array can be a `Geope` result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a `Parameters` object describing the same system (`basis`, `projected_basis`/`drift_basis`, `target`, `piecewise_steps`, and any `param_transform`) and call `Gecko(params=p)`; it builds its own engine and refines the imported solution while preserving its fidelity. (When `params` has never been evaluated, `Gecko` computes the baseline fidelity itself on construction.) The `geope=` modes are purely a convenience/efficiency option for when you already have a `Geope` whose engine you can reuse.
+**The solution does not have to come from `Geope`.** `Gecko` operates on the current `params.parameters` — that array can be a `Geope` result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a `Parameters` object describing the same system (`basis`, `projected_basis`/`drift_basis`, `target`, `piecewise_steps`, and any `param_transform`) and call `Gecko(p)`; it refines the imported solution while preserving its fidelity. (When `params` has never been evaluated, `Gecko` computes the baseline fidelity itself on construction.)
 
-In the reuse modes the engine and `Parameters` are shared with the source `Geope`, so a pass with `piecewise_steps_multiplier > 1` advances the shared state forward (`params.parameters`, `params.piecewise_steps`, and `engine.piecewise_steps` all move to the new count together).
+When you pass a `Geope`'s `params`, the `Parameters` object is shared with that `Geope`, so a pass with `piecewise_steps_multiplier > 1` advances the shared state forward (`params.parameters` and `params.piecewise_steps` move to the new count together).
 
 ### Available objectives (methods on `Gecko`)
 
@@ -613,8 +606,8 @@ print(result.to_dict())              # current solution as a control dict
 print(g.history.best_fidelity)       # best over the trajectory
 
 # Null-space passes — fidelity preserved — live on Gecko, which
-# reuses the converged optimiser's engine and Parameters.
-gk = geope.Gecko(geope=g)
+# shares the converged optimiser's Parameters (and its cached functions).
+gk = geope.Gecko(g.params)
 gk.smooth(piecewise_steps_multiplier=2, smoothing_rate=0.05, diff_tol=1e-3)
 gk.smooth_frequency(smoothing_rate=0.05, diff_tol=1e-3)
 gk.bound({"x": (-1, 1), "z": (-1, 1)}, method='projected_gradient')
@@ -641,7 +634,7 @@ params = geope.Parameters(
     init_values=phi,          # the externally-found solution
 )
 
-gk = geope.Gecko(params=params)   # builds its own engine; no Geope needed
+gk = geope.Gecko(params)          # no Geope needed
 gk.smooth(piecewise_steps_multiplier=2, smoothing_rate=0.05, diff_tol=1e-3)
 print(float(gk.params.fidelity))  # baseline computed on construction, preserved by the pass
 ```

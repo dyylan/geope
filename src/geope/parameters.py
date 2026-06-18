@@ -1,11 +1,26 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Callable
 
 import jax
 import numpy as np
 
 from .lie import Basis
+from .lie.pauli_projector import get_project_omegas_fn, get_project_omegas_fn_otf
+from .engine import (
+    get_compute_matrices_params_list_fn,
+    get_fidelity_fn,
+    get_infidelity_fn,
+    get_fidelity_full_fn,
+    get_infidelity_full_fn,
+    get_geodesic_hamiltonian_fn,
+    get_jacobian_fn,
+    get_split_jacobian_fn,
+    get_gammas_and_omegas_fn,
+    get_hessian_fn,
+    wrap_compute_U_param_transform,
+)
 from .utils import (
     construct_restricted_pauli_basis,
     filter_basis_by_control,
@@ -209,7 +224,7 @@ class Parameters:
             self.bounds = self.projected_basis.generate_bounds(bounds, piecewise_steps)
 
         # --- Live state: current parameters, seeded to the initial guess ---
-        proj_indices = np.array(self.projected_basis.overlap(self.basis), dtype=bool)
+        proj_indices = self.projected_indices
 
         if init_values is not None:
             if isinstance(init_values, dict):
@@ -267,6 +282,143 @@ class Parameters:
             return np.array(jax.vmap(self.param_transform)(self.parameters))
         return self.parameters
 
+    # --- Derived algebraic metadata -------------------------------------
+    # These index masks and the combined projected+drift basis are pure
+    # functions of ``basis`` / ``projected_basis`` / ``drift_basis`` (none of
+    # which change during a run), so they are cached on first access. They are
+    # the single source of truth previously computed in ``Engine.__init__``;
+    # the optimisers read them off the shared ``Parameters`` object.
+
+    @cached_property
+    def projected_indices(self) -> np.ndarray:
+        """Boolean mask for the projected basis within the full basis."""
+        return np.array(self.projected_basis.overlap(self.basis), dtype=bool)
+
+    @cached_property
+    def drift_indices(self) -> np.ndarray:
+        """Boolean mask for the drift basis within the full basis.
+
+        All-``False`` when there is no drift basis.
+        """
+        if self.drift_basis is None:
+            return np.full(self.basis.lie_algebra_dim, False)
+        return np.array(self.drift_basis.overlap(self.basis), dtype=bool)
+
+    @cached_property
+    def proj_drift_indices(self) -> np.ndarray:
+        """Combined boolean mask for projected and drift elements."""
+        return self.projected_indices + self.drift_indices
+
+    @cached_property
+    def proj_drift_basis(self) -> Basis:
+        """Combined projected-and-drift ``Basis`` object."""
+        mask = self.proj_drift_indices
+        return Basis(self.basis.basis[mask],
+                     labels=list(np.array(self.basis.labels)[mask]))
+
+    @cached_property
+    def proj_indices_projdrift_basis(self) -> np.ndarray:
+        """Projected indices expressed within the combined proj+drift basis."""
+        return np.delete(self.projected_indices, ~self.proj_drift_indices)
+
+    @cached_property
+    def drift_indices_projdrift_basis(self) -> np.ndarray:
+        """Drift indices expressed within the combined proj+drift basis."""
+        return np.delete(self.drift_indices, ~self.proj_drift_indices)
+
+    # --- Derived optimisation functions ---------------------------------
+    # The un-jitted GEOPE/GRAPE callables are pure functions of this object's
+    # (immutable-after-construction) configuration, so each is built lazily by
+    # a compact factory and cached here on first access. The optimisers read
+    # them directly off the (shared) ``Parameters`` object — there is no shared
+    # engine — and only the functions actually used by a given optimiser are
+    # ever built. Caching keeps the callable identity stable, so JAX reuses the
+    # compiled traces across a ``Geope`` and a ``Gecko`` sharing this object.
+    # No eager JIT happens here; compilation occurs once when the enclosing
+    # ``@jax.jit`` update step is first traced in ``optimize()``.
+
+    @cached_property
+    def compute_U_fn(self) -> Callable:
+        """Unitary-from-parameters function (wrapped when ``param_transform`` set)."""
+        base = get_compute_matrices_params_list_fn(self.proj_drift_basis.basis)
+        if self.param_transform is None:
+            return base
+        return wrap_compute_U_param_transform(self, base)
+
+    @cached_property
+    def fid_U_fn(self) -> Callable:
+        """Fidelity-of-unitary function bound to ``target``."""
+        if self.projective:
+            return get_fidelity_fn(self.target)
+        return get_fidelity_full_fn(self.target)
+
+    @cached_property
+    def infid_U_fn(self) -> Callable:
+        """Infidelity-of-unitary function bound to ``target``."""
+        if self.projective:
+            return get_infidelity_fn(self.target)
+        return get_infidelity_full_fn(self.target)
+
+    @cached_property
+    def infid_fn(self) -> Callable:
+        """Infidelity as a function of the free parameters."""
+        compute_U = self.compute_U_fn
+        infid_U = self.infid_U_fn
+        return lambda x: infid_U(compute_U(x))
+
+    @cached_property
+    def grad_fn(self) -> Callable:
+        """Value-and-gradient of the infidelity (used by GRAPE)."""
+        return jax.value_and_grad(self.infid_fn)
+
+    @cached_property
+    def hess_fn(self) -> Callable:
+        """Hessian of the infidelity (used by GRAPE)."""
+        return get_hessian_fn(self.infid_fn)
+
+    @cached_property
+    def jac_fn(self) -> Callable:
+        """Jacobian of the unitary w.r.t. the free parameters.
+
+        Holomorphic autodiff in projected-basis mode; a real/imag-split
+        Jacobian when ``param_transform`` is set (so the imaginary part is not
+        discarded through the real-valued user transform).
+        """
+        if self.param_transform is None:
+            return get_jacobian_fn(self.compute_U_fn)
+        return get_split_jacobian_fn(self.compute_U_fn)
+
+    @cached_property
+    def geo_fn(self) -> Callable:
+        """Geodesic-Hamiltonian function bound to ``target`` (used by GEOPE)."""
+        return get_geodesic_hamiltonian_fn(self.target, projective=self.projective)
+
+    @cached_property
+    def project_omegas_fn(self) -> Callable:
+        """Projection of matrices onto the Lie-algebra basis (used by GEOPE)."""
+        if self.basis.n > 5:
+            return get_project_omegas_fn_otf(self.basis, batch_size=None)
+        return get_project_omegas_fn(self.basis)
+
+    @cached_property
+    def gammas_and_omegas(self) -> Callable:
+        """Combined gammas-and-omegas function for the GEOPE update step.
+
+        In ``param_transform`` (experimental) mode the omega projection has one
+        free column per experimental parameter, so the projected-index
+        restriction selects all of them.
+        """
+        if self.param_transform is not None:
+            omega_proj_indices = np.ones(self.n_experimental_params, dtype=bool)
+        else:
+            omega_proj_indices = self.proj_indices_projdrift_basis
+        # Mirrors the legacy ``np.any(proj_drift_basis)`` gate (truthy for any
+        # non-empty basis, including the param_transform case).
+        has_proj_drift = self.proj_drift_basis.lie_algebra_dim > 0
+        return get_gammas_and_omegas_fn(
+            self.compute_U_fn, self.jac_fn, self.geo_fn, self.project_omegas_fn,
+            omega_proj_indices, has_proj_drift)
+
     def to_dict(self) -> dict:
         """Export the current basis coefficients as a control-style dict.
 
@@ -277,7 +429,7 @@ class Parameters:
         coeffs = self.basis_coefficients
         if coeffs is None:
             return {}
-        proj_indices = np.array(self.projected_basis.overlap(self.basis), dtype=bool)
+        proj_indices = self.projected_indices
         proj_coeffs = coeffs[0][proj_indices] if coeffs.ndim > 1 else coeffs[proj_indices]
 
         result: dict = {}

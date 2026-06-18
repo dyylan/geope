@@ -8,88 +8,14 @@ from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
-from .lie import Basis
+from .jax.logm import logm
 
+import inspect
 from functools import partial
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
-
-class Engine:
-    """Base engine for compiling quantum unitaries using Lie-algebraic methods.
-
-    The Engine sets up the algebraic infrastructure for quantum gate synthesis,
-    including projected and drift basis indices, and JIT-compiled JAX functions
-    for computing unitaries and fidelities.
-
-    Attributes:
-        full_basis: The full Lie algebra basis.
-        projected_basis: The projected (controllable) subalgebra basis.
-        drift_basis: The drift (uncontrollable) subalgebra basis, if any.
-        target_unitary: The target unitary the fidelity functions are bound to.
-        piecewise_steps: Number of piecewise-constant gate segments.
-        projected_indices: Boolean mask for projected basis elements in the full basis.
-        drift_indices: Boolean mask for drift basis elements in the full basis.
-        proj_drift_indices: Combined boolean mask for projected and drift elements.
-        proj_drift_basis: Combined projected-and-drift `Basis` object.
-        proj_indices_projdrift_basis: Projected indices within the combined basis.
-        drift_indices_projdrift_basis: Drift indices within the combined basis.
-        compute_U_fn: JIT-compiled function to compute the unitary from parameters.
-        fid_U_fn: JIT-compiled function to compute fidelity against the target unitary.
-    """
-
-    def __init__(self,
-                 target_unitary: np.ndarray,
-                 full_basis: Basis,
-                 projected_basis: Basis,
-                 drift_basis: Basis | None = None,
-                 piecewise_steps: int = 1) -> None:
-        """Initialise the Engine.
-
-        Args:
-            target_unitary: The target unitary matrix as ``np.ndarray``.
-            full_basis: The full Lie algebra ``Basis``.
-            projected_basis: The projected (controllable) subalgebra ``Basis``.
-            drift_basis: The drift (uncontrollable) subalgebra ``Basis``.
-                Defaults to ``None``.
-            piecewise_steps: Number of piecewise-constant gate segments. Defaults to 1.
-        """
-        self.full_basis = full_basis
-        self.projected_basis = projected_basis
-        self.drift_basis = drift_basis
-        self.target_unitary = np.array(target_unitary)
-        self.piecewise_steps = piecewise_steps
-
-        # Get the projected indices in the full space
-        self.projected_indices = np.array(projected_basis.overlap(full_basis), dtype=bool)
-        if drift_basis is None:
-            self.drift_indices = np.full(full_basis.lie_algebra_dim, False)
-        else:
-            self.drift_indices = np.array(drift_basis.overlap(full_basis),
-                                          dtype=bool)
-        self.proj_drift_indices = self.projected_indices + self.drift_indices
-        self.proj_drift_basis = Basis(full_basis.basis[self.projected_indices + self.drift_indices], labels=list(
-            np.array(full_basis.labels)[self.projected_indices + self.drift_indices]))
-
-        self.proj_indices_projdrift_basis = np.delete(self.projected_indices, ~self.proj_drift_indices)
-        self.drift_indices_projdrift_basis = np.delete(self.drift_indices, ~self.proj_drift_indices)
-
-        # Get the Jax functions from the helper functions
-        self.compute_U_fn = jax.jit(get_compute_matrices_params_list_fn(self.proj_drift_basis.basis))
-        self.fid_U_fn = jax.jit(get_fidelity_fn(target_unitary))
-
-    def set_piecewise_steps(self, piecewise_steps: int) -> None:
-        """Set the number of piecewise-constant gate segments.
-
-        This is the single owned entry point for changing the segment
-        count (e.g. when a null-space pass subdivides the pulse). The
-        unitary computation scans over the parameter list, so no
-        recompilation is needed — the integer is metadata used for
-        shaping and expander construction.
-
-        Args:
-            piecewise_steps: The new number of gate segments.
-        """
-        self.piecewise_steps = piecewise_steps
+if TYPE_CHECKING:
+    from .parameters import Parameters
 
 
 def fidelity(unitary: Array, target_unitary: Array) -> Array:
@@ -237,3 +163,312 @@ def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], 
         and returns the product unitary.
     """
     return partial(compute_matrices_params_list_fn, basis=basis)
+
+
+def geodesic_hamiltonian(unitary: Array, target_unitary: Array, projective: bool = True,
+                         key: Array = jax.random.key(0)) -> Array:
+    """Compute the geodesic Hamiltonian between a unitary and a target.
+
+    Computes the generator $g = -i\\log(U^\\dagger U_T) \\in \\mathfrak{u}(d)$
+    and returns $U g'$ where $g' = g - \\frac{\\mathrm{Tr}(g)}{d}\\mathbb{1}$
+    (the SU part) when ``projective=True``, or $g' = g$ (full U) when
+    ``projective=False``.
+
+    Args:
+        unitary: The current unitary ``Array``.
+        target_unitary: The target unitary ``Array``.
+        projective: If ``True``, subtract the global-phase generator
+            (SU geodesic). If ``False``, keep it (U geodesic).
+            Defaults to ``True``.
+        key: JAX random key forwarded to ``logm``. Defaults to
+            ``jax.random.key(0)``.
+
+    Returns:
+        The geodesic tangent ``Array`` $U g'$ at the current unitary.
+    """
+    g = -1.j * logm(jnp.einsum('ji,jk->ik', unitary.conj(), target_unitary), key=key)
+    if projective:
+        Id = jnp.eye(g.shape[0])
+        global_phase = jnp.real(jnp.einsum('ij,ji->', Id, g)) / g.shape[0]
+        g = g - global_phase * Id
+    return unitary @ g
+
+
+def get_geodesic_hamiltonian_fn(target_unitary: Array, projective: bool = True) -> Callable[[Array, Array], Array]:
+    """Create a partial geodesic Hamiltonian function with a fixed target.
+
+    Args:
+        target_unitary: The target unitary ``Array`` to bind.
+        projective: If ``True``, return the projective (SU) geodesic.
+            Defaults to ``True``.
+
+    Returns:
+        A ``Callable[[Array, Array], Array]`` that accepts a unitary and a
+        JAX random key and returns the geodesic Hamiltonian.
+    """
+    return partial(geodesic_hamiltonian, target_unitary=target_unitary, projective=projective)
+
+
+def hvp_forward_over_reverse(
+    f: Callable[[Array], Array], params: Array, v: Array
+) -> Array:
+    """Compute a Hessian-vector product via forward-over-reverse mode.
+
+    Args:
+        f: Scalar-valued callable of ``params``.
+        params: Parameter ``Array`` at which to evaluate.
+        v: Tangent ``Array`` for the Hessian-vector product.
+
+    Returns:
+        The Hessian-vector product $\\nabla^2 f \\cdot v$.
+    """
+    v = v.reshape(params.shape)
+    return jax.jvp(jax.grad(f), (params,), (v,))[1]
+
+
+def get_jacobian_fn(compute_U_fn: Callable[[Array], Array]) -> Callable[[Array], Array]:
+    """Build the autodiff Jacobian of the unitary w.r.t. parameters.
+
+    Returns the holomorphic ``jax.jacobian`` of ``compute_U_fn``. This is the
+    live Jacobian path for *all* system sizes: the manual Jacobian
+    (``geope.jax.jacobian.get_jacobian_manual``) exists and is independently
+    tested, but is not currently wired into the optimisation pipeline (the
+    autodiff path historically overwrote it for the >5-qubit branch — see
+    issue #4). The returned function is left un-jitted so it fuses into the
+    enclosing ``@jax.jit`` update step on first ``optimize()``.
+
+    Args:
+        compute_U_fn: Callable mapping a parameter list to the product unitary.
+
+    Returns:
+        A ``Callable[[Array], Array]`` returning the Jacobian of the unitary.
+    """
+    return jax.jacobian(compute_U_fn, argnums=0, holomorphic=True)
+
+
+def get_gammas_fn(
+    compute_U_fn: Callable[[Array], Array],
+    geo_fn: Callable[..., Array],
+    project_omegas_fn: Callable[[Array], Array],
+) -> Callable[[Array, Array], Array]:
+    """Build the projected geodesic-Hamiltonian (``gammas``) function.
+
+    Computes the unitary, its geodesic Hamiltonian towards the target, and
+    projects that onto the Pauli basis (normalised by the dimension). Returned
+    un-jitted so it composes inside an enclosing ``@jax.jit``.
+
+    Args:
+        compute_U_fn: Parameter-list -> unitary.
+        geo_fn: ``(unitary, key) -> geodesic Hamiltonian``.
+        project_omegas_fn: Projection of matrices onto the Lie-algebra basis.
+
+    Returns:
+        A ``Callable[[Array, Array], Array]`` ``gammas(free_params, key)``.
+    """
+    def gammas(free_params: Array, key: Array) -> Array:
+        unitary = compute_U_fn(free_params)
+        gammaU = geo_fn(unitary, key=key)  # seed for logm
+        return project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (gammaU.shape[0])
+
+    return gammas
+
+
+def get_omegas_fn(
+    jac_fn: Callable[[Array], Array],
+    project_omegas_fn: Callable[[Array], Array],
+    proj_indices: np.ndarray,
+    has_proj_drift: bool,
+) -> Callable[[Array], Array]:
+    """Build the projected per-gate Jacobian (``omegas``) function.
+
+    Projects the Jacobian of each gate (w.r.t. each parameter) onto the Pauli
+    basis, optionally restricting to the projected indices within the combined
+    proj+drift basis. Returned un-jitted so it composes inside an enclosing
+    ``@jax.jit``.
+
+    Args:
+        jac_fn: Jacobian of the unitary w.r.t. the free parameters.
+        project_omegas_fn: Projection of matrices onto the Lie-algebra basis.
+        proj_indices: Projected indices within the proj+drift basis.
+        has_proj_drift: Whether the proj+drift basis is non-empty (gates the
+            projected-index restriction; mirrors the legacy
+            ``np.any(proj_drift_basis)`` check).
+
+    Returns:
+        A ``Callable[[Array], Array]`` ``omegas(free_params)``.
+    """
+    def omegas(free_params: Array) -> Array:
+        dUs = jnp.array(jac_fn(free_params))
+        dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
+        omegas_steps_phis = jnp.array([project_omegas_fn(1.j * omegaUs) for omegaUs in dUs_t])
+        if has_proj_drift:
+            omegas_steps_phis = omegas_steps_phis.at[:, proj_indices, :].get()
+        return omegas_steps_phis
+
+    return omegas
+
+
+def get_gammas_and_omegas_fn(
+    compute_U_fn: Callable[[Array], Array],
+    jac_fn: Callable[[Array], Array],
+    geo_fn: Callable[..., Array],
+    project_omegas_fn: Callable[[Array], Array],
+    proj_indices: np.ndarray,
+    has_proj_drift: bool,
+) -> Callable[[Array, Array], tuple[Array, Array]]:
+    """Build the combined gammas-and-omegas function used by the GEOPE step.
+
+    Gammas are the projected geodesic Hamiltonian coefficients; omegas encode
+    the Jacobian of each gate w.r.t. each parameter, projected onto the Pauli
+    basis. This is the single combined body the GEOPE update step calls (one
+    ``compute_U_fn`` and one ``jac_fn`` evaluation), matching the legacy
+    numerics; :func:`get_gammas_fn` / :func:`get_omegas_fn` are the separately
+    testable halves. Returned un-jitted so it fuses into the enclosing
+    ``@jax.jit`` update step on first ``optimize()``.
+
+    Args:
+        compute_U_fn: Parameter-list -> unitary.
+        jac_fn: Jacobian of the unitary w.r.t. the free parameters.
+        geo_fn: ``(unitary, key) -> geodesic Hamiltonian``.
+        project_omegas_fn: Projection of matrices onto the Lie-algebra basis.
+        proj_indices: Projected indices within the proj+drift basis.
+        has_proj_drift: Whether the proj+drift basis is non-empty.
+
+    Returns:
+        A ``Callable[[Array, Array], tuple[Array, Array]]``
+        ``gammas_and_omegas(free_params, key) -> (gammaU_params, omegas)``.
+    """
+    def gammas_and_omegas(free_params: Array, key: Array) -> tuple[Array, Array]:
+        unitary = compute_U_fn(free_params)
+        gammaU = geo_fn(unitary, key=key)  # seed for logm
+        gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (gammaU.shape[0])
+
+        dUs = jnp.array(jac_fn(free_params))
+        dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
+        omegas_steps_phis = jnp.array([project_omegas_fn(1.j * omegaUs) for omegaUs in dUs_t])
+
+        if has_proj_drift:
+            omegas_steps_phis = omegas_steps_phis.at[:, proj_indices, :].get()
+
+        return gammaU_params, omegas_steps_phis
+
+    return gammas_and_omegas
+
+
+def get_hessian_fn(infid_fn: Callable[[Array], Array]) -> Callable[[Array], Array]:
+    """Build the full Hessian function via forward-over-reverse HVPs.
+
+    Materialises the Hessian of ``infid_fn`` by mapping a Hessian-vector
+    product over the identity matrix's columns. Returned un-jitted so it fuses
+    into the enclosing ``@jax.jit`` update step.
+
+    Args:
+        infid_fn: Scalar-valued infidelity callable of the free parameters.
+
+    Returns:
+        A ``Callable[[Array], Array]`` ``hess(y)`` returning the Hessian.
+    """
+    def hess(y: Array) -> Array:
+        return jax.vmap(lambda x: hvp_forward_over_reverse(infid_fn, y, x))(
+            jnp.eye(y.size, dtype=y.dtype))
+
+    return hess
+
+
+def wrap_compute_U_param_transform(
+    params: "Parameters", raw_compute_U: Callable[[Array], Array]
+) -> Callable[[Array], Array]:
+    """Wrap ``compute_U`` to honour ``params.param_transform``.
+
+    The user-facing experimental parameters $\\phi^{\\mathrm{exp}}$ are mapped to
+    projected-basis coefficients via ``params.param_transform`` (possibly
+    step-dependent), embedded into the proj+drift basis, and combined with the
+    drift before the original ``raw_compute_U`` is called.
+
+    Returned un-jitted so it fuses into the enclosing ``@jax.jit`` update step
+    on first ``optimize()``.
+
+    Args:
+        params: The ``Parameters`` object carrying ``param_transform``.
+        raw_compute_U: The projected-basis unitary-computation function.
+
+    Returns:
+        The wrapped experimental-space ``compute_U`` callable.
+    """
+    n_exp = params.n_experimental_params
+    n_proj_drift = params.proj_drift_basis.lie_algebra_dim
+    proj_idx_pd = params.proj_indices_projdrift_basis
+    drift_idx_pd = params.drift_indices_projdrift_basis
+
+    # Detect step-dependence: tau(phi) vs tau(phi, step_index)
+    _step_dependent = len(inspect.signature(params.param_transform).parameters) >= 2
+
+    # Detect whether transform outputs full-basis or projected-basis coefficients
+    _test_out = (params.param_transform(jnp.zeros(n_exp), 0)
+                 if _step_dependent
+                 else params.param_transform(jnp.zeros(n_exp)))
+    tf_out_dim = _test_out.shape[0]
+    n_proj = params.projected_basis.lie_algebra_dim
+    if tf_out_dim != n_proj:
+        _extract = jnp.array(np.where(
+            np.array(params.projected_basis.overlap(params.basis)))[0])
+    else:
+        _extract = None
+
+    if params.drift_parameters is not None:
+        _drift = jnp.array(params.drift_parameters, dtype=jnp.float64)
+    else:
+        _drift = None
+
+    def _wrapped_compute_U(exp_params, _raw=raw_compute_U,
+                           _tf=params.param_transform,
+                           _pi=proj_idx_pd, _di=drift_idx_pd,
+                           _npd=n_proj_drift, _dr=_drift,
+                           _ext=_extract, _step_dep=_step_dependent):
+        if _step_dep:
+            ctrl = jax.vmap(_tf)(exp_params, jnp.arange(exp_params.shape[0]))
+        else:
+            ctrl = jax.vmap(_tf)(exp_params)
+        if _ext is not None:
+            ctrl = ctrl[:, _ext]
+        # Promote dtype so complex tracing through real intermediates works
+        _dtype = jnp.result_type(ctrl.dtype, exp_params.dtype)
+        ctrl = ctrl.astype(_dtype)
+        full = jnp.zeros((exp_params.shape[0], _npd), dtype=_dtype)
+        full = full.at[:, _pi].set(ctrl)
+        if _dr is not None:
+            full = full.at[:, _di].set(
+                jnp.broadcast_to(_dr.astype(_dtype),
+                                 (exp_params.shape[0], _dr.shape[0])))
+        return _raw(full)
+
+    return _wrapped_compute_U
+
+
+def get_split_jacobian_fn(compute_U_fn: Callable[[Array], Array]) -> Callable[[Array], Array]:
+    """Build a real/imag-split Jacobian of ``compute_U_fn``.
+
+    Used on the ``param_transform`` path: differentiating through the
+    real-valued user transform with a holomorphic Jacobian would discard the
+    imaginary part of intermediates, so the unitary is split into real and
+    imaginary parts, each differentiated, then recombined.
+
+    Returned un-jitted so it fuses into the enclosing ``@jax.jit`` update step.
+
+    Args:
+        compute_U_fn: The (wrapped) experimental-space unitary function.
+
+    Returns:
+        A ``Callable[[Array], Array]`` returning the complex Jacobian.
+    """
+    def _split_U(x):
+        U = compute_U_fn(x)
+        return jnp.stack([jnp.real(U), jnp.imag(U)])
+
+    _raw_jac_split = jax.jacobian(_split_U, argnums=0)
+
+    def _jac_fn(x):
+        jac_split = _raw_jac_split(x)
+        return jac_split[0] + 1j * jac_split[1]
+
+    return _jac_fn

@@ -7,8 +7,6 @@ Tested items:
     - get_fidelity_fn
     - compute_matrices_params_list_fn
     - get_compute_matrices_params_list_fn
-  Classes:
-    - Engine
 """
 
 import pytest
@@ -20,7 +18,6 @@ import jax.numpy as jnp
 jax.config.update("jax_enable_x64", True)
 
 from geope.engine import (
-    Engine,
     fidelity,
     get_fidelity_fn,
     compute_matrices_params_list_fn,
@@ -196,86 +193,3 @@ class TestGetComputeMatricesParamsListFn:
         U_direct = compute_matrices_params_list_fn(params, basis)
         assert jnp.allclose(U_fn, U_direct, atol=1e-12)
 
-
-# ---------------------------------------------------------------------------
-# Tests — Engine
-# ---------------------------------------------------------------------------
-
-class TestEngine:
-    def test_init_stores_bases(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert eng.full_basis is full_basis_2q
-        assert eng.projected_basis is projected_basis_2q
-        assert eng.piecewise_steps == 1
-
-    def test_projected_indices_shape(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert eng.projected_indices.shape == (full_basis_2q.lie_algebra_dim,)
-        assert eng.projected_indices.dtype == bool
-        assert eng.projected_indices.sum() == projected_basis_2q.lie_algebra_dim
-
-    def test_no_drift_gives_false_indices(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert not np.any(eng.drift_indices)
-        assert eng.drift_basis is None
-
-    def test_proj_drift_indices_no_drift(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert np.array_equal(eng.proj_drift_indices, eng.projected_indices)
-
-    def test_proj_drift_basis_no_drift(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert eng.proj_drift_basis.lie_algebra_dim == projected_basis_2q.lie_algebra_dim
-
-    def test_with_drift_basis(self, cnot, full_basis_2q, projected_basis_2q):
-        Z = np.array([[1, 0], [0, -1]], dtype=complex)
-        I = np.eye(2, dtype=complex)
-        drift = Basis(np.stack([np.kron(Z, I), np.kron(I, Z)]), labels=["ZI", "IZ"])
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q, drift_basis=drift)
-        assert np.any(eng.drift_indices)
-        assert eng.drift_basis is drift
-
-    def test_with_drift_proj_drift_larger(self, cnot, full_basis_2q, projected_basis_2q):
-        """proj_drift_basis should include both projected and drift generators."""
-        Z = np.array([[1, 0], [0, -1]], dtype=complex)
-        I = np.eye(2, dtype=complex)
-        drift = Basis(np.stack([np.kron(Z, I), np.kron(I, Z)]), labels=["ZI", "IZ"])
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q, drift_basis=drift)
-        assert eng.proj_drift_basis.lie_algebra_dim >= projected_basis_2q.lie_algebra_dim
-
-    def test_gates_stored(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=4)
-        assert eng.piecewise_steps == 4
-
-    def test_compute_U_fn_is_callable(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert callable(eng.compute_U_fn)
-
-    def test_fid_U_fn_is_callable(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert callable(eng.fid_U_fn)
-
-    def test_compute_U_fn_zero_params(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        n = eng.proj_drift_basis.lie_algebra_dim
-        params = jnp.zeros((1, n), dtype=complex)
-        U = eng.compute_U_fn(params)
-        assert jnp.allclose(U, jnp.eye(4), atol=1e-12)
-
-    def test_fid_U_fn_target_self(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert jnp.isclose(eng.fid_U_fn(cnot), 1.0, atol=1e-12)
-
-    def test_fid_U_fn_identity_less_than_one(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        fid = eng.fid_U_fn(jnp.eye(4, dtype=complex))
-        assert fid < 1.0
-
-    def test_proj_indices_projdrift_basis(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert eng.proj_indices_projdrift_basis.dtype == bool
-
-    def test_drift_indices_projdrift_basis(self, cnot, full_basis_2q, projected_basis_2q):
-        eng = Engine(cnot, full_basis_2q, projected_basis_2q)
-        assert eng.drift_indices_projdrift_basis.dtype == bool
-        assert not np.any(eng.drift_indices_projdrift_basis)

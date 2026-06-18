@@ -57,7 +57,7 @@ This lets a solution be reshaped to satisfy experimental optimisations that the 
 - **Robustness** — reduce sensitivity to control errors (`robust`).
 - **Bounds** — push parameters into hardware-allowed ranges (`bound`).
 
-Because all of these passes preserve fidelity by construction, they can be composed freely after optimisation. A `Gecko` object either builds its own engine from a `Parameters` object or reuses `Geope` objects engine.
+Because all of these passes preserve fidelity by construction, they can be composed freely after optimisation. A `Gecko` is constructed from a `Parameters` object — pass a `Geope`'s `geope.params` to reuse its cached, already-compiled functions.
 
 The Gecko method is described in the paper:
 
@@ -70,11 +70,10 @@ The library is organised around a few core components:
 | Module | Description |
 |--------|-------------|
 | `Basis`, `Hamiltonian`, `Unitary` | Lie algebraic objects for defining Pauli-string bases, Hamiltonians, and unitaries. |
-| `Parameters` | State object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and `param_transform`. The single user-facing entry point. |
-| `Engine` | Base engine that compiles JAX functions for computing unitaries and fidelities from a given basis. |
-| `GeopeEngine` | Extends `Engine` with JIT-compiled Jacobian, geodesic, and projection functions. Built internally by `Geope`. |
+| `Parameters` | State object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and `param_transform`. The single user-facing entry point; it also lazily builds and caches the optimisation functions (unitary, fidelity, Jacobian, geodesic, …). |
+| `engine` | Pure function factories for the optimisation primitives (unitary, fidelity, geodesic Hamiltonian, Jacobian, Hessian, gammas/omegas). They return un-jitted callables; JIT happens once when the optimiser is first run. |
 | `Geope` | Top-level optimiser that runs the full GEOPE algorithm; requires a `Parameters` object. |
-| `Gecko` | Kernel ("auxiliary cost") optimiser that refines a solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Builds its own engine from a `Parameters`, or reuses a `Geope` engine. |
+| `Gecko` | Kernel ("auxiliary cost") optimiser that refines a solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Constructed from a `Parameters` object (pass a `Geope`'s `geope.params` to reuse its cached, already-compiled functions). |
 | `utils` | Utilities for constructing restricted Pauli bases, Heisenberg and 2-local Hamiltonians, line search, and more. |
 
 A typical workflow is:
