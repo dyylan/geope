@@ -32,7 +32,14 @@ from geope.jax import get_jacobian_propagator
 from conftest import make_basis, make_params, warm
 
 # (n_qubits, n_steps): d = 2**n, K = 4**n - 1.
-SIZES = [(1, 1), (1, 10), (2, 1), (2, 10), (3, 1), (3, 10),]
+SIZES = [
+    (1, 1),
+    (1, 10),
+    (2, 1),
+    (2, 10),
+    (3, 1),
+    (3, 10),
+]
 SIZE_IDS = [f"n{n}-G{g}" for n, g in SIZES]
 
 # Few rounds for compilation benchmarks — each round recompiles and is slow.

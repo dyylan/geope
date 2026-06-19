@@ -29,7 +29,7 @@ filterwarnings = [
 ]
 
 [project.optional-dependencies]
-dev = ["pre-commit==3.7.0", "pytest==9.0.3", "pytest-benchmark==5.1.0"]
+dev = ["pre-commit==3.7.0", "pytest==9.0.3", "pytest-benchmark==5.1.0", "black==24.3.0"]
 
 docs = [
     "pytest==9.0.3",

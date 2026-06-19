@@ -118,7 +118,6 @@ from geope.jax.dexpm import d2expm, d2expm_eig, d2expm_eig_batched
 from geope.jax.hessian import manual_hessian, get_hessian_propagator
 from geope.utils import qft_unitary
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -465,8 +464,8 @@ class TestCostHessianManual:
         # GRAPE parameters are real-valued.
         y = jax.random.normal(jax.random.key(17), (G, K)) * 0.3
 
-        infid_U = get_infidelity_fn(target) if projective else get_infidelity_full_fn(
-            target
+        infid_U = (
+            get_infidelity_fn(target) if projective else get_infidelity_full_fn(target)
         )
         infid = lambda x: infid_U(compute_U(x))
         H_auto = get_hessian_fn(infid)(y).reshape(G * K, G * K)

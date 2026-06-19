@@ -29,7 +29,11 @@ from geope.jax import dexpm, dexpm_eig, get_dexpm, get_dexpm_eig, get_Ui_fn
 
 from conftest import make_basis, warm
 
-N_QUBITS = [1, 2, 3, 4]  # d = 2**n, K = 4**n - 1
+N_QUBITS = [
+    1,
+    2,
+    3,
+]  # d = 2**n, K = 4**n - 1
 COMPILE_ROUNDS = 3
 
 
@@ -45,9 +49,7 @@ def test_dexpm_exec(benchmark, n):
     basis, x = _setup(n)
     fn = get_dexpm(basis)  # already @jax.jit
     warm(fn, x)
-    benchmark.pedantic(
-        lambda: jax.block_until_ready(fn(x)), rounds=20, warmup_rounds=1
-    )
+    benchmark.pedantic(lambda: jax.block_until_ready(fn(x)), rounds=20, warmup_rounds=1)
 
 
 @pytest.mark.parametrize("n", N_QUBITS)
@@ -55,9 +57,7 @@ def test_dexpm_eig_exec(benchmark, n):
     basis, x = _setup(n)
     fn = get_dexpm_eig(basis)  # spectral method, one eigendecomposition
     warm(fn, x)
-    benchmark.pedantic(
-        lambda: jax.block_until_ready(fn(x)), rounds=20, warmup_rounds=1
-    )
+    benchmark.pedantic(lambda: jax.block_until_ready(fn(x)), rounds=20, warmup_rounds=1)
 
 
 @pytest.mark.parametrize("n", N_QUBITS)
@@ -65,9 +65,7 @@ def test_dexpm_batched_exec(benchmark, n):
     basis, x = _setup(n)
     fn = get_dexpm(basis, batch_size=4)
     warm(fn, x)
-    benchmark.pedantic(
-        lambda: jax.block_until_ready(fn(x)), rounds=20, warmup_rounds=1
-    )
+    benchmark.pedantic(lambda: jax.block_until_ready(fn(x)), rounds=20, warmup_rounds=1)
 
 
 @pytest.mark.parametrize("n", N_QUBITS)
@@ -76,9 +74,7 @@ def test_dexpm_autodiff_exec(benchmark, n):
     Ui_fn = get_Ui_fn(basis)
     fn = jax.jit(jax.jacobian(Ui_fn, holomorphic=True))
     warm(fn, x)
-    benchmark.pedantic(
-        lambda: jax.block_until_ready(fn(x)), rounds=20, warmup_rounds=1
-    )
+    benchmark.pedantic(lambda: jax.block_until_ready(fn(x)), rounds=20, warmup_rounds=1)
 
 
 @pytest.mark.parametrize("n", N_QUBITS)

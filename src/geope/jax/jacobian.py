@@ -94,9 +94,7 @@ def manual_jacobian(
     Ls = jax.lax.scan(step_left, eye, gates, reverse=True)[1]
 
     # Block_i[a, c, k] = L_i[a, b] jac_i[b, e, k] R_i[e, c].
-    return jax.vmap(lambda L, J, R: jnp.einsum("ab,bek,ec->ack", L, J, R))(
-        Ls, jacs, Rs
-    )
+    return jax.vmap(lambda L, J, R: jnp.einsum("ab,bek,ec->ack", L, J, R))(Ls, jacs, Rs)
 
 
 def get_jacobian_propagator(

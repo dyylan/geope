@@ -23,11 +23,15 @@ Before opening a new issue, search the [issue tracker](../../issues) to see if i
    ```bash
    pytest
    ```
-5. **Commit** your changes with a clear message:
+5. Run black to format the code:
+   ```bash
+   black .
+   ```
+6. **Commit** your changes with a clear message:
    ```bash
    git commit -m "Short description of what changed"
    ```
-6. **Push** to your fork and open a **pull request** against `main`. Reference the related issue (e.g. `Closes #42`) in the PR description.
+7. **Push** to your fork and open a **pull request** against `main`. Reference the related issue (e.g. `Closes #42`) in the PR description.
 
 ## Benchmarks
 

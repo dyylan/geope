@@ -591,7 +591,7 @@ def wrap_compute_U_param_transform(
 
 
 def get_split_jacobian_fn(
-    compute_U_fn: Callable[[Array], Array]
+    compute_U_fn: Callable[[Array], Array],
 ) -> Callable[[Array], Array]:
     """Build a real/imag-split Jacobian of ``compute_U_fn``.
 

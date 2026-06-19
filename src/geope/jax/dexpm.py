@@ -105,9 +105,7 @@ def dexpm_batched(x: Array, basis: Array, batch_size: int) -> Array:
     )
 
 
-def _eig(
-    x: Array, basis: Array, hermitian: bool = True
-) -> tuple[Array, Array, Array]:
+def _eig(x: Array, basis: Array, hermitian: bool = True) -> tuple[Array, Array, Array]:
     r"""Diagonalise $M = i \sum_j x_j B_j = V \mathrm{diag}(\mu) V^{-1}$.
 
     For real coefficients ``x`` the generator $A = \sum_j x_j B_j$ is Hermitian
@@ -347,9 +345,9 @@ def d2expm(x: Array, basis: Array) -> Array:
         of coefficients; symmetric under their exchange.
     """
     A = jnp.tensordot(x, basis, axes=[[-1], [0]])
-    ordered = jax.vmap(
-        lambda Bk: jax.vmap(lambda Bl: _expm_block13(A, Bk, Bl))(basis)
-    )(basis)  # (K, K, d, d), ordered (k left of l)
+    ordered = jax.vmap(lambda Bk: jax.vmap(lambda Bl: _expm_block13(A, Bk, Bl))(basis))(
+        basis
+    )  # (K, K, d, d), ordered (k left of l)
     pairs = ordered + jnp.swapaxes(ordered, 0, 1)  # symmetrise both orderings
     return jnp.transpose(pairs, (2, 3, 0, 1))
 
