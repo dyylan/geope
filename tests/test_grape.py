@@ -7,7 +7,7 @@ Covers the GRAPE optimiser after its public API was aligned with Geope:
   - Geope-style result model (params.parameters is the current array,
     params.fidelity is a scalar, trajectory in an optional History),
   - reproducibility from an integer seed and a jax.random.key seed,
-  - the param_transform path via GrapeEngine.wrap_param_transform.
+  - the param_transform path via the cached params.compute_U_fn.
 """
 
 import pytest
@@ -18,7 +18,7 @@ import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
-from geope.grape import Grape, GrapeEngine
+from geope.grape import Grape
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -66,14 +66,9 @@ def _params(cnot, full_basis_2q, projected_basis_2q, *, seed=42, piecewise_steps
 
 
 class TestGrapeConstructor:
-    def test_requires_parameters(self, cnot, full_basis_2q, projected_basis_2q):
-        engine = GrapeEngine(
-            target_unitary=cnot,
-            full_basis=full_basis_2q,
-            projected_basis=projected_basis_2q,
-        )
+    def test_requires_parameters(self):
         with pytest.raises(TypeError):
-            Grape(engine)
+            Grape("not a Parameters object")
 
     def test_init_sets_geope_style_state(self, cnot, full_basis_2q, projected_basis_2q):
         p = _params(cnot, full_basis_2q, projected_basis_2q)
@@ -144,8 +139,8 @@ class TestGrapeReproducibility:
 
 
 class TestGrapeParamTransform:
-    """The param_transform path wraps compute_U_fn via
-    GrapeEngine.wrap_param_transform (mirroring GeopeEngine)."""
+    """The param_transform path wraps compute_U_fn via the cached
+    ``params.compute_U_fn`` (operating in experimental space)."""
 
     def _exp_params(self, cnot, full_basis_2q, projected_basis_2q, seed=42):
         n_exp = projected_basis_2q.lie_algebra_dim
@@ -159,15 +154,17 @@ class TestGrapeParamTransform:
             n_experimental_params=n_exp,
         )
 
-    def test_wrap_param_transform_overrides_engine(
+    def test_param_transform_uses_experimental_space(
         self, cnot, full_basis_2q, projected_basis_2q
     ):
         p = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
         g = Grape(p)
         n_exp = projected_basis_2q.lie_algebra_dim
         assert g._real_params is True
-        assert g.engine.drift_basis is None
-        assert g.engine.proj_drift_indices.sum() == n_exp
+        # Experimental space: drift is folded into compute_U, and every column
+        # is a free parameter.
+        assert g.drift_parameters is None
+        assert g._proj_drift_mask().sum() == n_exp
         assert g.params.parameters.shape == (1, n_exp)
 
     def test_optimize_improves_fidelity(self, cnot, full_basis_2q, projected_basis_2q):

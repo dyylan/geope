@@ -9,14 +9,11 @@ from jax import Array
 jax.config.update("jax_enable_x64", True)
 
 from functools import partial
-from typing import Callable, TYPE_CHECKING
+from typing import Callable
 
-from .geope import GeopeEngine
+from .geope import build_pulse_expander
 from .parameters import Parameters
 from .utils.history import History
-
-if TYPE_CHECKING:
-    from .geope import Geope
 
 
 class Gecko:
@@ -27,21 +24,19 @@ class Gecko:
     while an auxiliary cost is improved — smoothing, frequency shaping,
     pulse length, gate speed, robustness, or parameter bounds.
 
-    A ``Gecko`` always needs a built ``GeopeEngine``. Constructing one is
-    expensive (JIT compilation), so a ``Gecko`` can either build its own
-    engine from a `Parameters` object, or borrow a `Geope`'s already-built
-    engine:
+    A ``Gecko`` is constructed from a `Parameters` object — the same object a
+    `Geope` uses. The optimisation functions are read off ``params`` (built
+    lazily and cached there), so to post-process a `Geope` solution, pass that
+    `Geope`'s ``params``::
 
-    - ``Gecko(params=p)`` — build a fresh engine from ``p``.
-    - ``Gecko(geope=g)`` — reuse ``g.engine`` and ``g.params`` directly.
-    - ``Gecko(params=p, geope=g)`` — reuse ``g.engine`` but first verify it
-      is compatible with the separately-supplied ``p`` (raises ``ValueError``
-      on mismatch).
-    - ``Gecko()`` — raises ``ValueError``.
+        g = Geope(p); g.optimize()
+        Gecko(g.params).smooth(...)
+
+    Because the functions are cached on ``params``, the `Gecko` reuses the
+    `Geope`'s already-compiled traces rather than recompiling.
 
     Attributes:
         params: The bound `Parameters` object (live optimisation state).
-        engine: The `GeopeEngine` (reused from a `Geope` or freshly built).
         history: Optional `History` logger (``None`` unless supplied).
         step_size: Transient last optimisation rate.
         pulse_constraints: Optional pulse-shape constraint config.
@@ -50,83 +45,48 @@ class Gecko:
             experimental / ``param_transform`` mode).
 
     .. note::
-        In the ``geope`` and ``params+geope`` reuse modes the engine and
-        `Parameters` are **shared** with the source `Geope`. A null-space
-        pass with ``piecewise_steps_multiplier > 1`` subdivides the pulse and
-        advances ``params.parameters`` / ``params.piecewise_steps`` /
-        ``engine.piecewise_steps`` together — so the shared `Geope`'s state
-        moves forward too, and a later ``geope.optimize()`` continues from
-        the subdivided pulse.
+        The `Parameters` object is **shared** with the source `Geope`. A
+        null-space pass with ``piecewise_steps_multiplier > 1`` subdivides the
+        pulse and advances ``params.parameters`` / ``params.piecewise_steps``
+        in place — so the shared `Geope`'s state moves forward too, and a later
+        ``geope.optimize()`` continues from the subdivided pulse.
     """
 
     def __init__(
-        self,
-        params: Parameters | None = None,
-        geope: "Geope | None" = None,
-        history: History | None = None,
-        verbose: bool = False,
+        self, params: Parameters, history: History | None = None, verbose: bool = False
     ) -> None:
         """Initialise the Gecko optimiser.
 
         Args:
-            params: A `Parameters` instance. Required unless ``geope`` is
-                given (a `Geope` already carries its own ``geope.params``).
-            geope: An optional `Geope` whose engine (and, when ``params`` is
-                omitted, whose `Parameters`) is reused instead of rebuilding.
+            params: A `Parameters` instance — the same object a `Geope` uses.
+                Pass a `Geope`'s ``geope.params`` to post-process its solution;
+                the cached optimisation functions are reused.
             history: Optional `History` logger. When supplied, the run
                 trajectory is recorded into it.
             verbose: Whether to print progress. Defaults to False.
 
         Raises:
-            ValueError: If neither ``params`` nor ``geope`` is given, or if
-                both are given but the engine is incompatible with ``params``.
+            TypeError: If ``params`` is not a `Parameters` instance.
         """
-        if params is None and geope is None:
-            raise ValueError(
-                "Gecko requires either `params` or `geope` (or both). "
-                "Pass a Parameters object, or a Geope instance whose engine "
-                "and params should be reused."
+        if not isinstance(params, Parameters):
+            raise TypeError(
+                "Gecko requires a Parameters object as its first argument. "
+                "Pass a Parameters object, or a Geope's `geope.params`."
             )
 
-        if geope is not None and params is None:
-            # Reuse a Geope's engine and its Parameters (self-consistent).
-            self.engine = geope.engine
-            self.params = geope.params
-            self._real_params = geope._real_params
-        elif geope is None:
-            # Build a fresh engine from the supplied Parameters.
-            engine = GeopeEngine(
-                target_unitary=params.target,
-                full_basis=params.basis,
-                projected_basis=params.projected_basis,
-                drift_basis=params.drift_basis,
-                piecewise_steps=params.piecewise_steps,
-                projective=params.projective,
-            )
-            if params.param_transform is not None:
-                engine.wrap_param_transform(params)
-            self.engine = engine
-            self.params = params
-            self._real_params = params.param_transform is not None
-        else:
-            # Both supplied: reuse the engine but verify it matches params.
-            self._assert_engine_compatible(geope.engine, params)
-            self.engine = geope.engine
-            self.params = params
-            self._real_params = params.param_transform is not None
+        self.params = params
+        self._real_params = params.param_transform is not None
 
         # Compute a baseline fidelity if the params have never been evaluated
         # (e.g. a fresh Parameters that has not been through Geope.optimize).
         if self.params.fidelity is None:
             _dtype = jnp.float64 if self._real_params else jnp.complex128
-            free_params = jnp.array(
-                [p[self.engine.proj_drift_indices] for p in self.params.parameters]
-            )
+            free_params = self._free(self.params.parameters)
             free_params = (
                 jnp.real(free_params) if self._real_params else free_params
             ).astype(_dtype)
-            self.params.fidelity = self.engine.fid_U_fn(
-                self.engine.compute_U_fn(free_params)
+            self.params.fidelity = self.params.fid_U_fn(
+                self.params.compute_U_fn(free_params)
             )
 
         self.history = history
@@ -144,98 +104,16 @@ class Gecko:
         self.lower_bounds = None
         self.upper_bounds = None
 
-    @staticmethod
-    def _assert_engine_compatible(engine: GeopeEngine, params: Parameters) -> None:
-        """Verify a reused engine is compatible with a supplied Parameters.
+    def _free(self, parameters):
+        """Select the free (projected+drift) parameter columns.
 
-        Compares the engine's bound target, projective flag, segment count,
-        and basis structure (or experimental dimensionality under
-        ``param_transform``) against ``params``. Raises naming the first
-        mismatch found.
-
-        Args:
-            engine: The `GeopeEngine` to validate.
-            params: The `Parameters` it must be compatible with.
-
-        Raises:
-            ValueError: On the first incompatibility found.
+        Identity in experimental (``param_transform``) mode, where every column
+        is already a free parameter; otherwise selects the proj+drift columns
+        via ``params.proj_drift_indices``. Works on numpy or JAX arrays.
         """
-        if bool(engine.projective) != bool(params.projective):
-            raise ValueError(
-                f"Gecko: engine.projective={engine.projective} does not match "
-                f"params.projective={params.projective}."
-            )
-
-        t_engine = np.asarray(engine.target_unitary)
-        t_params = np.asarray(params.target)
-        if t_engine.shape != t_params.shape or not np.allclose(t_engine, t_params):
-            raise ValueError(
-                "Gecko: the engine's target unitary does not match params.target."
-            )
-
-        if engine.piecewise_steps != params.piecewise_steps:
-            raise ValueError(
-                f"Gecko: engine.piecewise_steps={engine.piecewise_steps} does not "
-                f"match params.piecewise_steps={params.piecewise_steps}."
-            )
-
-        if params.param_transform is not None:
-            # Engine must already be wrapped into experimental space.
-            if getattr(engine, "drift_basis", None) is not None:
-                raise ValueError(
-                    "Gecko: params has a param_transform but the engine was not "
-                    "wrapped into experimental space (drift_basis still present)."
-                )
-            if engine.proj_drift_basis.lie_algebra_dim != params.n_experimental_params:
-                raise ValueError(
-                    f"Gecko: engine experimental dimension "
-                    f"{engine.proj_drift_basis.lie_algebra_dim} does not match "
-                    f"params.n_experimental_params={params.n_experimental_params}."
-                )
-        else:
-            e_labels = engine.projected_basis.labels
-            p_labels = params.projected_basis.labels
-            if (
-                e_labels is not None
-                and p_labels is not None
-                and list(e_labels) != list(p_labels)
-            ):
-                raise ValueError(
-                    "Gecko: engine.projected_basis labels do not match "
-                    "params.projected_basis."
-                )
-            if (
-                engine.projected_basis.lie_algebra_dim
-                != params.projected_basis.lie_algebra_dim
-            ):
-                raise ValueError(
-                    "Gecko: engine.projected_basis dimension does not match "
-                    "params.projected_basis."
-                )
-            e_drift = getattr(engine, "drift_basis", None)
-            p_drift = params.drift_basis
-            if (e_drift is None) != (p_drift is None):
-                raise ValueError(
-                    "Gecko: engine.drift_basis presence does not match "
-                    "params.drift_basis."
-                )
-            if e_drift is not None and p_drift is not None:
-                ed_labels = e_drift.labels
-                pd_labels = p_drift.labels
-                if (
-                    ed_labels is not None
-                    and pd_labels is not None
-                    and list(ed_labels) != list(pd_labels)
-                ):
-                    raise ValueError(
-                        "Gecko: engine.drift_basis labels do not match "
-                        "params.drift_basis."
-                    )
-                if e_drift.lie_algebra_dim != p_drift.lie_algebra_dim:
-                    raise ValueError(
-                        "Gecko: engine.drift_basis dimension does not match "
-                        "params.drift_basis."
-                    )
+        if self._real_params:
+            return parameters
+        return parameters[:, self.params.proj_drift_indices]
 
     def smooth(
         self,
@@ -372,7 +250,7 @@ class Gecko:
             return tuple(parameter_indices)
         if parameter_indices is not None:
             return tuple(parameter_indices)
-        proj_labels = list(self.engine.projected_basis.labels)
+        proj_labels = list(self.params.projected_basis.labels)
         if parameter_labels is None:
             if default_all:
                 return tuple(range(len(proj_labels)))
@@ -413,7 +291,7 @@ class Gecko:
         n_proj = (
             self.params.n_experimental_params
             if real
-            else self.engine.projected_basis.lie_algebra_dim
+            else self.params.projected_basis.lie_algebra_dim
         )
         speed_fn = get_speed_null_space_fn(n_proj, parameter_indices)
         success, iters = self._null_space_optimisation(
@@ -459,12 +337,12 @@ class Gecko:
         n_proj = (
             self.params.n_experimental_params
             if real
-            else self.engine.projected_basis.lie_algebra_dim
+            else self.params.projected_basis.lie_algebra_dim
         )
         drift_sq_norm = 0.0
         if (
             not real
-            and self.engine.drift_basis is not None
+            and self.params.drift_basis is not None
             and getattr(self, "drift_parameters", None) is not None
         ):
             drift_per_gate = (
@@ -522,20 +400,25 @@ class Gecko:
             n_proj = self.params.n_experimental_params
             n_projdrift = n_proj
             drift_params = None
+            # Experimental space: every column is a free parameter.
+            proj_idx_pd = np.ones(n_proj, dtype=bool)
+            drift_idx_pd = np.zeros(n_proj, dtype=bool)
         else:
-            n_proj = self.engine.projected_basis.lie_algebra_dim
-            n_projdrift = self.engine.proj_drift_basis.lie_algebra_dim
+            n_proj = self.params.projected_basis.lie_algebra_dim
+            n_projdrift = self.params.proj_drift_basis.lie_algebra_dim
             drift_params = (
                 self.drift_parameters
                 if hasattr(self, "drift_parameters")
-                and self.engine.drift_basis is not None
+                and self.params.drift_basis is not None
                 else None
             )
+            proj_idx_pd = self.params.proj_indices_projdrift_basis
+            drift_idx_pd = self.params.drift_indices_projdrift_basis
         robustness_fn = get_robustness_null_space_fn(
-            self.engine.fid_U_fn,
-            self.engine.compute_U_fn,
-            self.engine.proj_indices_projdrift_basis,
-            self.engine.drift_indices_projdrift_basis,
+            self.params.fid_U_fn,
+            self.params.compute_U_fn,
+            proj_idx_pd,
+            drift_idx_pd,
             drift_params,
             n_proj,
             n_projdrift,
@@ -584,8 +467,8 @@ class Gecko:
             ValueError: If an unsupported `method` is provided.
         """
         self.parameter_bounds = parameter_bounds
-        bounds = self.engine.proj_drift_basis.generate_bounds(
-            self.parameter_bounds, self.engine.piecewise_steps
+        bounds = self.params.proj_drift_basis.generate_bounds(
+            self.parameter_bounds, self.params.piecewise_steps
         )
         self.lower_bounds = jnp.array(bounds[0], dtype=jnp.float64)
         self.upper_bounds = jnp.array(bounds[1], dtype=jnp.float64)
@@ -603,8 +486,8 @@ class Gecko:
             rate=bounding_rate,
             diff_tol=diff_tol,
             label="Bounding",
-            lower_bounds=self.lower_bounds[:, self.engine.proj_indices_projdrift_basis],
-            upper_bounds=self.upper_bounds[:, self.engine.proj_indices_projdrift_basis],
+            lower_bounds=self.lower_bounds[:, self.params.proj_indices_projdrift_basis],
+            upper_bounds=self.upper_bounds[:, self.params.proj_indices_projdrift_basis],
         )
         return success, iters
 
@@ -621,21 +504,30 @@ class Gecko:
 
         _dtype = jnp.float64 if self._real_params else jnp.complex128
 
+        if self._real_params:
+            # Experimental space: every column is free, so the projected
+            # parameters are already the full free-parameter array.
+            @jax.jit
+            def update_free_params_smoothing(proj_params, params):
+                return proj_params.astype(_dtype)
+
+            return update_free_params_smoothing
+
         @jax.jit
         def update_free_params_smoothing(proj_params, params):
             free_params = jnp.zeros(
                 (
-                    self.engine.piecewise_steps,
-                    self.engine.proj_drift_basis.lie_algebra_dim,
+                    self.params.piecewise_steps,
+                    self.params.proj_drift_basis.lie_algebra_dim,
                 ),
                 dtype=_dtype,
             )
             free_params = free_params.at[
-                :, self.engine.proj_indices_projdrift_basis
+                :, self.params.proj_indices_projdrift_basis
             ].set(proj_params)
             free_params = free_params.at[
-                :, self.engine.drift_indices_projdrift_basis
-            ].set(params[:, self.engine.drift_indices])
+                :, self.params.drift_indices_projdrift_basis
+            ].set(params[:, self.params.drift_indices])
             return free_params
 
         return update_free_params_smoothing
@@ -675,8 +567,7 @@ class Gecko:
         """
         # Update the number of piecewise steps and initialise new parameters.
         # Keep engine, params.parameters length, and params.piecewise_steps in sync.
-        new_count = self.engine.piecewise_steps * piecewise_steps_multiplier
-        self.engine.set_piecewise_steps(new_count)
+        new_count = self.params.piecewise_steps * piecewise_steps_multiplier
         self.params.piecewise_steps = new_count
 
         new_parameters = [
@@ -689,10 +580,14 @@ class Gecko:
         )
 
         _dtype = jnp.float64 if self._real_params else jnp.complex128
-        _drift = self.params.parameters[:, self.engine.proj_drift_indices]
-        _proj = self.params.parameters[:, self.engine.projected_indices]
         if self._real_params:
-            _drift, _proj = jnp.real(_drift), jnp.real(_proj)
+            # Experimental space: every column is both a free and a projected
+            # parameter.
+            _drift = jnp.real(self.params.parameters)
+            _proj = jnp.real(self.params.parameters)
+        else:
+            _drift = self.params.parameters[:, self.params.proj_drift_indices]
+            _proj = self.params.parameters[:, self.params.projected_indices]
         free_params = _drift.astype(_dtype)
         proj_params = _proj.astype(_dtype)
 
@@ -707,7 +602,9 @@ class Gecko:
         diff = np.inf
         pulse_templates = None
         if self.pulse_constraints is not None:
-            E_pulse, pulse_templates = self.engine.build_pulse_expander(
+            E_pulse, pulse_templates = build_pulse_expander(
+                self.params.piecewise_steps,
+                self.params.projected_basis,
                 self.pulse_constraints,
                 self._real_params,
                 self.params.n_experimental_params,
@@ -715,14 +612,14 @@ class Gecko:
             )
             if self.constraint_expander is not None:
                 E_gate = np.kron(
-                    np.eye(self.engine.piecewise_steps), self.constraint_expander
+                    np.eye(self.params.piecewise_steps), self.constraint_expander
                 )
                 expander = jnp.array(E_gate @ np.linalg.pinv(E_gate) @ E_pulse)
             else:
                 expander = jnp.array(E_pulse)
         elif self.constraint_expander is not None:
             expander = jnp.kron(
-                jnp.eye(self.engine.piecewise_steps),
+                jnp.eye(self.params.piecewise_steps),
                 jnp.array(self.constraint_expander),
             )
         else:
@@ -730,7 +627,7 @@ class Gecko:
         fid = 0
         while (diff > diff_tol) and (c < max_steps):
             # TODO: Can we create a function that just returns `omegas_steps_phis`?
-            _, omegas_steps_phis = self.engine.gammas_and_omegas(
+            _, omegas_steps_phis = self.params.gammas_and_omegas(
                 free_params, jax.random.key(0)
             )
             vh, num = find_null_space(omegas_steps_phis, expander)
@@ -750,7 +647,7 @@ class Gecko:
 
             free_params = params_update(proj_params, self.params.parameters)
 
-            fid = self.engine.fid_U_fn(self.engine.compute_U_fn(free_params))
+            fid = self.params.fid_U_fn(self.params.compute_U_fn(free_params))
 
             c += 1
             print(
@@ -761,8 +658,13 @@ class Gecko:
             f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        "
         )
         success = diff_tol >= diff
-        new_params = np.zeros_like(self.params.parameters)
-        new_params[:, self.engine.proj_drift_indices] = [p.real for p in free_params]
+        if self._real_params:
+            new_params = np.array([np.real(p) for p in free_params])
+        else:
+            new_params = np.zeros_like(self.params.parameters)
+            new_params[:, self.params.proj_drift_indices] = [
+                p.real for p in free_params
+            ]
         self.params.parameters = new_params
         self.params.fidelity = fid
         self.step_size = rate

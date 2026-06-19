@@ -6,12 +6,6 @@ import jax
 import jax.numpy as jnp
 import optax
 
-from .engine import (
-    Engine,
-    get_infidelity_fn,
-    get_fidelity_full_fn,
-    get_infidelity_full_fn,
-)
 from .parameters import Parameters
 
 jax.config.update("jax_enable_x64", True)
@@ -19,116 +13,6 @@ jax.config.update("jax_enable_x64", True)
 from .utils import prepare_random_parameters
 from .utils.history import History
 from functools import partial
-
-
-class GrapeEngine(Engine):
-    """All jitted functions for Grape"""
-
-    def __init__(
-        self,
-        target_unitary,
-        full_basis,
-        projected_basis,
-        drift_basis=None,
-        piecewise_steps=1,
-        projective: bool = True,
-    ):
-        super(GrapeEngine, self).__init__(
-            target_unitary, full_basis, projected_basis, drift_basis, piecewise_steps
-        )
-        self.projective = projective
-        if projective:
-            self.infid_U_fn = get_infidelity_fn(target_unitary)
-        else:
-            self.fid_U_fn = jax.jit(get_fidelity_full_fn(target_unitary))
-            self.infid_U_fn = get_infidelity_full_fn(target_unitary)
-        self.infid_fn = lambda x: self.infid_U_fn(self.compute_U_fn(x))
-        self.grad_fn = jax.value_and_grad(self.infid_fn)
-        self.hess_fn = jax.jit(
-            lambda y: jax.vmap(lambda x: hvp_forward_over_reverse(self.infid_fn, y, x))(
-                jnp.eye(y.size, dtype=y.dtype)
-            )
-        )
-
-    def wrap_param_transform(self, params: Parameters) -> None:
-        """Replace ``compute_U_fn`` to honour ``params.param_transform``.
-
-        The user-facing experimental parameters are mapped to projected-basis
-        coefficients via ``params.param_transform``, embedded into the
-        proj+drift basis, and combined with the drift before the original
-        ``compute_U_fn`` is called. The infidelity, gradient, and Hessian
-        functions are re-derived from the wrapped ``compute_U_fn``, and the
-        engine's indices are overridden so the rest of the pipeline operates
-        in experimental space.
-
-        Args:
-            params: The ``Parameters`` object carrying ``param_transform``.
-        """
-        raw_compute_U = self.compute_U_fn
-        n_exp = params.n_experimental_params
-        n_proj_drift = self.proj_drift_basis.lie_algebra_dim
-        proj_idx_pd = self.proj_indices_projdrift_basis
-        drift_idx_pd = self.drift_indices_projdrift_basis
-
-        # Determine extraction indices when transform outputs full-basis
-        # coefficients rather than projected-basis coefficients.
-        _test_out = params.param_transform(jnp.zeros(n_exp))
-        tf_out_dim = _test_out.shape[0]
-        n_proj = params.projected_basis.lie_algebra_dim
-        if tf_out_dim != n_proj:
-            _extract = jnp.array(
-                np.where(np.array(self.projected_basis.overlap(params.basis)))[0]
-            )
-        else:
-            _extract = None
-
-        # Capture drift for embedding inside compute_U
-        if params.drift_parameters is not None:
-            _drift = jnp.array(params.drift_parameters, dtype=jnp.float64)
-        else:
-            _drift = None
-
-        def _wrapped_compute_U(
-            exp_params,
-            _raw=raw_compute_U,
-            _tf=params.param_transform,
-            _pi=proj_idx_pd,
-            _di=drift_idx_pd,
-            _npd=n_proj_drift,
-            _dr=_drift,
-            _ext=_extract,
-        ):
-            ctrl = jax.vmap(_tf)(exp_params)
-            if _ext is not None:
-                ctrl = ctrl[:, _ext]
-            # Promote dtype for Jacobian tracing compatibility
-            _dtype = jnp.result_type(ctrl.dtype, exp_params.dtype)
-            ctrl = ctrl.astype(_dtype)
-            full = jnp.zeros((exp_params.shape[0], _npd), dtype=_dtype)
-            full = full.at[:, _pi].set(ctrl)
-            if _dr is not None:
-                full = full.at[:, _di].set(
-                    jnp.broadcast_to(
-                        _dr.astype(_dtype), (exp_params.shape[0], _dr.shape[0])
-                    )
-                )
-            return _raw(full)
-
-        self.compute_U_fn = jax.jit(_wrapped_compute_U)
-        # Re-derive dependent functions
-        self.infid_fn = lambda x: self.infid_U_fn(self.compute_U_fn(x))
-        self.grad_fn = jax.value_and_grad(self.infid_fn)
-        self.hess_fn = jax.jit(
-            lambda y: jax.vmap(lambda x: hvp_forward_over_reverse(self.infid_fn, y, x))(
-                jnp.eye(y.size, dtype=y.dtype)
-            )
-        )
-
-        # Override engine indices so _init/optimize work in experimental space.
-        # All-true mask of length n_exp makes extract/expand a no-op.
-        self.proj_drift_indices = np.ones(n_exp, dtype=bool)
-        self.drift_indices = np.full(n_exp, False)
-        self.drift_basis = None
 
 
 class Grape:
@@ -140,8 +24,8 @@ class Grape:
     and ``max_steps`` are arguments of :meth:`optimize`.
 
     Attributes:
-        params: The bound `Parameters` object.
-        engine: The internal `GrapeEngine` constructed from ``params``.
+        params: The bound `Parameters` object (also the source of the
+            lazily-built/cached optimisation functions).
         precision: Target fidelity threshold.
         method: Optimiser method from the most recent :meth:`optimize` call
             (``'gd'``, ``'adam'``, ``'nr-trm'`` or ``'nr-rfo'``); ``None``
@@ -190,26 +74,17 @@ class Grape:
             self._key = seed  # already a jax.Array key
         else:
             self._key = jax.random.key(0)
-        engine = GrapeEngine(
-            target_unitary=params.target,
-            full_basis=params.basis,
-            projected_basis=params.projected_basis,
-            drift_basis=params.drift_basis,
-            piecewise_steps=params.piecewise_steps,
-            projective=params.projective,
-        )
+        self._real_params = params.param_transform is not None
+        # The optimisation functions (compute_U/fid/infid/grad/hess) and the
+        # algebraic metadata are read directly off ``params`` (built lazily and
+        # cached there). No engine, no eager JIT.
 
-        # Wrap compute_U_fn if param_transform is set
-        if params.param_transform is not None:
-            engine.wrap_param_transform(params)
-            init_parameters = self._init_for_param_transform(engine, params)
+        if self._real_params:
+            init_parameters = self._init_for_param_transform(params)
             drift_parameters = None
         else:
             init_parameters = params.parameters
             drift_parameters = params.drift_parameters
-
-        self.engine = engine
-        self._real_params = params.param_transform is not None
 
         self.history = history
         if self.history is not None:
@@ -238,9 +113,27 @@ class Grape:
         self._key, subkey = jax.random.split(self._key)
         return subkey
 
-    def _init_for_param_transform(
-        self, engine: GrapeEngine, params: Parameters
-    ) -> np.ndarray:
+    def _free(self, parameters):
+        """Select the free (projected+drift) parameter columns.
+
+        Identity in experimental (``param_transform``) mode; otherwise selects
+        the proj+drift columns via ``params.proj_drift_indices``.
+        """
+        if self._real_params:
+            return parameters
+        return parameters[:, self.params.proj_drift_indices]
+
+    def _proj_drift_mask(self) -> np.ndarray:
+        """Effective proj+drift index mask used to scatter free params back.
+
+        All-true over the experimental parameters in ``param_transform`` mode
+        (every column is free); the natural proj+drift mask otherwise.
+        """
+        if self._real_params:
+            return np.ones(self.params.n_experimental_params, dtype=bool)
+        return self.params.proj_drift_indices
+
+    def _init_for_param_transform(self, params: Parameters) -> np.ndarray:
         """Compute initial parameters in experimental-parameter space.
 
         If ``params.parameters`` is shaped ``(piecewise_steps, n_exp)``,
@@ -248,7 +141,6 @@ class Grape:
         ``[-init_spread * pi, +init_spread * pi]``.
 
         Args:
-            engine: The wrapped ``GrapeEngine``.
             params: The ``Parameters`` object.
 
         Returns:
@@ -295,44 +187,42 @@ class Grape:
             self.init_parameters = np.array(
                 [
                     prepare_random_parameters(
-                        self.engine.projected_indices,
+                        self.params.projected_indices,
                         expander=None,
                         spread=self.init_parameters_spread,
                         key=self._split_key(),
                     )
-                    for _ in range(self.engine.piecewise_steps)
+                    for _ in range(self.params.piecewise_steps)
                 ]
             )
         else:
-            if (len(init_parameters.shape) == 1) and (self.engine.piecewise_steps > 1):
+            if (len(init_parameters.shape) == 1) and (self.params.piecewise_steps > 1):
                 self.init_parameters = np.array(
-                    [init_parameters] * self.engine.piecewise_steps
+                    [init_parameters] * self.params.piecewise_steps
                 )
             else:
                 self.init_parameters = np.array(init_parameters)
-        if self.engine.drift_basis is not None:
+        if not self._real_params and self.params.drift_basis is not None:
             if drift_parameters is None:
-                self.drift_parameters = np.ones(self.engine.drift_basis.lie_algebra_dim)
+                self.drift_parameters = np.ones(self.params.drift_basis.lie_algebra_dim)
             else:
                 self.drift_parameters = np.array(drift_parameters)
                 assert (
-                    self.engine.drift_basis.lie_algebra_dim
+                    self.params.drift_basis.lie_algebra_dim
                     == self.drift_parameters.shape[0]
                 ), "Drift parameters must be the same length as the size of the drift basis."
 
-            self.init_parameters[:, self.engine.drift_indices] = np.tile(
-                self.drift_parameters, (self.engine.piecewise_steps, 1)
+            self.init_parameters[:, self.params.drift_indices] = np.tile(
+                self.drift_parameters, (self.params.piecewise_steps, 1)
             )
         else:
             self.drift_parameters = None
 
         self.params.parameters = np.array(self.init_parameters)
         _dtype = np.float64 if self._real_params else np.complex128
-        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(
-            _dtype
-        )
-        self.params.fidelity = self.engine.fid_U_fn(
-            self.engine.compute_U_fn(free_params)
+        free_params = self._free(self.params.parameters).astype(_dtype)
+        self.params.fidelity = self.params.fid_U_fn(
+            self.params.compute_U_fn(free_params)
         )
         self.step_size = 0
         # A change of parameters invalidates any optax state built for the
@@ -362,6 +252,7 @@ class Grape:
         config = (method, tuple(sorted(optimizer_kwargs.items())))
         if self._optimizer_config == config and self.optimizer_state is not None:
             return
+        proj_drift_mask = self._proj_drift_mask()
         if method in ["gd", "adam"]:
             learning_rate = optimizer_kwargs.get("learning_rate")
             if method == "gd":
@@ -369,7 +260,7 @@ class Grape:
             else:
                 optimizer = optax.adam(learning_rate=learning_rate)
             self.update_step = get_update_step_gd(
-                self.engine.proj_drift_indices, self.engine.grad_fn, optimizer
+                proj_drift_mask, self.params.grad_fn, optimizer
             )
         elif method in ["nr-trm", "nr-rfo"]:
             # Use backtracking for second order optimization
@@ -379,20 +270,20 @@ class Grape:
             if method == "nr-trm":
                 delta = optimizer_kwargs.get("delta")
                 self.update_step = get_update_step_trm(
-                    self.engine.proj_drift_indices,
-                    self.engine.infid_fn,
-                    self.engine.grad_fn,
-                    self.engine.hess_fn,
+                    proj_drift_mask,
+                    self.params.infid_fn,
+                    self.params.grad_fn,
+                    self.params.hess_fn,
                     optimizer,
                     delta,
                 )
             else:
                 kappa = optimizer_kwargs.get("kappa", 100)
                 self.update_step = get_update_step_rfo(
-                    self.engine.proj_drift_indices,
-                    self.engine.infid_fn,
-                    self.engine.grad_fn,
-                    self.engine.hess_fn,
+                    proj_drift_mask,
+                    self.params.infid_fn,
+                    self.params.grad_fn,
+                    self.params.hess_fn,
                     optimizer,
                     kappa,
                 )
@@ -400,9 +291,7 @@ class Grape:
             raise NotImplementedError(f"Method {method} not implemented")
 
         _dtype = np.float64 if self._real_params else np.complex128
-        free_params = self.params.parameters[:, self.engine.proj_drift_indices].astype(
-            _dtype
-        )
+        free_params = self._free(self.params.parameters).astype(_dtype)
         self.optimizer = optimizer
         self.optimizer_state = {"optimizer": optimizer.init(free_params)}
         self.method = method
@@ -436,9 +325,7 @@ class Grape:
         _dtype = np.float64 if self._real_params else np.complex128
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
-            free_params = self.params.parameters[
-                :, self.engine.proj_drift_indices
-            ].astype(_dtype)
+            free_params = self._free(self.params.parameters).astype(_dtype)
             new_parameters, infidelity, self.optimizer_state = self.update_step(
                 free_params, self.optimizer_state
             )
@@ -607,8 +494,3 @@ def newton_rfo_step(hessian, gradient, phi):
     # Cholesky solve
     cfac_reg = jax.scipy.linalg.cho_factor(hessian)
     return jax.scipy.linalg.cho_solve(cfac_reg, gradient)
-
-
-def hvp_forward_over_reverse(f, params, v):
-    v = v.reshape(params.shape)
-    return jax.jvp(jax.grad(f), (params,), (v,))[1]
