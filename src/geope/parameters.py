@@ -404,7 +404,7 @@ class Parameters:
         proj+drift basis coefficients).
         """
         if self.param_transform is not None:  # manual path not available.
-            return self.hess_fn_autodiff()
+            return self.hess_fn_autodiff
         return get_hessian_propagator_fn(
             self.proj_drift_basis.basis, self.target, projective=self.projective
         )
