@@ -19,9 +19,6 @@ Tested items:
     - build_pulse_expander
   jacobian_manual:
     - Ui / get_Ui_fn
-    - scan_single_switch_matmul
-    - get_apply_branch
-    - scan_branch / get_scan_branch
     - manual_jacobian
     - get_jacobian_manual
 """
@@ -44,6 +41,12 @@ from geope.engine import (
     geodesic_hamiltonian,
     get_geodesic_hamiltonian_fn,
     hvp_forward_over_reverse,
+    get_compute_matrices_params_list_fn,
+    get_jacobian_fn,
+    get_hessian_fn,
+    get_hessian_manual_fn,
+    get_infidelity_fn,
+    get_infidelity_full_fn,
 )
 from geope.gecko import (
     Gecko,
@@ -107,14 +110,13 @@ def _params_2q(
 from geope.jax.jacobian import (
     Ui,
     get_Ui_fn,
-    scan_single_switch_matmul,
-    get_apply_branch,
-    scan_branch,
-    get_scan_branch,
     manual_jacobian,
     get_jacobian_manual,
 )
-from geope.jax.dexpm import get_dexpm
+from geope.jax.dexpm import get_dexpm, dexpm, dexpm_eig, dexpm_eig_batched
+from geope.jax.dexpm import d2expm, d2expm_eig, d2expm_eig_batched
+from geope.jax.hessian import manual_hessian, get_hessian_manual
+from geope.utils import qft_unitary
 
 
 # ---------------------------------------------------------------------------
@@ -217,87 +219,52 @@ class TestUi:
 
 
 # ---------------------------------------------------------------------------
-# Tests — scan_single_switch_matmul
-# ---------------------------------------------------------------------------
-
-
-class TestScanSingleSwitchMatmul:
-    def test_applies_gate_when_idx_false(self):
-        U = jnp.eye(2, dtype=complex)
-        jac = jnp.zeros((2, 2), dtype=complex)
-        gate = jnp.array([[0, 1], [1, 0]], dtype=complex)  # X gate
-        (U_out, _), _ = scan_single_switch_matmul((U, jac), (False, gate))
-        # Should have applied gate: X @ I = X
-        assert jnp.allclose(U_out, gate, atol=1e-12)
-
-    def test_applies_jacobian_when_idx_true(self):
-        U = jnp.eye(2, dtype=complex)
-        jac = jnp.array([[0, -1j], [1j, 0]], dtype=complex)  # Y
-        gate = jnp.array([[0, 1], [1, 0]], dtype=complex)  # X (ignored)
-        (U_out, _), _ = scan_single_switch_matmul((U, jac), (True, gate))
-        assert jnp.allclose(U_out, jac, atol=1e-12)
-
-
-# ---------------------------------------------------------------------------
-# Tests — get_apply_branch
-# ---------------------------------------------------------------------------
-
-
-class TestGetApplyBranch:
-    def test_single_gate_identity(self):
-        gate = jnp.eye(2, dtype=complex).reshape(1, 2, 2)
-        fn = get_apply_branch(gate)
-        jac = jnp.array([[1, 0], [0, -1]], dtype=complex)  # Z
-        idx = jnp.array([True])
-        U_out, _ = fn(idx, jac)
-        # With a single identity gate switched to jac: result = jac @ I = jac
-        assert U_out.shape == (2, 2)
-        assert jnp.allclose(U_out, jac, atol=1e-12)
-
-    def test_two_gates_switch(self):
-        X = jnp.array([[0, 1], [1, 0]], dtype=complex)
-        I = jnp.eye(2, dtype=complex)
-        gates = jnp.stack([X, I])
-        fn = get_apply_branch(gates)
-        jac = jnp.array([[1, 0], [0, -1]], dtype=complex)
-        # Switch 1st gate to jac, 2nd stays I: I @ (jac @ eye) = jac
-        idx = jnp.array([True, False])
-        U_out, _ = fn(idx, jac)
-        assert U_out.shape == (2, 2)
-        assert jnp.allclose(U_out, jac, atol=1e-12)
-
-    def test_returns_callable(self):
-        gates = jnp.eye(2, dtype=complex).reshape(1, 2, 2)
-        assert callable(get_apply_branch(gates))
-
-
-# ---------------------------------------------------------------------------
-# Tests — scan_branch / get_scan_branch
-# ---------------------------------------------------------------------------
-
-
-class TestScanBranch:
-    def test_output_shape(self):
-        I = jnp.eye(2, dtype=complex)
-        gates = I.reshape(1, 2, 2)
-        branch_fn = get_apply_branch(gates)
-        # jac with last axis = number of parameters
-        n_params = 3
-        jac = jnp.stack([jnp.eye(2, dtype=complex)] * n_params, axis=-1)
-        idx = jnp.array([True])
-        result = scan_branch(jac, idx, branch_fn)
-        assert result.shape == (2, 2, n_params)
-
-    def test_get_scan_branch_returns_callable(self):
-        gates = jnp.eye(2, dtype=complex).reshape(1, 2, 2)
-        branch_fn = get_apply_branch(gates)
-        fn = get_scan_branch(branch_fn)
-        assert callable(fn)
-
-
-# ---------------------------------------------------------------------------
 # Tests — manual_jacobian
 # ---------------------------------------------------------------------------
+
+
+class TestDexpmEig:
+    """The spectral derivative must match the block-exponential `dexpm`."""
+
+    def test_matches_block_method_1q(self):
+        basis = _pauli_basis_1q()
+        x = jnp.array([0.4, -0.2, 0.6], dtype=complex)
+        assert jnp.allclose(dexpm_eig(x, basis), dexpm(x, basis), atol=1e-9)
+
+    def test_matches_block_method_2q(self):
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        x = jax.random.normal(jax.random.key(7), (basis.shape[0],)).astype(complex)
+        assert jnp.allclose(dexpm_eig(x, basis), dexpm(x, basis), atol=1e-9)
+
+    def test_complex_coeffs_need_hermitian_false(self):
+        """For genuinely complex coefficients the default (eigh) is invalid; the
+        hermitian=False fallback (general eig) must match the block method."""
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        K = basis.shape[0]
+        x = jax.random.normal(jax.random.key(20), (K,)) + 1j * jax.random.normal(
+            jax.random.key(21), (K,)
+        )
+        ref = dexpm(x, basis)  # block method handles non-Hermitian A
+        assert jnp.allclose(dexpm_eig(x, basis, hermitian=False), ref, atol=1e-8)
+        assert not jnp.allclose(dexpm_eig(x, basis), ref, atol=1e-3)
+
+    def test_zero_params_gives_generators(self):
+        """At x=0 the derivative of expm(iA) w.r.t. x_k is i*B_k."""
+        basis = _pauli_basis_1q()
+        x = jnp.zeros(3, dtype=complex)
+        out = dexpm_eig(x, basis)  # (2, 2, 3)
+        expected = jnp.moveaxis(1j * basis, 0, -1)
+        assert jnp.allclose(out, expected, atol=1e-9)
+
+    def test_batched_matches_full(self):
+        """Chunking the directions must not change the result."""
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # K=15
+        x = jax.random.normal(jax.random.key(9), (basis.shape[0],)).astype(complex)
+        full = dexpm_eig(x, basis)
+        for batch_size in (1, 4, basis.shape[0]):
+            assert jnp.allclose(
+                dexpm_eig_batched(x, basis, batch_size), full, atol=1e-9
+            )
 
 
 class TestManualJacobian:
@@ -375,6 +342,146 @@ class TestGetJacobianManual:
         # manual shape is (1,2,2,3), auto shape is (2,2,1,3) — rearrange
         jac_auto_rearranged = jnp.transpose(jac_auto, (2, 0, 1, 3))  # (1,2,2,3)
         assert jnp.allclose(jac_manual, jac_auto_rearranged, atol=1e-8)
+
+    def test_agrees_with_autodiff_multigate_multiqubit(self):
+        """The prefix/suffix Jacobian must match full-sequence autodiff for
+        the general G>1, n>1 case, not just a single 1-qubit gate."""
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        K = basis.shape[0]
+        params = jax.random.normal(jax.random.key(3), (3, K)).astype(jnp.complex128)
+
+        jac_manual = get_jacobian_manual(basis)(params)  # (3, 4, 4, 15)
+
+        compute_U = get_compute_matrices_params_list_fn(basis)
+        jac_auto = get_jacobian_fn(compute_U)(params)  # (4, 4, 3, 15)
+        jac_auto = jnp.transpose(jac_auto, (2, 0, 1, 3))  # (3, 4, 4, 15)
+
+        assert jac_manual.shape == (3, 4, 4, K)
+        assert jnp.allclose(jac_manual, jac_auto, atol=1e-8)
+
+
+# ---------------------------------------------------------------------------
+# Tests — d2expm (per-step second derivative)
+# ---------------------------------------------------------------------------
+
+
+class TestD2expm:
+    """Second-derivative primitives vs autodiff and each other."""
+
+    def _autodiff(self, basis, x):
+        Ui_fn = get_Ui_fn(basis)
+        return jax.jacfwd(jax.jacrev(Ui_fn, holomorphic=True), holomorphic=True)(x)
+
+    def test_block_matches_autodiff(self):
+        basis = _pauli_basis_1q()
+        x = jnp.array([0.4, -0.2, 0.6], dtype=complex)
+        assert jnp.allclose(d2expm(x, basis), self._autodiff(basis, x), atol=1e-8)
+
+    def test_eig_matches_autodiff_2q(self):
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        x = jax.random.normal(jax.random.key(11), (basis.shape[0],)).astype(complex)
+        assert jnp.allclose(d2expm_eig(x, basis), self._autodiff(basis, x), atol=1e-8)
+
+    def test_block_matches_eig(self):
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        x = jax.random.normal(jax.random.key(12), (basis.shape[0],)).astype(complex)
+        assert jnp.allclose(d2expm(x, basis), d2expm_eig(x, basis), atol=1e-8)
+
+    def test_symmetric_in_kl(self):
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        x = jax.random.normal(jax.random.key(13), (basis.shape[0],)).astype(complex)
+        out = d2expm_eig(x, basis)  # (d, d, K, K)
+        assert jnp.allclose(out, jnp.swapaxes(out, -1, -2), atol=1e-12)
+
+    def test_batched_matches_full(self):
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        x = jax.random.normal(jax.random.key(14), (basis.shape[0],)).astype(complex)
+        full = d2expm_eig(x, basis)
+        for bs in (1, 4, basis.shape[0]):
+            assert jnp.allclose(d2expm_eig_batched(x, basis, bs), full, atol=1e-9)
+
+    def test_complex_coeffs_need_hermitian_false(self):
+        """Complex coefficients require the hermitian=False (general eig) path."""
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        K = basis.shape[0]
+        x = jax.random.normal(jax.random.key(22), (K,)) + 1j * jax.random.normal(
+            jax.random.key(23), (K,)
+        )
+        ref = d2expm(x, basis)  # block method handles non-Hermitian A
+        assert jnp.allclose(d2expm_eig(x, basis, hermitian=False), ref, atol=1e-8)
+
+
+# ---------------------------------------------------------------------------
+# Tests — manual_hessian (propagator Hessian)
+# ---------------------------------------------------------------------------
+
+
+class TestManualHessian:
+    def _autodiff(self, basis, params):
+        compute_U = get_compute_matrices_params_list_fn(basis)
+        h = jax.jacfwd(jax.jacrev(compute_U, holomorphic=True), holomorphic=True)
+        return jnp.transpose(h(params), (2, 4, 0, 1, 3, 5))  # -> (i, j, a, c, k, l)
+
+    def test_shape_and_value_single_gate(self):
+        basis = _pauli_basis_1q()
+        params = jnp.array([[0.4, -0.2, 0.6]], dtype=complex)
+        H = get_hessian_manual(basis)(params)
+        assert H.shape == (1, 1, 2, 2, 3, 3)
+        assert jnp.allclose(H, self._autodiff(basis, params), atol=1e-8)
+
+    def test_agrees_with_autodiff_multigate_multiqubit(self):
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        K = basis.shape[0]
+        params = jax.random.normal(jax.random.key(15), (3, K)).astype(complex)
+        H = get_hessian_manual(basis)(params)
+        assert H.shape == (3, 3, 4, 4, K, K)
+        assert jnp.allclose(H, self._autodiff(basis, params), atol=1e-8)
+
+    def test_symmetric_under_pair_exchange(self):
+        basis = jnp.asarray(construct_full_pauli_basis(1).basis)
+        params = jax.random.normal(jax.random.key(16), (2, 3)).astype(complex)
+        H = get_hessian_manual(basis)(params)  # (G, G, d, d, K, K)
+        # H[i,j,:,:,k,l] == H[j,i,:,:,l,k]
+        swapped = jnp.swapaxes(jnp.swapaxes(H, 0, 1), -1, -2)
+        assert jnp.allclose(H, swapped, atol=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# Tests — manual cost Hessian (Goodwin–Kuprov NR-GRAPE)
+# ---------------------------------------------------------------------------
+
+
+class TestCostHessianManual:
+    """Manual infidelity Hessian must match the autodiff get_hessian_fn."""
+
+    @pytest.mark.parametrize("projective", [True, False])
+    @pytest.mark.parametrize("method", ["eig", "block"])
+    @pytest.mark.parametrize("n,G", [(1, 2), (2, 3)])
+    def test_matches_autodiff(self, projective, method, n, G):
+        basis = jnp.asarray(construct_full_pauli_basis(n).basis)
+        K = basis.shape[0]
+        target = jnp.asarray(qft_unitary(n))
+        compute_U = get_compute_matrices_params_list_fn(basis)
+        # GRAPE parameters are real-valued.
+        y = jax.random.normal(jax.random.key(17), (G, K)) * 0.3
+
+        infid_U = get_infidelity_fn(target) if projective else get_infidelity_full_fn(
+            target
+        )
+        infid = lambda x: infid_U(compute_U(x))
+        H_auto = get_hessian_fn(infid)(y).reshape(G * K, G * K)
+        H_man = get_hessian_manual_fn(
+            basis, target, projective=projective, method=method
+        )(y)
+        assert H_man.shape == (G * K, G * K)
+        assert jnp.allclose(H_man, H_auto, atol=1e-7)
+
+    def test_hessian_is_symmetric(self):
+        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        target = jnp.asarray(qft_unitary(2))
+        y = jax.random.normal(jax.random.key(18), (3, basis.shape[0])) * 0.3
+        H = get_hessian_manual_fn(basis, target, projective=True)(y)
+        assert jnp.allclose(H, H.T, atol=1e-9)
 
 
 # ---------------------------------------------------------------------------
