@@ -9,6 +9,15 @@ from jax import Array
 jax.config.update("jax_enable_x64", True)
 
 from .jax.logm import logm
+from .jax.dexpm import (
+    get_Ui_fn,
+    get_dexpm,
+    get_dexpm_eig,
+    get_d2expm,
+    get_d2expm_eig,
+)
+from .jax.jacobian import manual_jacobian
+from .jax.hessian import manual_hessian
 
 import inspect
 from functools import partial
@@ -248,7 +257,7 @@ def get_jacobian_fn(compute_U_fn: Callable[[Array], Array]) -> Callable[[Array],
 
     Returns the holomorphic ``jax.jacobian`` of ``compute_U_fn``. This is the
     live Jacobian path for *all* system sizes: the manual Jacobian
-    (``geope.jax.jacobian.get_jacobian_manual``) exists and is independently
+    (``geope.jax.jacobian.get_jacobian_propagator``) exists and is independently
     tested, but is not currently wired into the optimisation pipeline (the
     autodiff path historically overwrote it for the >5-qubit branch — see
     issue #4). The returned function is left un-jitted so it fuses into the
@@ -405,6 +414,101 @@ def get_hessian_fn(infid_fn: Callable[[Array], Array]) -> Callable[[Array], Arra
     return hess
 
 
+def get_hessian_propagator_fn(
+    basis: np.ndarray,
+    target: Array,
+    projective: bool = True,
+    method: str = "eig",
+    hermitian: bool = True,
+) -> Callable[[Array], Array]:
+    r"""Build the infidelity Hessian manually (Goodwin–Kuprov NR-GRAPE).
+
+    Analytic drop-in for `get_hessian_fn`: returns ``hess(y) -> (P, P)`` with
+    ``P = y.size``, the Hessian of the same infidelity that `get_hessian_fn`
+    differentiates by autodiff, but built from the manual propagator
+    derivatives (`manual_jacobian`, `manual_hessian`) rather than from
+    forward-over-reverse HVPs.
+
+    Let $z = \mathrm{Tr}(U_T^\dagger U)$, $\partial_a z$, $\partial_a\partial_b z$
+    be obtained by contracting $U$, $\partial U$, $\partial^2 U$ against
+    $U_T^\dagger$. For the phase-sensitive cost $C = 1 - \mathrm{Re}(z)/d$ the
+    Hessian is the linear contraction $-\mathrm{Re}(\partial_a\partial_b z)/d$;
+    for the projective cost $C = 1 - |z|/d$,
+
+    $$\partial_a\partial_b|z| =
+        \frac{\mathrm{Re}(\overline{\partial_a z}\,\partial_b z)
+              + \mathrm{Re}(\bar z\,\partial_a\partial_b z)}{|z|}
+        - \frac{\mathrm{Re}(\bar z\,\partial_a z)\,
+                \mathrm{Re}(\bar z\,\partial_b z)}{|z|^3}.$$
+
+    Like the projective fidelity itself, this is singular as $|z| \to 0$ (the
+    near-identity / traceless-target gotcha) — the autodiff Hessian shares that.
+
+    Memory note: this materialises the dense propagator Hessian
+    (`manual_hessian`, $O(G^2 d^2 K^2)$); intended for the small systems where
+    NR-GRAPE is used.
+
+    Args:
+        basis: Proj+drift basis ``(K, d, d)`` — the same basis the bound
+            ``compute_U_fn`` uses.
+        target: Target unitary ``(d, d)``.
+        projective: Match the projective (``True``) or phase-sensitive
+            (``False``) infidelity.
+        method: ``"eig"`` (spectral, default) or ``"block"`` (auxiliary-matrix)
+            per-step derivatives.
+        hermitian: For ``method="eig"``, assume real parameters (skew-Hermitian
+            generators) and use the faster ``eigh``-based spectral derivatives.
+            Set ``False`` for complex-valued parameters.
+
+    Returns:
+        A ``Callable[[Array], Array]`` ``hess(y)`` returning the ``(P, P)``
+        infidelity Hessian. Left un-jitted so it fuses into the enclosing
+        ``@jax.jit`` update step.
+    """
+    Ui_fn = get_Ui_fn(basis)
+    if method == "eig":
+        jac_step = get_dexpm_eig(basis, hermitian=hermitian)
+        hess_step = get_d2expm_eig(basis, hermitian=hermitian)
+    elif method == "block":
+        jac_step = get_dexpm(basis)
+        hess_step = get_d2expm(basis)
+    else:
+        raise ValueError(f"Unknown method {method!r}; expected 'eig' or 'block'.")
+
+    compute_U = get_compute_matrices_params_list_fn(basis)
+    t_conj = jnp.asarray(target).conj()
+    d = jnp.asarray(target).shape[0]
+
+    def hess(y: Array) -> Array:
+        U = compute_U(y)
+        dU = manual_jacobian(y, Ui_fn, jac_step)  # (G, d, d, K)
+        H = manual_hessian(y, Ui_fn, jac_step, hess_step)  # (G, G, d, d, K, K)
+
+        # Contract the propagator and its derivatives with U_T^dagger.
+        z = jnp.einsum("ab,ab->", t_conj, U)
+        dz = jnp.einsum("ab,iabk->ik", t_conj, dU)  # (G, K)
+        d2z = jnp.einsum("ab,ijabkl->ijkl", t_conj, H)  # (G, G, K, K)
+
+        n_g, n_k = y.shape
+        P = n_g * n_k
+        dz_f = dz.reshape(P)
+        d2z_f = jnp.transpose(d2z, (0, 2, 1, 3)).reshape(P, P)
+
+        if not projective:
+            return -jnp.real(d2z_f) / d
+
+        r = jnp.abs(z)
+        z_bar = jnp.conj(z)
+        re_zdz = jnp.real(z_bar * dz_f)  # (P,)
+        term1 = (
+            jnp.real(jnp.outer(jnp.conj(dz_f), dz_f)) + jnp.real(z_bar * d2z_f)
+        ) / r
+        term2 = jnp.outer(re_zdz, re_zdz) / r**3
+        return -(term1 - term2) / d
+
+    return hess
+
+
 def wrap_compute_U_param_transform(
     params: "Parameters", raw_compute_U: Callable[[Array], Array]
 ) -> Callable[[Array], Array]:
@@ -487,7 +591,7 @@ def wrap_compute_U_param_transform(
 
 
 def get_split_jacobian_fn(
-    compute_U_fn: Callable[[Array], Array]
+    compute_U_fn: Callable[[Array], Array],
 ) -> Callable[[Array], Array]:
     """Build a real/imag-split Jacobian of ``compute_U_fn``.
 

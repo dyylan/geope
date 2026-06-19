@@ -788,7 +788,7 @@ def golden_section_search_np(
     invphi = (np.sqrt(5) - 1) / 2  # 1 / phi
     invphi2 = (3 - np.sqrt(5)) / 2  # 1 / phi^2
 
-    (a, b) = (min(a, b), max(a, b))
+    a, b = (min(a, b), max(a, b))
     h = b - a
     if h <= tol:
         return (a, b)

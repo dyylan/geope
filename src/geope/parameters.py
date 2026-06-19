@@ -19,6 +19,7 @@ from .engine import (
     get_split_jacobian_fn,
     get_gammas_and_omegas_fn,
     get_hessian_fn,
+    get_hessian_propagator_fn,
     wrap_compute_U_param_transform,
 )
 from .utils import (
@@ -389,9 +390,24 @@ class Parameters:
         return jax.value_and_grad(self.infid_fn)
 
     @cached_property
-    def hess_fn(self) -> Callable:
+    def hess_fn_autodiff(self) -> Callable:
         """Hessian of the infidelity (used by GRAPE)."""
         return get_hessian_fn(self.infid_fn)
+
+    @cached_property
+    def hess_fn(self) -> Callable:
+        """Manual (Goodwin–Kuprov) Hessian of the infidelity.
+
+        Analytic drop-in for `hess_fn`, built from the manual propagator
+        derivatives instead of autodiff. Only available without a
+        ``param_transform`` (the manual derivatives operate directly on the
+        proj+drift basis coefficients).
+        """
+        if self.param_transform is not None:  # manual path not available.
+            return self.hess_fn_autodiff
+        return get_hessian_propagator_fn(
+            self.proj_drift_basis.basis, self.target, projective=self.projective
+        )
 
     @cached_property
     def jac_fn(self) -> Callable:
