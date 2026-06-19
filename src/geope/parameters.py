@@ -403,11 +403,8 @@ class Parameters:
         ``param_transform`` (the manual derivatives operate directly on the
         proj+drift basis coefficients).
         """
-        if self.param_transform is not None:
-            raise NotImplementedError(
-                "hess_manual_fn is not supported with a param_transform; "
-                "use hess_fn (autodiff)."
-            )
+        if self.param_transform is not None: # manual path not available.
+            return hess_fn_autodiff()
         return get_hessian_manual_fn(
             self.proj_drift_basis.basis, self.target, projective=self.projective
         )
