@@ -29,6 +29,23 @@ Before opening a new issue, search the [issue tracker](../../issues) to see if i
    ```
 6. **Push** to your fork and open a **pull request** against `main`. Reference the related issue (e.g. `Closes #42`) in the PR description.
 
+## Benchmarks
+
+Performance benchmarks for the hand-written JAX primitives (the manual
+Jacobian and the `dexpm` block-exponential derivative) versus naive
+`jax.jacobian` autodiff live in `benchmarks/`. They use
+[pytest-benchmark](https://pytest-benchmark.readthedocs.io) and are **excluded
+from the default `pytest` run and from CI** — run them deliberately:
+
+```bash
+pip install -e ".[dev]"
+pytest benchmarks/ --benchmark-group-by=param --benchmark-columns=mean,median,rounds
+```
+
+Each file separates steady-state *execution* benchmarks from *compilation*
+benchmarks. Grouping by `param` places the competing implementations for each
+problem size side by side.
+
 ## Publish Package
 
 ### Prerequisites
