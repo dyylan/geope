@@ -451,7 +451,7 @@ def get_dexpm_eig(
 
     Wraps `dexpm_eig` (or `dexpm_eig_batched`) with a fixed basis. The
     full-``vmap`` variant is the fast default used by
-    `geope.jax.get_jacobian_manual`.
+    `geope.jax.get_jacobian_propagator`.
 
     Args:
         basis: Array of Hermitian matrices of shape ``(K, d, d)``.
@@ -500,7 +500,7 @@ def get_d2expm_eig(
     """Create a JIT-compiled spectral second-derivative function.
 
     Wraps `d2expm_eig` (or `d2expm_eig_batched`) with a fixed basis. The full
-    variant is the fast default used by `geope.jax.get_hessian_manual`.
+    variant is the fast default used by `geope.jax.get_hessian_propagator`.
 
     Args:
         basis: Array of Hermitian matrices of shape ``(K, d, d)``.

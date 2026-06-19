@@ -6,7 +6,7 @@ Compares three ways to compute a single gate's second derivative
 * :func:`geope.jax.d2expm` — Goodwin & Kuprov's auxiliary-matrix method
   (``K^2`` block exponentials of ``3d x 3d`` matrices).
 * :func:`geope.jax.d2expm_eig` — the spectral second-divided-difference method
-  (one eigendecomposition); this is what `get_hessian_manual` uses.
+  (one eigendecomposition); this is what `get_hessian_propagator` uses.
 * autodiff ``jax.jacfwd(jax.jacrev(Ui_fn))``.
 
 Run with, e.g.::

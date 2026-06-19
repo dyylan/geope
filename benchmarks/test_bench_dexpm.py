@@ -6,7 +6,7 @@ Compares three ways to compute a single gate's derivative
 * :func:`geope.jax.dexpm` — the Al-Mohy & Higham block-exponential method
   (``K`` block matrix exponentials).
 * :func:`geope.jax.dexpm_eig` — the spectral / Fréchet method (one
-  eigendecomposition + BLAS matmuls); this is what `get_jacobian_manual` uses.
+  eigendecomposition + BLAS matmuls); this is what `get_jacobian_propagator` uses.
 * autodiff of a single exponential gate ``jax.jacobian(Ui_fn, holomorphic=True)``.
 
 All produce the same ``(d, d, K)`` layout, so no transpose is needed.

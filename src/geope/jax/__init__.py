@@ -18,9 +18,9 @@ from .dexpm import (
 from .logm import logm, rsf2csf, roots_legendre, sqrtm
 from .jacobian import (
     manual_jacobian,
-    get_jacobian_manual,
+    get_jacobian_propagator,
 )
 from .hessian import (
     manual_hessian,
-    get_hessian_manual,
+    get_hessian_propagator,
 )

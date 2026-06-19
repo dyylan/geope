@@ -1,6 +1,6 @@
 """Full-sequence Jacobian benchmarks: manual stitch vs. naive autodiff.
 
-Compares :func:`geope.jax.get_jacobian_manual` (the hand-written
+Compares :func:`geope.jax.get_jacobian_propagator` (the hand-written
 ``(G, K) -> (G, d, d, K)`` stitch) against the production autodiff path
 ``jax.jacobian(compute_U_fn, holomorphic=True)`` built by
 :func:`geope.engine.get_jacobian_fn` over the ``jax.lax.scan`` product
@@ -27,7 +27,7 @@ import jax.numpy as jnp
 import pytest
 
 from geope.engine import get_compute_matrices_params_list_fn, get_jacobian_fn
-from geope.jax import get_jacobian_manual
+from geope.jax import get_jacobian_propagator
 
 from conftest import make_basis, make_params, warm
 
@@ -48,9 +48,9 @@ def _setup(size):
 
 
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
-def test_jacobian_manual_exec(benchmark, size):
+def test_jacobian_propagator_exec(benchmark, size):
     basis, params = _setup(size)
-    fn = get_jacobian_manual(basis)
+    fn = get_jacobian_propagator(basis)
     warm(fn, params)
     benchmark.pedantic(
         lambda: jax.block_until_ready(fn(params)), rounds=10, warmup_rounds=1
@@ -82,13 +82,13 @@ def test_jacobian_autodiff_compile(benchmark, size):
 
 
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
-def test_jacobian_manual_compile(benchmark, size):
+def test_jacobian_propagator_compile(benchmark, size):
     basis, params = _setup(size)
 
-    # get_jacobian_manual returns a single jitted function, so XLA compilation
+    # get_jacobian_propagator returns a single jitted function, so XLA compilation
     # can be isolated via AOT lower().compile(), the same as the autodiff path.
     def compile_once():
-        return get_jacobian_manual(basis).lower(params).compile()
+        return get_jacobian_propagator(basis).lower(params).compile()
 
     benchmark.pedantic(compile_once, rounds=COMPILE_ROUNDS, warmup_rounds=0)
 
@@ -99,7 +99,7 @@ def test_manual_matches_autodiff():
     basis, params = _setup((2, 3))
     compute_U_fn = get_compute_matrices_params_list_fn(basis)
 
-    jac_manual = get_jacobian_manual(basis)(params)  # (G, d, d, K)
+    jac_manual = get_jacobian_propagator(basis)(params)  # (G, d, d, K)
     jac_auto = get_jacobian_fn(compute_U_fn)(params)  # (d, d, G, K)
     jac_auto = jnp.transpose(jac_auto, (2, 0, 1, 3))  # -> (G, d, d, K)
 

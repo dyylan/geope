@@ -99,7 +99,7 @@ def manual_jacobian(
     )
 
 
-def get_jacobian_manual(
+def get_jacobian_propagator(
     gate_basis: Array, hermitian: bool = True
 ) -> Callable[[Array], Array]:
     """Create a JIT-compiled manual Jacobian function for a given gate basis.

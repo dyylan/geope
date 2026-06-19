@@ -1,5 +1,5 @@
 """
-Tests for geope/geope.py and geope/jacobian_manual.py.
+Tests for geope/geope.py and geope/jacobian_propagator.py.
 
 Tested items:
   Functions (geope.geope):
@@ -17,10 +17,10 @@ Tested items:
     - Gecko
   Functions:
     - build_pulse_expander
-  jacobian_manual:
+  jacobian_propagator:
     - Ui / get_Ui_fn
     - manual_jacobian
-    - get_jacobian_manual
+    - get_jacobian_propagator
 """
 
 import pytest
@@ -44,7 +44,7 @@ from geope.engine import (
     get_compute_matrices_params_list_fn,
     get_jacobian_fn,
     get_hessian_fn,
-    get_hessian_manual_fn,
+    get_hessian_propagator_fn,
     get_infidelity_fn,
     get_infidelity_full_fn,
 )
@@ -111,11 +111,11 @@ from geope.jax.jacobian import (
     Ui,
     get_Ui_fn,
     manual_jacobian,
-    get_jacobian_manual,
+    get_jacobian_propagator,
 )
 from geope.jax.dexpm import get_dexpm, dexpm, dexpm_eig, dexpm_eig_batched
 from geope.jax.dexpm import d2expm, d2expm_eig, d2expm_eig_batched
-from geope.jax.hessian import manual_hessian, get_hessian_manual
+from geope.jax.hessian import manual_hessian, get_hessian_propagator
 from geope.utils import qft_unitary
 
 
@@ -173,7 +173,7 @@ def geope_2q(params_2q):
 
 
 # ---------------------------------------------------------------------------
-# Helpers — small bases for jacobian_manual tests
+# Helpers — small bases for jacobian_propagator tests
 # ---------------------------------------------------------------------------
 
 
@@ -186,7 +186,7 @@ def _pauli_basis_1q():
 
 
 # ---------------------------------------------------------------------------
-# Tests — jacobian_manual.Ui / get_Ui_fn
+# Tests — jacobian_propagator.Ui / get_Ui_fn
 # ---------------------------------------------------------------------------
 
 
@@ -297,26 +297,26 @@ class TestManualJacobian:
 
 
 # ---------------------------------------------------------------------------
-# Tests — get_jacobian_manual
+# Tests — get_jacobian_propagator
 # ---------------------------------------------------------------------------
 
 
 class TestGetJacobianManual:
     def test_returns_callable(self):
         basis = _pauli_basis_1q()
-        fn = get_jacobian_manual(basis)
+        fn = get_jacobian_propagator(basis)
         assert callable(fn)
 
     def test_call_produces_correct_shape(self):
         basis = _pauli_basis_1q()
-        fn = get_jacobian_manual(basis)
+        fn = get_jacobian_propagator(basis)
         params = jnp.array([[0.1, 0.2, 0.3]])
         result = fn(params)
         assert result.shape == (1, 2, 2, 3)
 
     def test_matches_manual_jacobian_direct(self):
         basis = _pauli_basis_1q()
-        fn = get_jacobian_manual(basis)
+        fn = get_jacobian_propagator(basis)
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.5, -0.3, 0.1]])
@@ -327,7 +327,7 @@ class TestGetJacobianManual:
     def test_agrees_with_jax_jacobian(self):
         """Compare manual jacobian against jax.jacobian for a single gate."""
         basis = _pauli_basis_1q()
-        fn_manual = get_jacobian_manual(basis)
+        fn_manual = get_jacobian_propagator(basis)
         Ui_fn = get_Ui_fn(basis)
 
         params = jnp.array([[0.4, -0.2, 0.6]], dtype=complex)
@@ -350,7 +350,7 @@ class TestGetJacobianManual:
         K = basis.shape[0]
         params = jax.random.normal(jax.random.key(3), (3, K)).astype(jnp.complex128)
 
-        jac_manual = get_jacobian_manual(basis)(params)  # (3, 4, 4, 15)
+        jac_manual = get_jacobian_propagator(basis)(params)  # (3, 4, 4, 15)
 
         compute_U = get_compute_matrices_params_list_fn(basis)
         jac_auto = get_jacobian_fn(compute_U)(params)  # (4, 4, 3, 15)
@@ -425,7 +425,7 @@ class TestManualHessian:
     def test_shape_and_value_single_gate(self):
         basis = _pauli_basis_1q()
         params = jnp.array([[0.4, -0.2, 0.6]], dtype=complex)
-        H = get_hessian_manual(basis)(params)
+        H = get_hessian_propagator(basis)(params)
         assert H.shape == (1, 1, 2, 2, 3, 3)
         assert jnp.allclose(H, self._autodiff(basis, params), atol=1e-8)
 
@@ -433,14 +433,14 @@ class TestManualHessian:
         basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
         K = basis.shape[0]
         params = jax.random.normal(jax.random.key(15), (3, K)).astype(complex)
-        H = get_hessian_manual(basis)(params)
+        H = get_hessian_propagator(basis)(params)
         assert H.shape == (3, 3, 4, 4, K, K)
         assert jnp.allclose(H, self._autodiff(basis, params), atol=1e-8)
 
     def test_symmetric_under_pair_exchange(self):
         basis = jnp.asarray(construct_full_pauli_basis(1).basis)
         params = jax.random.normal(jax.random.key(16), (2, 3)).astype(complex)
-        H = get_hessian_manual(basis)(params)  # (G, G, d, d, K, K)
+        H = get_hessian_propagator(basis)(params)  # (G, G, d, d, K, K)
         # H[i,j,:,:,k,l] == H[j,i,:,:,l,k]
         swapped = jnp.swapaxes(jnp.swapaxes(H, 0, 1), -1, -2)
         assert jnp.allclose(H, swapped, atol=1e-10)
@@ -470,7 +470,7 @@ class TestCostHessianManual:
         )
         infid = lambda x: infid_U(compute_U(x))
         H_auto = get_hessian_fn(infid)(y).reshape(G * K, G * K)
-        H_man = get_hessian_manual_fn(
+        H_man = get_hessian_propagator_fn(
             basis, target, projective=projective, method=method
         )(y)
         assert H_man.shape == (G * K, G * K)
@@ -480,7 +480,7 @@ class TestCostHessianManual:
         basis = jnp.asarray(construct_full_pauli_basis(2).basis)
         target = jnp.asarray(qft_unitary(2))
         y = jax.random.normal(jax.random.key(18), (3, basis.shape[0])) * 0.3
-        H = get_hessian_manual_fn(basis, target, projective=True)(y)
+        H = get_hessian_propagator_fn(basis, target, projective=True)(y)
         assert jnp.allclose(H, H.T, atol=1e-9)
 
 

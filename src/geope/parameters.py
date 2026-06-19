@@ -19,7 +19,7 @@ from .engine import (
     get_split_jacobian_fn,
     get_gammas_and_omegas_fn,
     get_hessian_fn,
-    get_hessian_manual_fn,
+    get_hessian_propagator_fn,
     wrap_compute_U_param_transform,
 )
 from .utils import (
@@ -405,7 +405,7 @@ class Parameters:
         """
         if self.param_transform is not None: # manual path not available.
             return hess_fn_autodiff()
-        return get_hessian_manual_fn(
+        return get_hessian_propagator_fn(
             self.proj_drift_basis.basis, self.target, projective=self.projective
         )
 

@@ -41,7 +41,7 @@ def manual_hessian(
 
     Memory note: the returned tensor is dense with shape ``(G, G, d, d, K, K)``,
     i.e. $O(G^2 d^2 K^2)$. For the infidelity-cost Hessian, prefer
-    `geope.engine.get_hessian_manual_fn`, which contracts on the fly and never
+    `geope.engine.get_hessian_propagator_fn`, which contracts on the fly and never
     materialises this object.
 
     Args:
@@ -97,7 +97,7 @@ def manual_hessian(
     return H
 
 
-def get_hessian_manual(
+def get_hessian_propagator(
     gate_basis: Array, hermitian: bool = True
 ) -> Callable[[Array], Array]:
     """Create a JIT-compiled manual propagator-Hessian function.

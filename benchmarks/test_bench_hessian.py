@@ -2,9 +2,9 @@
 
 Two objects are benchmarked:
 
-* the **propagator** Hessian ``d^2U/dphi^2`` — `get_hessian_manual` (spectral,
+* the **propagator** Hessian ``d^2U/dphi^2`` — `get_hessian_propagator` (spectral,
   prefix/suffix products) vs autodiff ``jax.jacfwd(jax.jacrev(compute_U))``;
-* the **infidelity-cost** Hessian ``(P, P)`` — `get_hessian_manual_fn`
+* the **infidelity-cost** Hessian ``(P, P)`` — `get_hessian_propagator_fn`
   (Goodwin-Kuprov) vs the autodiff `get_hessian_fn` over the same infidelity.
 
 ``*_exec`` benchmarks are warmed up and timed with ``block_until_ready``.
@@ -22,10 +22,10 @@ import pytest
 from geope.engine import (
     get_compute_matrices_params_list_fn,
     get_hessian_fn,
-    get_hessian_manual_fn,
+    get_hessian_propagator_fn,
     get_infidelity_fn,
 )
-from geope.jax import get_hessian_manual
+from geope.jax import get_hessian_propagator
 from geope.utils import qft_unitary
 
 from conftest import make_basis
@@ -46,9 +46,9 @@ def _setup(size, real=False):
 
 
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
-def test_propagator_hessian_manual_exec(benchmark, size):
+def test_propagator_hessian_propagator_exec(benchmark, size):
     _, basis, params = _setup(size)
-    fn = get_hessian_manual(basis)
+    fn = get_hessian_propagator(basis)
     jax.block_until_ready(fn(params))
     benchmark.pedantic(
         lambda: jax.block_until_ready(fn(params)), rounds=10, warmup_rounds=1
@@ -67,10 +67,10 @@ def test_propagator_hessian_autodiff_exec(benchmark, size):
 
 
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
-def test_cost_hessian_manual_exec(benchmark, size):
+def test_cost_hessian_propagator_exec(benchmark, size):
     n, basis, params = _setup(size, real=True)
     target = jnp.asarray(qft_unitary(n))
-    fn = jax.jit(get_hessian_manual_fn(basis, target, projective=True))
+    fn = jax.jit(get_hessian_propagator_fn(basis, target, projective=True))
     jax.block_until_ready(fn(params))
     benchmark.pedantic(
         lambda: jax.block_until_ready(fn(params)), rounds=10, warmup_rounds=1

@@ -257,7 +257,7 @@ def get_jacobian_fn(compute_U_fn: Callable[[Array], Array]) -> Callable[[Array],
 
     Returns the holomorphic ``jax.jacobian`` of ``compute_U_fn``. This is the
     live Jacobian path for *all* system sizes: the manual Jacobian
-    (``geope.jax.jacobian.get_jacobian_manual``) exists and is independently
+    (``geope.jax.jacobian.get_jacobian_propagator``) exists and is independently
     tested, but is not currently wired into the optimisation pipeline (the
     autodiff path historically overwrote it for the >5-qubit branch — see
     issue #4). The returned function is left un-jitted so it fuses into the
@@ -414,7 +414,7 @@ def get_hessian_fn(infid_fn: Callable[[Array], Array]) -> Callable[[Array], Arra
     return hess
 
 
-def get_hessian_manual_fn(
+def get_hessian_propagator_fn(
     basis: np.ndarray,
     target: Array,
     projective: bool = True,

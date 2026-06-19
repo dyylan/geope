@@ -14,4 +14,4 @@
 
 ::: geope.jax.jacobian.manual_jacobian
 
-::: geope.jax.jacobian.get_jacobian_manual
+::: geope.jax.jacobian.get_jacobian_propagator
