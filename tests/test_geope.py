@@ -23,6 +23,9 @@ Tested items:
     - get_jacobian_propagator
 """
 
+import dataclasses
+from dataclasses import FrozenInstanceError
+
 import pytest
 import numpy as np
 import scipy.linalg as spla
@@ -36,7 +39,11 @@ from geope.geope import (
     Geope,
     build_pulse_expander,
     linear_comb_projected_coeffs_multigate,
+    DEFAULT_PRECISION,
+    DEFAULT_MAX_STEP_SIZE,
+    DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
 )
+from geope.line_searches import adam, GoldenSection, LineSearch
 from geope.engine import (
     geodesic_hamiltonian,
     get_geodesic_hamiltonian_fn,
@@ -165,10 +172,7 @@ def params_2q(cnot, full_basis_2q, projected_basis_2q):
 
 @pytest.fixture
 def geope_2q(params_2q):
-    return Geope(
-        params_2q,
-        precision=0.9999,
-    )
+    return Geope(params_2q)
 
 
 # ---------------------------------------------------------------------------
@@ -959,91 +963,172 @@ class TestGeope:
         with pytest.raises(ValueError):
             Geope(p)
 
-    def test_precision_stored(self, params_2q):
-        g = Geope(params_2q, precision=0.999)
-        assert g.precision == 0.999
-
     def test_verbose_flag(self, params_2q):
         g = Geope(params_2q, verbose=True)
         assert g.verbose is True
 
-    def test_line_search_method(self, params_2q):
-        # line-search config is an optimize() argument; max_steps=0 configures
+    # --- line search (object API) ----------------------------------------
+
+    def test_optimize_default_is_golden_section(self, params_2q):
+        # line_search defaults to GoldenSection(); max_steps=0 configures
         # without running an iteration.
         g = Geope(params_2q)
-        g.optimize(max_steps=0, line_search_method="golden_section")
-        assert g.line_search_method == "golden_section"
-
-    def test_line_search_method_adam_stored(self, params_2q):
-        for m in ("adam", "adam_fd", "adam_grad"):
-            g = Geope(params_2q)
-            g.optimize(max_steps=0, line_search_method=m)
-            assert g.line_search_method == m
-            assert g.adam_lr == 0.05
-            assert g.adam_steps == 3
-
-    def test_line_search_method_adam_custom_hparams(self, params_2q):
-        g = Geope(params_2q)
-        g.optimize(
-            max_steps=0, line_search_method="adam_fd", adam_lr=0.1, adam_steps=12
-        )
-        assert g.adam_lr == 0.1
-        assert g.adam_steps == 12
+        g.optimize(max_steps=0)
+        assert isinstance(g.line_search, GoldenSection)
 
     def test_line_search_unset_before_optimize(self, params_2q):
-        # The line-search attributes are unset until optimize() configures them.
+        # The line search and its state are unset until optimize() configures them.
         g = Geope(params_2q)
-        assert g.line_search_method is None
-        assert g.adam_lr is None
-        assert g.adam_steps is None
+        assert g.line_search is None
+        assert g.line_search_state is None
 
-    def test_adam_optimize_valid_fidelities(
-        self, cnot, full_basis_2q, projected_basis_2q
-    ):
+    def test_optimize_with_adam_runs(self, params_2q):
+        # Primary acceptance criterion: the Adam line-search object runs end to end.
+        g = Geope(params_2q)
+        g.optimize(max_steps=5, line_search=adam(1e-2))
+        assert isinstance(g.line_search, adam)
+
+    def test_adam_valid_fidelities(self, cnot, full_basis_2q, projected_basis_2q):
         # both gradient modes must run inside the real loop and stay valid
-        for m in ("adam_fd", "adam_grad"):
+        for ls in (adam(1e-2), adam(1e-2, finite_difference=False)):
             p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
             g = Geope(p, history=History())
-            g.optimize(max_steps=5, line_search_method=m)
+            g.optimize(max_steps=5, line_search=ls)
             for f in g.history.fidelities:
                 assert 0 <= f <= 1
 
-    def test_adam_optimize_improves_fidelity(
-        self, cnot, full_basis_2q, projected_basis_2q
-    ):
-        for m in ("adam_fd", "adam_grad"):
+    def test_adam_improves_fidelity(self, cnot, full_basis_2q, projected_basis_2q):
+        for ls in (adam(1e-2), adam(1e-2, finite_difference=False)):
             p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
             g = Geope(p, history=History())
             f0 = float(g.params.fidelity)
-            g.optimize(max_steps=60, line_search_method=m)
+            g.optimize(max_steps=60, line_search=ls)
             assert g.history.best_fidelity > f0
 
-    def test_adam_alias_matches_adam_fd(self, params_2q):
-        # "adam" routes to the same finite-difference line search as "adam_fd".
-        # Compare the line-search output directly on identical inputs: the full
-        # optimize loop has a stochastic Gram-Schmidt fallback (global
-        # np.random), so comparing two optimize runs would be non-deterministic.
-        g_alias = Geope(params_2q)
-        g_alias.optimize(max_steps=0, line_search_method="adam")
-        g_fd = Geope(params_2q)
-        g_fd.optimize(max_steps=0, line_search_method="adam_fd")
-        steps = g_fd.params.piecewise_steps
-        params_arr = params_2q.parameters
-        free_params = params_arr[:, g_fd.params.proj_drift_indices].astype(
-            np.complex128
-        )
-        # a real, correctly-shaped search direction (deterministic geodesic step)
-        coeffs, *_ = g_fd.update_step(free_params, params_arr, steps, g_fd._split_key())
-        _, fid_alias, dt_alias = g_alias.update_linesearch(params_arr, coeffs, steps)
-        _, fid_fd, dt_fd = g_fd.update_linesearch(params_arr, coeffs, steps)
-        assert jnp.isclose(dt_alias, dt_fd)
-        assert jnp.isclose(fid_alias, fid_fd)
-
-    def test_line_search_method_unknown_raises(self, params_2q):
-        # unknown methods are rejected when the line search first runs
+    def test_line_search_state_threads_and_updates(self, params_2q):
+        # gram_schmidt_step_size=0 (falsy) skips the fallback, so g.step_size is
+        # exactly the line-search dt. With warm_start the threaded state carries
+        # the last step's dt — proving the pytree threads and updates within a
+        # run (not reset every step).
         g = Geope(params_2q)
-        with pytest.raises(ValueError):
-            g.optimize(max_steps=1, line_search_method="not_a_method")
+        g.optimize(
+            max_steps=5,
+            line_search=adam(1e-2, warm_start=True),
+            gram_schmidt_step_size=0,
+        )
+        assert jnp.allclose(g.line_search_state["t_prev"], g.step_size)
+
+    def test_optimize_resets_state_between_calls(self, params_2q):
+        # Issue #1: the per-run init() reset is decoupled from compile reuse.
+        g = Geope(params_2q)
+        g.optimize(max_steps=3, line_search=adam(1e-2, warm_start=True))
+        # Poison the state, then a 0-step run: only the per-run init() reset can
+        # have cleared the sentinel — without it this reads 999.0.
+        g.line_search_state = {"t_prev": jnp.asarray(999.0)}
+        g.optimize(max_steps=0, line_search=adam(1e-2, warm_start=True))
+        assert g.line_search_state["t_prev"] == 0.0
+
+    def test_goldensection_state_is_empty(self, params_2q):
+        # The stateless search threads an empty pytree, not None.
+        g = Geope(params_2q)
+        g.optimize(max_steps=3)
+        assert g.line_search_state == {}
+
+    def test_repeated_optimize_reuses_compiled_fn(self, params_2q):
+        # Two optimize() calls with an equal default GoldenSection() reuse the
+        # compiled update_step (compile memo via the dataclass __eq__), so reset
+        # and recompile-avoidance coexist.
+        g = Geope(params_2q)
+        g.optimize(max_steps=0)
+        first = g.update_step
+        g.optimize(max_steps=0)
+        assert g.update_step is first
+
+    def test_line_search_eq_and_hash(self):
+        # Frozen-dataclass value semantics drive the compile memo and keep
+        # hyperparameter sweeps correct (issue #2).
+        assert adam(1e-2) == adam(1e-2)
+        assert hash(adam(1e-2)) == hash(adam(1e-2))
+        assert adam(1e-2) != adam(2e-2)
+        assert dataclasses.replace(adam(1e-2), lr=2e-2) == adam(2e-2)
+        # usable as a set member / dict key
+        assert len({adam(1e-2), adam(1e-2), GoldenSection()}) == 2
+        # immutable
+        ls = adam(1e-2)
+        with pytest.raises(FrozenInstanceError):
+            ls.lr = 0.5
+
+    def test_optimize_pulse_constrained_threads_state(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # The pulse-constrained rebuild get_update_step(expander_override=...) is
+        # not covered by the compile memo (issue #5); confirm it threads the
+        # state too.
+        p = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=3,
+            pulse_constraints={(1, 2): ["zz"]},
+        )
+        g = Geope(p)
+        g.optimize(
+            max_steps=4,
+            line_search=adam(1e-2, warm_start=True),
+            gram_schmidt_step_size=0,
+        )
+        assert jnp.allclose(g.line_search_state["t_prev"], g.step_size)
+
+    def test_line_search_history_records_attrs(self, params_2q):
+        # History integration: a logging_fn reads line_search attributes, with no
+        # change to History. line_search is None at step 0 (before optimize
+        # configures it), so the fn guards against that.
+        g = Geope(
+            params_2q,
+            history=History(
+                logging_fn=lambda gg: {
+                    "name": gg.line_search.name if gg.line_search else None,
+                    "lr": getattr(gg.line_search, "lr", None),
+                }
+            ),
+        )
+        g.optimize(max_steps=3, line_search=adam(1e-2))
+        assert g.history["name"][-1] == "adam"
+        assert g.history["lr"][-1] == 1e-2
+
+    # --- run-control knobs (optimize() arguments) ------------------------
+
+    def test_run_knobs_stored_from_optimize(self, params_2q):
+        g = Geope(params_2q)
+        g.optimize(
+            max_steps=0, precision=0.999, max_step_size=0.5, gram_schmidt_step_size=1.5
+        )
+        assert g.precision == 0.999
+        assert g.max_step_size == 0.5
+        assert g.gram_schmidt_step_size == 1.5
+
+    def test_run_knobs_default_before_optimize(self, params_2q):
+        g = Geope(params_2q)
+        assert g.precision == DEFAULT_PRECISION
+        assert g.max_step_size == DEFAULT_MAX_STEP_SIZE
+        assert g.gram_schmidt_step_size == DEFAULT_GRAM_SCHMIDT_STEP_SIZE
+
+    def test_max_step_size_is_memo_keyed(self, params_2q):
+        # max_step_size is baked into the jitted closure, so a changed value
+        # rebuilds update_step while repeating the same value reuses it.
+        g = Geope(params_2q)
+        g.optimize(max_steps=0, max_step_size=0.9)
+        first = g.update_step
+        g.optimize(max_steps=0, max_step_size=0.9)
+        assert g.update_step is first
+        g.optimize(max_steps=0, max_step_size=0.5)
+        assert g.update_step is not first
+
+    def test_precision_from_optimize_controls_stopping(self, params_2q):
+        # precision=0.0 → fidelity < 0.0 is never true → the loop runs 0 steps.
+        g = Geope(params_2q, history=History())
+        g.optimize(max_steps=1000, precision=0.0)
+        assert len(g.history) == 1  # only step 0 recorded
 
     def test_non_parameters_arg_rejected(self):
         """Passing anything other than a Parameters must raise TypeError."""
@@ -1104,16 +1189,16 @@ class TestGeope:
     def test_optimize_logs_into_history(self, params_2q):
         """History lives on geope.history, not mirrored onto Parameters."""
         # precision=0.0 → converges immediately without running the geodesic step.
-        g = Geope(params_2q, history=History(), precision=0.0)
-        g.optimize(max_steps=1)
+        g = Geope(params_2q, history=History())
+        g.optimize(max_steps=1, precision=0.0)
         assert g.history.best_fidelity == max(g.history.fidelities)
         # the current/final answer lives on Parameters
         assert params_2q.fidelity is not None
 
     def test_optimize_returns_params_when_converged(self, params_2q):
         """With precision=0, optimize converges immediately and returns the Parameters."""
-        g = Geope(params_2q, history=History(), precision=0.0)
-        result = g.optimize(max_steps=1)
+        g = Geope(params_2q, history=History())
+        result = g.optimize(max_steps=1, precision=0.0)
         assert result is params_2q
         assert g.history.best_fidelity is not None
 
@@ -1226,10 +1311,6 @@ class TestGeope:
 
     # --- gram_schmidt (via optimize when geodesic gives negative update) --
 
-    def test_gram_schmidt_step_size_attribute(self, params_2q):
-        g = Geope(params_2q, gram_schmidt_step_size=1.5)
-        assert g.gram_schmidt_step_size == 1.5
-
     def test_gram_schmidt_seeded_reproducible(
         self, cnot, full_basis_2q, projected_basis_2q
     ):
@@ -1238,8 +1319,8 @@ class TestGeope:
         # a different seed yields a different one (confirming the fallback fires).
         def run(seed):
             p = _params_2q(cnot, full_basis_2q, projected_basis_2q, seed=seed)
-            g = Geope(p, history=History(), precision=0.9999)
-            g.optimize(max_steps=80)
+            g = Geope(p, history=History())
+            g.optimize(max_steps=80, precision=0.9999)
             return [float(f) for f in g.history.fidelities]
 
         assert run(42) == run(42)
@@ -1317,8 +1398,8 @@ class TestGecko:
     # --- fidelity preservation + step-count consistency ------------------
 
     def test_smooth_preserves_fidelity_and_subdivides(self, params_2q):
-        g = Geope(params_2q, precision=0.9999)
-        g.optimize(max_steps=400)
+        g = Geope(params_2q)
+        g.optimize(max_steps=400, precision=0.9999)
         f0 = float(g.params.fidelity)
         original_steps = g.params.piecewise_steps
 
@@ -1332,8 +1413,8 @@ class TestGecko:
         assert g.params.parameters.shape[0] == new_steps
 
     def test_params_mode_from_subdivided_params(self, params_2q):
-        g = Geope(params_2q, precision=0.9999)
-        g.optimize(max_steps=400)
+        g = Geope(params_2q)
+        g.optimize(max_steps=400, precision=0.9999)
         Gecko(g.params).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=10)
         # A Gecko sized from the subdivided params must construct and run.
         gk2 = Gecko(g.params)
@@ -1354,8 +1435,8 @@ class TestGecko:
 
     def test_experimental_geope_mode(self, cnot, full_basis_2q, projected_basis_2q):
         params = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
-        g = Geope(params, precision=0.9999)
-        g.optimize(max_steps=400)
+        g = Geope(params)
+        g.optimize(max_steps=400, precision=0.9999)
         f0 = float(g.params.fidelity)
         gk = Gecko(g.params)
         assert gk._real_params is True
@@ -1366,8 +1447,8 @@ class TestGecko:
         self, cnot, full_basis_2q, projected_basis_2q
     ):
         params = self._exp_params(cnot, full_basis_2q, projected_basis_2q)
-        g = Geope(params, precision=0.9999)
-        g.optimize(max_steps=400)
+        g = Geope(params)
+        g.optimize(max_steps=400, precision=0.9999)
         gk = Gecko(params=g.params)
         assert gk._real_params is True
         # labels are not allowed under param_transform
@@ -1434,9 +1515,8 @@ class TestHistory:
         g = Geope(
             params_2q,
             history=History(logging_fn=lambda gg: {"fid": float(gg.params.fidelity)}),
-            precision=0.0,
         )
-        g.optimize(max_steps=5)
+        g.optimize(max_steps=5, precision=0.0)
         # only the custom column is logged
         assert list(g.history.keys()) == ["fid"]
         # the loop still converges (reads params.fidelity, not a column)

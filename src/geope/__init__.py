@@ -9,6 +9,15 @@ from .geope import (
     Geope,
 )
 
+from . import line_searches
+from .line_searches import (
+    LineSearch,
+    Adam,
+    GoldenSection,
+    adam,
+    golden_section,
+)
+
 from .gecko import (
     Gecko,
 )

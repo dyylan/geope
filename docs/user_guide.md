@@ -292,10 +292,7 @@ the compiled traces instead of recompiling.
 ### `Geope` (`geope.py`)
 
 ```python
-Geope(params,
-      precision=0.9999999,
-      max_step_size=0.9, gram_schmidt_step_size=1.3,
-      verbose=False, history=None)
+Geope(params, verbose=False, history=None)
 ```
 
 `Geope` requires a `Parameters` object as its single positional argument. The optimisation functions, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and `param_transform` are all read from `params`. Passing anything other than a `Parameters` raises `TypeError`.
@@ -303,28 +300,34 @@ Geope(params,
 | Parameter | Description |
 |-----------|-------------|
 | `params` | a `Parameters` instance bundling all inputs |
-| `precision` | target fidelity |
-| `max_step_size` | maximum line-search step |
-| `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback |
 | `verbose` | print per-step progress |
 | `history` | optional `History` logger (`None` = no logging) |
 
-The iteration cap and the line-search method are arguments of `optimize`, not constructor fields:
+The iteration cap, the line search, and the three run-control knobs are arguments of `optimize`, not constructor fields:
 
 ```python
+from geope import adam, GoldenSection
+
 optimize(max_steps=1000,
-         line_search_method="golden_section",
-         adam_lr=0.05, adam_steps=3)
+         line_search=GoldenSection(),        # default; or adam(1e-2)
+         precision=0.9999999,
+         max_step_size=0.9, gram_schmidt_step_size=1.3)
 ```
 
 | `optimize` argument | Description |
 |---------------------|-------------|
 | `max_steps` | maximum number of optimisation steps |
-| `line_search_method` | `"golden_section"`, `"difference_step"`, `"adam"`, `"adam_fd"` or `"adam_grad"` (`"adam"` aliases `"adam_fd"`) |
-| `adam_lr` | learning rate for the `"adam*"` line-search methods |
-| `adam_steps` | number of Adam iterations for the `"adam*"` line-search methods |
+| `line_search` | a `LineSearch` object tuning the geodesic step size; defaults to `GoldenSection()` |
+| `precision` | target fidelity threshold (host-side; no recompile) |
+| `max_step_size` | maximum line-search step (baked into the JIT; changing it recompiles) |
+| `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback (host-side; a falsy value disables it) |
 
-The line-search method and its Adam hyperparameters bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; changing them between `optimize` calls triggers a one-off recompile.
+The line searches are immutable config objects (frozen dataclasses):
+
+- `GoldenSection(tol=1e-5)` — golden-section search (the default), stateless.
+- `adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)` — 1-D Adam line search. `finite_difference=False` uses an exact autodiff gradient; `warm_start=True` seeds each step from the previous step's `t`.
+
+The line-search object and `max_step_size` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `GoldenSection()`) reuse the compiled functions, while changing the object or `max_step_size` triggers a one-off recompile. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
 
 Live state and logging:
 
@@ -481,8 +484,8 @@ params = geope.Parameters(
     param_transform=rabi, n_experimental_params=2,
     init_spread=0.3, seed=0,
 )
-g = geope.Geope(params, precision=1 - 1e-7, history=geope.History())
-g.optimize(max_steps=300)
+g = geope.Geope(params, history=geope.History())
+g.optimize(max_steps=300, precision=1 - 1e-7)
 print(float(g.params.fidelity))        # final fidelity (lives on Parameters)
 print(g.params.basis_coefficients)     # current params mapped through param_transform
 print(g.history.best_fidelity)         # best fidelity over the trajectory
@@ -599,8 +602,8 @@ params = geope.Parameters(
 )
 
 # Run — updates params (parameters/fidelity) in place; returns the same Parameters
-g = geope.Geope(params, precision=0.9999, history=geope.History())
-result = g.optimize(max_steps=1000)
+g = geope.Geope(params, history=geope.History())
+result = g.optimize(max_steps=1000, precision=0.9999)
 print(float(result.fidelity))        # final fidelity (lives on Parameters)
 print(result.to_dict())              # current solution as a control dict
 print(g.history.best_fidelity)       # best over the trajectory

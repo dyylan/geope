@@ -10,16 +10,22 @@ jax.config.update("jax_enable_x64", True)
 
 from .lie import Hamiltonian, Basis
 from .utils import (
-    golden_section_search,
-    adam_line_search,
     prepare_random_parameters,
     merge_constraints,
     control_to_indices,
 )
+from .line_searches import GoldenSection, LineSearch
 from .parameters import Parameters
 from .utils.history import History
 from functools import partial
 from typing import Callable
+
+# Single source of truth for the run-control knob defaults, shared by the
+# ``__init__``-body initialisers and the ``optimize()`` signature defaults so
+# the two can never drift.
+DEFAULT_PRECISION = 0.9999999
+DEFAULT_MAX_STEP_SIZE = 0.9
+DEFAULT_GRAM_SCHMIDT_STEP_SIZE = 1.3
 
 
 class Geope:
@@ -33,18 +39,17 @@ class Geope:
         params: The bound `Parameters` object (the single source of truth
             for all configuration, the live optimisation state, and the
             lazily-built/cached optimisation functions).
-        precision: Target fidelity threshold.
-        max_step_size: Maximum line-search step size.
-        gram_schmidt_step_size: Step size for Gram-Schmidt fallback moves.
-        line_search_method: Line-search strategy from the most recent
-            :meth:`optimize` call (``'golden_section'``, ``'difference_step'``,
-            ``'adam'``, ``'adam_fd'`` or ``'adam_grad'``; ``'adam'`` is an alias
-            for ``'adam_fd'``). ``None`` until :meth:`optimize` is first called.
-        adam_lr: Adam learning rate from the most recent :meth:`optimize` call
-            (used by the ``'adam*'`` methods); ``None`` until then.
-        adam_steps: Number of Adam iterations from the most recent
-            :meth:`optimize` call (used by the ``'adam*'`` methods); ``None``
-            until then.
+        precision: Target fidelity threshold. Set by :meth:`optimize` (the
+            ``__init__``-body default holds until the first run).
+        max_step_size: Maximum line-search step size. Set by :meth:`optimize`
+            (baked into the jitted update, so it joins the compile memo).
+        gram_schmidt_step_size: Step size for Gram-Schmidt fallback moves. Set
+            by :meth:`optimize` (host-side only).
+        line_search: The active :class:`~geope.line_searches.LineSearch` object
+            from the most recent :meth:`optimize` call. ``None`` until
+            :meth:`optimize` is first called.
+        line_search_state: The current line-search state pytree (re-``init()``d
+            per run); ``None`` until :meth:`optimize` is first called.
         step_size: Transient last line-search step size.
         history: Optional `History` logger (``None`` unless supplied),
             holding the full run trajectory.
@@ -53,9 +58,6 @@ class Geope:
     def __init__(
         self,
         params: Parameters,
-        precision: float = 0.9999999,
-        max_step_size: float = 0.9,
-        gram_schmidt_step_size: float = 1.3,
         verbose: bool = False,
         history: History | None = None,
     ) -> None:
@@ -66,13 +68,14 @@ class Geope:
         initialisation spread, projective flag and ``param_transform`` are
         all read from it. To construct one, use :class:`Parameters`.
 
+        The run-control knobs ``precision`` / ``max_step_size`` /
+        ``gram_schmidt_step_size`` and the line search are arguments of
+        :meth:`optimize`, not the constructor; they are initialised to their
+        defaults here so the object is valid before the first run.
+
         Args:
             params: A `Parameters` instance bundling every input the
                 optimiser needs.
-            precision: Target fidelity. Defaults to 0.9999999.
-            max_step_size: Maximum line-search step. Defaults to 0.9.
-            gram_schmidt_step_size: Step size for Gram-Schmidt moves.
-                Defaults to 1.3.
             verbose: Whether to print progress. Defaults to False.
             history: Optional `History` logger. When supplied, the full run
                 trajectory is recorded into it (``geope.history``); when
@@ -117,21 +120,25 @@ class Geope:
             self.history.params = params
         self.step_size = 0
 
-        self.precision = precision
-        self.max_step_size = max_step_size
-        self.gram_schmidt_step_size = gram_schmidt_step_size
+        # The run-control knobs are optimize() arguments now; initialise them
+        # to the module defaults so the object is valid before the first run
+        # (e.g. a direct add_parameters / gram_schmidt call reads
+        # self.max_step_size / self.gram_schmidt_step_size). optimize()
+        # overwrites them per run.
+        self.precision = DEFAULT_PRECISION
+        self.max_step_size = DEFAULT_MAX_STEP_SIZE
+        self.gram_schmidt_step_size = DEFAULT_GRAM_SCHMIDT_STEP_SIZE
         self.init_parameters_spread = params.init_spread
         self.pulse_constraints = params.pulse_constraints
 
-        # The line-search method and its hyperparameters are arguments of
-        # optimize(), not the constructor. The JIT-compiled update_step /
-        # update_linesearch bake the method and hyperparameters into their
-        # closures, so they are built lazily by optimize() (via
-        # _configure_line_search) and rebuilt only when that configuration
-        # changes. They stay unset until the first optimize() call.
-        self.line_search_method = None
-        self.adam_lr = None
-        self.adam_steps = None
+        # The line search and its hyperparameters are arguments of optimize(),
+        # not the constructor. The JIT-compiled update_step / update_linesearch
+        # bake the line search and max_step_size into their closures, so they
+        # are built lazily by optimize() (via _configure_line_search) and
+        # rebuilt only when that configuration changes. The line-search object
+        # and its threaded state stay unset until the first optimize() call.
+        self.line_search = None
+        self.line_search_state = None
         self._linesearch_config = None
         self.update_step = None
         self.update_linesearch = None
@@ -308,31 +315,37 @@ class Geope:
 
     def _configure_line_search(
         self,
-        line_search_method: str,
-        adam_lr: float,
-        adam_steps: int,
+        line_search: LineSearch,
+        max_step_size: float,
     ) -> None:
-        """Select the line-search method and (re)build its update functions.
+        """Select the line search and (re)build its update functions.
+
+        Compilation only — the per-run state is (re)initialised by
+        :meth:`optimize` after this returns, so the memo's early ``return``
+        below never silently skips a state reset.
 
         The JIT-compiled ``update_step`` / ``update_linesearch`` close over the
-        method string and Adam hyperparameters, so they must be recreated and
-        re-traced whenever the configuration changes. The current
-        configuration is memoised in ``_linesearch_config`` so that repeated
-        ``optimize()`` calls with unchanged settings reuse the already-compiled
-        functions instead of triggering a fresh JAX recompilation.
+        line-search object and ``max_step_size`` (baked into the
+        ``update_linesearch`` closure), so they must be recreated and re-traced
+        whenever either changes. The current configuration is memoised in
+        ``_linesearch_config`` so that repeated ``optimize()`` calls with
+        unchanged settings reuse the already-compiled functions instead of
+        triggering a fresh JAX recompilation; the frozen-dataclass value
+        ``__eq__`` makes two configs-equal line searches memo-equal.
 
         Args:
-            line_search_method: Line-search strategy (see :meth:`optimize`).
-            adam_lr: Adam learning rate (used by the ``'adam*'`` methods).
-            adam_steps: Number of Adam iterations (used by the ``'adam*'``
-                methods).
+            line_search: The :class:`~geope.line_searches.LineSearch` object.
+            max_step_size: Maximum line-search step; baked into the jitted
+                closure, so it is part of the compile memo key.
         """
-        config = (line_search_method, adam_lr, adam_steps)
+        config = (line_search, max_step_size)
+        # Set the instance attributes before the memo check so self.<attr>
+        # always tracks the latest values — safe because an equal config means
+        # identical trace-time behaviour.
+        self.line_search = line_search
+        self.max_step_size = max_step_size
         if self._linesearch_config == config:
             return
-        self.line_search_method = line_search_method
-        self.adam_lr = adam_lr
-        self.adam_steps = adam_steps
         self.update_linesearch = self.get_update_linesearch(
             self.params.fid_U_fn, self.params.compute_U_fn
         )
@@ -342,29 +355,28 @@ class Geope:
     def optimize(
         self,
         max_steps: int = 1000,
-        line_search_method: str = "golden_section",
-        adam_lr: float = 0.05,
-        adam_steps: int = 3,
+        line_search: LineSearch | None = None,
+        precision: float = DEFAULT_PRECISION,
+        max_step_size: float = DEFAULT_MAX_STEP_SIZE,
+        gram_schmidt_step_size: float = DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
     ) -> Parameters:
         """Run the GEOPE optimisation loop.
 
         Iterates geodesic update steps until the fidelity exceeds
-        ``self.precision`` or ``max_steps`` is reached.
+        ``precision`` or ``max_steps`` is reached.
 
         Args:
             max_steps: Maximum number of optimisation steps. Defaults to 1000.
-            line_search_method: ``'golden_section'``, ``'difference_step'``,
-                ``'adam'``, ``'adam_fd'`` or ``'adam_grad'``. ``'adam'`` is an
-                alias for ``'adam_fd'`` (Adam with a finite-difference
-                gradient); ``'adam_grad'`` uses an exact autodiff gradient.
-                Defaults to ``'golden_section'``.
-            adam_lr: Learning rate for the Adam line-search methods.
-                Defaults to 0.05. Ignored by other methods.
-            adam_steps: Number of Adam iterations for the Adam line-search
-                methods. Defaults to 3 — enough to resolve the 1-D step size
-                over the clipped ``max_step_size`` interval at the default
-                ``adam_lr``; smaller learning rates may need more. Ignored by
-                other methods.
+            line_search: The :class:`~geope.line_searches.LineSearch` object
+                tuning the geodesic step size each step (e.g. ``adam(1e-2)``).
+                Defaults to :class:`~geope.line_searches.GoldenSection`.
+            precision: Target fidelity threshold. Defaults to 0.9999999.
+                Host-side only (loop control) — zero compile impact.
+            max_step_size: Maximum line-search step. Defaults to 0.9. Baked into
+                the jitted update, so changing it triggers a one-off recompile.
+            gram_schmidt_step_size: Step size for the Gram-Schmidt fallback.
+                Defaults to 1.3. Host-side only — zero compile impact. A falsy
+                value disables the fallback.
 
         Returns:
             The bound `Parameters` instance, carrying the final
@@ -373,9 +385,25 @@ class Geope:
             the full trajectory and ``best_*`` live on ``geope.history`` when
             a `History` was supplied.
         """
-        # Select the line-search method and (re)build the JIT-compiled update
-        # functions if this configuration differs from the last run.
-        self._configure_line_search(line_search_method, adam_lr, adam_steps)
+        # Host-side run-control knobs (read by the loop / the non-jitted
+        # gram_schmidt) — outside the compile memo entirely.
+        self.precision = precision
+        self.gram_schmidt_step_size = gram_schmidt_step_size
+
+        # Select the line search and (re)build the JIT-compiled update functions
+        # if this configuration differs from the last run. max_step_size is
+        # passed in because it is baked into the jitted closure and so guarded
+        # by the compile memo (it must not just be set as self.max_step_size
+        # after a memo hit, or a reused closure would keep the old value).
+        line_search = line_search or GoldenSection()
+        self._configure_line_search(line_search, max_step_size)
+
+        # Reset the per-run line-search state. Doing this here — not inside
+        # _configure_line_search — decouples fresh run state from compile reuse:
+        # the memo can reuse the compiled update_step while Adam's warm-start
+        # still restarts on every optimize() call. For stateless GoldenSection
+        # this is a no-op (init() returns {}).
+        self.line_search_state = self.line_search.init()
 
         # Build pulse-constrained update step if needed
         pulse_templates = None
@@ -390,11 +418,14 @@ class Geope:
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
             free_params = self._free(self.params.parameters).astype(_dtype)
-            coeffs, new_params_update, fidelity, step_size = update_step(
-                free_params,
-                self.params.parameters,
-                self.params.piecewise_steps,
-                self._split_key(),
+            coeffs, new_params_update, fidelity, step_size, self.line_search_state = (
+                update_step(
+                    free_params,
+                    self.params.parameters,
+                    self.params.piecewise_steps,
+                    self._split_key(),
+                    self.line_search_state,
+                )
             )
 
             if fidelity > self.precision:
@@ -718,8 +749,9 @@ class Geope:
             compute_U_fn: JIT-compiled unitary computation function.
 
         Returns:
-            A callable ``update_linesearch(params, coeffs, piecewise_steps)``
-            that returns ``(new_parameters, fidelity, dt)``.
+            A callable
+            ``update_linesearch(params, coeffs, piecewise_steps, ls_state)``
+            that returns ``(new_parameters, fidelity, dt, new_ls_state)``.
         """
 
         infid_fn = self.params.infid_U_fn
@@ -743,43 +775,15 @@ class Geope:
             return t_max
 
         @jax.jit
-        def update_linesearch(params, coeffs, piecewise_steps):
+        def update_linesearch(params, coeffs, piecewise_steps, ls_state):
             sliced_params = self._free(params)
             f = partial(infidelity_t, params=sliced_params, coeffs=coeffs)
             max_step_size = self.max_step_size / piecewise_steps
-            if self.line_search_method == "golden_section":
-                dt, infid = golden_section_search(f, -max_step_size, 0.0, tol=1e-5)
-            elif self.line_search_method == "difference_step":
-                tol = 0.1 * f(0)
-                dt, infid = golden_section_search(f, -max_step_size, 0.0, tol=tol)
-            elif self.line_search_method in ("adam", "adam_fd"):
-                dt, infid = adam_line_search(
-                    f,
-                    -max_step_size,
-                    0.0,
-                    lr=self.adam_lr,
-                    num_steps=self.adam_steps,
-                    finite_difference=True,
-                )
-            elif self.line_search_method == "adam_grad":
-                dt, infid = adam_line_search(
-                    f,
-                    -max_step_size,
-                    0.0,
-                    lr=self.adam_lr,
-                    num_steps=self.adam_steps,
-                    finite_difference=False,
-                )
-            else:
-                raise ValueError(
-                    f"Unknown line_search_method {self.line_search_method!r}; "
-                    "expected 'golden_section', 'difference_step', 'adam', "
-                    "'adam_fd', or 'adam_grad'."
-                )
+            dt, infid, new_ls_state = self.line_search(f, -max_step_size, 0.0, ls_state)
             new_parameters = sliced_params + dt * coeffs
             fidelity = 1 - infid
 
-            return new_parameters, fidelity, dt
+            return new_parameters, fidelity, dt, new_ls_state
 
         return update_linesearch
 
@@ -798,12 +802,13 @@ class Geope:
 
         Returns:
             A JIT-compiled callable
-            ``update_step(free_params, params, piecewise_steps, key)``
-            returning ``(coeffs, new_params, fidelity, step_size)``.
+            ``update_step(free_params, params, piecewise_steps, key, ls_state)``
+            returning
+            ``(coeffs, new_params, fidelity, step_size, new_ls_state)``.
         """
 
         @jax.jit
-        def update_step(free_params, params, piecewise_steps, key):
+        def update_step(free_params, params, piecewise_steps, key, ls_state):
 
             gammaU_params, omegas_steps_phis = self.params.gammas_and_omegas(
                 free_params, key
@@ -837,11 +842,11 @@ class Geope:
                 coeffs = coeffs.at[:, self.params.proj_indices_projdrift_basis].set(sol)
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
 
-            new_params, fidelity_new_phi, step_size = self.update_linesearch(
-                params, coeffs, piecewise_steps
+            new_params, fidelity_new_phi, step_size, new_ls_state = (
+                self.update_linesearch(params, coeffs, piecewise_steps, ls_state)
             )
 
-            return coeffs, new_params, fidelity_new_phi, step_size
+            return coeffs, new_params, fidelity_new_phi, step_size, new_ls_state
 
         return update_step
 
