@@ -2205,10 +2205,7 @@ so compilation happens once, on the first <code>optimize()</code> call, not at c
 between a <code>Geope</code> and a <code>Gecko</code> reuses the identical callables — so JAX reuses
 the compiled traces instead of recompiling.</p>
 <h3 id="geope-geopepy"><code>Geope</code> (<code>geope.py</code>)<a class="headerlink" href="#geope-geopepy" title="Permanent link">¤</a></h3>
-<div class="highlight"><pre><span></span><code><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span>
-      <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
-      <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">,</span>
-      <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 <p><code>Geope</code> requires a <code>Parameters</code> object as its single positional argument. The optimisation functions, initial parameters, drift, constraints, pulse constraints, seed, initialisation spread, projective flag and <code>param_transform</code> are all read from <code>params</code>. Passing anything other than a <code>Parameters</code> raises <code>TypeError</code>.</p>
 <table>
@@ -2224,18 +2221,6 @@ the compiled traces instead of recompiling.</p>
 <td>a <code>Parameters</code> instance bundling all inputs</td>
 </tr>
 <tr>
-<td><code>precision</code></td>
-<td>target fidelity</td>
-</tr>
-<tr>
-<td><code>max_step_size</code></td>
-<td>maximum line-search step</td>
-</tr>
-<tr>
-<td><code>gram_schmidt_step_size</code></td>
-<td>step size for the Gram–Schmidt fallback</td>
-</tr>
-<tr>
 <td><code>verbose</code></td>
 <td>print per-step progress</td>
 </tr>
@@ -2245,10 +2230,13 @@ the compiled traces instead of recompiling.</p>
 </tr>
 </tbody>
 </table>
-<p>The iteration cap and the line-search method are arguments of <code>optimize</code>, not constructor fields:</p>
-<div class="highlight"><pre><span></span><code><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-         <span class="n">line_search_method</span><span class="o">=</span><span class="s2">&quot;golden_section&quot;</span><span class="p">,</span>
-         <span class="n">adam_lr</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">adam_steps</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<p>The iteration cap, the line search, and the three run-control knobs are arguments of <code>optimize</code>, not constructor fields:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">geope</span><span class="w"> </span><span class="kn">import</span> <span class="n">adam</span><span class="p">,</span> <span class="n">GoldenSection</span>
+
+<span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+         <span class="n">line_search</span><span class="o">=</span><span class="n">GoldenSection</span><span class="p">(),</span>        <span class="c1"># default; or adam(1e-2)</span>
+         <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
+         <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">)</span>
 </code></pre></div>
 <table>
 <thead>
@@ -2263,20 +2251,29 @@ the compiled traces instead of recompiling.</p>
 <td>maximum number of optimisation steps</td>
 </tr>
 <tr>
-<td><code>line_search_method</code></td>
-<td><code>"golden_section"</code>, <code>"difference_step"</code>, <code>"adam"</code>, <code>"adam_fd"</code> or <code>"adam_grad"</code> (<code>"adam"</code> aliases <code>"adam_fd"</code>)</td>
+<td><code>line_search</code></td>
+<td>a <code>LineSearch</code> object tuning the geodesic step size; defaults to <code>GoldenSection()</code></td>
 </tr>
 <tr>
-<td><code>adam_lr</code></td>
-<td>learning rate for the <code>"adam*"</code> line-search methods</td>
+<td><code>precision</code></td>
+<td>target fidelity threshold (host-side; no recompile)</td>
 </tr>
 <tr>
-<td><code>adam_steps</code></td>
-<td>number of Adam iterations for the <code>"adam*"</code> line-search methods</td>
+<td><code>max_step_size</code></td>
+<td>maximum line-search step (baked into the JIT; changing it recompiles)</td>
+</tr>
+<tr>
+<td><code>gram_schmidt_step_size</code></td>
+<td>step size for the Gram–Schmidt fallback (host-side; a falsy value disables it)</td>
 </tr>
 </tbody>
 </table>
-<p>The line-search method and its Adam hyperparameters bake into JIT-compiled functions that <code>optimize</code> builds on first use and reuses across calls; changing them between <code>optimize</code> calls triggers a one-off recompile.</p>
+<p>The line searches are immutable config objects (frozen dataclasses):</p>
+<ul>
+<li><code>GoldenSection(tol=1e-5)</code> — golden-section search (the default), stateless.</li>
+<li><code>adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)</code> — 1-D Adam line search. <code>finite_difference=False</code> uses an exact autodiff gradient; <code>warm_start=True</code> seeds each step from the previous step's <code>t</code>.</li>
+</ul>
+<p>The line-search object and <code>max_step_size</code> bake into JIT-compiled functions that <code>optimize</code> builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default <code>GoldenSection()</code>) reuse the compiled functions, while changing the object or <code>max_step_size</code> triggers a one-off recompile. <code>precision</code> and <code>gram_schmidt_step_size</code> are host-side only — changing them never recompiles.</p>
 <p>Live state and logging:</p>
 <ul>
 <li>The current parameters and fidelity live on <code>params</code> (<code>params.parameters</code>, <code>params.fidelity</code>); <code>Geope</code> updates them in place each step, and <code>optimize(max_steps=...)</code> returns the <code>Parameters</code> instance itself — so the user has a single handle for both inputs and the final result.</li>
@@ -2438,8 +2435,8 @@ the compiled traces instead of recompiling.</p>
     <span class="n">param_transform</span><span class="o">=</span><span class="n">rabi</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
     <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">geope</span><span class="o">.</span><span class="n">History</span><span class="p">())</span>
-<span class="n">g</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">geope</span><span class="o">.</span><span class="n">History</span><span class="p">())</span>
+<span class="n">g</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span><span class="p">))</span>        <span class="c1"># final fidelity (lives on Parameters)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">basis_coefficients</span><span class="p">)</span>     <span class="c1"># current params mapped through param_transform</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>         <span class="c1"># best fidelity over the trajectory</span>
@@ -2571,8 +2568,8 @@ projected_basis  (dim K_proj)    — only the controllable elements
 <span class="p">)</span>
 
 <span class="c1"># Run — updates params (parameters/fidelity) in place; returns the same Parameters</span>
-<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">geope</span><span class="o">.</span><span class="n">History</span><span class="p">())</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">geope</span><span class="o">.</span><span class="n">History</span><span class="p">())</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">fidelity</span><span class="p">))</span>        <span class="c1"># final fidelity (lives on Parameters)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>              <span class="c1"># current solution as a control dict</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">best_fidelity</span><span class="p">)</span>       <span class="c1"># best over the trajectory</span>
