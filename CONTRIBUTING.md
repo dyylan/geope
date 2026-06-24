@@ -52,7 +52,7 @@ problem size side by side.
 
 ## Publish Package
 
-Releases are automated by GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)): pushing a version tag builds the artifacts, runs the distribution-test matrix (Python 3.10–3.13, wheel + sdist), stages to TestPyPI and re-verifies the install, then publishes to PyPI.
+Releases are automated by GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)): pushing a version tag builds the artifacts, runs the distribution-test matrix (Python 3.11–3.13, wheel + sdist), stages to TestPyPI and re-verifies the install, then publishes to PyPI.
 
 ### Automated release (recommended)
 
@@ -63,7 +63,7 @@ Releases are automated by GitHub Actions ([.github/workflows/release.yml](.githu
    git tag v0.0.3
    git push origin main --tags
    ```
-3. The workflow then runs, in order: build + `twine check` → install-and-test across Python 3.10–3.13 (wheel and sdist) → publish to TestPyPI and verify a clean install → publish to PyPI.
+3. The workflow then runs, in order: build + `twine check` → install-and-test across Python 3.11–3.13 (wheel and sdist) → publish to TestPyPI and verify a clean install → publish to PyPI.
 
 For a dry run, trigger **Actions → Release → Run workflow**: it builds and runs the install-test matrix but skips every publish step (those are gated on a `v*` tag).
 

@@ -10,7 +10,7 @@
 
 ## Installation
 
-Install the latest release from [PyPI](https://pypi.org/project/geope/) (Python 3.10+):
+Install the latest release from [PyPI](https://pypi.org/project/geope/) (Python 3.11+):
 
 ```bash
 pip install geope
