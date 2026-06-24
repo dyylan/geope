@@ -809,7 +809,8 @@ class TestBuildPulseExpander:
     """`pulse_constraints` uses the control-format dict, same as `control`."""
 
     @pytest.fixture(scope="class")
-    def pulse_setup_3q(self):
+    @staticmethod
+    def pulse_setup_3q():
         proj = construct_restricted_pauli_basis(3, ["x", "z", "zz"])
         return proj, 4  # (projected_basis, piecewise_steps)
 
