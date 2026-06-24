@@ -1237,6 +1237,7 @@
 </code></pre></div>
 <h2 id="3-create-the-parameters-and-optimiser">3. Create the parameters and optimiser<a class="headerlink" href="#3-create-the-parameters-and-optimiser" title="Permanent link">¤</a></h2>
 <p><code>Parameters</code> bundles the problem definition — the bases, target, initial/drift values, number of piecewise steps and seed. Pass it to <code>Geope</code>, which builds the JAX functions (cached on <code>Parameters</code>, compiled lazily on first <code>optimize()</code>) (unitary computation, Jacobian, geodesic Hamiltonian, fidelity) and wraps them in an optimisation loop.</p>
+<p><code>Geope</code> itself takes only <code>verbose</code> and an optional <code>History</code>. The run-control knobs (<code>max_step_size</code>, <code>precision</code>, <code>gram_schmidt_step_size</code>) are arguments of <code>optimize()</code>, not the constructor.</p>
 <p>An optional <code>History</code> logger records the per-step trajectory (parameters, fidelities, …). Without it, only the live/final state on <code>Parameters</code> is kept.</p>
 <p>The number of piecewise steps is set on <code>Parameters</code> (<code>piecewise_steps</code>).</p>
 <div class="highlight"><pre><span></span><code><span class="n">params</span> <span class="o">=</span> <span class="n">Parameters</span><span class="p">(</span>
@@ -1252,19 +1253,17 @@
 
 <span class="n">opt</span> <span class="o">=</span> <span class="n">Geope</span><span class="p">(</span>
     <span class="n">params</span><span class="p">,</span>
-    <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span>
-    <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
     <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">history</span><span class="o">=</span><span class="n">History</span><span class="p">(),</span>
 <span class="p">)</span>
 </code></pre></div>
 <h2 id="4-run-the-optimisation">4. Run the optimisation<a class="headerlink" href="#4-run-the-optimisation" title="Permanent link">¤</a></h2>
-<p><code>optimize(max_steps=...)</code> runs the geodesic update loop. Each step:
+<p><code>optimize(max_steps=..., max_step_size=..., precision=...)</code> runs the geodesic update loop. Each step:
 1. Computes the geodesic Hamiltonian pointing from the current unitary towards the target.
 2. Projects it onto the controllable basis to find the optimal parameter update direction.
 3. Performs a line search along that direction.</p>
 <p>It returns the bound <code>Parameters</code> object, whose <code>parameters</code> / <code>fidelity</code> hold the final result; convergence is reached when <code>params.fidelity &gt;= precision</code>. With a <code>History</code> attached, the full trajectory is available on <code>opt.history</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">)</span>
 
 <span class="n">converged</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span> <span class="o">&gt;=</span> <span class="n">opt</span><span class="o">.</span><span class="n">precision</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Converged:        </span><span class="si">{</span><span class="n">converged</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>

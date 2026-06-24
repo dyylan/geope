@@ -1120,8 +1120,6 @@
                     <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
 
 <span class="n">opt_geope</span> <span class="o">=</span> <span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span>
-                  <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span>
-                  <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.2</span><span class="o">*</span><span class="n">max_step_size</span><span class="p">,</span>
                   <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                   <span class="n">history</span><span class="o">=</span><span class="n">History</span><span class="p">())</span>
 
@@ -1129,7 +1127,7 @@
 <span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="n">steps</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="k">while</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="mi">6</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
-    <span class="n">opt_geope</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+    <span class="n">opt_geope</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.2</span><span class="o">*</span><span class="n">max_step_size</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">c</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
         <span class="c1"># Warm-start a second optimiser from the current solution for the</span>
         <span class="c1"># Gaussian-filter comparison later on.</span>
@@ -1141,16 +1139,29 @@
                                <span class="n">piecewise_steps</span><span class="o">=</span><span class="n">gates</span><span class="p">,</span>
                                <span class="n">init_values</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">opt_geope</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">parameters</span><span class="p">))</span>
         <span class="n">opt_geope_gf</span> <span class="o">=</span> <span class="n">Geope</span><span class="p">(</span><span class="n">params_gf</span><span class="p">,</span>
-                             <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span>
-                             <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.2</span><span class="o">*</span><span class="n">max_step_size</span><span class="p">,</span>
                              <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                              <span class="n">history</span><span class="o">=</span><span class="n">History</span><span class="p">())</span>
         <span class="n">steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">opt_geope</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="n">success</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Gecko</span><span class="p">(</span><span class="n">opt_geope</span><span class="o">.</span><span class="n">params</span><span class="p">)</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.00001</span><span class="p">)</span>
     <span class="n">steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">opt_geope</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="n">c</span><span class="o">+=</span><span class="mi">1</span>
-<span class="n">opt_geope</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">opt_geope</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.2</span><span class="o">*</span><span class="n">max_step_size</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Finished optimising.&quot;</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>[54/100] [Fidelity = 0.9999999896440438] A solution!                                                                      
+[500/500] [Fidelity = 0.9999999864423904] Smoothing : cost = 0.8998307133739202 (aim = 1e-05)                        
+
+[500/500] [Fidelity = 0.9999999153903602] Smoothing : cost = 0.09889156642061901 (aim = 1e-05)                        
+
+[500/500] [Fidelity = 0.9999990456541067] Smoothing : cost = 0.014138945780945067 (aim = 1e-05)                        
+[1/100] [Fidelity = 0.9999999997512626] A solution!                                                                     
+[500/500] [Fidelity = 0.9999845886293534] Smoothing : cost = 0.0019036364470704757 (aim = 1e-05)                        
+[1/100] [Fidelity = 0.9999999989137855] A solution!                                                                     
+[500/500] [Fidelity = 0.9997573649359299] Smoothing : cost = 0.00024352050174859845 (aim = 1e-05)                        
+[1/100] [Fidelity = 0.9999999986650027] A solution!                                                                     
+[500/500] [Fidelity = 0.9994460171911798] Smoothing : cost = 1.888789989691024e-05 (aim = 1e-05)                        
+[1/100] [Fidelity = 0.9999999849140624] A solution!                                                                     
+Finished optimising.
 </code></pre></div>
 <h3 id="gaussian-filter">Gaussian filter<a class="headerlink" href="#gaussian-filter" title="Permanent link">¤</a></h3>
 <p>As an alternative to geometric smoothing, we apply a <strong>Gaussian filter</strong> (from <code>scipy.ndimage</code>) to the piecewise-constant pulse. The steps are:</p>
@@ -1163,7 +1174,7 @@
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">scipy.ndimage</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">spnimag</span>
 
 <span class="n">factor</span> <span class="o">=</span> <span class="mi">64</span>
-<span class="c1"># Subdivide to a fine grid (no smoothing iterations \u2014 just resample the pulse).</span>
+<span class="c1"># Subdivide to a fine grid (no smoothing iterations — just resample the pulse).</span>
 <span class="n">Gecko</span><span class="p">(</span><span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">params</span><span class="p">)</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="n">factor</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
 
 <span class="c1"># Gaussian-filter each controllable strength as an alternative smoothing.</span>
@@ -1190,13 +1201,18 @@
 
 <span class="c1"># Adopt the Gaussian-smoothed pulse as the live state, then re-optimise.</span>
 <span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">after_params</span>
-<span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">opt_geope_gf</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.2</span><span class="o">*</span><span class="n">max_step_size</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>[0/0] [Fidelity = 0] Smoothing : cost = inf (aim = 0.01)                        
+Before: 0.9999999896440391
+After: 0.9959626911167784
+[2/100] [Fidelity = 0.9999999990273412] A solution!
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>&lt;geope.parameters.Parameters at 0x12a640cd0&gt;
 </code></pre></div>
 <h3 id="plot-results">Plot results<a class="headerlink" href="#plot-results" title="Permanent link">¤</a></h3>
 <p>We compare the two smoothing strategies side-by-side. The left panel shows the original piecewise pulse (black) overlaid with the Gaussian-filtered result (blue). The right panel shows the same original pulse overlaid with the geometrically smoothed result (green). Both methods reduce high-frequency discontinuities, but geometric smoothing preserves fidelity by construction.</p>
-<div class="highlight"><pre><span></span><code><span class="n">savefig</span> <span class="o">=</span> <span class="s2">&quot;plots/smoothing/gaussian_filter_vs_geometric_smoothing_cz_ising_x1.pdf&quot;</span>
-
-<span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span>
+<div class="highlight"><pre><span></span><code><span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span>
 <span class="n">y_limits</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">8.5</span><span class="p">]</span>
 <span class="n">geometric_smoothing_colour</span><span class="o">=</span><span class="s1">&#39;green&#39;</span>
 <span class="n">gf_smoothing_colour</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span>
@@ -1272,7 +1288,7 @@
     <span class="c1"># ax.legend(loc=&#39;upper right&#39;)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="o">-</span><span class="mf">0.01</span><span class="p">,</span><span class="n">smoothed_gates</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mf">0.008</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">y_limits</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">y_limits</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="c1"># ax.set_ylim(y_limits[0],y_limits[1])</span>
 
 <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(a) Gaussian filter&quot;</span><span class="p">)</span>
 <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(b) Geometric smoothing&quot;</span><span class="p">)</span>
@@ -1283,11 +1299,9 @@
 <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$h_1(t)$&quot;</span><span class="p">)</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
-<span class="k">if</span> <span class="n">savefig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">savefig</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">savefig</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
+<p><img alt="img" src="../_data/f09bd5fb4f7a460d8174f699a3b2c533.png" /></p>
 <h1 id="cz-with-h_1t-and-h_2t-control">CZ with <span class="arithmatex">\(h_1(t)\)</span> and <span class="arithmatex">\(h_2(t)\)</span> control<a class="headerlink" href="#cz-with-h_1t-and-h_2t-control" title="Permanent link">¤</a></h1>
 <p>With Hamiltonian model: <span class="arithmatex">\(H = \sigma^z_1 \sigma^z_2 + h_1(t)\sigma^x_1 + h_2(t)\sigma^x_2\)</span> </p>
 <h3 id="solve-with-geope-and-then-repeated-geometric-smoothing">Solve with GEOPE and then repeated geometric smoothing<a class="headerlink" href="#solve-with-geope-and-then-repeated-geometric-smoothing" title="Permanent link">¤</a></h3>
@@ -1314,8 +1328,6 @@
                     <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
 
 <span class="n">opt</span> <span class="o">=</span> <span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">,</span>
-            <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span>
-            <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.2</span><span class="o">*</span><span class="n">max_step_size</span><span class="p">,</span>
             <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">history</span><span class="o">=</span><span class="n">History</span><span class="p">())</span>
 
@@ -1323,17 +1335,30 @@
 <span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="n">steps_2</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="k">while</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="mi">6</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
-    <span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+    <span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.2</span><span class="o">*</span><span class="n">max_step_size</span><span class="p">)</span>
     <span class="n">success</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Gecko</span><span class="p">(</span><span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="p">)</span><span class="o">.</span><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.00001</span><span class="p">)</span>
     <span class="n">steps_2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">opt</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="n">c</span><span class="o">+=</span><span class="mi">1</span>
-<span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">opt</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">max_step_size</span><span class="o">=</span><span class="n">max_step_size</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.2</span><span class="o">*</span><span class="n">max_step_size</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Finished optimising.&quot;</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>[50/100] [Fidelity = 0.9999999999989022] A solution!                                                                      
+[500/500] [Fidelity = 0.9999999998647647] Smoothing : cost = 0.7182509435122655 (aim = 1e-05)                        
+
+[500/500] [Fidelity = 0.9999999917004302] Smoothing : cost = 0.07466545252254528 (aim = 1e-05)                        
+
+[500/500] [Fidelity = 0.9999995415604149] Smoothing : cost = 0.009589850630987084 (aim = 1e-05)                        
+[1/100] [Fidelity = 0.9999999999856406] A solution!                                                                     
+[500/500] [Fidelity = 0.9999897419316898] Smoothing : cost = 0.0012013125811606627 (aim = 1e-05)                        
+[1/100] [Fidelity = 0.9999999996706552] A solution!                                                                     
+[500/500] [Fidelity = 0.9997881084148444] Smoothing : cost = 0.00014533717482892892 (aim = 1e-05)                        
+[1/100] [Fidelity = 0.9999999901373964] A solution!                                                                     
+[245/500] [Fidelity = 0.9992115104384376] Smoothing : cost = 1.7404440013375502e-05 (aim = 1e-05)
 </code></pre></div>
 <h3 id="plot">Plot<a class="headerlink" href="#plot" title="Permanent link">¤</a></h3>
 <p>Each subplot shows one control channel. The black step function is the initial (unsmoothed) pulse; the green step function is the geometrically smoothed result. Both panels share the same time axis.</p>
 <div class="highlight"><pre><span></span><code><span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.05</span>
-<span class="n">y_limits</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">8.5</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">y_limits</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">8.5</span><span class="p">,</span><span class="mi">3</span><span class="p">]</span>
 <span class="n">init_step</span> <span class="o">=</span> <span class="n">steps_2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="n">smoothed_step</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
 <span class="n">init_scaling</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">init_step</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -1378,7 +1403,7 @@
     <span class="c1"># ax.legend(loc=&#39;upper right&#39;)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="o">-</span><span class="mf">0.01</span><span class="p">,</span><span class="n">gates</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mf">0.008</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">y_limits</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">y_limits</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="c1"># ax.set_ylim(y_limits[0],y_limits[1])</span>
 
 <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Unit time, $t$&quot;</span><span class="p">)</span>
 <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Unit time, $t$&quot;</span><span class="p">)</span>
@@ -1387,9 +1412,7 @@
 <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$h_</span><span class="se">{{</span><span class="s2">2</span><span class="se">}}</span><span class="s2">(t)$&quot;</span><span class="p">)</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
-<span class="n">savefig</span> <span class="o">=</span> <span class="s2">&quot;plots/smoothing/geometric_smoothing_transverse_ising_with_h1_h2.pdf&quot;</span>
 <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">savefig</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">savefig</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
 
