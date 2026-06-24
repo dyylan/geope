@@ -4,18 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "GEOPE"
-version = "0.0.2"
+version = "0.0.3"
 readme = "README.md"
 requires-python = ">=3.10"
 
 dependencies = [
     "jax==0.8.0",
     "optax==0.2.4",
-    "matplotlib==3.10.7",
     "numpy==2.4.6",
     "scipy==1.17.1",
     "pandas==2.3.3",
-    "bayesian-optimization==2.0.4",
 ]
 
 [tool.setuptools.packages.find]
@@ -33,6 +31,7 @@ filterwarnings = [
 dev = ["pre-commit==3.7.0", "pytest==9.0.3", "pytest-benchmark==5.1.0", "black==24.3.0"]
 
 docs = [
+    "matplotlib==3.10.7",
     "pytest==9.0.3",
     "mkdocs==1.6.1",
     "mkdocs-material==9.6.23",
