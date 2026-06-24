@@ -625,11 +625,20 @@ class Gecko:
         else:
             expander = None
         fid = 0
+        # The engine functions (``gammas_and_omegas``, ``compute_U_fn``,
+        # ``fid_U_fn``) are returned un-jitted by design: they are built to fuse
+        # into an enclosing ``@jax.jit``, the way ``Geope.optimize``'s update
+        # step wraps them. Gecko's loop must do the same — otherwise each call
+        # runs eagerly and its inner ``lax.scan``s recompile every iteration.
+        # Wrap them once here so they compile a single time and the compiled
+        # traces are reused across all iterations.
+        gammas_and_omegas = jax.jit(self.params.gammas_and_omegas)
+        fid_of_params = jax.jit(
+            lambda fp: self.params.fid_U_fn(self.params.compute_U_fn(fp))
+        )
         while (diff > diff_tol) and (c < max_steps):
             # TODO: Can we create a function that just returns `omegas_steps_phis`?
-            _, omegas_steps_phis = self.params.gammas_and_omegas(
-                free_params, jax.random.key(0)
-            )
+            _, omegas_steps_phis = gammas_and_omegas(free_params, jax.random.key(0))
             vh, num = find_null_space(omegas_steps_phis, expander)
 
             assert num > 0, "Nullspace is empty!"
@@ -647,7 +656,7 @@ class Gecko:
 
             free_params = params_update(proj_params, self.params.parameters)
 
-            fid = self.params.fid_U_fn(self.params.compute_U_fn(free_params))
+            fid = fid_of_params(free_params)
 
             c += 1
             print(
