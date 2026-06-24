@@ -52,13 +52,32 @@ problem size side by side.
 
 ## Publish Package
 
-### Prerequisites
+Releases are automated by GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)): pushing a version tag builds the artifacts, runs the distribution-test matrix (Python 3.10–3.13, wheel + sdist), stages to TestPyPI and re-verifies the install, then publishes to PyPI.
+
+### Automated release (recommended)
+
+1. **Bump the version** in [pyproject.toml](pyproject.toml) — it must match the tag you push (`0.0.3` ↔ `v0.0.3`), or PyPI rejects the upload.
+2. **Commit, tag, and push:**
+   ```bash
+   git commit -am "Release v0.0.3"
+   git tag v0.0.3
+   git push origin main --tags
+   ```
+3. The workflow then runs, in order: build + `twine check` → install-and-test across Python 3.10–3.13 (wheel and sdist) → publish to TestPyPI and verify a clean install → publish to PyPI.
+
+For a dry run, trigger **Actions → Release → Run workflow**: it builds and runs the install-test matrix but skips every publish step (those are gated on a `v*` tag).
+
+### Manual release (fallback)
+
+Publish from a local machine when CI is unavailable.
+
+#### Prerequisites
 
 ```bash
 python -m pip install build twine
 ```
 
-### 1. Bump the version
+#### 1. Bump the version
 
 Update `version` in [pyproject.toml](pyproject.toml) before each release:
 
@@ -67,17 +86,17 @@ Update `version` in [pyproject.toml](pyproject.toml) before each release:
 version = "0.x.y"
 ```
 
-### 2. Build distributions
+#### 2. Build distributions
 
 ```bash
 python -m build
 ```
 
 This produces two artifacts in `dist/`:
-- `GEOPE-<version>-py3-none-any.whl` — the wheel
-- `GEOPE-<version>.tar.gz` — the source distribution
+- `geope-<version>-py3-none-any.whl` — the wheel
+- `geope-<version>.tar.gz` — the source distribution
 
-### 3. Validate
+#### 3. Validate
 
 ```bash
 python -m twine check dist/*
@@ -85,7 +104,7 @@ python -m twine check dist/*
 
 Fix any reported errors before uploading.
 
-### 4. Upload to TestPyPI
+#### 4. Upload to TestPyPI
 
 You need a [TestPyPI](https://test.pypi.org) account. Create an API token and either export it or add it to `~/.pypirc`.
 
@@ -93,18 +112,18 @@ You need a [TestPyPI](https://test.pypi.org) account. Create an API token and ei
 python -m twine upload --repository testpypi dist/*
 ```
 
-### 5. Test the install from TestPyPI
+#### 5. Test the install from TestPyPI
+
+Install the pinned dependencies from real PyPI **first**, then install only GEOPE from TestPyPI with `--no-deps`:
 
 ```bash
-pip install \
-  --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple \
-  "GEOPE==<version>"
+# dependencies (pinned in pyproject.toml) from real PyPI
+pip install $(python -c "import tomllib;print(' '.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
+# then GEOPE alone from TestPyPI, without re-resolving dependencies
+pip install --no-deps --index-url https://test.pypi.org/simple/ "geope==<version>"
 ```
 
-The `--extra-index-url` flag lets pip resolve pinned dependencies (e.g. `jax`) from the real PyPI index.
-
-### 6. Upload to PyPI (when satisfied)
+#### 6. Upload to PyPI (when satisfied)
 
 ```bash
 python -m twine upload dist/*
