@@ -15,9 +15,7 @@ import pytest
 # these tests deselected there, but collection still imports this module, so
 # skip cleanly rather than erroring when the deps are missing.
 nbformat = pytest.importorskip("nbformat")
-ExecutePreprocessor = pytest.importorskip(
-    "nbconvert.preprocessors"
-).ExecutePreprocessor
+ExecutePreprocessor = pytest.importorskip("nbconvert.preprocessors").ExecutePreprocessor
 
 # docs/examples relative to the repo root (mirrors the path idiom in conftest.py).
 EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "docs" / "examples"
