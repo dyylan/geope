@@ -79,10 +79,17 @@ jobs:
       - name: Run test suite against the installed package
         run: pytest tests/ -v
 
+  # 2b. Execute the example notebooks end-to-end. These are heavy and excluded
+  #     from the standard suite (marked `notebooks`, deselected by default via
+  #     addopts), so they run via the dedicated reusable workflow.
+  test-notebooks:
+    name: Execute example notebooks
+    uses: ./.github/workflows/notebooks.yml
+
   # 3. Publish to TestPyPI (trusted publishing — no API token).
   publish-testpypi:
     name: Publish to TestPyPI
-    needs: test-install
+    needs: [test-install, test-notebooks]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment: testpypi
