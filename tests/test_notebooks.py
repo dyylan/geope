@@ -23,9 +23,7 @@ NOTEBOOK_TIMEOUT = 900
 pytestmark = pytest.mark.notebooks
 
 
-@pytest.mark.parametrize(
-    "notebook_path", EXAMPLE_NOTEBOOKS, ids=lambda p: p.name
-)
+@pytest.mark.parametrize("notebook_path", EXAMPLE_NOTEBOOKS, ids=lambda p: p.name)
 def test_example_notebook_runs(notebook_path):
     """Execute ``notebook_path`` and assert that no cell raises."""
     nb = nbformat.read(notebook_path, as_version=4)
