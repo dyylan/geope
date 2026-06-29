@@ -1,0 +1,47 @@
+name: Notebooks
+
+# Execute the example notebooks end-to-end. These tests are heavy and excluded
+# from the standard suite (marked `notebooks`, deselected by default via addopts
+# in pyproject.toml), so they live in their own workflow.
+#
+#   - Runs on PRs/pushes that touch the notebooks or their test harness.
+#   - Reusable: called from release.yml so a broken notebook blocks publishing.
+#   - Manually triggerable (workflow_dispatch).
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/examples/**.ipynb'
+      - 'tests/test_notebooks.py'
+      - 'pyproject.toml'
+      - '.github/workflows/notebooks.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/examples/**.ipynb'
+      - 'tests/test_notebooks.py'
+      - 'pyproject.toml'
+      - '.github/workflows/notebooks.yml'
+
+jobs:
+  test-notebooks:
+    name: Execute example notebooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install package + notebook test deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Execute example notebooks
+        run: pytest -m notebooks -v

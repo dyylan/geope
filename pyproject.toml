@@ -23,12 +23,28 @@ where = ["src"]
 # Default `pytest` runs only the test suite; benchmarks/ is opt-in and is run
 # explicitly (`pytest benchmarks/`, requires the [benchmark] extra).
 testpaths = ["tests"]
+# Notebook-execution tests are heavy and excluded from the standard suite; they
+# run only in the release pipeline (`pytest -m notebooks`, see release.yml).
+addopts = "-m 'not notebooks'"
+markers = [
+    "notebooks: end-to-end execution of the example notebooks (run with '-m notebooks')",
+]
 filterwarnings = [
     "ignore:Casting complex values to real discards the imaginary part:numpy.exceptions.ComplexWarning:jax._src.lax.lax",
 ]
 
 [project.optional-dependencies]
-dev = ["pre-commit==3.7.0", "pytest==9.0.3", "pytest-benchmark==5.1.0", "black==24.3.0"]
+dev = [
+    "pre-commit==3.7.0",
+    "pytest==9.0.3",
+    "pytest-benchmark==5.1.0",
+    "black==24.3.0",
+    # Notebook execution tests (tests/test_notebooks.py).
+    "nbconvert==7.16.6",
+    "nbformat==5.10.4",
+    "ipykernel==6.30.1",
+    "matplotlib==3.10.7",
+]
 
 docs = [
     "matplotlib==3.10.7",
