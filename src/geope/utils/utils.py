@@ -39,24 +39,8 @@ def traces(b_1: np.ndarray, b_2: np.ndarray) -> Array:
     Returns:
         A complex ``Array`` of shape ``(K1, K2)``.
     """
-    indices = []
-    len_1 = b_1.shape[0]
-    len_2 = b_2.shape[0]
-    for i in range(len_1):
-        for j in range(len_2):
-            indices.append([i, j])
-    indices = np.stack(indices)
-    jself = jnp.array(b_1)
-    jother = jnp.array(b_2)
-    carry = jnp.empty((len_1, len_2), dtype=complex)
-
-    def scan_body(c, idx):
-        idx, jdx = idx
-        c = c.at[idx, jdx].set(trace_dot_jit(jself[idx], jother[jdx]))
-        return c, None
-
-    carry, _ = jax.lax.scan(scan_body, init=carry, xs=indices)
-    return carry
+    # Vectorized Gram matrix calculation
+    return jnp.einsum("ikl,jlk->ij", jnp.asarray(b_1), jnp.asarray(b_2))
 
 
 def check_xy_comb(comb: tuple[int, ...]) -> bool:
