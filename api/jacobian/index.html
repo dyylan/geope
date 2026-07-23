@@ -943,9 +943,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jax.jacobian.manual_jacobian" class="md-nav__link">
+  <a href="#geope.jax.jacobian.jacobian_propagator" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;manual_jacobian
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;jacobian_propagator
     </span>
   </a>
   
@@ -1067,9 +1067,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.jax.jacobian.manual_jacobian" class="md-nav__link">
+  <a href="#geope.jax.jacobian.jacobian_propagator" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;manual_jacobian
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;jacobian_propagator
     </span>
   </a>
   
@@ -1276,15 +1276,15 @@
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.jax.jacobian.manual_jacobian" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">manual_jacobian</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">Ui_fn</span><span class="p">,</span> <span class="n">jac_fn</span><span class="p">)</span></code>
+<h4 id="geope.jax.jacobian.jacobian_propagator" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">jacobian_propagator</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">Ui_fn</span><span class="p">,</span> <span class="n">jac_fn</span><span class="p">)</span></code>
 
-<a href="#geope.jax.jacobian.manual_jacobian" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.jax.jacobian.jacobian_propagator" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Compute the full Jacobian of the product unitary manually.</p>
+        <p>Compute the full Jacobian propagator of the product unitary.</p>
 <p>The product unitary follows the convention of
 :func:<code>geope.engine.compute_matrices_params_list_fn</code>, where each gate is
 left-multiplied onto the accumulator,</p>
@@ -1399,7 +1399,7 @@ built explicitly from the per-gate derivative <code>jac_fn</code>.</p>
 
 
 <h4 id="geope.jax.jacobian.get_jacobian_propagator" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_jacobian_propagator</span><span class="p">(</span><span class="n">gate_basis</span><span class="p">,</span> <span class="n">hermitian</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_jacobian_propagator</span><span class="p">(</span><span class="n">gate_basis</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;eig&#39;</span><span class="p">,</span> <span class="n">hermitian</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#geope.jax.jacobian.get_jacobian_propagator" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -1407,9 +1407,8 @@ built explicitly from the per-gate derivative <code>jac_fn</code>.</p>
     <div class="doc doc-contents first">
 
         <p>Create a JIT-compiled manual Jacobian function for a given gate basis.</p>
-<p>The per-gate derivative uses the spectral method (<code>geope.jax.dexpm_eig</code>),
-and the returned function is wrapped in <code>jax.jit</code> so it is compiled once
-and reused across calls (rather than retracing on every invocation).</p>
+<p>The returned function is wrapped in <code>jax.jit</code> so it is compiled once and
+reused across calls (rather than retracing on every invocation).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1441,6 +1440,25 @@ and reused across calls (rather than retracing on every invocation).</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-gate derivative method. <code>"eig"</code> (default) uses the
+spectral method (<code>geope.jax.dexpm_eig</code>); <code>"block"</code> uses the
+block-exponential method (<code>geope.jax.dexpm</code>), which handles
+non-Hermitian generators and ignores <code>hermitian</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;eig&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>hermitian</code>
             </td>
             <td>
@@ -1450,7 +1468,7 @@ and reused across calls (rather than retracing on every invocation).</p>
               <div class="doc-md-description">
                 <p>Assume real parameters (skew-Hermitian generators) and use
 the faster <code>eigh</code>-based per-gate derivative. Set <code>False</code> for
-complex-valued parameters.</p>
+complex-valued parameters. Only affects <code>method="eig"</code>.</p>
               </div>
             </td>
             <td>
