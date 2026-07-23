@@ -4,6 +4,6 @@
 
 ::: geope.jax.jacobian.get_Ui_fn
 
-::: geope.jax.jacobian.manual_jacobian
+::: geope.jax.jacobian.jacobian_propagator
 
 ::: geope.jax.jacobian.get_jacobian_propagator

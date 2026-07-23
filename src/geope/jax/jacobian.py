@@ -37,10 +37,10 @@ def get_Ui_fn(basis: Array) -> Callable[[Array], Array]:
     return partial(Ui, basis=basis)
 
 
-def manual_jacobian(
+def jacobian_propagator(
     params: Array, Ui_fn: Callable[[Array], Array], jac_fn: Callable[[Array], Array]
 ) -> Array:
-    r"""Compute the full Jacobian of the product unitary manually.
+    r"""Compute the full Jacobian propagator of the product unitary.
 
     The product unitary follows the convention of
     :func:`geope.engine.compute_matrices_params_list_fn`, where each gate is
@@ -119,4 +119,4 @@ def get_jacobian_propagator(
     """
     Ui_fn = get_Ui_fn(gate_basis)
     jac_fn = get_dexpm_eig(gate_basis, hermitian=hermitian)
-    return jax.jit(partial(manual_jacobian, Ui_fn=Ui_fn, jac_fn=jac_fn))
+    return jax.jit(partial(jacobian_propagator, Ui_fn=Ui_fn, jac_fn=jac_fn))

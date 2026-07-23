@@ -16,12 +16,12 @@ Tested items:
     - build_pulse_expander
   jacobian_propagator:
     - Ui / get_Ui_fn
-    - manual_jacobian
+    - jacobian_propagator
     - get_jacobian_propagator
   jax primitives:
     - dexpm / dexpm_eig (per-step derivative)
     - d2expm / d2expm_eig (per-step second derivative)
-    - manual_hessian / get_hessian_propagator (propagator Hessian)
+    - hessian_propagator / get_hessian_propagator (propagator Hessian)
     - get_hessian_propagator_fn (manual cost Hessian)
 """
 
@@ -113,12 +113,12 @@ def _params_2q(
 from geope.jax.jacobian import (
     Ui,
     get_Ui_fn,
-    manual_jacobian,
+    jacobian_propagator,
     get_jacobian_propagator,
 )
 from geope.jax.dexpm import get_dexpm, dexpm, dexpm_eig, dexpm_eig_batched
 from geope.jax.dexpm import d2expm, d2expm_eig, d2expm_eig_batched
-from geope.jax.hessian import manual_hessian, get_hessian_propagator
+from geope.jax.hessian import hessian_propagator, get_hessian_propagator
 from geope.utils import qft_unitary
 
 # ---------------------------------------------------------------------------
@@ -218,7 +218,7 @@ class TestUi:
 
 
 # ---------------------------------------------------------------------------
-# Tests — manual_jacobian
+# Tests — jacobian_propagator
 # ---------------------------------------------------------------------------
 
 
@@ -272,7 +272,7 @@ class TestManualJacobian:
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.1, 0.2, 0.3]])
-        result = manual_jacobian(params, Ui_fn, jac_fn)
+        result = jacobian_propagator(params, Ui_fn, jac_fn)
         # shape: (n_gates, dim, dim, n_params)
         assert result.shape == (1, 2, 2, 3)
 
@@ -281,7 +281,7 @@ class TestManualJacobian:
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
-        result = manual_jacobian(params, Ui_fn, jac_fn)
+        result = jacobian_propagator(params, Ui_fn, jac_fn)
         assert result.shape == (2, 2, 2, 3)
 
     def test_zero_params_derivatives_nonzero(self):
@@ -290,7 +290,7 @@ class TestManualJacobian:
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.0, 0.0, 0.0]])
-        result = manual_jacobian(params, Ui_fn, jac_fn)
+        result = jacobian_propagator(params, Ui_fn, jac_fn)
         # Should not be all zeros — derivative of expm(i*0) w.r.t. params gives i*basis
         assert not jnp.allclose(result, 0, atol=1e-10)
 
@@ -313,14 +313,14 @@ class TestGetJacobianManual:
         result = fn(params)
         assert result.shape == (1, 2, 2, 3)
 
-    def test_matches_manual_jacobian_direct(self):
+    def test_matches_jacobian_propagator_direct(self):
         basis = _pauli_basis_1q()
         fn = get_jacobian_propagator(basis)
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.5, -0.3, 0.1]])
         assert jnp.allclose(
-            fn(params), manual_jacobian(params, Ui_fn, jac_fn), atol=1e-10
+            fn(params), jacobian_propagator(params, Ui_fn, jac_fn), atol=1e-10
         )
 
     def test_agrees_with_jax_jacobian(self):
@@ -411,7 +411,7 @@ class TestD2expm:
 
 
 # ---------------------------------------------------------------------------
-# Tests — manual_hessian (propagator Hessian)
+# Tests — hessian_propagator (propagator Hessian)
 # ---------------------------------------------------------------------------
 
 

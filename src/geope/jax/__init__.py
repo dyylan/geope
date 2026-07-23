@@ -17,10 +17,10 @@ from .dexpm import (
 )
 from .logm import logm, rsf2csf, roots_legendre, sqrtm
 from .jacobian import (
-    manual_jacobian,
+    jacobian_propagator,
     get_jacobian_propagator,
 )
 from .hessian import (
-    manual_hessian,
+    hessian_propagator,
     get_hessian_propagator,
 )

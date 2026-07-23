@@ -10,15 +10,15 @@ from typing import Callable
 from .dexpm import get_Ui_fn, get_dexpm_eig, get_d2expm_eig
 
 
-def manual_hessian(
+def hessian_propagator(
     params: Array,
     Ui_fn: Callable[[Array], Array],
     jac_fn: Callable[[Array], Array],
     hess_step_fn: Callable[[Array], Array],
 ) -> Array:
-    r"""Compute the full Hessian of the product unitary manually.
+    r"""Compute the full Hessian propagator of the product unitary.
 
-    Second-derivative analogue of `geope.jax.manual_jacobian`. With the product
+    Second-derivative analogue of `geope.jax.jacobian_propagator`. With the product
     convention $U = U_{G-1} \cdots U_1 U_0$, $U_i = \exp(i\sum_k x_{i,k} B_k)$
     (each gate left-multiplied), the mixed derivative with respect to gates
     $i$ and $j$ leaves all other gates untouched:
@@ -119,5 +119,7 @@ def get_hessian_propagator(
     jac_fn = get_dexpm_eig(gate_basis, hermitian=hermitian)
     hess_step_fn = get_d2expm_eig(gate_basis, hermitian=hermitian)
     return jax.jit(
-        partial(manual_hessian, Ui_fn=Ui_fn, jac_fn=jac_fn, hess_step_fn=hess_step_fn)
+        partial(
+            hessian_propagator, Ui_fn=Ui_fn, jac_fn=jac_fn, hess_step_fn=hess_step_fn
+        )
     )
