@@ -25,7 +25,7 @@ Tested items:
     - expm_jvp / expm_hvp (+ _eig) 
     - hessian_propagator / get_hessian_propagator (propagator Hessian)
     - hvp_propagator / get_hvp_propagator
-    - get_hessian_propagator_fn (manual cost Hessian)
+    - get_hessian_propagator_fn (cost propagator Hessian)
 """
 
 import dataclasses
@@ -277,7 +277,7 @@ class TestDexpmEig:
             )
 
 
-class TestManualJacobian:
+class TestJacobianPropagator:
     def test_output_shape_single_gate(self):
         basis = _pauli_basis_1q()
         Ui_fn = get_Ui_fn(basis)
@@ -311,15 +311,16 @@ class TestManualJacobian:
 # ---------------------------------------------------------------------------
 
 
-class TestGetJacobianManual:
+class TestGetJacobianPropagator:
     def test_returns_callable(self):
         basis = _pauli_basis_1q()
         fn = get_jacobian_propagator(basis)
         assert callable(fn)
 
-    def test_call_produces_correct_shape(self):
+    @pytest.mark.parametrize("method", ["eig", "block"])
+    def test_call_produces_correct_shape(self, method):
         basis = _pauli_basis_1q()
-        fn = get_jacobian_propagator(basis)
+        fn = get_jacobian_propagator(basis, method=method)
         params = jnp.array([[0.1, 0.2, 0.3]])
         result = fn(params)
         assert result.shape == (1, 2, 2, 3)
@@ -334,14 +335,15 @@ class TestGetJacobianManual:
             fn(params), jacobian_propagator(params, Ui_fn, jac_fn), atol=1e-10
         )
 
-    def test_agrees_with_jax_jacobian(self):
-        """Compare manual jacobian against jax.jacobian for a single gate."""
+    @pytest.mark.parametrize("method", ["eig", "block"])
+    def test_agrees_with_jax_jacobian(self, method):
+        """Compare jacobian propagator against jax.jacobian for a single gate."""
         basis = _pauli_basis_1q()
-        fn_manual = get_jacobian_propagator(basis)
+        fn_propagator = get_jacobian_propagator(basis, method=method)
         Ui_fn = get_Ui_fn(basis)
 
         params = jnp.array([[0.4, -0.2, 0.6]], dtype=complex)
-        jac_manual = fn_manual(params)  # (1, 2, 2, 3)
+        jac_propagator = fn_propagator(params)  # (1, 2, 2, 3)
 
         # jax.jacobian over full compute
         def compute_U(p):
@@ -351,23 +353,26 @@ class TestGetJacobianManual:
         jac_auto = jax.jacobian(compute_U, holomorphic=True)(params)  # (2,2,1,3)
         # manual shape is (1,2,2,3), auto shape is (2,2,1,3) — rearrange
         jac_auto_rearranged = jnp.transpose(jac_auto, (2, 0, 1, 3))  # (1,2,2,3)
-        assert jnp.allclose(jac_manual, jac_auto_rearranged, atol=1e-8)
+        assert jnp.allclose(jac_propagator, jac_auto_rearranged, atol=1e-8)
 
-    def test_agrees_with_autodiff_multigate_multiqubit(self):
+    @pytest.mark.parametrize("method", ["eig", "block"])
+    def test_agrees_with_autodiff_multigate_multiqubit(self, method):
         """The prefix/suffix Jacobian must match full-sequence autodiff for
         the general G>1, n>1 case, not just a single 1-qubit gate."""
         basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
         K = basis.shape[0]
         params = jax.random.normal(jax.random.key(3), (3, K)).astype(jnp.complex128)
 
-        jac_manual = get_jacobian_propagator(basis)(params)  # (3, 4, 4, 15)
+        jac_propagator = get_jacobian_propagator(basis, method=method)(
+            params
+        )  # (3, 4, 4, 15)
 
         compute_U = get_compute_matrices_params_list_fn(basis)
         jac_auto = get_jacobian_fn(compute_U)(params)  # (4, 4, 3, 15)
         jac_auto = jnp.transpose(jac_auto, (2, 0, 1, 3))  # (3, 4, 4, 15)
 
-        assert jac_manual.shape == (3, 4, 4, K)
-        assert jnp.allclose(jac_manual, jac_auto, atol=1e-8)
+        assert jac_propagator.shape == (3, 4, 4, K)
+        assert jnp.allclose(jac_propagator, jac_auto, atol=1e-8)
 
     def test_block_method_matches_eig(self):
         """The ``method`` switch: block and eig must agree (real params)."""
@@ -439,31 +444,34 @@ class TestD2expm:
 # ---------------------------------------------------------------------------
 
 
-class TestManualHessian:
+class TestHessianPropagator:
     def _autodiff(self, basis, params):
         compute_U = get_compute_matrices_params_list_fn(basis)
         h = jax.jacfwd(jax.jacrev(compute_U, holomorphic=True), holomorphic=True)
         return jnp.transpose(h(params), (2, 4, 0, 1, 3, 5))  # -> (i, j, a, c, k, l)
 
-    def test_shape_and_value_single_gate(self):
+    @pytest.mark.parametrize("method", ["eig", "block"])
+    def test_shape_and_value_single_gate(self, method):
         basis = _pauli_basis_1q()
         params = jnp.array([[0.4, -0.2, 0.6]], dtype=complex)
-        H = get_hessian_propagator(basis)(params)
+        H = get_hessian_propagator(basis, method=method)(params)
         assert H.shape == (1, 1, 2, 2, 3, 3)
         assert jnp.allclose(H, self._autodiff(basis, params), atol=1e-8)
 
-    def test_agrees_with_autodiff_multigate_multiqubit(self):
+    @pytest.mark.parametrize("method", ["eig", "block"])
+    def test_agrees_with_autodiff_multigate_multiqubit(self, method):
         basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
         K = basis.shape[0]
         params = jax.random.normal(jax.random.key(15), (3, K)).astype(complex)
-        H = get_hessian_propagator(basis)(params)
+        H = get_hessian_propagator(basis, method=method)(params)
         assert H.shape == (3, 3, 4, 4, K, K)
         assert jnp.allclose(H, self._autodiff(basis, params), atol=1e-8)
 
-    def test_symmetric_under_pair_exchange(self):
+    @pytest.mark.parametrize("method", ["eig", "block"])
+    def test_symmetric_under_pair_exchange(self, method):
         basis = jnp.asarray(construct_full_pauli_basis(1).basis)
         params = jax.random.normal(jax.random.key(16), (2, 3)).astype(complex)
-        H = get_hessian_propagator(basis)(params)  # (G, G, d, d, K, K)
+        H = get_hessian_propagator(basis, method=method)(params)  # (G, G, d, d, K, K)
         # H[i,j,:,:,k,l] == H[j,i,:,:,l,k]
         swapped = jnp.swapaxes(jnp.swapaxes(H, 0, 1), -1, -2)
         assert jnp.allclose(H, swapped, atol=1e-10)
@@ -557,7 +565,7 @@ def _autodiff_dir_derivs(basis, params, p):
     return X, V, W
 
 
-class TestManualJvp:
+class TestJvpPropagator:
     """First-order directional propagator vs forward-mode autodiff."""
 
     @pytest.mark.parametrize("method", ["eig", "block"])
@@ -593,7 +601,7 @@ class TestManualJvp:
             get_jvp_propagator(basis, method="nope")
 
 
-class TestManualHvp:
+class TestHvpPropagator:
     """Second-order directional propagator vs forward-over-forward autodiff."""
 
     @pytest.mark.parametrize("method", ["eig", "block"])
@@ -647,12 +655,12 @@ class TestManualHvp:
 
 
 # ---------------------------------------------------------------------------
-# Tests — manual cost Hessian (Goodwin–Kuprov NR-GRAPE)
+# Tests — cost propagator Hessian (Goodwin–Kuprov NR-GRAPE)
 # ---------------------------------------------------------------------------
 
 
-class TestCostHessianManual:
-    """Manual infidelity Hessian must match the autodiff get_hessian_fn."""
+class TestCostHessianPropagator:
+    """Infidelity Hessian propatator must match the autodiff get_hessian_fn."""
 
     @pytest.mark.parametrize("projective", [True, False])
     @pytest.mark.parametrize("method", ["eig", "block"])
