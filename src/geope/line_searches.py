@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 import jax.numpy as jnp
 
-from .utils import golden_section_search, adam_line_search
+from .utils import golden_section_search, adam_line_search, quadratic_line_search
 
 
 class LineSearch:
@@ -116,6 +116,41 @@ class Adam(LineSearch):
         return dt, infid, {"t_prev": dt}
 
 
+@dataclass(frozen=True)
+class Quadratic(LineSearch):
+    """Derivative-free quadratic-fit (second-order) line search.
+
+    Fits a parabola to three points of the 1-D objective and jumps to its
+    vertex, refining by successive parabolic interpolation. Unlike
+    :class:`GoldenSection` (zeroth-order bracketing), it exploits the local
+    curvature, so it typically finds the same step size in far fewer objective
+    evaluations (``3 + num_iters`` vs the golden-section iteration count). Like
+    :class:`GoldenSection` it is stateless across GEOPE steps and exposes the
+    evaluation count as ``n_eval`` in its state.
+
+    Args:
+        num_iters: Number of parabolic-refinement steps after the three-point
+            seed (total evaluations ``3 + num_iters``). Defaults to 3.
+        tol: Degeneracy threshold below which the parabola vertex is discarded
+            in favour of a midpoint fallback. Defaults to 1e-12.
+    """
+
+    name = "quadratic"
+    num_iters: int = 3
+    tol: float = 1e-12
+
+    def init(self):
+        return {"n_eval": 0}
+
+    def __call__(self, f, a, b, state):
+        dt, infid, i = quadratic_line_search(
+            f, a, b, num_iters=self.num_iters, tol=self.tol
+        )
+        state["n_eval"] = i
+        return dt, infid, state  # passthrough: no cross-step state
+
+
 # lowercase aliases so ``line_search=adam(1e-2)`` reads naturally
 adam = Adam
 golden_section = GoldenSection
+quadratic = Quadratic

@@ -26,6 +26,7 @@ from .utils import (
     golden_section_search_np,
     golden_section_search,
     adam_line_search,
+    quadratic_line_search,
     merge_constraints,
 )
 from .history import History

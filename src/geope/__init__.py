@@ -14,8 +14,10 @@ from .line_searches import (
     LineSearch,
     Adam,
     GoldenSection,
+    Quadratic,
     adam,
     golden_section,
+    quadratic,
 )
 
 from .gecko import (
