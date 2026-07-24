@@ -16,8 +16,8 @@ from .jax.dexpm import (
     get_d2expm,
     get_d2expm_eig,
 )
-from .jax.jacobian import manual_jacobian
-from .jax.hessian import manual_hessian
+from .jax.jacobian import jacobian_propagator
+from .jax.hessian import hessian_propagator
 
 import inspect
 from functools import partial
@@ -426,7 +426,7 @@ def get_hessian_propagator_fn(
     Analytic drop-in for `get_hessian_fn`: returns ``hess(y) -> (P, P)`` with
     ``P = y.size``, the Hessian of the same infidelity that `get_hessian_fn`
     differentiates by autodiff, but built from the manual propagator
-    derivatives (`manual_jacobian`, `manual_hessian`) rather than from
+    derivatives (`jacobian_propagator`, `hessian_propagator`) rather than from
     forward-over-reverse HVPs.
 
     Let $z = \mathrm{Tr}(U_T^\dagger U)$, $\partial_a z$, $\partial_a\partial_b z$
@@ -445,7 +445,7 @@ def get_hessian_propagator_fn(
     near-identity / traceless-target gotcha) — the autodiff Hessian shares that.
 
     Memory note: this materialises the dense propagator Hessian
-    (`manual_hessian`, $O(G^2 d^2 K^2)$); intended for the small systems where
+    (`hessian_propagator`, $O(G^2 d^2 K^2)$); intended for the small systems where
     NR-GRAPE is used.
 
     Args:
@@ -481,8 +481,8 @@ def get_hessian_propagator_fn(
 
     def hess(y: Array) -> Array:
         U = compute_U(y)
-        dU = manual_jacobian(y, Ui_fn, jac_step)  # (G, d, d, K)
-        H = manual_hessian(y, Ui_fn, jac_step, hess_step)  # (G, G, d, d, K, K)
+        dU = jacobian_propagator(y, Ui_fn, jac_step)  # (G, d, d, K)
+        H = hessian_propagator(y, Ui_fn, jac_step, hess_step)  # (G, G, d, d, K, K)
 
         # Contract the propagator and its derivatives with U_T^dagger.
         z = jnp.einsum("ab,ab->", t_conj, U)

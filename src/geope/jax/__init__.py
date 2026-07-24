@@ -14,13 +14,21 @@ from .dexpm import (
     d2expm_eig_batched,
     get_d2expm,
     get_d2expm_eig,
+    expm_jvp,
+    expm_jvp_eig,
+    expm_hvp,
+    expm_hvp_eig,
 )
 from .logm import logm, rsf2csf, roots_legendre, sqrtm
 from .jacobian import (
-    manual_jacobian,
+    jacobian_propagator,
     get_jacobian_propagator,
+    jvp_propagator,
+    get_jvp_propagator,
 )
 from .hessian import (
-    manual_hessian,
+    hessian_propagator,
     get_hessian_propagator,
+    hvp_propagator,
+    get_hvp_propagator,
 )

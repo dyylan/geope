@@ -132,6 +132,30 @@ def _eig(x: Array, basis: Array, hermitian: bool = True) -> tuple[Array, Array, 
     return mu, V, jnp.linalg.inv(V)
 
 
+def _first_divided_differences(mu: Array) -> Array:
+    r"""First divided differences of ``exp`` over an eigenvalue spectrum.
+
+    Returns the matrix
+    $\Delta_{pq} = (e^{\mu_p} - e^{\mu_q}) / (\mu_p - \mu_q)$ with the diagonal
+    limit $\Delta_{pp} = e^{\mu_p}$ on (near-)degenerate eigenvalues.
+
+    Args:
+        mu: Eigenvalues of shape ``(d,)``.
+
+    Returns:
+        Tensor of shape ``(d, d)``.
+    """
+    exp_mu = jnp.exp(mu)
+    dmu = mu[:, None] - mu[None, :]
+    degenerate = jnp.abs(dmu) < 1e-12
+    safe_dmu = jnp.where(degenerate, 1.0, dmu)
+    return jnp.where(
+        degenerate,
+        exp_mu[:, None] * jnp.ones_like(dmu),
+        (exp_mu[:, None] - exp_mu[None, :]) / safe_dmu,
+    )
+
+
 def _spectral_factors(
     x: Array, basis: Array, hermitian: bool = True
 ) -> tuple[Array, Array, Array]:
@@ -151,16 +175,7 @@ def _spectral_factors(
         Tuple ``(V, Vinv, delta)`` of shapes ``(d, d)``, ``(d, d)``, ``(d, d)``.
     """
     mu, V, Vinv = _eig(x, basis, hermitian=hermitian)
-    exp_mu = jnp.exp(mu)
-
-    dmu = mu[:, None] - mu[None, :]
-    degenerate = jnp.abs(dmu) < 1e-12
-    safe_dmu = jnp.where(degenerate, 1.0, dmu)
-    delta = jnp.where(
-        degenerate,
-        exp_mu[:, None] * jnp.ones_like(dmu),
-        (exp_mu[:, None] - exp_mu[None, :]) / safe_dmu,
-    )
+    delta = _first_divided_differences(mu)
     return V, Vinv, delta
 
 
@@ -422,6 +437,147 @@ def d2expm_eig_batched(
 
     slabs = jax.lax.map(per_first_direction, Gt, batch_size=batch_size)  # (K, K, d, d)
     return jnp.transpose(slabs, (2, 3, 0, 1))
+
+
+def expm_jvp(x: Array, p: Array, basis: Array) -> tuple[Array, Array]:
+    r"""Directional first derivative of the exponential map (block method).
+
+    For $A = \sum_k x_k B_k$ and direction $B = \sum_k p_k B_k$, returns the
+    pair
+
+    $$U = \exp(iA), \qquad E = D\exp(iA)[iB],$$
+
+    i.e. the value and the single-direction (JVP) derivative, rather than the
+    full per-parameter stack of `dexpm`. Both are read off the upper blocks of a
+    single ``2d x 2d`` block exponential (Al-Mohy & Higham):
+    $\exp(i[[A, B], [0, A]]) = [[U, E], [0, U]]$.
+
+    Args:
+        x: Coefficient vector of shape ``(K,)``.
+        p: Direction-coefficient vector of shape ``(K,)``.
+        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+
+    Returns:
+        Tuple ``(U, E)`` of matrices of shape ``(d, d)``.
+    """
+    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    B = jnp.tensordot(p, basis, axes=[[-1], [0]])
+    dim = A.shape[0]
+    block_mat = jnp.block([[A, B], [jnp.zeros_like(A), A]])
+    e = jax.scipy.linalg.expm(1j * block_mat)
+    return e[:dim, :dim], e[:dim, dim:]
+
+
+def expm_jvp_eig(
+    x: Array, p: Array, basis: Array, hermitian: bool = True
+) -> tuple[Array, Array]:
+    r"""Directional first derivative of the exponential map (spectral method).
+
+    Same result as `expm_jvp` but from a single eigendecomposition, the
+    single-direction specialisation of `dexpm_eig`. Writing
+    $M = i\sum_k x_k B_k = V \mathrm{diag}(\mu) V^{-1}$ and
+    $\tilde{B} = V^{-1}(iB)V$ for $B = \sum_k p_k B_k$,
+
+    $$U = V \mathrm{diag}(e^\mu) V^{-1}, \qquad
+      E = V\,(\Delta \circ \tilde{B})\,V^{-1},$$
+
+    with $\Delta$ the divided-difference matrix of $\exp$
+    (`_first_divided_differences`).
+
+    Args:
+        x: Coefficient vector of shape ``(K,)``.
+        p: Direction-coefficient vector of shape ``(K,)``.
+        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        hermitian: Assume real coefficients (skew-Hermitian ``M``) and use
+            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+
+    Returns:
+        Tuple ``(U, E)`` of matrices of shape ``(d, d)``.
+    """
+    mu, V, Vinv = _eig(x, basis, hermitian=hermitian)
+    delta = _first_divided_differences(mu)
+
+    B = jnp.tensordot(p, basis, axes=[[-1], [0]])
+    Bt = Vinv @ (1j * B) @ V  # V^{-1} (iB) V
+
+    U = (V * jnp.exp(mu)[None, :]) @ Vinv
+    E = V @ (delta * Bt) @ Vinv
+    return U, E
+
+
+def expm_hvp(x: Array, p: Array, basis: Array) -> tuple[Array, Array, Array]:
+    r"""Directional first and second derivatives of the exponential map (block).
+
+    For $A = \sum_k x_k B_k$ and direction $B = \sum_k p_k B_k$, returns
+
+    $$U = \exp(iA), \quad E = D\exp(iA)[iB], \quad G = D^2\exp(iA)[iB, iB],$$
+
+    all read off a single ``3d x 3d`` block exponential (Van Loan / Goodwin &
+    Kuprov). With the upper-triangular block $[[A, B, 0], [0, A, B], [0, 0, A]]$,
+    the top row of $\exp(i\cdot\text{block})$ gives $U$, $E$, and the *ordered*
+    second-derivative integral; the symmetric $G$ is twice that block. This is
+    the per-gate step used by `geope.jax.hessian.hvp_propagator`.
+
+    Args:
+        x: Coefficient vector of shape ``(K,)``.
+        p: Direction-coefficient vector of shape ``(K,)``.
+        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+
+    Returns:
+        Tuple ``(U, E, G)`` of matrices of shape ``(d, d)``.
+    """
+    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    B = jnp.tensordot(p, basis, axes=[[-1], [0]])
+    dim = A.shape[0]
+    Z = jnp.zeros_like(A)
+    block_mat = jnp.block([[A, B, Z], [Z, A, B], [Z, Z, A]])
+    e = jax.scipy.linalg.expm(1j * block_mat)
+    U = e[:dim, :dim]
+    E = e[:dim, dim : 2 * dim]
+    G = 2.0 * e[:dim, 2 * dim : 3 * dim]
+    return U, E, G
+
+
+def expm_hvp_eig(
+    x: Array, p: Array, basis: Array, hermitian: bool = True
+) -> tuple[Array, Array, Array]:
+    r"""Directional first and second derivatives of the exponential map (spectral).
+
+    Same result as `expm_hvp` but from a single eigendecomposition, the
+    single-direction specialisation of `dexpm_eig` / `d2expm_eig`. With
+    $M = i\sum_k x_k B_k = V \mathrm{diag}(\mu) V^{-1}$ and
+    $\tilde{B} = V^{-1}(iB)V$ for $B = \sum_k p_k B_k$,
+
+    $$U = V \mathrm{diag}(e^\mu) V^{-1}, \qquad
+      E = V\,(\Delta \circ \tilde{B})\,V^{-1},$$
+    $$G_{ij} = V\,\Big(2\sum_r T_{prq}\,\tilde{B}_{pr}\tilde{B}_{rq}\Big)\,V^{-1},$$
+
+    where $\Delta$ is the first (`_first_divided_differences`) and $T$ the second
+    (`_second_divided_differences`) divided difference of $\exp$.
+
+    Args:
+        x: Coefficient vector of shape ``(K,)``.
+        p: Direction-coefficient vector of shape ``(K,)``.
+        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        hermitian: Assume real coefficients (skew-Hermitian ``M``) and use
+            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+
+    Returns:
+        Tuple ``(U, E, G)`` of matrices of shape ``(d, d)``.
+    """
+    mu, V, Vinv = _eig(x, basis, hermitian=hermitian)
+    delta = _first_divided_differences(mu)
+    T = _second_divided_differences(mu)  # (d, d, d) indexed [p, r, q]
+
+    B = jnp.tensordot(p, basis, axes=[[-1], [0]])
+    Bt = Vinv @ (1j * B) @ V  # V^{-1} (iB) V
+
+    U = (V * jnp.exp(mu)[None, :]) @ Vinv
+    E = V @ (delta * Bt) @ Vinv
+    # term[p, q] = sum_r T[p, r, q] Bt[p, r] Bt[r, q]; G symmetrises to 2*term.
+    term = jnp.einsum("prq,pr,rq->pq", T, Bt, Bt)
+    G = V @ (2.0 * term) @ Vinv
+    return U, E, G
 
 
 def get_dexpm(basis: Array, batch_size: int | None = None) -> Callable[[Array], Array]:
