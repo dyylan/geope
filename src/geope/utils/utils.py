@@ -813,7 +813,7 @@ def golden_section_search(
     a_init: float | Array,
     b_init: float | Array,
     tol: float = 1e-5,
-) -> tuple[Array, Array]:
+) -> tuple[Array, Array, int]:
     """JIT-compatible golden-section search using JAX.
 
     Finds the minimum of a unimodal function `f` on the interval
@@ -827,7 +827,7 @@ def golden_section_search(
         tol: Convergence tolerance. Defaults to 1e-5.
 
     Returns:
-        A tuple ``(x_min, f_min)`` of the approximate minimiser
+        A tuple ``(x_min, f_min, n_eval)`` of the approximate minimiser
         and its function value.
 
     Example:
@@ -890,7 +890,7 @@ def golden_section_search(
 
     t_best = jnp.where(f1 < f2, x1, x2)
     f_best = jnp.where(f1 < f2, f1, f2)
-    return t_best, f_best
+    return t_best, f_best, i
 
 
 def adam_line_search(

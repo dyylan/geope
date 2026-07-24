@@ -57,8 +57,12 @@ class GoldenSection(LineSearch):
     name = "golden_section"
     tol: float = 1e-5
 
+    def init(self):
+        return {"n_eval": 0}
+
     def __call__(self, f, a, b, state):
-        dt, infid = golden_section_search(f, a, b, tol=self.tol)
+        dt, infid, i = golden_section_search(f, a, b, tol=self.tol)
+        state["n_eval"] = i
         return dt, infid, state  # passthrough: no cross-step state
 
 
