@@ -17,6 +17,7 @@ from .utils import (
 from .line_searches import GoldenSection, LineSearch
 from .parameters import Parameters
 from .utils.history import History
+from .utils.callbacks import normalize_callbacks, run_callbacks
 from functools import partial
 from typing import Callable
 
@@ -359,6 +360,7 @@ class Geope:
         precision: float = DEFAULT_PRECISION,
         max_step_size: float = DEFAULT_MAX_STEP_SIZE,
         gram_schmidt_step_size: float = DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> Parameters:
         """Run the GEOPE optimisation loop.
 
@@ -377,6 +379,14 @@ class Geope:
             gram_schmidt_step_size: Step size for the Gram-Schmidt fallback.
                 Defaults to 1.3. Host-side only — zero compile impact. A falsy
                 value disables the fallback.
+            callbacks: Optional callback, or list/tuple of callbacks, invoked at
+                the end of every step with the signature
+                ``callback(step, history, geope) -> bool``. All callbacks run
+                each step; the loop stops early if any returns a falsy value
+                (so a pure logging callback must ``return True``). ``step`` is
+                the 1-based index of the step just completed, ``history`` is
+                ``geope.history`` (may be ``None``), and ``geope`` is this
+                optimiser.
 
         Returns:
             The bound `Parameters` instance, carrying the final
@@ -412,6 +422,8 @@ class Geope:
             update_step = self.get_update_step(expander_override=combined_expander)
         else:
             update_step = self.update_step
+
+        cbs = normalize_callbacks(callbacks)
 
         step = 0
         _dtype = jnp.float64 if self._real_params else jnp.complex128
@@ -457,6 +469,11 @@ class Geope:
             # Enforce pulse template constraints if applicable
             if pulse_templates is not None:
                 self._enforce_pulse_template(pulse_templates)
+
+            # Run user callbacks at the end of the step; stop early if any
+            # requests it.
+            if not run_callbacks(cbs, step, self.history, self):
+                break
         if self.verbose:
             print("")
         return self.params

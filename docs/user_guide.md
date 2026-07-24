@@ -398,6 +398,40 @@ The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under t
 - **`linear_comb_projected_coeffs_multigate(ω, γ, E)`** — least-squares solve, optionally through a constraint expander $E$.
 - **`update_linesearch(params, coeffs, piecewise_steps)`** — golden-section minimisation of $\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})$ over $t \in [-t_{\max}, 0]$.
 
+## Callbacks
+
+`Geope.optimize`, `Grape.optimize` and every `Gecko` post-processing method (`smooth`, `smooth_frequency`, `filter_frequency`, `speed`, `length`, `robust`, `bound`) accept a `callbacks` argument — a single callable, or a list/tuple of callables — invoked at the **end of every step** (after the state update and, for `Geope`, after pulse-template enforcement). Use them to log, plot, checkpoint, implement custom early-stopping, or drive dynamic behaviour.
+
+Each callback has the signature:
+
+```python
+def callback(step, history, optimizer) -> bool:
+    ...
+```
+
+- `step` — the 1-based index of the step just completed.
+- `history` — the optimiser's `History` object, or `None` if none was attached.
+- `optimizer` — the live `Geope` / `Grape` / `Gecko` instance (read `optimizer.params.parameters`, `optimizer.params.fidelity`, etc.).
+
+**Stopping semantics.** All callbacks run every step (so their side-effects always execute), then the loop **stops if any callback returns a falsy value** (`False`, `None`, `0`, …). The loop continues only while *every* callback returns truthy — so a pure logging callback **must** `return True`.
+
+> For `Gecko`, callbacks fire once per null-space iteration. During the loop the running geometry is visible via `optimizer.params.parameters`; `optimizer.params.fidelity` and `optimizer.step_size` are finalised only after the loop returns. `Gecko`'s `History` still records only at the start and end of a pass.
+
+Example — custom early stopping plus logging:
+
+```python
+losses = []
+
+def stop_on_plateau(step, history, geope):
+    losses.append(float(geope.params.fidelity))
+    # stop if the last 5 fidelities barely moved
+    if len(losses) >= 5 and (max(losses[-5:]) - min(losses[-5:])) < 1e-6:
+        return False
+    return True
+
+geope.optimize(max_steps=1000, callbacks=stop_on_plateau)
+```
+
 ## Constraints
 
 ### Linear equality constraints
