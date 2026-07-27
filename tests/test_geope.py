@@ -1068,11 +1068,14 @@ class TestGeope:
         g.optimize(max_steps=0, line_search=Adam(1e-2, warm_start=True))
         assert g.line_search_state["t_prev"] == 0.0
 
-    def test_goldensection_state_is_empty(self, params_2q):
-        # The stateless search threads an empty pytree, not None.
+    def test_goldensection_state_has_n_eval(self, params_2q):
+        # The zeroth-order search threads only the base {"n_eval"} pytree (the
+        # per-step evaluation count), not None and not an empty dict.
         g = Geope(params_2q)
         g.optimize(max_steps=3)
-        assert g.line_search_state == {}
+        assert set(g.line_search_state) == {"n_eval"}
+        # Golden section spends at least the two initial f1/f2 probes.
+        assert int(g.line_search_state["n_eval"]) >= 2
 
     def test_repeated_optimize_reuses_compiled_fn(self, params_2q):
         # Two optimize() calls with an equal default GoldenSection() reuse the

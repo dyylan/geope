@@ -25,10 +25,10 @@ so zeroth-order methods pay nothing for the ``logm``/HVP the geometry needs.
 Cross-step state is a JAX pytree threaded through the jitted update (mirroring
 ``Grape.optimizer_state``): a jitted closure traces once, so persistent state
 must enter/leave as an argument/result rather than as a mutated attribute. The
-state is line-search-owned and opaque to GEOPE — :class:`Adam` carries
-``{"t_prev"}`` (warm-start), :class:`QuadraticArmijo` carries ``{"n_eval"}``,
-:class:`GoldenSection` is stateless (``{}``). ``Geope.optimize`` re-``init()``s the
-state at the start of every run.
+state is line-search-owned and opaque to GEOPE — every search carries
+``{"n_eval"}`` (the per-step count of 1-D-objective evaluations it spent), and
+:class:`Adam` additionally carries ``{"t_prev"}`` (warm-start).
+``Geope.optimize`` re-``init()``s the state at the start of every run.
 """
 
 from dataclasses import dataclass
@@ -99,15 +99,16 @@ class LineSearch:
     """Base line search: tunes the scalar geodesic step size ``t``.
 
     Subclasses are frozen dataclasses (immutable config) that own an opaque
-    JAX-pytree state. The base state is empty (``{}``) — stateless searches need
-    nothing more.
+    JAX-pytree state. The base state carries only ``{"n_eval"}`` — the per-step
+    count of 1-D-objective evaluations the search spent — which every line
+    search reports; stateful searches (e.g. :class:`Adam`) extend it.
     """
 
     name = "line_search"
 
     def init(self):
         """Return a fresh state pytree (called once per ``optimize()`` run)."""
-        return {}
+        return {"n_eval": jnp.asarray(0, jnp.int32)}
 
     def __call__(self, ctx: LineSearchContext):
         """Choose a step from ``ctx``; return ``(dt, new_state)``."""
@@ -116,10 +117,11 @@ class LineSearch:
 
 @dataclass(frozen=True)
 class GoldenSection(LineSearch):
-    """Golden-section search (the default) — stateless, zeroth-order.
+    """Golden-section search (the default) — zeroth-order.
 
     Minimises the infidelity ``ctx.f`` on the bracket; never touches the
-    geometry, so it incurs no ``logm``/HVP cost.
+    geometry, so it incurs no ``logm``/HVP cost. Carries only the base
+    ``{"n_eval"}`` state (the per-step evaluation count).
 
     Args:
         tol: Convergence tolerance for the search interval. Defaults to 1e-5.
@@ -129,8 +131,8 @@ class GoldenSection(LineSearch):
     tol: float = 1e-5
 
     def __call__(self, ctx: LineSearchContext):
-        dt, _ = _golden_section_search(ctx.f, ctx.a, ctx.b, tol=self.tol)
-        return dt, ctx.state  # passthrough: no cross-step state
+        dt, _, n_eval = _golden_section_search(ctx.f, ctx.a, ctx.b, tol=self.tol)
+        return dt, {"n_eval": n_eval}
 
 
 @dataclass(frozen=True)
@@ -163,11 +165,14 @@ class Adam(LineSearch):
 
     def init(self):
         # t_prev seeds the warm-start within a run; reset fresh each run.
-        return {"t_prev": jnp.asarray(0.0, jnp.float64)}
+        return {
+            "t_prev": jnp.asarray(0.0, jnp.float64),
+            "n_eval": jnp.asarray(0, jnp.int32),
+        }
 
     def __call__(self, ctx: LineSearchContext):
         t0 = ctx.state["t_prev"] if self.warm_start else 0.0
-        dt, _ = _adam_line_search(
+        dt, _, n_eval = _adam_line_search(
             ctx.f,
             ctx.a,
             ctx.b,
@@ -180,7 +185,7 @@ class Adam(LineSearch):
             beta2=self.beta2,
             eps=self.eps,
         )
-        return dt, {"t_prev": dt}
+        return dt, {"t_prev": dt, "n_eval": n_eval}
 
 
 @dataclass(frozen=True)
@@ -245,7 +250,7 @@ def _golden_section_search(
     a_init: float | Array,
     b_init: float | Array,
     tol: float = 1e-5,
-) -> tuple[Array, Array]:
+) -> tuple[Array, Array, Array]:
     """JIT-compatible golden-section search using JAX.
 
     Finds the minimum of a unimodal function `f` on the interval
@@ -259,13 +264,13 @@ def _golden_section_search(
         tol: Convergence tolerance. Defaults to 1e-5.
 
     Returns:
-        A tuple ``(x_min, f_min)`` of the approximate minimiser
-        and its function value.
+        A tuple ``(x_min, f_min, n_eval)`` of the approximate minimiser, its
+        function value, and the number of ``f`` evaluations spent.
 
     Example:
         ```python
         f = lambda x: (x - 2) ** 2
-        x_min, f_min = _golden_section_search(f, 1.0, 5.0)
+        x_min, f_min, n_eval = _golden_section_search(f, 1.0, 5.0)
         ```
 
     References:
@@ -322,7 +327,10 @@ def _golden_section_search(
 
     t_best = jnp.where(f1 < f2, x1, x2)
     f_best = jnp.where(f1 < f2, f1, f2)
-    return t_best, f_best
+    # Each loop iteration spends one new ``f`` evaluation; the two initial
+    # ``f1``/``f2`` probes bring the total to ``i + 2``.
+    n_eval = i + jnp.array(2, dtype=jnp.int32)
+    return t_best, f_best, n_eval
 
 
 # TODO can we remove the finite differences here?
@@ -338,7 +346,7 @@ def _adam_line_search(
     beta2: float = 0.999,
     eps: float = 1e-8,
     t_init: float | Array = 0.0,
-) -> tuple[Array, Array]:
+) -> tuple[Array, Array, Array]:
     """JIT-compatible 1-D Adam line search using JAX.
 
     Minimises a scalar function `f` on the interval $[a, b]$ by running
@@ -374,14 +382,15 @@ def _adam_line_search(
         t_init: Starting point for ``t``. Defaults to 0.0.
 
     Returns:
-        A tuple ``(t_best, f_best)`` of the best minimiser found and its
-        function value, matching the ``(x_min, f_min)`` contract of
+        A tuple ``(t_best, f_best, n_eval)`` of the best minimiser found, its
+        function value, and the number of ``f`` evaluations spent (the fixed
+        ``num_steps + 2``), matching the ``(x_min, f_min, n_eval)`` contract of
         :func:`_golden_section_search`.
 
     Example:
         ```python
         f = lambda x: (x - 2.0) ** 2
-        x_min, f_min = _adam_line_search(f, 0.0, 5.0, lr=0.1, num_steps=200)
+        x_min, f_min, n_eval = _adam_line_search(f, 0.0, 5.0, lr=0.1, num_steps=200)
         ```
 
     References:
@@ -453,7 +462,10 @@ def _adam_line_search(
     take_last = f_last < f_best
     t_best = jnp.where(take_last, t, t_best)
     f_best = jnp.where(take_last, f_last, f_best)
-    return t_best, f_best
+    # Fixed schedule: ``f(t0)`` + ``num_steps`` body evals + one final ``f(t)``
+    # (the grad path counts each ``value_and_grad`` as one evaluation).
+    n_eval = jnp.asarray(num_steps + 2, dtype=jnp.int32)
+    return t_best, f_best, n_eval
 
 
 def _quadratic_armijo_line_search(

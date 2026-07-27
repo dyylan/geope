@@ -322,7 +322,7 @@ optimize(max_steps=1000,
 
 The line searches are immutable config objects (frozen dataclasses):
 
-- `GoldenSection(tol=1e-5)` — golden-section search (the default), stateless.
+- `GoldenSection(tol=1e-5)` — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
 - `Adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)` — 1-D Adam line search. `finite_difference=False` uses an exact autodiff gradient; `warm_start=True` seeds each step from the previous step's `t`.
 - `QuadraticArmijo(c1=1e-4, beta=0.5, gamma=1.0, ...)` — geometry-aware second-order line search: seeds the step from the exact SU(N) curvature and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
 
