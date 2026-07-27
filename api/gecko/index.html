@@ -1394,7 +1394,7 @@ trajectory is recorded into it.</p>
 
 
 <h5 id="geope.gecko.Gecko.smooth" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">smooth</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
 
 <a href="#geope.gecko.Gecko.smooth" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1486,24 +1486,6 @@ Defaults to 0.1.</p>
                   <code>0.1</code>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>callbacks</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional callback(s) <code>callback(step, history, gecko)</code>
-run at the end of every iteration; a falsy return stops the
-loop. See :meth:<code>_null_space_optimisation</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -1549,7 +1531,7 @@ loop. See :meth:<code>_null_space_optimisation</code>.</p>
 
 
 <h5 id="geope.gecko.Gecko.smooth_frequency" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">smooth_frequency</span><span class="p">(</span><span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
 
 <a href="#geope.gecko.Gecko.smooth_frequency" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1636,24 +1618,6 @@ Defaults to 0.1.</p>
                   <code>0.1</code>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>callbacks</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional callback(s) <code>callback(step, history, gecko)</code>
-run at the end of every iteration; a falsy return stops the
-loop. See :meth:<code>_null_space_optimisation</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -1689,7 +1653,7 @@ loop. See :meth:<code>_null_space_optimisation</code>.</p>
 
 
 <h5 id="geope.gecko.Gecko.filter_frequency" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">filter_frequency</span><span class="p">(</span><span class="n">filter_fn</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">filter_frequency</span><span class="p">(</span><span class="n">filter_fn</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_smoothing_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
 
 <a href="#geope.gecko.Gecko.filter_frequency" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1791,24 +1755,6 @@ gate segments. Defaults to 1.</p>
                   <code>0.1</code>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>callbacks</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional callback(s) <code>callback(step, history, gecko)</code>
-run at the end of every iteration; a falsy return stops the
-loop. See :meth:<code>_null_space_optimisation</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -1844,7 +1790,7 @@ loop. See :meth:<code>_null_space_optimisation</code>.</p>
 
 
 <h5 id="geope.gecko.Gecko.speed" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">speed</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
 
 <a href="#geope.gecko.Gecko.speed" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1963,24 +1909,6 @@ gate-speed limit.</p>
                   <code>0.1</code>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>callbacks</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional callback(s) <code>callback(step, history, gecko)</code>
-run at the end of every iteration; a falsy return stops the
-loop. See :meth:<code>_null_space_optimisation</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -2016,7 +1944,7 @@ loop. See :meth:<code>_null_space_optimisation</code>.</p>
 
 
 <h5 id="geope.gecko.Gecko.length" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">length</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">length</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
 
 <a href="#geope.gecko.Gecko.length" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -2136,24 +2064,6 @@ If <code>None</code>, all projected parameters are used.</p>
                   <code>0.1</code>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>callbacks</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional callback(s) <code>callback(step, history, gecko)</code>
-run at the end of every iteration; a falsy return stops the
-loop. See :meth:<code>_null_space_optimisation</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -2189,7 +2099,7 @@ loop. See :meth:<code>_null_space_optimisation</code>.</p>
 
 
 <h5 id="geope.gecko.Gecko.robust" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">robust</span><span class="p">(</span><span class="n">parameter_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameter_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">piecewise_steps_multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimization_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_optimization_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
 
 <a href="#geope.gecko.Gecko.robust" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -2341,24 +2251,6 @@ in <span class="arithmatex">\([-\delta, +\delta]\)</span> for each <span class="
                   <code>0.1</code>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>callbacks</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional callback(s) <code>callback(step, history, gecko)</code>
-run at the end of every iteration; a falsy return stops the
-loop. See :meth:<code>_null_space_optimisation</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -2394,7 +2286,7 @@ loop. See :meth:<code>_null_space_optimisation</code>.</p>
 
 
 <h5 id="geope.gecko.Gecko.bound" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">bound</span><span class="p">(</span><span class="n">parameter_bounds</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">,</span> <span class="n">bounding_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_bounding_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">bound</span><span class="p">(</span><span class="n">parameter_bounds</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;projected_gradient&#39;</span><span class="p">,</span> <span class="n">bounding_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_bounding_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">diff_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span></code>
 
 <a href="#geope.gecko.Gecko.bound" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -2498,24 +2390,6 @@ Defaults to <code>'projected_gradient'</code>.</p>
             </td>
             <td>
                   <code>0.1</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>callbacks</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional callback(s) <code>callback(step, history, gecko)</code>
-run at the end of every iteration; a falsy return stops the
-loop. See :meth:<code>_null_space_optimisation</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
             </td>
           </tr>
       </tbody>

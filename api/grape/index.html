@@ -1474,7 +1474,7 @@ into <code>history</code> when one is attached.</p>
 
 
 <h5 id="geope.grape.Grape.optimize" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;nr-trm&#39;</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">optimizer_kwargs</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;nr-trm&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">optimizer_kwargs</span><span class="p">)</span></code>
 
 <a href="#geope.grape.Grape.optimize" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1528,29 +1528,6 @@ into <code>history</code> when one is attached.</p>
             </td>
             <td>
                   <code>&#39;nr-trm&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>callbacks</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional callback, or list/tuple of callbacks, invoked at
-the end of every step with the signature
-<code>callback(step, history, grape) -&gt; bool</code>. All callbacks run
-each step; the loop stops early if any returns a falsy value
-(so a pure logging callback must <code>return True</code>). <code>step</code> is
-the 1-based index of the step just completed, <code>history</code> is
-<code>grape.history</code> (may be <code>None</code>), and <code>grape</code> is this
-optimiser.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
