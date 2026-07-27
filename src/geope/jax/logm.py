@@ -685,7 +685,10 @@ def _logm_triu(T: Array, key: ArrayLike) -> Array:
         t12 = T_0[i, i + 1]
         return A.at[i, i + 1].set(_logm_superdiag_entry(l1, l2, t12))
 
-    U2 = lax.fori_loop(0, n - 1, replace_superdiag_fn, U)
+    # Chain from U2 (which already carries the exact log(diag) diagonal from the
+    # line above) so both the diagonal and the superdiagonal use the accurate
+    # closed-form entries; starting from U here would discard the diagonal fix.
+    U2 = lax.fori_loop(0, n - 1, replace_superdiag_fn, U2)
 
     U = lax.select(has_principal_branch, U2, U)
 
