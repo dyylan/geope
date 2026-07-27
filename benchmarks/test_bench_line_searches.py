@@ -21,8 +21,8 @@ a side table grouped by problem.
 
 Run with, e.g.::
 
-    pytest benchmarks/test_bench_line_searches.py \\
-        --benchmark-group-by=param:problem \\
+    pytest benchmarks/test_bench_line_searches.py \
+        --benchmark-group-by=param:problem \
         --benchmark-columns=mean,median,rounds
 
 which places the three line searches side by side for each problem.
