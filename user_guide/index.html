@@ -744,6 +744,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Callbacks
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
       Constraints
@@ -1571,6 +1580,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Callbacks
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
       Constraints
@@ -2020,6 +2038,8 @@ Parameters                       (parameters.py)
 <p>Other utilities:</p>
 <ul>
 <li><code>prepare_random_parameters(proj_indices, expander, spread, seed)</code> — random initial parameters respecting constraints.</li>
+<li><code>golden_section_search(f, a, b, tol)</code> — JIT-compatible 1-D <strong>minimiser</strong> (used internally by the line search).</li>
+<li><code>adam_line_search(f, a, b, lr, num_steps, finite_difference)</code> — JIT-compatible 1-D Adam <strong>minimiser</strong> (finite-difference or exact-gradient; used by the <code>"adam*"</code> line-search methods).</li>
 <li><code>merge_constraints(constraints)</code> — merges overlapping linear constraints.</li>
 <li><code>qft_unitary(n)</code>, <code>multicontrol_unitary(U, n_controls)</code> — common target unitaries.</li>
 <li><code>make_per_element_transform(transforms)</code> — helper to build a <code>param_transform</code> from per-element callables.</li>
@@ -2229,10 +2249,10 @@ the compiled traces instead of recompiling.</p>
 </tbody>
 </table>
 <p>The iteration cap, the line search, and the three run-control knobs are arguments of <code>optimize</code>, not constructor fields:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">geope</span><span class="w"> </span><span class="kn">import</span> <span class="n">Adam</span><span class="p">,</span> <span class="n">GoldenSection</span><span class="p">,</span> <span class="n">QuadraticArmijo</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">geope</span><span class="w"> </span><span class="kn">import</span> <span class="n">adam</span><span class="p">,</span> <span class="n">GoldenSection</span>
 
 <span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-         <span class="n">line_search</span><span class="o">=</span><span class="n">GoldenSection</span><span class="p">(),</span>        <span class="c1"># default; or Adam(1e-2), QuadraticArmijo()</span>
+         <span class="n">line_search</span><span class="o">=</span><span class="n">GoldenSection</span><span class="p">(),</span>        <span class="c1"># default; or adam(1e-2)</span>
          <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
          <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">)</span>
 </code></pre></div>
@@ -2268,9 +2288,8 @@ the compiled traces instead of recompiling.</p>
 </table>
 <p>The line searches are immutable config objects (frozen dataclasses):</p>
 <ul>
-<li><code>GoldenSection(tol=1e-5)</code> — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (<code>{"n_eval"}</code>).</li>
-<li><code>Adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)</code> — 1-D Adam line search. <code>finite_difference=False</code> uses an exact autodiff gradient; <code>warm_start=True</code> seeds each step from the previous step's <code>t</code>.</li>
-<li><code>QuadraticArmijo(c1=1e-4, beta=0.5, gamma=1.0, ...)</code> — geometry-aware second-order line search: seeds the step from the exact SU(N) curvature and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).</li>
+<li><code>GoldenSection(tol=1e-5)</code> — golden-section search (the default), stateless.</li>
+<li><code>adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)</code> — 1-D Adam line search. <code>finite_difference=False</code> uses an exact autodiff gradient; <code>warm_start=True</code> seeds each step from the previous step's <code>t</code>.</li>
 </ul>
 <p>The line-search object and <code>max_step_size</code> bake into JIT-compiled functions that <code>optimize</code> builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default <code>GoldenSection()</code>) reuse the compiled functions, while changing the object or <code>max_step_size</code> triggers a one-off recompile. <code>precision</code> and <code>gram_schmidt_step_size</code> are host-side only — changing them never recompiles.</p>
 <p>Live state and logging:</p>
@@ -2369,6 +2388,33 @@ the compiled traces instead of recompiling.</p>
 <li><strong><code>linear_comb_projected_coeffs_multigate(ω, γ, E)</code></strong> — least-squares solve, optionally through a constraint expander <span class="arithmatex">\(E\)</span>.</li>
 <li><strong><code>update_linesearch(params, coeffs, piecewise_steps)</code></strong> — golden-section minimisation of <span class="arithmatex">\(\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})\)</span> over <span class="arithmatex">\(t \in [-t_{\max}, 0]\)</span>.</li>
 </ul>
+<h2 id="callbacks">Callbacks<a class="headerlink" href="#callbacks" title="Permanent link">¤</a></h2>
+<p><code>Geope.optimize</code>, <code>Grape.optimize</code> and every <code>Gecko</code> post-processing method (<code>smooth</code>, <code>smooth_frequency</code>, <code>filter_frequency</code>, <code>speed</code>, <code>length</code>, <code>robust</code>, <code>bound</code>) accept a <code>callbacks</code> argument — a single callable, or a list/tuple of callables — invoked at the <strong>end of every step</strong> (after the state update and, for <code>Geope</code>, after pulse-template enforcement). Use them to log, plot, checkpoint, implement custom early-stopping, or drive dynamic behaviour.</p>
+<p>Each callback has the signature:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">callback</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">history</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="o">...</span>
+</code></pre></div>
+<ul>
+<li><code>step</code> — the 1-based index of the step just completed.</li>
+<li><code>history</code> — the optimiser's <code>History</code> object, or <code>None</code> if none was attached.</li>
+<li><code>optimizer</code> — the live <code>Geope</code> / <code>Grape</code> / <code>Gecko</code> instance (read <code>optimizer.params.parameters</code>, <code>optimizer.params.fidelity</code>, etc.).</li>
+</ul>
+<p><strong>Stopping semantics.</strong> All callbacks run every step (so their side-effects always execute), then the loop <strong>stops if any callback returns a falsy value</strong> (<code>False</code>, <code>None</code>, <code>0</code>, …). The loop continues only while <em>every</em> callback returns truthy — so a pure logging callback <strong>must</strong> <code>return True</code>.</p>
+<blockquote>
+<p>For <code>Gecko</code>, callbacks fire once per null-space iteration. During the loop the running geometry is visible via <code>optimizer.params.parameters</code>; <code>optimizer.params.fidelity</code> and <code>optimizer.step_size</code> are finalised only after the loop returns. <code>Gecko</code>'s <code>History</code> still records only at the start and end of a pass.</p>
+</blockquote>
+<p>Example — custom early stopping plus logging:</p>
+<div class="highlight"><pre><span></span><code><span class="n">losses</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">stop_on_plateau</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">history</span><span class="p">,</span> <span class="n">geope</span><span class="p">):</span>
+    <span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">geope</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span><span class="p">))</span>
+    <span class="c1"># stop if the last 5 fidelities barely moved</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">5</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">losses</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:])</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">losses</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:]))</span> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+<span class="n">geope</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="n">stop_on_plateau</span><span class="p">)</span>
+</code></pre></div>
 <h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">¤</a></h2>
 <h3 id="linear-equality-constraints">Linear equality constraints<a class="headerlink" href="#linear-equality-constraints" title="Permanent link">¤</a></h3>
 <p><code>constraints</code> (or <code>Parameters.constraints</code>) takes a list of vectors <span class="arithmatex">\(c\)</span> of length <span class="arithmatex">\(K_{\text{proj}}\)</span> enforcing <span class="arithmatex">\(c \cdot \phi^{\text{proj}} = 0\)</span>, or dicts in <code>control</code> format that are converted into such vectors. Internally, overlapping constraints are merged via an expander matrix <span class="arithmatex">\(C\)</span> that maps free parameters to the full projected space, and the least-squares solve becomes <span class="arithmatex">\(\min \|\omega^\top C \tilde c - \gamma\|\)</span> with <span class="arithmatex">\(c = C \tilde c\)</span>.</p>
