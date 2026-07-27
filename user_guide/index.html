@@ -2038,8 +2038,6 @@ Parameters                       (parameters.py)
 <p>Other utilities:</p>
 <ul>
 <li><code>prepare_random_parameters(proj_indices, expander, spread, seed)</code> — random initial parameters respecting constraints.</li>
-<li><code>golden_section_search(f, a, b, tol)</code> — JIT-compatible 1-D <strong>minimiser</strong> (used internally by the line search).</li>
-<li><code>adam_line_search(f, a, b, lr, num_steps, finite_difference)</code> — JIT-compatible 1-D Adam <strong>minimiser</strong> (finite-difference or exact-gradient; used by the <code>"adam*"</code> line-search methods).</li>
 <li><code>merge_constraints(constraints)</code> — merges overlapping linear constraints.</li>
 <li><code>qft_unitary(n)</code>, <code>multicontrol_unitary(U, n_controls)</code> — common target unitaries.</li>
 <li><code>make_per_element_transform(transforms)</code> — helper to build a <code>param_transform</code> from per-element callables.</li>
@@ -2249,10 +2247,10 @@ the compiled traces instead of recompiling.</p>
 </tbody>
 </table>
 <p>The iteration cap, the line search, and the three run-control knobs are arguments of <code>optimize</code>, not constructor fields:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">geope</span><span class="w"> </span><span class="kn">import</span> <span class="n">adam</span><span class="p">,</span> <span class="n">GoldenSection</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">geope</span><span class="w"> </span><span class="kn">import</span> <span class="n">Adam</span><span class="p">,</span> <span class="n">GoldenSection</span><span class="p">,</span> <span class="n">QuadraticArmijo</span>
 
 <span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-         <span class="n">line_search</span><span class="o">=</span><span class="n">GoldenSection</span><span class="p">(),</span>        <span class="c1"># default; or adam(1e-2)</span>
+         <span class="n">line_search</span><span class="o">=</span><span class="n">GoldenSection</span><span class="p">(),</span>        <span class="c1"># default; or Adam(1e-2), QuadraticArmijo()</span>
          <span class="n">precision</span><span class="o">=</span><span class="mf">0.9999999</span><span class="p">,</span>
          <span class="n">max_step_size</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">gram_schmidt_step_size</span><span class="o">=</span><span class="mf">1.3</span><span class="p">)</span>
 </code></pre></div>
@@ -2288,8 +2286,9 @@ the compiled traces instead of recompiling.</p>
 </table>
 <p>The line searches are immutable config objects (frozen dataclasses):</p>
 <ul>
-<li><code>GoldenSection(tol=1e-5)</code> — golden-section search (the default), stateless.</li>
-<li><code>adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)</code> — 1-D Adam line search. <code>finite_difference=False</code> uses an exact autodiff gradient; <code>warm_start=True</code> seeds each step from the previous step's <code>t</code>.</li>
+<li><code>GoldenSection(tol=1e-5)</code> — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (<code>{"n_eval"}</code>).</li>
+<li><code>Adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)</code> — 1-D Adam line search. <code>finite_difference=False</code> uses an exact autodiff gradient; <code>warm_start=True</code> seeds each step from the previous step's <code>t</code>.</li>
+<li><code>QuadraticArmijo(c1=1e-4, beta=0.5, gamma=1.0, ...)</code> — geometry-aware second-order line search: seeds the step from the exact SU(N) curvature and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).</li>
 </ul>
 <p>The line-search object and <code>max_step_size</code> bake into JIT-compiled functions that <code>optimize</code> builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default <code>GoldenSection()</code>) reuse the compiled functions, while changing the object or <code>max_step_size</code> triggers a one-off recompile. <code>precision</code> and <code>gram_schmidt_step_size</code> are host-side only — changing them never recompiles.</p>
 <p>Live state and logging:</p>
