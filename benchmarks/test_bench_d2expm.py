@@ -11,7 +11,7 @@ Compares three ways to compute a single gate's second derivative
 
 Run with, e.g.::
 
-    pytest benchmarks/test_bench_d2expm.py \\
+    pytest benchmarks/test_bench_d2expm.py \
         --benchmark-group-by=param --benchmark-columns=mean,median,rounds
 """
 

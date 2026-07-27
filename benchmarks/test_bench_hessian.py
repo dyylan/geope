@@ -11,7 +11,7 @@ Two objects are benchmarked:
 
 Run with, e.g.::
 
-    pytest benchmarks/test_bench_hessian.py \\
+    pytest benchmarks/test_bench_hessian.py \
         --benchmark-group-by=param:size --benchmark-columns=mean,median,rounds
 """
 

@@ -15,7 +15,7 @@ batch_size=...)``) which trades execution speed for lower peak memory.
 
 Run with, e.g.::
 
-    pytest benchmarks/test_bench_dexpm.py \\
+    pytest benchmarks/test_bench_dexpm.py \
         --benchmark-group-by=param:n --benchmark-columns=mean,median,rounds
 """
 
