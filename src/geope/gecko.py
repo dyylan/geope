@@ -14,6 +14,7 @@ from typing import Callable
 from .geope import build_pulse_expander
 from .parameters import Parameters
 from .utils.history import History
+from .utils.callbacks import normalize_callbacks, run_callbacks
 
 
 class Gecko:
@@ -121,6 +122,7 @@ class Gecko:
         smoothing_rate: float = 0.01,
         max_smoothing_steps: int = 100,
         diff_tol: float = 0.1,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
         """Smooth the piecewise-constant pulse by null-space optimisation.
 
@@ -137,6 +139,9 @@ class Gecko:
                 Defaults to 100.
             diff_tol: Convergence tolerance on the smoothing cost.
                 Defaults to 0.1.
+            callbacks: Optional callback(s) ``callback(step, history, gecko)``
+                run at the end of every iteration; a falsy return stops the
+                loop. See :meth:`_null_space_optimisation`.
 
         Returns:
             A tuple ``(success, iters)`` where `success` is ``True`` if
@@ -149,6 +154,7 @@ class Gecko:
             rate=smoothing_rate,
             diff_tol=diff_tol,
             label="Smoothing",
+            callbacks=callbacks,
         )
         return success, iters
 
@@ -158,6 +164,7 @@ class Gecko:
         smoothing_rate: float = 0.01,
         max_smoothing_steps: int = 100,
         diff_tol: float = 0.1,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
         """Suppress high-frequency spectral power in the pulse.
 
@@ -168,6 +175,9 @@ class Gecko:
             max_smoothing_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance on the spectral cost.
                 Defaults to 0.1.
+            callbacks: Optional callback(s) ``callback(step, history, gecko)``
+                run at the end of every iteration; a falsy return stops the
+                loop. See :meth:`_null_space_optimisation`.
 
         Returns:
             A tuple ``(success, iters)``.
@@ -179,6 +189,7 @@ class Gecko:
             rate=smoothing_rate,
             diff_tol=diff_tol,
             label="Smoothing (freq)",
+            callbacks=callbacks,
         )
         return success, iters
 
@@ -189,6 +200,7 @@ class Gecko:
         smoothing_rate: float = 0.01,
         max_smoothing_steps: int = 100,
         diff_tol: float = 0.1,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
         """Drive the pulse toward ``filter_fn(rfft(pulse))``.
 
@@ -199,6 +211,9 @@ class Gecko:
             smoothing_rate: Learning rate. Defaults to 0.01.
             max_smoothing_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
+            callbacks: Optional callback(s) ``callback(step, history, gecko)``
+                run at the end of every iteration; a falsy return stops the
+                loop. See :meth:`_null_space_optimisation`.
 
         Returns:
             A tuple ``(success, iters)``.
@@ -210,6 +225,7 @@ class Gecko:
             rate=smoothing_rate,
             diff_tol=diff_tol,
             label="Smoothing (freq filter)",
+            callbacks=callbacks,
         )
         return success, iters
 
@@ -267,6 +283,7 @@ class Gecko:
         optimization_rate: float = 0.01,
         max_optimization_steps: int = 100,
         diff_tol: float = 0.1,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
         """Minimise the peak amplitude of selected projected parameters.
 
@@ -280,6 +297,9 @@ class Gecko:
             optimization_rate: Learning rate. Defaults to 0.01.
             max_optimization_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
+            callbacks: Optional callback(s) ``callback(step, history, gecko)``
+                run at the end of every iteration; a falsy return stops the
+                loop. See :meth:`_null_space_optimisation`.
 
         Returns:
             A tuple ``(success, iters)``.
@@ -301,6 +321,7 @@ class Gecko:
             rate=optimization_rate,
             diff_tol=diff_tol,
             label="Speed Optimization",
+            callbacks=callbacks,
         )
         return success, iters
 
@@ -312,6 +333,7 @@ class Gecko:
         optimization_rate: float = 0.01,
         max_optimization_steps: int = 100,
         diff_tol: float = 0.1,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
         """Minimise the total pulse length.
 
@@ -326,6 +348,9 @@ class Gecko:
             optimization_rate: Learning rate. Defaults to 0.01.
             max_optimization_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
+            callbacks: Optional callback(s) ``callback(step, history, gecko)``
+                run at the end of every iteration; a falsy return stops the
+                loop. See :meth:`_null_space_optimisation`.
 
         Returns:
             A tuple ``(success, iters)``.
@@ -359,6 +384,7 @@ class Gecko:
             rate=optimization_rate,
             diff_tol=diff_tol,
             label="Length Optimization",
+            callbacks=callbacks,
         )
         return success, iters
 
@@ -372,6 +398,7 @@ class Gecko:
         optimization_rate: float = 0.01,
         max_optimization_steps: int = 100,
         diff_tol: float = 0.1,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
         """Maximise the worst-case fidelity over $\\delta$ perturbations.
 
@@ -388,6 +415,9 @@ class Gecko:
             optimization_rate: Learning rate. Defaults to 0.01.
             max_optimization_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
+            callbacks: Optional callback(s) ``callback(step, history, gecko)``
+                run at the end of every iteration; a falsy return stops the
+                loop. See :meth:`_null_space_optimisation`.
 
         Returns:
             A tuple ``(success, iters)``.
@@ -433,6 +463,7 @@ class Gecko:
             rate=optimization_rate,
             diff_tol=diff_tol,
             label="Robustness Optimization",
+            callbacks=callbacks,
         )
         return success, iters
 
@@ -443,6 +474,7 @@ class Gecko:
         bounding_rate: float = 0.01,
         max_bounding_steps: int = 100,
         diff_tol: float = 0.1,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
         """Enforce parameter bounds via null-space optimisation.
 
@@ -458,6 +490,9 @@ class Gecko:
             bounding_rate: Learning rate. Defaults to 0.01.
             max_bounding_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
+            callbacks: Optional callback(s) ``callback(step, history, gecko)``
+                run at the end of every iteration; a falsy return stops the
+                loop. See :meth:`_null_space_optimisation`.
 
         Returns:
             A tuple ``(success, iters)`` where `success` is ``True`` if
@@ -486,6 +521,7 @@ class Gecko:
             rate=bounding_rate,
             diff_tol=diff_tol,
             label="Bounding",
+            callbacks=callbacks,
             lower_bounds=self.lower_bounds[:, self.params.proj_indices_projdrift_basis],
             upper_bounds=self.upper_bounds[:, self.params.proj_indices_projdrift_basis],
         )
@@ -541,6 +577,7 @@ class Gecko:
         max_steps: int = 100,
         diff_tol: float = 0.1,
         label: str | None = None,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
         **kwargs,
     ) -> tuple[bool, int]:
         """Run a generic null-space optimisation loop.
@@ -558,6 +595,16 @@ class Gecko:
             max_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
             label: Label printed during progress logging.
+            callbacks: Optional callback, or list/tuple of callbacks, invoked at
+                the end of every iteration with the signature
+                ``callback(step, history, gecko) -> bool``. All callbacks run
+                each iteration; the loop stops early if any returns a falsy
+                value (so a pure logging callback must ``return True``).
+                ``step`` is the 1-based iteration index, ``history`` is
+                ``gecko.history`` (may be ``None``), and ``gecko`` is this
+                optimiser. During the loop the running geometry is visible via
+                ``gecko.params.parameters``; ``gecko.params.fidelity`` and
+                ``gecko.step_size`` are only finalised after the loop returns.
             **kwargs: Extra keyword arguments forwarded to
                 `null_space_function`.
 
@@ -597,6 +644,8 @@ class Gecko:
             self.history.record(self)
 
         params_update = self.get_free_params_update_smoothing()
+
+        cbs = normalize_callbacks(callbacks)
 
         c = 0
         diff = np.inf
@@ -663,6 +712,11 @@ class Gecko:
                 f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                      ",
                 end="\r",
             )
+
+            # Run user callbacks at the end of the iteration; stop early if any
+            # requests it.
+            if not run_callbacks(cbs, c, self.history, self):
+                break
         print(
             f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        "
         )
