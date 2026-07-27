@@ -12,7 +12,9 @@ jax.config.update("jax_enable_x64", True)
 
 from .utils import prepare_random_parameters
 from .utils.history import History
+from .utils.callbacks import normalize_callbacks, run_callbacks
 from functools import partial
+from typing import Callable
 
 
 class Grape:
@@ -298,7 +300,11 @@ class Grape:
         self._optimizer_config = config
 
     def optimize(
-        self, max_steps: int = 100, method: str = "nr-trm", **optimizer_kwargs: float
+        self,
+        max_steps: int = 100,
+        method: str = "nr-trm",
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
+        **optimizer_kwargs: float,
     ) -> Parameters:
         """Run the GRAPE optimisation loop.
 
@@ -309,6 +315,14 @@ class Grape:
             max_steps: Maximum number of optimisation steps. Defaults to 100.
             method: ``'gd'``, ``'adam'``, ``'nr-trm'`` (default) or
                 ``'nr-rfo'``.
+            callbacks: Optional callback, or list/tuple of callbacks, invoked at
+                the end of every step with the signature
+                ``callback(step, history, grape) -> bool``. All callbacks run
+                each step; the loop stops early if any returns a falsy value
+                (so a pure logging callback must ``return True``). ``step`` is
+                the 1-based index of the step just completed, ``history`` is
+                ``grape.history`` (may be ``None``), and ``grape`` is this
+                optimiser.
             **optimizer_kwargs: Method hyperparameters — ``learning_rate`` for
                 ``'gd'``/``'adam'``, ``delta`` for ``'nr-trm'``, ``kappa`` for
                 ``'nr-rfo'``.
@@ -320,6 +334,8 @@ class Grape:
             `History` was supplied.
         """
         self._configure_optimizer(method, optimizer_kwargs)
+
+        cbs = normalize_callbacks(callbacks)
 
         step = 0
         _dtype = np.float64 if self._real_params else np.complex128
@@ -345,6 +361,11 @@ class Grape:
             self.step_size = 0
             if self.history is not None:
                 self.history.record(self)
+
+            # Run user callbacks at the end of the step; stop early if any
+            # requests it.
+            if not run_callbacks(cbs, step, self.history, self):
+                break
         if self.verbose:
             print("")
         return self.params
