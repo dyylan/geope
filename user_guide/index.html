@@ -744,6 +744,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Callbacks
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
       Constraints
@@ -1571,6 +1580,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Callbacks
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
       Constraints
@@ -2370,6 +2388,33 @@ the compiled traces instead of recompiling.</p>
 <li><strong><code>linear_comb_projected_coeffs_multigate(ω, γ, E)</code></strong> — least-squares solve, optionally through a constraint expander <span class="arithmatex">\(E\)</span>.</li>
 <li><strong><code>update_linesearch(params, coeffs, piecewise_steps)</code></strong> — golden-section minimisation of <span class="arithmatex">\(\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})\)</span> over <span class="arithmatex">\(t \in [-t_{\max}, 0]\)</span>.</li>
 </ul>
+<h2 id="callbacks">Callbacks<a class="headerlink" href="#callbacks" title="Permanent link">¤</a></h2>
+<p><code>Geope.optimize</code>, <code>Grape.optimize</code> and every <code>Gecko</code> post-processing method (<code>smooth</code>, <code>smooth_frequency</code>, <code>filter_frequency</code>, <code>speed</code>, <code>length</code>, <code>robust</code>, <code>bound</code>) accept a <code>callbacks</code> argument — a single callable, or a list/tuple of callables — invoked at the <strong>end of every step</strong> (after the state update and, for <code>Geope</code>, after pulse-template enforcement). Use them to log, plot, checkpoint, implement custom early-stopping, or drive dynamic behaviour.</p>
+<p>Each callback has the signature:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">callback</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">history</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="o">...</span>
+</code></pre></div>
+<ul>
+<li><code>step</code> — the 1-based index of the step just completed.</li>
+<li><code>history</code> — the optimiser's <code>History</code> object, or <code>None</code> if none was attached.</li>
+<li><code>optimizer</code> — the live <code>Geope</code> / <code>Grape</code> / <code>Gecko</code> instance (read <code>optimizer.params.parameters</code>, <code>optimizer.params.fidelity</code>, etc.).</li>
+</ul>
+<p><strong>Stopping semantics.</strong> All callbacks run every step (so their side-effects always execute), then the loop <strong>stops if any callback returns a falsy value</strong> (<code>False</code>, <code>None</code>, <code>0</code>, …). The loop continues only while <em>every</em> callback returns truthy — so a pure logging callback <strong>must</strong> <code>return True</code>.</p>
+<blockquote>
+<p>For <code>Gecko</code>, callbacks fire once per null-space iteration. During the loop the running geometry is visible via <code>optimizer.params.parameters</code>; <code>optimizer.params.fidelity</code> and <code>optimizer.step_size</code> are finalised only after the loop returns. <code>Gecko</code>'s <code>History</code> still records only at the start and end of a pass.</p>
+</blockquote>
+<p>Example — custom early stopping plus logging:</p>
+<div class="highlight"><pre><span></span><code><span class="n">losses</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">stop_on_plateau</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">history</span><span class="p">,</span> <span class="n">geope</span><span class="p">):</span>
+    <span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">geope</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span><span class="p">))</span>
+    <span class="c1"># stop if the last 5 fidelities barely moved</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">5</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">losses</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:])</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">losses</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:]))</span> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+<span class="n">geope</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="n">stop_on_plateau</span><span class="p">)</span>
+</code></pre></div>
 <h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">¤</a></h2>
 <h3 id="linear-equality-constraints">Linear equality constraints<a class="headerlink" href="#linear-equality-constraints" title="Permanent link">¤</a></h3>
 <p><code>constraints</code> (or <code>Parameters.constraints</code>) takes a list of vectors <span class="arithmatex">\(c\)</span> of length <span class="arithmatex">\(K_{\text{proj}}\)</span> enforcing <span class="arithmatex">\(c \cdot \phi^{\text{proj}} = 0\)</span>, or dicts in <code>control</code> format that are converted into such vectors. Internally, overlapping constraints are merged via an expander matrix <span class="arithmatex">\(C\)</span> that maps free parameters to the full projected space, and the least-squares solve becomes <span class="arithmatex">\(\min \|\omega^\top C \tilde c - \gamma\|\)</span> with <span class="arithmatex">\(c = C \tilde c\)</span>.</p>
