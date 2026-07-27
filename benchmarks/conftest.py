@@ -39,3 +39,45 @@ def warm(fn, *args):
     result for the correctness guards.
     """
     return jax.block_until_ready(fn(*args))
+
+
+# ---------------------------------------------------------------------------
+# Non-timing metric registry for the line-search benchmark.
+#
+# ``pytest-benchmark``'s terminal table shows only walltime (per-round timing);
+# steps / fevals / final fidelity are constant across rounds (deterministic runs)
+# and so belong in a side table. ``test_bench_line_searches.py`` appends one row
+# per (problem, method) here, and the ``pytest_terminal_summary`` hook below
+# prints them grouped by problem after the run. A ``pytest_terminal_summary``
+# defined in a test module is *not* collected — it must live in a conftest.
+# ---------------------------------------------------------------------------
+LINESEARCH_BENCH_ROWS = []
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Print the steps / fevals / fidelity comparison, grouped by problem."""
+    if not LINESEARCH_BENCH_ROWS:
+        return
+
+    tr = terminalreporter
+    tr.write_sep("=", "line-search comparison (steps / fevals / final fidelity)")
+
+    header = (
+        f"{'problem':<12} {'method':<12} {'steps':>7} {'fevals':>8} {'fidelity':>12}"
+    )
+    tr.write_line(header)
+    tr.write_line("-" * len(header))
+
+    # Preserve first-seen problem order, methods within a problem.
+    seen = []
+    for row in LINESEARCH_BENCH_ROWS:
+        if row["problem"] not in seen:
+            seen.append(row["problem"])
+    for problem in seen:
+        for row in LINESEARCH_BENCH_ROWS:
+            if row["problem"] != problem:
+                continue
+            tr.write_line(
+                f"{row['problem']:<12} {row['method']:<12} "
+                f"{row['steps']:>7d} {row['fevals']:>8d} {row['fidelity']:>12.9f}"
+            )
