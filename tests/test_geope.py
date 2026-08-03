@@ -48,7 +48,12 @@ from geope.geope import (
     DEFAULT_MAX_STEP_SIZE,
     DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
 )
-from geope.line_searches import adam, GoldenSection, LineSearch
+from geope.line_searches import (
+    Adam,
+    GoldenSection,
+    LineSearch,
+    QuadraticArmijo,
+)
 from geope.engine import (
     geodesic_hamiltonian,
     get_geodesic_hamiltonian_fn,
@@ -1020,12 +1025,12 @@ class TestGeope:
     def test_optimize_with_adam_runs(self, params_2q):
         # Primary acceptance criterion: the Adam line-search object runs end to end.
         g = Geope(params_2q)
-        g.optimize(max_steps=5, line_search=adam(1e-2))
-        assert isinstance(g.line_search, adam)
+        g.optimize(max_steps=5, line_search=Adam(1e-2))
+        assert isinstance(g.line_search, Adam)
 
     def test_adam_valid_fidelities(self, cnot, full_basis_2q, projected_basis_2q):
         # both gradient modes must run inside the real loop and stay valid
-        for ls in (adam(1e-2), adam(1e-2, finite_difference=False)):
+        for ls in (Adam(1e-2), Adam(1e-2, finite_difference=False)):
             p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
             g = Geope(p, history=History())
             g.optimize(max_steps=5, line_search=ls)
@@ -1033,7 +1038,7 @@ class TestGeope:
                 assert 0 <= f <= 1
 
     def test_adam_improves_fidelity(self, cnot, full_basis_2q, projected_basis_2q):
-        for ls in (adam(1e-2), adam(1e-2, finite_difference=False)):
+        for ls in (Adam(1e-2), Adam(1e-2, finite_difference=False)):
             p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
             g = Geope(p, history=History())
             f0 = float(g.params.fidelity)
@@ -1048,7 +1053,7 @@ class TestGeope:
         g = Geope(params_2q)
         g.optimize(
             max_steps=5,
-            line_search=adam(1e-2, warm_start=True),
+            line_search=Adam(1e-2, warm_start=True),
             gram_schmidt_step_size=0,
         )
         assert jnp.allclose(g.line_search_state["t_prev"], g.step_size)
@@ -1056,18 +1061,21 @@ class TestGeope:
     def test_optimize_resets_state_between_calls(self, params_2q):
         # Issue #1: the per-run init() reset is decoupled from compile reuse.
         g = Geope(params_2q)
-        g.optimize(max_steps=3, line_search=adam(1e-2, warm_start=True))
+        g.optimize(max_steps=3, line_search=Adam(1e-2, warm_start=True))
         # Poison the state, then a 0-step run: only the per-run init() reset can
         # have cleared the sentinel — without it this reads 999.0.
         g.line_search_state = {"t_prev": jnp.asarray(999.0)}
-        g.optimize(max_steps=0, line_search=adam(1e-2, warm_start=True))
+        g.optimize(max_steps=0, line_search=Adam(1e-2, warm_start=True))
         assert g.line_search_state["t_prev"] == 0.0
 
-    def test_goldensection_state_is_empty(self, params_2q):
-        # The stateless search threads an empty pytree, not None.
+    def test_goldensection_state_has_n_eval(self, params_2q):
+        # The zeroth-order search threads only the base {"n_eval"} pytree (the
+        # per-step evaluation count), not None and not an empty dict.
         g = Geope(params_2q)
         g.optimize(max_steps=3)
-        assert g.line_search_state == {}
+        assert set(g.line_search_state) == {"n_eval"}
+        # Golden section spends at least the two initial f1/f2 probes.
+        assert int(g.line_search_state["n_eval"]) >= 2
 
     def test_repeated_optimize_reuses_compiled_fn(self, params_2q):
         # Two optimize() calls with an equal default GoldenSection() reuse the
@@ -1082,14 +1090,14 @@ class TestGeope:
     def test_line_search_eq_and_hash(self):
         # Frozen-dataclass value semantics drive the compile memo and keep
         # hyperparameter sweeps correct (issue #2).
-        assert adam(1e-2) == adam(1e-2)
-        assert hash(adam(1e-2)) == hash(adam(1e-2))
-        assert adam(1e-2) != adam(2e-2)
-        assert dataclasses.replace(adam(1e-2), lr=2e-2) == adam(2e-2)
+        assert Adam(1e-2) == Adam(1e-2)
+        assert hash(Adam(1e-2)) == hash(Adam(1e-2))
+        assert Adam(1e-2) != Adam(2e-2)
+        assert dataclasses.replace(Adam(1e-2), lr=2e-2) == Adam(2e-2)
         # usable as a set member / dict key
-        assert len({adam(1e-2), adam(1e-2), GoldenSection()}) == 2
+        assert len({Adam(1e-2), Adam(1e-2), GoldenSection()}) == 2
         # immutable
-        ls = adam(1e-2)
+        ls = Adam(1e-2)
         with pytest.raises(FrozenInstanceError):
             ls.lr = 0.5
 
@@ -1109,7 +1117,7 @@ class TestGeope:
         g = Geope(p)
         g.optimize(
             max_steps=4,
-            line_search=adam(1e-2, warm_start=True),
+            line_search=Adam(1e-2, warm_start=True),
             gram_schmidt_step_size=0,
         )
         assert jnp.allclose(g.line_search_state["t_prev"], g.step_size)
@@ -1127,9 +1135,41 @@ class TestGeope:
                 }
             ),
         )
-        g.optimize(max_steps=3, line_search=adam(1e-2))
+        g.optimize(max_steps=3, line_search=Adam(1e-2))
         assert g.history["name"][-1] == "adam"
         assert g.history["lr"][-1] == 1e-2
+
+    # --- quadratic-seeded Armijo (geometry-aware line search) ------------
+
+    def test_quadratic_armijo_value_semantics(self):
+        # Frozen-dataclass value equality (drives the compile memo).
+        assert QuadraticArmijo() == QuadraticArmijo()
+        assert QuadraticArmijo(c1=1e-3) != QuadraticArmijo()
+
+    def test_quadratic_armijo_runs_and_threads_n_eval(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # The geometry-aware line search runs end to end, improves fidelity, and
+        # threads its per-step evaluation count as an integer state.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        g = Geope(p, history=History())
+        f0 = float(g.params.fidelity)
+        g.optimize(max_steps=60, line_search=QuadraticArmijo())
+        assert isinstance(g.line_search, QuadraticArmijo)
+        assert g.history.best_fidelity > f0
+        for f in g.history.fidelities:
+            assert 0 <= f <= 1
+        # n_eval populated: at least the seed evaluation each step.
+        assert int(g.line_search_state["n_eval"]) >= 1
+
+    def test_quadratic_armijo_converges(self, cnot, full_basis_2q, projected_basis_2q):
+        # With enough piecewise steps the geometry-seeded step drives synthesis to
+        # high fidelity, matching the golden-section baseline it shares a
+        # direction with.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        g = Geope(p, history=History())
+        g.optimize(max_steps=200, precision=0.9999999, line_search=QuadraticArmijo())
+        assert g.history.best_fidelity > 0.999
 
     # --- run-control knobs (optimize() arguments) ------------------------
 

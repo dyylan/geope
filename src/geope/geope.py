@@ -14,7 +14,13 @@ from .utils import (
     merge_constraints,
     control_to_indices,
 )
-from .line_searches import GoldenSection, LineSearch
+from .line_searches import (
+    GoldenSection,
+    LineSearch,
+    LineSearchContext,
+    LineSearchGeometry,
+)
+from .jax import logm, get_hvp_propagator
 from .parameters import Parameters
 from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
@@ -370,7 +376,7 @@ class Geope:
         Args:
             max_steps: Maximum number of optimisation steps. Defaults to 1000.
             line_search: The :class:`~geope.line_searches.LineSearch` object
-                tuning the geodesic step size each step (e.g. ``adam(1e-2)``).
+                tuning the geodesic step size each step (e.g. ``Adam(1e-2)``).
                 Defaults to :class:`~geope.line_searches.GoldenSection`.
             precision: Target fidelity threshold. Defaults to 0.9999999.
                 Host-side only (loop control) — zero compile impact.
@@ -772,33 +778,82 @@ class Geope:
         """
 
         infid_fn = self.params.infid_U_fn
+        # Factory-time handles for the SU(N) geometry
+        target = jnp.asarray(self.params.target)
+        d = self.params.proj_drift_basis.dim
+        eye_d = jnp.eye(d, dtype=jnp.complex128)
+        hvp_fn = get_hvp_propagator(jnp.asarray(self.params.proj_drift_basis.basis))
+        real_params = self._real_params
 
         def infidelity_t(t, params, coeffs):
             return infid_fn(compute_U_fn(params + t * coeffs))
 
-        def max_t(params, coeffs, piecewise_steps):
-            pos_raw = (self.upper_bounds - params) / coeffs
-            neg_raw = (self.lower_bounds - params) / coeffs
-
-            pos_coeffs_t_max = jnp.minimum(
-                jnp.maximum(pos_raw, 0), self.max_step_size / piecewise_steps
-            )
-            neg_coeffs_t_max = jnp.minimum(
-                jnp.maximum(neg_raw, 0), self.max_step_size / piecewise_steps
-            )
-
-            t_max_arr = pos_coeffs_t_max + neg_coeffs_t_max
-            t_max = jnp.min(t_max_arr)
-            return t_max
-
         @jax.jit
-        def update_linesearch(params, coeffs, piecewise_steps, ls_state):
+        def update_linesearch(params, coeffs, piecewise_steps, key, ls_state):
             sliced_params = self._free(params)
             f = partial(infidelity_t, params=sliced_params, coeffs=coeffs)
             max_step_size = self.max_step_size / piecewise_steps
-            dt, infid, new_ls_state = self.line_search(f, -max_step_size, 0.0, ls_state)
+
+            def traceless_log(U):
+                # A = log_min(y^dagger x): principal log, traceless-projected to
+                # su(d) (the same choice as the geodesic step's Hamiltonian).
+                L = logm(target.conj().T @ U, key)
+                return L - (jnp.trace(L) / d) * eye_d
+
+            def distance_f(t):
+                # Squared-geodesic-distance objective along the ray, F = 1/2 ||A||^2.
+                A = traceless_log(compute_U_fn(sliced_params + t * coeffs))
+                return 0.5 * jnp.real(jnp.trace(A.conj().T @ A))
+
+            geom_cache = {}
+
+            def geometry():
+                # Lazy + memoised: only traced if the line search calls it, so
+                # zeroth-order methods pay no logm/HVP cost.
+                if "g" in geom_cache:
+                    return geom_cache["g"]
+                if real_params:
+                    raise NotImplementedError(
+                        "Geometry-aware line searches (e.g. QuadraticArmijo) are "
+                        "not supported under param_transform; use GoldenSection "
+                        "or Adam."
+                    )
+                x = compute_U_fn(sliced_params)
+                A = traceless_log(x)
+                A_norm2 = jnp.real(jnp.trace(A.conj().T @ A))
+                # Directional first/second derivatives of the product unitary.
+                _, V, W = hvp_fn(jnp.real(sliced_params), coeffs)
+                Omega = x.conj().T @ V
+                K_acc = V.conj().T @ V + x.conj().T @ W
+                # s, q are the exact 1st/2nd derivatives of F(theta + t coeffs).
+                s = jnp.real(jnp.trace(A.conj().T @ Omega))
+                omega_norm2 = jnp.real(jnp.trace(Omega.conj().T @ Omega))
+                accel = jnp.real(jnp.trace(A.conj().T @ K_acc))
+                # <Omega, K_A Omega> ~ ||Omega||^2 (radial eigenvalue 1, exact
+                # under tangent matching Omega ~ -A); avoids the K_A operator.
+                q = omega_norm2 + accel
+                g = LineSearchGeometry(
+                    F0=0.5 * A_norm2,
+                    s=s,
+                    q=q,
+                    chi=accel / omega_norm2,
+                    A_norm2=A_norm2,
+                )
+                geom_cache["g"] = g
+                return g
+
+            ctx = LineSearchContext(
+                f=f,
+                a=-max_step_size,
+                b=jnp.asarray(0.0, jnp.float64),
+                state=ls_state,
+                geometry=geometry,
+                distance_f=distance_f,
+            )
+            dt, new_ls_state = self.line_search(ctx)
             new_parameters = sliced_params + dt * coeffs
-            fidelity = 1 - infid
+            # Objective-agnostic
+            fidelity = fid_fn(compute_U_fn(new_parameters))
 
             return new_parameters, fidelity, dt, new_ls_state
 
@@ -860,7 +915,7 @@ class Geope:
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
 
             new_params, fidelity_new_phi, step_size, new_ls_state = (
-                self.update_linesearch(params, coeffs, piecewise_steps, ls_state)
+                self.update_linesearch(params, coeffs, piecewise_steps, key, ls_state)
             )
 
             return coeffs, new_params, fidelity_new_phi, step_size, new_ls_state

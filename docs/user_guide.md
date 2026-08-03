@@ -193,8 +193,6 @@ params = geope.Parameters(
 Other utilities:
 
 - `prepare_random_parameters(proj_indices, expander, spread, seed)` — random initial parameters respecting constraints.
-- `golden_section_search(f, a, b, tol)` — JIT-compatible 1-D **minimiser** (used internally by the line search).
-- `adam_line_search(f, a, b, lr, num_steps, finite_difference)` — JIT-compatible 1-D Adam **minimiser** (finite-difference or exact-gradient; used by the `"adam*"` line-search methods).
 - `merge_constraints(constraints)` — merges overlapping linear constraints.
 - `qft_unitary(n)`, `multicontrol_unitary(U, n_controls)` — common target unitaries.
 - `make_per_element_transform(transforms)` — helper to build a `param_transform` from per-element callables.
@@ -306,10 +304,10 @@ Geope(params, verbose=False, history=None)
 The iteration cap, the line search, and the three run-control knobs are arguments of `optimize`, not constructor fields:
 
 ```python
-from geope import adam, GoldenSection
+from geope import Adam, GoldenSection, QuadraticArmijo
 
 optimize(max_steps=1000,
-         line_search=GoldenSection(),        # default; or adam(1e-2)
+         line_search=GoldenSection(),        # default; or Adam(1e-2), QuadraticArmijo()
          precision=0.9999999,
          max_step_size=0.9, gram_schmidt_step_size=1.3)
 ```
@@ -324,8 +322,9 @@ optimize(max_steps=1000,
 
 The line searches are immutable config objects (frozen dataclasses):
 
-- `GoldenSection(tol=1e-5)` — golden-section search (the default), stateless.
-- `adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)` — 1-D Adam line search. `finite_difference=False` uses an exact autodiff gradient; `warm_start=True` seeds each step from the previous step's `t`.
+- `GoldenSection(tol=1e-5)` — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
+- `Adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)` — 1-D Adam line search. `finite_difference=False` uses an exact autodiff gradient; `warm_start=True` seeds each step from the previous step's `t`.
+- `QuadraticArmijo(c1=1e-4, beta=0.5, gamma=1.0, ...)` — geometry-aware second-order line search: seeds the step from the exact SU(N) curvature and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
 
 The line-search object and `max_step_size` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `GoldenSection()`) reuse the compiled functions, while changing the object or `max_step_size` triggers a one-off recompile. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
 

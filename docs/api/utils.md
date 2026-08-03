@@ -42,8 +42,4 @@
 
 ::: geope.utils.golden_section_search_np
 
-::: geope.utils.golden_section_search
-
-::: geope.utils.adam_line_search
-
 ::: geope.utils.merge_constraints

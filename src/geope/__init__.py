@@ -12,10 +12,11 @@ from .geope import (
 from . import line_searches
 from .line_searches import (
     LineSearch,
+    LineSearchContext,
+    LineSearchGeometry,
     Adam,
     GoldenSection,
-    adam,
-    golden_section,
+    QuadraticArmijo,
 )
 
 from .gecko import (
@@ -66,7 +67,5 @@ from .utils import (
     multicontrol_unitary,
     qft_unitary,
     golden_section_search_np,
-    golden_section_search,
-    adam_line_search,
     merge_constraints,
 )

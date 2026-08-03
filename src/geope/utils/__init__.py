@@ -24,8 +24,6 @@ from .utils import (
     multicontrol_unitary,
     qft_unitary,
     golden_section_search_np,
-    golden_section_search,
-    adam_line_search,
     merge_constraints,
 )
 from .history import History
