@@ -1401,6 +1401,54 @@ class TestGeope:
         assert run(42) == run(42)
         assert run(42) != run(7)
 
+    def _drifted_params(self):
+        """Controls on x/y, drift on zz — disjoint, with a non-unit drift value."""
+        return Parameters(
+            basis=construct_full_pauli_basis(2),
+            control={1: ["x", "y"], 2: ["x", "y"]},
+            drift={(1, 2): ["zz"]},
+            drift_values={(1, 2): {"zz": 0.9}},
+            target=np.array(
+                [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]],
+                dtype=complex,
+            ),
+            piecewise_steps=3,
+            seed=0,
+        )
+
+    def _projected_direction(self, p, scale=0.3):
+        rng = np.random.default_rng(0)
+        coeffs = np.zeros((p.piecewise_steps, p.proj_drift_basis.lie_algebra_dim))
+        n_proj = int(p.proj_indices_projdrift_basis.sum())
+        coeffs[:, p.proj_indices_projdrift_basis] = (
+            rng.normal(size=(p.piecewise_steps, n_proj)) * scale
+        )
+        return coeffs
+
+    def test_gram_schmidt_fidelity_matches_returned_parameters(self):
+        # Regression for issue #27: the fallback evaluated the trial pulse with
+        # the drift added a second time, so the reported fidelity described a
+        # different pulse from the one it returned.
+        p = self._drifted_params()
+        g = Geope(p)
+        new_params, reported, _ = g.gram_schmidt(self._projected_direction(p))
+        true_fid = float(
+            p.fid_U_fn(p.compute_U_fn(jnp.array(new_params, dtype=jnp.complex128)))
+        )
+        assert np.isclose(float(reported), true_fid, rtol=0, atol=1e-12)
+
+    def test_gram_schmidt_leaves_drift_untouched(self):
+        # The direction is a displacement on the projected columns only; the
+        # drift columns must come back exactly as configured.
+        p = self._drifted_params()
+        g = Geope(p)
+        new_params, _, _ = g.gram_schmidt(self._projected_direction(p))
+        assert np.allclose(
+            new_params[:, p.drift_indices_projdrift_basis],
+            np.array(p.drift_parameters),
+            atol=1e-15,
+        )
+
     # --- null-space passes now live on Gecko, not Geope ------------------
 
     def test_smooth_is_callable(self, params_2q):
