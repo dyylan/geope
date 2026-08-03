@@ -215,7 +215,7 @@ Parameters(basis=None, control=None, drift=None,
 |-----------|-------------|
 | `basis` | the full `Basis`; defaults to 2-qubit full Pauli basis if `None` |
 | `control` | dict picking the projected (controllable) subset |
-| `drift` | dict picking the drift subset |
+| `drift` | dict picking the drift subset; must be disjoint from `control` (see below) |
 | `init_values` | dict in `control` format, or `ndarray` of full-basis shape, or `None` (random) |
 | `drift_values` | dict, `ndarray`, or `None` (ones) |
 | `target` | target unitary as `ndarray` |
@@ -229,6 +229,22 @@ Parameters(basis=None, control=None, drift=None,
 | `param_transform` | callable mapping experimental params to basis coefficients |
 | `n_experimental_params` | length of the experimental input; defaults to `projected_basis.lie_algebra_dim` |
 | `projective` | `True` (default) for projective fidelity, `False` for phase-sensitive |
+
+A basis element may not appear in both the control and the drift basis. Drift
+coefficients are written after control coefficients on the combined proj+drift array,
+so a shared element would have its control value silently overwritten — and under
+`param_transform` its gradient zeroed, leaving the parameter dead. `Parameters` raises
+a `ValueError` naming the offending elements at construction. To control an element
+that also carries a constant offset, leave it out of the drift basis and add the
+constant through `param_transform`:
+
+```python
+# ZI is controllable *and* sits at a fixed 0.7 offset.
+zi = list(full.labels).index("ZI")
+
+def param_transform(x):
+    return x.at[zi].add(0.7)
+```
 
 Attributes populated after construction:
 

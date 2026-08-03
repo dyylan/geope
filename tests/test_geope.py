@@ -1357,10 +1357,12 @@ class TestGeope:
     # --- with drift -------------------------------------------------------
 
     def test_init_with_drift(self, cnot, full_basis_2q, projected_basis_2q):
+        # XZ/ZX are outside the Heisenberg projected basis, so control and
+        # drift stay disjoint (see Parameters' overlap guard).
+        X = np.array([[0, 1], [1, 0]], dtype=complex)
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
-        I2 = np.eye(2, dtype=complex)
         drift_basis = Basis(
-            np.stack([np.kron(Z, I2), np.kron(I2, Z)]), labels=["ZI", "IZ"]
+            np.stack([np.kron(X, Z), np.kron(Z, X)]), labels=["XZ", "ZX"]
         )
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q, drift_basis=drift_basis)
         g = Geope(p)
@@ -1369,10 +1371,10 @@ class TestGeope:
     def test_init_with_drift_custom_params(
         self, cnot, full_basis_2q, projected_basis_2q
     ):
+        X = np.array([[0, 1], [1, 0]], dtype=complex)
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
-        I2 = np.eye(2, dtype=complex)
         drift_basis = Basis(
-            np.stack([np.kron(Z, I2), np.kron(I2, Z)]), labels=["ZI", "IZ"]
+            np.stack([np.kron(X, Z), np.kron(Z, X)]), labels=["XZ", "ZX"]
         )
         p = _params_2q(
             cnot,

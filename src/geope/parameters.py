@@ -178,6 +178,26 @@ class Parameters:
         else:
             self.drift_basis = None
 
+        # Control and drift must address disjoint basis elements. Every write
+        # path assigns the control columns first and the drift columns second,
+        # so a shared element would have its control coefficient silently
+        # overwritten by the drift value (and its gradient zeroed under
+        # ``param_transform``, leaving the parameter dead). Reject the
+        # configuration at construction rather than let it fail silently.
+        if self.drift_basis is not None:
+            shared = self.projected_indices & self.drift_indices
+            if shared.any():
+                shared_labels = [str(l) for l in np.array(self.basis.labels)[shared]]
+                raise ValueError(
+                    f"Control and drift bases overlap on {shared_labels}; they "
+                    "must be disjoint. Drift values are written after control "
+                    "values on shared basis elements, which would silently "
+                    "overwrite the control coefficient (and zero its gradient "
+                    "under `param_transform`). To control a basis element that "
+                    "also carries a constant offset, leave it out of the drift "
+                    "basis and add the constant via `param_transform`."
+                )
+
         # --- Immutable config ---
         self.target = np.array(target) if target is not None else None
         self.piecewise_steps = piecewise_steps
