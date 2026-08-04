@@ -173,9 +173,11 @@ class TestParametersMetadata:
 
         fb = construct_full_pauli_basis(2)
         pb = construct_Heisenberg_pauli_basis(2)
+        # XZ/ZX are outside the Heisenberg basis, keeping control and drift
+        # disjoint as Parameters now requires.
+        X = np.array([[0, 1], [1, 0]], dtype=complex)
         Z = np.array([[1, 0], [0, -1]], dtype=complex)
-        I = np.eye(2, dtype=complex)
-        drift = Basis(np.stack([np.kron(Z, I), np.kron(I, Z)]), labels=["ZI", "IZ"])
+        drift = Basis(np.stack([np.kron(X, Z), np.kron(Z, X)]), labels=["XZ", "ZX"])
         p = Parameters(basis=fb, projected_basis=pb, drift_basis=drift, target=CNOT)
         assert np.any(p.drift_indices)
         assert p.proj_drift_basis.lie_algebra_dim >= pb.lie_algebra_dim
@@ -185,6 +187,83 @@ class TestParametersMetadata:
         assert p.proj_indices_projdrift_basis.shape == (n_pd,)
         assert p.drift_indices_projdrift_basis.shape == (n_pd,)
         assert p.drift_indices_projdrift_basis.sum() == int(p.drift_indices.sum())
+
+
+# ---------------------------------------------------------------------------
+# Control/drift overlap guard (issue #26)
+#
+# A basis element shared by the control and drift bases used to have its
+# control coefficient silently overwritten by the drift value, because every
+# write path assigns the drift columns after the control columns. Parameters
+# now rejects the configuration outright.
+# ---------------------------------------------------------------------------
+
+
+def _overlapping_drift_basis():
+    """Drift basis on ZI/IZ — both inside the Heisenberg projected basis."""
+    from geope.lie import Basis
+
+    Z = np.array([[1, 0], [0, -1]], dtype=complex)
+    I = np.eye(2, dtype=complex)
+    return Basis(np.stack([np.kron(Z, I), np.kron(I, Z)]), labels=["ZI", "IZ"])
+
+
+def _disjoint_drift_basis():
+    """Drift basis on XZ/ZX — outside the Heisenberg projected basis."""
+    from geope.lie import Basis
+
+    X = np.array([[0, 1], [1, 0]], dtype=complex)
+    Z = np.array([[1, 0], [0, -1]], dtype=complex)
+    return Basis(np.stack([np.kron(X, Z), np.kron(Z, X)]), labels=["XZ", "ZX"])
+
+
+class TestControlDriftOverlapGuard:
+    def test_overlapping_bases_raise(self):
+        fb = construct_full_pauli_basis(2)
+        pb = construct_Heisenberg_pauli_basis(2)
+        with pytest.raises(ValueError) as excinfo:
+            Parameters(
+                basis=fb,
+                projected_basis=pb,
+                drift_basis=_overlapping_drift_basis(),
+                target=CNOT,
+            )
+        msg = str(excinfo.value)
+        # The message names the offending elements and points at the fix.
+        assert "ZI" in msg and "IZ" in msg
+        assert "param_transform" in msg
+
+    def test_overlapping_bases_raise_under_param_transform(self):
+        # The dead-gradient case from issue #26: the guard is unconditional,
+        # so it fires in experimental space too.
+        fb = construct_full_pauli_basis(2)
+        pb = construct_Heisenberg_pauli_basis(2)
+        with pytest.raises(ValueError, match="must be disjoint"):
+            Parameters(
+                basis=fb,
+                projected_basis=pb,
+                drift_basis=_overlapping_drift_basis(),
+                target=CNOT,
+                param_transform=lambda x: x,
+                n_experimental_params=pb.lie_algebra_dim,
+            )
+
+    def test_disjoint_bases_are_accepted(self):
+        fb = construct_full_pauli_basis(2)
+        pb = construct_Heisenberg_pauli_basis(2)
+        p = Parameters(
+            basis=fb,
+            projected_basis=pb,
+            drift_basis=_disjoint_drift_basis(),
+            target=CNOT,
+        )
+        assert not np.any(p.projected_indices & p.drift_indices)
+
+    def test_no_drift_basis_is_accepted(self):
+        fb = construct_full_pauli_basis(2)
+        pb = construct_Heisenberg_pauli_basis(2)
+        p = Parameters(basis=fb, projected_basis=pb, target=CNOT)
+        assert not np.any(p.drift_indices)
 
 
 # ---------------------------------------------------------------------------
