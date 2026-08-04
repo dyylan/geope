@@ -183,11 +183,6 @@ class Parameters:
             shared = self.projected_indices & self.drift_indices
             if shared.any():
                 shared_labels = [str(l) for l in np.array(self.basis.labels)[shared]]
-                offsets = "\n".join(
-                    f'    idx = list(basis.labels).index("{label}")\n'
-                    f"    x = x.at[idx].add(offset)  # the {label} drift value"
-                    for label in shared_labels
-                )
                 raise ValueError(
                     f"Control and drift bases overlap on {shared_labels}; they "
                     "must be disjoint. Drift values are written after control "
@@ -198,10 +193,13 @@ class Parameters:
                     "offset, leave it out of the drift basis and add the "
                     "constant through `param_transform`:\n\n"
                     "def param_transform(x):\n"
-                    f"{offsets}\n"
+                    f'    idx = list(basis.labels).index("{shared_labels[0]}")\n'
+                    f"    x = x.at[idx].add(offset)  # the {shared_labels[0]} "
+                    "drift value\n"
                     "    return x\n\n"
-                    "Then pass `param_transform=param_transform` to "
-                    "`Parameters` and drop the shared elements from the drift "
+                    "Repeat the two body lines for each shared element listed "
+                    "above, then pass `param_transform=param_transform` to "
+                    "`Parameters` and drop those elements from the drift "
                     "basis. See the `Parameters` section of docs/user_guide.md "
                     "for a worked example."
                 )
