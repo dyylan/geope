@@ -178,24 +178,32 @@ class Parameters:
         else:
             self.drift_basis = None
 
-        # Control and drift must address disjoint basis elements. Every write
-        # path assigns the control columns first and the drift columns second,
-        # so a shared element would have its control coefficient silently
-        # overwritten by the drift value (and its gradient zeroed under
-        # ``param_transform``, leaving the parameter dead). Reject the
-        # configuration at construction rather than let it fail silently.
+        # Control and drift must address disjoint basis elements.
         if self.drift_basis is not None:
             shared = self.projected_indices & self.drift_indices
             if shared.any():
                 shared_labels = [str(l) for l in np.array(self.basis.labels)[shared]]
+                offsets = "\n".join(
+                    f'    idx = list(basis.labels).index("{label}")\n'
+                    f"    x = x.at[idx].add(offset)  # the {label} drift value"
+                    for label in shared_labels
+                )
                 raise ValueError(
                     f"Control and drift bases overlap on {shared_labels}; they "
                     "must be disjoint. Drift values are written after control "
                     "values on shared basis elements, which would silently "
                     "overwrite the control coefficient (and zero its gradient "
-                    "under `param_transform`). To control a basis element that "
-                    "also carries a constant offset, leave it out of the drift "
-                    "basis and add the constant via `param_transform`."
+                    "under `param_transform`).\n\n"
+                    "To control a basis element that also carries a constant "
+                    "offset, leave it out of the drift basis and add the "
+                    "constant through `param_transform`:\n\n"
+                    "def param_transform(x):\n"
+                    f"{offsets}\n"
+                    "    return x\n\n"
+                    "Then pass `param_transform=param_transform` to "
+                    "`Parameters` and drop the shared elements from the drift "
+                    "basis. See the `Parameters` section of docs/user_guide.md "
+                    "for a worked example."
                 )
 
         # --- Immutable config ---
