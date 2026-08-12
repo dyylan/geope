@@ -15,6 +15,7 @@ from .line_searches import (
     LineSearchContext,
     LineSearchGeometry,
     Adam,
+    ApproximateQuadraticArmijo,
     Armijo,
     GoldenSection,
     QuadraticArmijo,

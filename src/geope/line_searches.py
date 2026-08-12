@@ -54,13 +54,38 @@ class LineSearchGeometry(NamedTuple):
     ``-s / q`` is directly the step GEOPE adds. Assembled by ``Geope`` from the
     SU(N) log and the directional HVP (see :meth:`Geope.get_update_linesearch`).
 
+    The slope ``s`` is exact for an arbitrary $\\Omega$. The curvature comes in two
+    flavours: ``q`` substitutes $\\|\\Omega\\|_F^2$ for the intrinsic term
+    $\\langle\\Omega,\\mathcal K_A\\Omega\\rangle_F$, which is exact only when
+    $\\Omega\\parallel A$ (i.e. when the geodesic direction is exactly reachable),
+    while ``q_exact`` evaluates that term properly. They coincide iff
+    ``xi_rel == 0``; otherwise ``q_exact <= q``, since $\\mathcal K_A\\preceq I$.
+
     Attributes:
         F0: The squared-geodesic-distance objective at the current point.
-        s: Slope $\\psi'(0) = \\langle A, \\Omega\\rangle_F$.
-        q: Curvature $\\psi''(0) = \\langle\\Omega,\\Omega\\rangle_F +
-            \\langle A, V^\\dagger V + x^\\dagger W\\rangle_F$.
-        chi: The dimensionless radial bending coefficient $\\chi_\\phi$.
+        s: Slope $\\psi'(0) = \\langle A, \\Omega\\rangle_F$. Exact for any
+            $\\Omega$ — it makes no tangent-matching assumption.
+        q: Curvature $\\psi''(0)$ with the *radial surrogate* for the intrinsic
+            term: $\\|\\Omega\\|_F^2 + \\langle A, V^\\dagger V +
+            x^\\dagger W\\rangle_F$.
+        chi: The dimensionless radial bending coefficient $\\chi_\\phi$,
+            $\\langle A,\\dot\\Omega(0)\\rangle_F / \\|\\Omega\\|_F^2$.
         A_norm2: $\\|A\\|_F^2 = 2 F0$.
+        q_exact: Curvature $\\psi''(0)$ with the exact intrinsic term,
+            $\\langle\\Omega,\\mathcal K_A\\Omega\\rangle_F + \\langle A,
+            V^\\dagger V + x^\\dagger W\\rangle_F$ (see
+            :func:`geope.jax.su_hessian_quadratic_form`).
+        rho: The eigenphase spread $\\rho = \\Delta(A)$. Below $\\pi$ the
+            intrinsic Hessian is positive definite; at $2\\pi$ lies the cut locus.
+        xi_rel: The relative tangent-matching error: the sine of the angle
+            between $\\Omega$ and $A$, i.e. the fraction of the geodesic
+            direction the controls cannot reproduce. This is the least-squares
+            residual made dimensionless, and it is ``0`` exactly when the
+            geodesic direction is reachable. Deliberately *scale-invariant*:
+            ``coeffs`` is renormalised to a fixed norm, so $\\|\\Omega\\|_F$
+            carries an arbitrary factor that a plain
+            $\\|\\Omega - A\\|_F/\\|A\\|_F$ would misreport as error, whereas
+            ``q_exact == q`` holds for any scale multiple of $A$.
     """
 
     F0: Array
@@ -68,6 +93,9 @@ class LineSearchGeometry(NamedTuple):
     q: Array
     chi: Array
     A_norm2: Array
+    q_exact: Array
+    rho: Array
+    xi_rel: Array
 
 
 @dataclass(frozen=True, eq=False)
@@ -280,6 +308,69 @@ class QuadraticArmijo(LineSearch):
             ctx.a,
             g.s,
             g.q,
+            g.F0,
+            c1=self.c1,
+            beta=self.beta,
+            t_min=self.t_min,
+        )
+        return dt, {"n_eval": n_eval}
+
+
+@dataclass(frozen=True)
+class ApproximateQuadraticArmijo(LineSearch):
+    r"""Residual-aware quadratic-seeded Armijo line search — second-order.
+
+    Identical to :class:`QuadraticArmijo` except in *which* curvature seeds the
+    step: it uses ``ctx.geometry().q_exact`` rather than ``q``. The difference is
+    the intrinsic term of $\psi''(0)$,
+
+    $$\psi''(0)=\underbrace{\langle\Omega,\mathcal K_A\Omega\rangle_F}
+      _{\text{exact}}+\langle A,\dot\Omega(0)\rangle_F,
+      \qquad
+      \mathcal K_A=\frac{\operatorname{ad}_A}{2}
+        \coth\!\left(\frac{\operatorname{ad}_A}{2}\right),$$
+
+    which :class:`QuadraticArmijo` replaces by $\|\Omega\|_F^2$. That replacement
+    is exact only when the achieved tangent $\Omega$ is parallel to the geodesic
+    tangent $A$ — i.e. only when GEOPE's least-squares solve for the search
+    direction leaves **no residual**. When it does leave one, writing
+    $\Xi=\Omega-A$ and using $\mathcal K_AA=A$ gives
+
+    $$\langle\Omega,\mathcal K_A\Omega\rangle_F
+      =\|A\|_F^2+2\langle A,\Xi\rangle_F+\langle\Xi,\mathcal K_A\Xi\rangle_F,$$
+
+    so the residual couples into the curvature through the Riemannian Hessian.
+    Evaluating the form directly captures all three terms without ever forming
+    $\Xi$: the residual is already inside the $\Omega$ that the directional HVP
+    returns.
+
+    Because $\mathcal K_A\preceq I$, ``q_exact <= q`` always, so this seeds a
+    **longer** step than :class:`QuadraticArmijo`. The extra cost over it is one
+    ``eigh`` (see :func:`geope.jax.su_hessian_quadratic_form`), negligible beside
+    the ``logm`` and HVP both already pay. Note that the slope ``s`` needs no
+    correction — it is exact for any $\Omega$.
+
+    Requires the standard (projective) mode; ``ctx.geometry()`` raises under
+    ``param_transform``.
+
+    Args:
+        c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
+        beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
+        t_min: Minimum step magnitude before the search gives up. Defaults to 1e-8.
+    """
+
+    name = "approximate_quadratic_armijo"
+    c1: float = 1e-4
+    beta: float = 0.5
+    t_min: float = 1e-8
+
+    def __call__(self, ctx: LineSearchContext):
+        g = ctx.geometry()
+        dt, _, n_eval = _quadratic_armijo_line_search(
+            ctx.distance_f,
+            ctx.a,
+            g.s,
+            g.q_exact,
             g.F0,
             c1=self.c1,
             beta=self.beta,

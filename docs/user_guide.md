@@ -304,10 +304,10 @@ Geope(params, verbose=False, history=None)
 The iteration cap, the line search, and the three run-control knobs are arguments of `optimize`, not constructor fields:
 
 ```python
-from geope import Adam, GoldenSection, QuadraticArmijo
+from geope import Adam, ApproximateQuadraticArmijo, Armijo, GoldenSection, QuadraticArmijo
 
 optimize(max_steps=1000,
-         line_search=GoldenSection(),        # default; or Adam(1e-2), QuadraticArmijo()
+         line_search=GoldenSection(),        # default; or Adam(1e-2), Armijo(), QuadraticArmijo()
          precision=0.9999999,
          max_step_size=0.9, gram_schmidt_step_size=1.3)
 ```
@@ -324,7 +324,13 @@ The line searches are immutable config objects (frozen dataclasses):
 
 - `GoldenSection(tol=1e-5)` — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
 - `Adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)` — 1-D Adam line search. `finite_difference=False` uses an exact autodiff gradient; `warm_start=True` seeds each step from the previous step's `t`.
-- `QuadraticArmijo(c1=1e-4, beta=0.5, gamma=1.0, ...)` — geometry-aware second-order line search: seeds the step from the exact SU(N) curvature and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
+- `Armijo(c1=1e-4, beta=0.5, t_min=1e-8)` — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step $-t_{\max}$ and backtracks, taking the slope from the objective value alone ($s = 2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
+- `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — geometry-aware second-order line search: seeds the step from the SU(N) curvature (clipped to the bracket, falling back to the full step when the curvature is non-positive) and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
+- `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` (standard/projective mode only).
+
+    Whether it changes anything is structural: the solve has `piecewise_steps × K_proj` unknowns against `K_basis` equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. `LineSearchGeometry.xi_rel` reports the residual as the (scale-invariant) sine of the angle between $\Omega$ and $A$, and tracks `ls_diagnostics["residual_rel"]` closely; it is `0` exactly when the two curvatures agree.
+
+The three differ in what they evaluate per step, not just in flops: `GoldenSection`/`Adam` evaluate the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[-t_{\max}, 0]$ and is clipped to $-t_{\max}$, which is exactly where `Armijo` starts anyway.
 
 The line-search object and `max_step_size` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `GoldenSection()`) reuse the compiled functions, while changing the object or `max_step_size` triggers a one-off recompile. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
 
@@ -332,6 +338,18 @@ Live state and logging:
 
 - The current parameters and fidelity live on `params` (`params.parameters`, `params.fidelity`); `Geope` updates them in place each step, and `optimize(max_steps=...)` returns the `Parameters` instance itself — so the user has a single handle for both inputs and the final result.
 - `step_size` — the transient last line-search step size.
+- `ls_diagnostics` — diagnostics of the **most recent** geodesic least-squares solve (step 4 of the algorithm below), as a dict of host-side scalars:
+
+    | Key | Meaning |
+    |-----|---------|
+    | `residual` | $\lVert A\,\mathrm{sol}-b\rVert_2$, the absolute misfit |
+    | `residual_rel` | $\lVert A\,\mathrm{sol}-b\rVert_2/\lVert b\rVert_2 \in [0,1]$ — the fraction of the geodesic direction the controls cannot reproduce. Dimensionless, so comparable across steps and problems; **this is the headline number**. `0.0` when $\lVert b\rVert_2$ vanishes |
+    | `rank` | numerical rank of the least-squares system |
+    | `cond` | condition number over the singular values retained above the `rcond` cutoff |
+
+    Before the first solve of a run these hold `nan` / `-1` sentinels. A high `residual_rel` with full `rank` means the geodesic direction genuinely leaves the controllable subspace; a rank drop or a large `cond` instead means the solve itself is degenerate. Because `coeffs` is renormalised to fixed norm after the solve, these rate the *direction* fit, not the error of the step taken.
+
+    These are **not** logged by default. To record them, pass a `logging_fn` (see `History` below) or read them from a callback.
 - `history` — an optional `History` logger (`None` unless one was passed). When supplied, the full run trajectory and `best_*` helpers are available on it (see below).
 
 ### `History` (`history.py`)
@@ -343,6 +361,22 @@ History(logging_fn=None)
 An opt-in, configurable run log. Pass one to `Geope` (`history=History()`) and the full trajectory is recorded into `geope.history`; leave it `None` and no history is kept (the final answer still lives on `params`).
 
 By default each step records five columns — `parameters` (a full-basis snapshot), `fidelities`, `infidelities`, `step_sizes`, and an integer `steps` counter derived from the log length. Pass `logging_fn` to record arbitrary per-step values instead: it receives the running `Geope` and returns a `dict` of `column -> value` (e.g. `History(logging_fn=lambda g: {"fid": float(g.params.fidelity)})`).
+
+This is how you log anything the optimiser exposes but does not record by default — for instance the least-squares diagnostics:
+
+```python
+h = geope.History(logging_fn=lambda g: {
+    "fidelities": g.params.fidelity,
+    "ls_residual_rel": g.ls_diagnostics["residual_rel"],
+    "ls_rank": g.ls_diagnostics["rank"],
+    "ls_cond": g.ls_diagnostics["cond"],
+})
+g = geope.Geope(params, history=h)
+g.optimize()
+h.to_dataframe()   # ls_residual_rel alongside fidelities
+```
+
+A `logging_fn` must return the **same keys on every call**. `record` is schema-free (it appends per key), and `len(history)` reports the first column's length, so a key that only appears from some step onwards leaves the columns ragged and makes `to_dataframe()` raise. Guard values that are not yet available at step 0 — recorded during `init()`, before the first step — rather than omitting the key; the `ls_*` attributes already do this themselves via their `nan` / `-1` sentinels.
 
 | Member | Description |
 |--------|-------------|
@@ -378,6 +412,7 @@ for each step:
     4. Solve the constrained least-squares problem:
        sol = argmin ||ω^T · sol - γ||
        (optionally through a constraint+pulse expander E)
+       → residual / rank / condition number recorded in geope.ls_diagnostics
 
     5. Normalise and line-search:
        coeffs = sol · sqrt(N_g) / ||sol||
@@ -393,8 +428,8 @@ The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under t
 
 ### Key functions
 
-- **`gammas_and_omegas(free_params)`** — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection $\gamma$, the full Jacobian $\partial U/\partial\phi$, and the per-parameter projections $\omega$. Returns $(\gamma, \omega)$.
-- **`linear_comb_projected_coeffs_multigate(ω, γ, E)`** — least-squares solve, optionally through a constraint expander $E$.
+- **`gammas_and_omegas(free_params)`** — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection $\gamma$, the full Jacobian $\partial U/\partial\phi$, and the per-parameter projections $\omega$. Returns $(\gamma, \omega)$. **Both quantities are left-trivialised (multiplied by $U^\dagger$) before projecting**, and this is load-bearing: the Pauli basis is Hermitian, so `project_omegas_fn` keeps only the traceless-Hermitian part of its argument, while the raw geodesic tangent $U\Omega'$ and Jacobian columns $\partial_{g,k}U$ are $U\cdot(\text{Hermitian})$ and mostly fall outside it. The $U^\dagger$ makes $\Omega'$ and $iU^\dagger\partial_{g,k}U$ Hermitian, the projection lossless, and the least squares below an honest $\langle\cdot,\cdot\rangle_F$-orthogonal projection of the geodesic tangent onto $\mathrm{Im}(\mathrm{D}\Phi)$ — which is what the second-order line searches assume. Left translation is itself an isometry; it is the projection *after* it that would be lossy, so the two cannot be commuted.
+- **`linear_comb_projected_coeffs_multigate(ω, γ, E, *, return_diagnostics=False)`** — least-squares solve, optionally through a constraint expander $E$. With `return_diagnostics=True` it returns `(sol, diagnostics)`, the second a dict of `residual` / `residual_rel` / `rank` / `cond` scalars; these come free from the same `lstsq` call and are what `Geope` surfaces as `ls_diagnostics`.
 - **`update_linesearch(params, coeffs, piecewise_steps)`** — golden-section minimisation of $\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})$ over $t \in [-t_{\max}, 0]$.
 
 ## Callbacks

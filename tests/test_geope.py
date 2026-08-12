@@ -50,6 +50,7 @@ from geope.geope import (
 )
 from geope.line_searches import (
     Adam,
+    ApproximateQuadraticArmijo,
     Armijo,
     GoldenSection,
     LineSearch,
@@ -176,6 +177,50 @@ def full_basis_2q():
 def projected_basis_2q():
     """Heisenberg 2-qubit basis (9 elements ⊂ 15) — a proper subset of the full basis."""
     return construct_Heisenberg_pauli_basis(2)
+
+
+@dataclasses.dataclass(frozen=True)
+class _GeometryProbe(ApproximateQuadraticArmijo):
+    """``ApproximateQuadraticArmijo`` that also reports its geometry.
+
+    The geometry is computed inside the jitted update and normally never leaves,
+    so this widens the threaded line-search state to carry the fields a test
+    wants to assert on. ``ctx.geometry()`` is memoised per step, so calling it
+    here costs nothing extra.
+    """
+
+    name = "geometry_probe"
+
+    def init(self):
+        return {
+            **super().init(),
+            "q": jnp.asarray(0.0, jnp.float64),
+            "q_exact": jnp.asarray(0.0, jnp.float64),
+            "rho": jnp.asarray(0.0, jnp.float64),
+            "xi_rel": jnp.asarray(0.0, jnp.float64),
+        }
+
+    def __call__(self, ctx):
+        g = ctx.geometry()
+        dt, state = super().__call__(ctx)
+        extra = {"q": g.q, "q_exact": g.q_exact, "rho": g.rho, "xi_rel": g.xi_rel}
+        return dt, {**state, **extra}
+
+
+def _run_with_geometry_probe(params, max_steps):
+    """Optimise with the probe, returning one dict of geometry per step."""
+    rows = []
+
+    def record(step, history, geope):
+        st = geope.line_search_state or {}
+        if "q" in st:
+            rows.append({k: float(st[k]) for k in ("q", "q_exact", "rho", "xi_rel")})
+        return True
+
+    Geope(params, history=History()).optimize(
+        max_steps=max_steps, line_search=_GeometryProbe(), callbacks=(record,)
+    )
+    return rows
 
 
 @pytest.fixture
@@ -1413,6 +1458,100 @@ class TestGeope:
 
         with pytest.raises(NotImplementedError):
             make().optimize(max_steps=5, line_search=QuadraticArmijo())
+
+    # --- residual-aware quadratic Armijo ---------------------------------
+
+    def test_approx_quadratic_armijo_value_semantics(self):
+        # Frozen-dataclass value equality (drives the compile memo), and it must
+        # not compare equal to the surrogate-curvature variant.
+        assert ApproximateQuadraticArmijo() == ApproximateQuadraticArmijo()
+        assert ApproximateQuadraticArmijo(c1=1e-3) != ApproximateQuadraticArmijo()
+        assert ApproximateQuadraticArmijo() != QuadraticArmijo()
+
+    def test_approx_quadratic_armijo_runs_and_threads_n_eval(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        g = Geope(p, history=History())
+        f0 = float(g.params.fidelity)
+        g.optimize(max_steps=60, line_search=ApproximateQuadraticArmijo())
+        assert isinstance(g.line_search, ApproximateQuadraticArmijo)
+        assert g.history.best_fidelity > f0
+        for f in g.history.fidelities:
+            assert 0 <= f <= 1
+        assert int(g.line_search_state["n_eval"]) >= 1
+
+    def test_approx_quadratic_armijo_converges(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        g = Geope(p, history=History())
+        g.optimize(
+            max_steps=200,
+            precision=0.9999999,
+            line_search=ApproximateQuadraticArmijo(),
+        )
+        assert g.history.best_fidelity > 0.999
+
+    def test_q_exact_never_exceeds_q(self, cnot, full_basis_2q, projected_basis_2q):
+        # K_A <= I, so the exact intrinsic curvature can never exceed the
+        # ||Omega||^2 surrogate. Checked on every step of a real run.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        rows = _run_with_geometry_probe(p, max_steps=8)
+        assert rows  # the probe actually recorded something
+        for r in rows:
+            assert r["q_exact"] <= r["q"] + 1e-9
+            assert np.isfinite(r["q_exact"]) and np.isfinite(r["rho"])
+            assert 0.0 <= r["xi_rel"] <= 1.0
+
+    def test_zero_residual_leaves_q_exact_equal_to_q(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # With 6 x 9 = 54 unknowns against 15 equations the least-squares solve is
+        # underdetermined, so it fits the geodesic tangent exactly: the direction
+        # is radial, xi_rel vanishes and the two curvatures coincide. This is the
+        # regime in which ApproximateQuadraticArmijo is a no-op.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        rows = _run_with_geometry_probe(p, max_steps=5)
+        for r in rows:
+            assert r["xi_rel"] < 1e-6
+            assert np.isclose(r["q_exact"], r["q"], rtol=1e-9, atol=1e-9)
+
+    def test_nonzero_residual_separates_the_two_curvatures(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # One piecewise step gives 9 unknowns against 15 equations, so the
+        # geodesic tangent is genuinely unreachable and the residual is non-zero.
+        # This is the regime the exact curvature exists for, so assert the
+        # correction actually does something here.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=1)
+        rows = _run_with_geometry_probe(p, max_steps=4)
+        assert any(r["xi_rel"] > 1e-3 for r in rows), "expected a non-zero residual"
+        assert any(
+            r["q"] - r["q_exact"] > 1e-9 for r in rows
+        ), "exact curvature should differ from the surrogate when xi_rel > 0"
+
+    def test_approx_quadratic_armijo_rejects_param_transform(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # Geometry-aware, so it inherits QuadraticArmijo's restriction.
+        def transform(phi):
+            out = jnp.zeros(full_basis_2q.lie_algebra_dim)
+            out = out.at[0].set(jnp.cos(phi[0]))
+            out = out.at[1].set(jnp.sin(phi[1]))
+            out = out.at[2].set(phi[2] ** 2)
+            return out
+
+        p = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=2,
+            param_transform=transform,
+            n_experimental_params=3,
+        )
+        with pytest.raises(NotImplementedError):
+            Geope(p).optimize(max_steps=5, line_search=ApproximateQuadraticArmijo())
 
     # --- run-control knobs (optimize() arguments) ------------------------
 

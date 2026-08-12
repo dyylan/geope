@@ -31,4 +31,5 @@ from .hessian import (
     get_hessian_propagator,
     hvp_propagator,
     get_hvp_propagator,
+    su_hessian_quadratic_form,
 )

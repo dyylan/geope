@@ -34,6 +34,7 @@ import pytest
 
 from geope import (
     Adam,
+    ApproximateQuadraticArmijo,
     Armijo,
     Geope,
     GoldenSection,
@@ -152,6 +153,7 @@ METHODS = {
     "adam": Adam(),
     "armijo": Armijo(),
     "quad_armijo": QuadraticArmijo(),
+    "approx_quad_armijo": ApproximateQuadraticArmijo(),
 }
 METHOD_IDS = list(METHODS)
 

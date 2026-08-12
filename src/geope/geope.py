@@ -20,7 +20,7 @@ from .line_searches import (
     LineSearchContext,
     LineSearchGeometry,
 )
-from .jax import logm, get_hvp_propagator
+from .jax import logm, get_hvp_propagator, su_hessian_quadratic_form
 from .parameters import Parameters
 from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
@@ -815,6 +815,8 @@ class Geope:
             max_step_size = self.max_step_size / piecewise_steps
 
             # TODO: I think we can reuse the Log from project-Gamma and omega
+            # TODO: I would like this to be cleaner and ensure that geometry does
+            # is not some bloated object.
             def traceless_log(U):
                 # A = log_min(y^dagger x): principal log, traceless-projected to
                 # su(d) (the same choice as the geodesic step's Hamiltonian).
@@ -846,19 +848,39 @@ class Geope:
                 _, V, W = hvp_fn(jnp.real(sliced_params), coeffs)
                 Omega = x.conj().T @ V
                 K_acc = V.conj().T @ V + x.conj().T @ W
-                # s, q are the exact 1st/2nd derivatives of F(theta + t coeffs).
+                # s is the exact first derivative of F(theta + t coeffs) for any
+                # Omega -- it assumes no tangent matching.
                 s = jnp.real(jnp.trace(A.conj().T @ Omega))
                 omega_norm2 = jnp.real(jnp.trace(Omega.conj().T @ Omega))
                 accel = jnp.real(jnp.trace(A.conj().T @ K_acc))
-                # <Omega, K_A Omega> ~ ||Omega||^2 (radial eigenvalue 1, exact
-                # under tangent matching Omega ~ -A); avoids the K_A operator.
+                # Two curvatures. ``q`` uses the radial surrogate
+                # <Omega, K_A Omega> ~ ||Omega||^2, exact only when Omega is
+                # parallel to A (K_A A = A); ``q_exact`` evaluates that term
+                # properly, which is what matters once the least-squares solve
+                # leaves a residual and the geodesic direction is unreachable.
                 q = omega_norm2 + accel
+                q_intrinsic, rho = su_hessian_quadratic_form(A, Omega)
+                q_exact = q_intrinsic + accel
+                # Relative tangent-matching error: the sine of the angle between
+                # Omega and A. ``coeffs`` is renormalised to a fixed norm, so a
+                # plain ||Omega - A|| would report that arbitrary rescale as
+                # error; the angle is scale-invariant and vanishes exactly when
+                # q_exact == q.
+                denom = A_norm2 * omega_norm2
+                positive = denom > 0
+                # cos^2 of the angle; at a converged iterate (A -> 0) both norms
+                # vanish, so define the directions as aligned there (xi_rel = 0).
+                cos2 = jnp.where(positive, s**2 / jnp.where(positive, denom, 1.0), 1.0)
+                xi_rel = jnp.sqrt(jnp.clip(1.0 - cos2, 0.0, 1.0))
                 g = LineSearchGeometry(
                     F0=0.5 * A_norm2,
                     s=s,
                     q=q,
                     chi=accel / omega_norm2,
                     A_norm2=A_norm2,
+                    q_exact=q_exact,
+                    rho=rho,
+                    xi_rel=xi_rel,
                 )
                 geom_cache["g"] = g
                 return g
