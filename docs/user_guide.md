@@ -393,7 +393,7 @@ The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under t
 
 ### Key functions
 
-- **`gammas_and_omegas(free_params)`** — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection $\gamma$, the full Jacobian $\partial U/\partial\phi$, and the per-parameter projections $\omega$. Returns $(\gamma, \omega)$.
+- **`gammas_and_omegas(free_params)`** — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection $\gamma$, the full Jacobian $\partial U/\partial\phi$, and the per-parameter projections $\omega$. Returns $(\gamma, \omega)$. **Both quantities are left-trivialised (multiplied by $U^\dagger$) before projecting**, and this is load-bearing: the Pauli basis is Hermitian, so `project_omegas_fn` keeps only the traceless-Hermitian part of its argument, while the raw geodesic tangent $U\Omega'$ and Jacobian columns $\partial_{g,k}U$ are $U\cdot(\text{Hermitian})$ and mostly fall outside it. The $U^\dagger$ makes $\Omega'$ and $iU^\dagger\partial_{g,k}U$ Hermitian, the projection lossless, and the least squares below an honest $\langle\cdot,\cdot\rangle_F$-orthogonal projection of the geodesic tangent onto $\mathrm{Im}(\mathrm{D}\Phi)$ — which is what the second-order line searches assume. Left translation is itself an isometry; it is the projection *after* it that would be lossy, so the two cannot be commuted.
 - **`linear_comb_projected_coeffs_multigate(ω, γ, E)`** — least-squares solve, optionally through a constraint expander $E$.
 - **`update_linesearch(params, coeffs, piecewise_steps)`** — golden-section minimisation of $\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})$ over $t \in [-t_{\max}, 0]$.
 
