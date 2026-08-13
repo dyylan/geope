@@ -15,8 +15,8 @@ Two benchmark families per size:
 
 Run with, e.g.::
 
-    pytest benchmarks/test_bench_jacobian.py \\
-        --benchmark-group-by=param:size \\
+    pytest benchmarks/test_bench_jacobian.py \
+        --benchmark-group-by=param:size \
         --benchmark-columns=mean,median,rounds
 
 which places the manual and autodiff bars for each ``(n, G)`` side by side.

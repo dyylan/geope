@@ -277,11 +277,19 @@ def get_gammas_fn(
     geo_fn: Callable[..., Array],
     project_omegas_fn: Callable[[Array], Array],
 ) -> Callable[[Array, Array], Array]:
-    """Build the projected geodesic-Hamiltonian (``gammas``) function.
+    r"""Build the projected geodesic-Hamiltonian (``gammas``) function.
 
-    Computes the unitary, its geodesic Hamiltonian towards the target, and
-    projects that onto the Pauli basis (normalised by the dimension). Returned
-    un-jitted so it composes inside an enclosing ``@jax.jit``.
+    Computes the unitary, its geodesic Hamiltonian towards the target,
+    left-trivialises it, and projects that onto the Pauli basis (normalised by
+    the dimension). Returned un-jitted so it composes inside an enclosing
+    ``@jax.jit``.
+
+    ``geo_fn`` returns the *ambient* tangent $U\Omega'$ with
+    $\Omega'=-i\log(U^\dagger U_T)$; the $U^\dagger$ applied here recovers
+    $\Omega'$ itself. That matters because the Pauli basis is Hermitian, so
+    `project_omegas` keeps only the traceless-Hermitian part of its argument --
+    see :func:`get_gammas_and_omegas_fn` for why projecting the ambient matrix
+    instead would be lossy.
 
     Args:
         compute_U_fn: Parameter-list -> unitary.
@@ -294,7 +302,7 @@ def get_gammas_fn(
 
     def gammas(free_params: Array, key: Array) -> Array:
         unitary = compute_U_fn(free_params)
-        gammaU = geo_fn(unitary, key=key)  # seed for logm
+        gammaU = unitary.conj().T @ geo_fn(unitary, key=key)  # seed for logm
         return project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (
             gammaU.shape[0]
         )
@@ -303,19 +311,24 @@ def get_gammas_fn(
 
 
 def get_omegas_fn(
+    compute_U_fn: Callable[[Array], Array],
     jac_fn: Callable[[Array], Array],
     project_omegas_fn: Callable[[Array], Array],
     proj_indices: np.ndarray,
     has_proj_drift: bool,
 ) -> Callable[[Array], Array]:
-    """Build the projected per-gate Jacobian (``omegas``) function.
+    r"""Build the projected per-gate Jacobian (``omegas``) function.
 
-    Projects the Jacobian of each gate (w.r.t. each parameter) onto the Pauli
-    basis, optionally restricting to the projected indices within the combined
-    proj+drift basis. Returned un-jitted so it composes inside an enclosing
-    ``@jax.jit``.
+    Left-trivialises the Jacobian of each gate (w.r.t. each parameter) and
+    projects it onto the Pauli basis, optionally restricting to the projected
+    indices within the combined proj+drift basis. Returned un-jitted so it
+    composes inside an enclosing ``@jax.jit``.
+
+    The $U^\dagger$ is what makes $iU^\dagger\partial U$ Hermitian and hence the
+    Pauli projection lossless; see :func:`get_gammas_and_omegas_fn`.
 
     Args:
+        compute_U_fn: Parameter-list -> unitary, used to left-trivialise.
         jac_fn: Jacobian of the unitary w.r.t. the free parameters.
         project_omegas_fn: Projection of matrices onto the Lie-algebra basis.
         proj_indices: Projected indices within the proj+drift basis.
@@ -328,10 +341,11 @@ def get_omegas_fn(
     """
 
     def omegas(free_params: Array) -> Array:
+        u_dag = compute_U_fn(free_params).conj().T
         dUs = jnp.array(jac_fn(free_params))
         dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
         omegas_steps_phis = jnp.array(
-            [project_omegas_fn(1.0j * omegaUs) for omegaUs in dUs_t]
+            [project_omegas_fn(1.0j * (u_dag @ omegaUs)) for omegaUs in dUs_t]
         )
         if has_proj_drift:
             omegas_steps_phis = omegas_steps_phis.at[:, proj_indices, :].get()
@@ -348,15 +362,41 @@ def get_gammas_and_omegas_fn(
     proj_indices: np.ndarray,
     has_proj_drift: bool,
 ) -> Callable[[Array, Array], tuple[Array, Array]]:
-    """Build the combined gammas-and-omegas function used by the GEOPE step.
+    r"""Build the combined gammas-and-omegas function used by the GEOPE step.
 
     Gammas are the projected geodesic Hamiltonian coefficients; omegas encode
     the Jacobian of each gate w.r.t. each parameter, projected onto the Pauli
     basis. This is the single combined body the GEOPE update step calls (one
-    ``compute_U_fn`` and one ``jac_fn`` evaluation), matching the legacy
-    numerics; :func:`get_gammas_fn` / :func:`get_omegas_fn` are the separately
-    testable halves. Returned un-jitted so it fuses into the enclosing
-    ``@jax.jit`` update step on first ``optimize()``.
+    ``compute_U_fn`` and one ``jac_fn`` evaluation);
+    :func:`get_gammas_fn` / :func:`get_omegas_fn` are the separately testable
+    halves. Returned un-jitted so it fuses into the enclosing ``@jax.jit``
+    update step on first ``optimize()``.
+
+    **Both arguments are left-trivialised before projecting, and they must be.**
+    The Pauli basis is Hermitian, so ``project_omegas_fn`` computes
+    $\mathrm{Re}\,\mathrm{Tr}(P_k M)/d$ and therefore keeps only the
+    traceless-Hermitian part of $M$. The raw quantities are *ambient*: `geo_fn`
+    returns $U\Omega'$ and the Jacobian columns are $\partial_{g,k}U$, both of
+    the form $U\cdot(\text{traceless Hermitian})$, whose Hermitian part rotates
+    with $U$. Projecting those directly discards most of each matrix and makes
+    the downstream least squares
+    (:func:`geope.geope.linear_comb_projected_coeffs_multigate`) minimise in a
+    $U$-dependent seminorm rather than in $\langle\cdot,\cdot\rangle_F$.
+
+    Multiplying by $U^\dagger$ first gives $\Omega'$ and
+    $iU^\dagger\partial_{g,k}U$, which are traceless Hermitian, so the
+    projection is an isometry onto its coefficients and the solve is exactly the
+    Frobenius-orthogonal projection of the geodesic tangent onto
+    $\mathrm{Im}(\mathrm D\Phi)$ that the geodesic step is defined to be. This
+    is what makes the achieved velocity satisfy $\Psi=P\Omega$, and with it the
+    least-squares-residual lemma that the second-order line search
+    (:class:`geope.line_searches.QuadraticArmijo`) leans on when it substitutes
+    $\|\Omega\|_F^2$ for the intrinsic curvature term. Left translation is itself
+    an isometry — it is the *projection after it* that was lossy, which is why
+    the two operations cannot be commuted.
+
+    ``examples/left_trivialisation.py`` is a runnable worked example of the
+    failure and this fix.
 
     Args:
         compute_U_fn: Parameter-list -> unitary.
@@ -373,7 +413,9 @@ def get_gammas_and_omegas_fn(
 
     def gammas_and_omegas(free_params: Array, key: Array) -> tuple[Array, Array]:
         unitary = compute_U_fn(free_params)
-        gammaU = geo_fn(unitary, key=key)  # seed for logm
+        # Left-trivialise before projecting -- see the note on the factory above.
+        u_dag = unitary.conj().T
+        gammaU = u_dag @ geo_fn(unitary, key=key)  # seed for logm
         gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(
             axis=0
         ) / (gammaU.shape[0])
@@ -381,7 +423,7 @@ def get_gammas_and_omegas_fn(
         dUs = jnp.array(jac_fn(free_params))
         dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
         omegas_steps_phis = jnp.array(
-            [project_omegas_fn(1.0j * omegaUs) for omegaUs in dUs_t]
+            [project_omegas_fn(1.0j * (u_dag @ omegaUs)) for omegaUs in dUs_t]
         )
 
         if has_proj_drift:

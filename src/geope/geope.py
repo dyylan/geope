@@ -8,7 +8,7 @@ from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
-from .lie import Hamiltonian, Basis
+from .lie import Basis
 from .utils import (
     prepare_random_parameters,
     merge_constraints,
@@ -603,10 +603,8 @@ class Geope:
                     for _ in range(self.params.piecewise_steps)
                 ]
             )
-            if self.params.drift_basis is not None:
-                proj_c[:, self.params.drift_indices_projdrift_basis] = jnp.tile(
-                    self.drift_parameters, (self.params.piecewise_steps, 1)
-                )
+            # The drift is deliberately absent from the direction: it is a
+            # displacement added to parameters that already carry the drift.
         proj_c_con = np.concatenate(proj_c, axis=0)
         coeffs_con = np.concatenate(coeffs, axis=0)
 
@@ -646,41 +644,27 @@ class Geope:
             fidelity = fids[sign]
             new_parameters = current_params + sign * scaled_gs_step * coeffs
         else:
+            # Move along the projected columns only. The drift is already in
+            # ``self.params.parameters``, to which this direction is added, so
+            # letting it leak into ``direction`` would displace the drift and
+            # make the evaluated pulse differ from the one returned below.
+            direction = np.zeros_like(coeffs)
+            direction[:, self.params.proj_indices_projdrift_basis] = coeffs[
+                :, self.params.proj_indices_projdrift_basis
+            ]
+            current_params = np.array(self.params.parameters)[
+                :, self.params.proj_drift_indices
+            ]
+            # Evaluate the candidate arrays themselves, so the reported fidelity
+            # is by construction the fidelity of the parameters returned.
             for sign in [1, -1]:
-                cs = np.copy(coeffs)
-                cs[:, self.params.proj_indices_projdrift_basis] = (
-                    cs[:, self.params.proj_indices_projdrift_basis]
-                    * sign
-                    * scaled_gs_step
+                trial = current_params + sign * scaled_gs_step * direction
+                fids[sign] = self.params.fid_U_fn(
+                    self.params.compute_U_fn(jnp.array(trial))
                 )
-                u = np.eye(self.params.basis.dim)
-                for i, c in enumerate(cs):
-                    u = (
-                        Hamiltonian(
-                            self.params.proj_drift_basis,
-                            self.params.parameters[i][self.params.proj_drift_indices]
-                            + c,
-                        ).unitary.matrix
-                        @ u
-                    )
-                fids[sign] = self.params.fid_U_fn(u)
-
-            if fids[1] > fids[-1]:
-                sign = 1
-                fidelity = fids[1]
-            else:
-                sign = -1
-                fidelity = fids[-1]
-            coeffs[:, self.params.proj_indices_projdrift_basis] = (
-                coeffs[:, self.params.proj_indices_projdrift_basis]
-                * sign
-                * scaled_gs_step
-            )
-            coeffs[:, self.params.drift_indices_projdrift_basis] = 0
-            new_parameters = (
-                np.array(self.params.parameters)[:, self.params.proj_drift_indices]
-                + coeffs
-            )
+            sign = 1 if fids[1] > fids[-1] else -1
+            fidelity = fids[sign]
+            new_parameters = current_params + sign * scaled_gs_step * direction
 
         # if self.parameter_bounds is not None:
         #     new_parameters, fidelity = self.bound_parameters(new_parameters, scaled_gs_step)

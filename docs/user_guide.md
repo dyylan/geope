@@ -215,7 +215,7 @@ Parameters(basis=None, control=None, drift=None,
 |-----------|-------------|
 | `basis` | the full `Basis`; defaults to 2-qubit full Pauli basis if `None` |
 | `control` | dict picking the projected (controllable) subset |
-| `drift` | dict picking the drift subset |
+| `drift` | dict picking the drift subset; must be disjoint from `control` (see below) |
 | `init_values` | dict in `control` format, or `ndarray` of full-basis shape, or `None` (random) |
 | `drift_values` | dict, `ndarray`, or `None` (ones) |
 | `target` | target unitary as `ndarray` |
@@ -229,6 +229,22 @@ Parameters(basis=None, control=None, drift=None,
 | `param_transform` | callable mapping experimental params to basis coefficients |
 | `n_experimental_params` | length of the experimental input; defaults to `projected_basis.lie_algebra_dim` |
 | `projective` | `True` (default) for projective fidelity, `False` for phase-sensitive |
+
+A basis element may not appear in both the control and the drift basis. Drift
+coefficients are written after control coefficients on the combined proj+drift array,
+so a shared element would have its control value silently overwritten — and under
+`param_transform` its gradient zeroed, leaving the parameter dead. `Parameters` raises
+a `ValueError` naming the offending elements at construction. To control an element
+that also carries a constant offset, leave it out of the drift basis and add the
+constant through `param_transform`:
+
+```python
+# ZI is controllable *and* sits at a fixed 0.7 offset.
+zi = list(full.labels).index("ZI")
+
+def param_transform(x):
+    return x.at[zi].add(0.7)
+```
 
 Attributes populated after construction:
 
@@ -393,7 +409,7 @@ The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under t
 
 ### Key functions
 
-- **`gammas_and_omegas(free_params)`** — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection $\gamma$, the full Jacobian $\partial U/\partial\phi$, and the per-parameter projections $\omega$. Returns $(\gamma, \omega)$.
+- **`gammas_and_omegas(free_params)`** — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection $\gamma$, the full Jacobian $\partial U/\partial\phi$, and the per-parameter projections $\omega$. Returns $(\gamma, \omega)$. **Both quantities are left-trivialised (multiplied by $U^\dagger$) before projecting**, and this is load-bearing: the Pauli basis is Hermitian, so `project_omegas_fn` keeps only the traceless-Hermitian part of its argument, while the raw geodesic tangent $U\Omega'$ and Jacobian columns $\partial_{g,k}U$ are $U\cdot(\text{Hermitian})$ and mostly fall outside it. The $U^\dagger$ makes $\Omega'$ and $iU^\dagger\partial_{g,k}U$ Hermitian, the projection lossless, and the least squares below an honest $\langle\cdot,\cdot\rangle_F$-orthogonal projection of the geodesic tangent onto $\mathrm{Im}(\mathrm{D}\Phi)$ — which is what the second-order line searches assume. Left translation is itself an isometry; it is the projection *after* it that would be lossy, so the two cannot be commuted.
 - **`linear_comb_projected_coeffs_multigate(ω, γ, E)`** — least-squares solve, optionally through a constraint expander $E$.
 - **`update_linesearch(params, coeffs, piecewise_steps)`** — golden-section minimisation of $\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})$ over $t \in [-t_{\max}, 0]$.
 
