@@ -1706,9 +1706,16 @@ enclosing <code>@jax.jit</code> update step on first <code>optimize()</code>.</p
     <div class="doc doc-contents first">
 
         <p>Build the projected geodesic-Hamiltonian (<code>gammas</code>) function.</p>
-<p>Computes the unitary, its geodesic Hamiltonian towards the target, and
-projects that onto the Pauli basis (normalised by the dimension). Returned
-un-jitted so it composes inside an enclosing <code>@jax.jit</code>.</p>
+<p>Computes the unitary, its geodesic Hamiltonian towards the target,
+left-trivialises it, and projects that onto the Pauli basis (normalised by
+the dimension). Returned un-jitted so it composes inside an enclosing
+<code>@jax.jit</code>.</p>
+<p><code>geo_fn</code> returns the <em>ambient</em> tangent <span class="arithmatex">\(U\Omega'\)</span> with
+<span class="arithmatex">\(\Omega'=-i\log(U^\dagger U_T)\)</span>; the <span class="arithmatex">\(U^\dagger\)</span> applied here recovers
+<span class="arithmatex">\(\Omega'\)</span> itself. That matters because the Pauli basis is Hermitian, so
+<code>project_omegas</code> keeps only the traceless-Hermitian part of its argument --
+see :func:<code>get_gammas_and_omegas_fn</code> for why projecting the ambient matrix
+instead would be lossy.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1805,7 +1812,7 @@ un-jitted so it composes inside an enclosing <code>@jax.jit</code>.</p>
 
 
 <h4 id="geope.engine.get_omegas_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_omegas_fn</span><span class="p">(</span><span class="n">jac_fn</span><span class="p">,</span> <span class="n">project_omegas_fn</span><span class="p">,</span> <span class="n">proj_indices</span><span class="p">,</span> <span class="n">has_proj_drift</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_omegas_fn</span><span class="p">(</span><span class="n">compute_U_fn</span><span class="p">,</span> <span class="n">jac_fn</span><span class="p">,</span> <span class="n">project_omegas_fn</span><span class="p">,</span> <span class="n">proj_indices</span><span class="p">,</span> <span class="n">has_proj_drift</span><span class="p">)</span></code>
 
 <a href="#geope.engine.get_omegas_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -1813,10 +1820,12 @@ un-jitted so it composes inside an enclosing <code>@jax.jit</code>.</p>
     <div class="doc doc-contents first">
 
         <p>Build the projected per-gate Jacobian (<code>omegas</code>) function.</p>
-<p>Projects the Jacobian of each gate (w.r.t. each parameter) onto the Pauli
-basis, optionally restricting to the projected indices within the combined
-proj+drift basis. Returned un-jitted so it composes inside an enclosing
-<code>@jax.jit</code>.</p>
+<p>Left-trivialises the Jacobian of each gate (w.r.t. each parameter) and
+projects it onto the Pauli basis, optionally restricting to the projected
+indices within the combined proj+drift basis. Returned un-jitted so it
+composes inside an enclosing <code>@jax.jit</code>.</p>
+<p>The <span class="arithmatex">\(U^\dagger\)</span> is what makes <span class="arithmatex">\(iU^\dagger\partial U\)</span> Hermitian and hence the
+Pauli projection lossless; see :func:<code>get_gammas_and_omegas_fn</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1830,6 +1839,22 @@ proj+drift basis. Returned un-jitted so it composes inside an enclosing
         </tr>
       </thead>
       <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>compute_U_fn</code>
+            </td>
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Parameter-list -&gt; unitary, used to left-trivialise.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
           <tr class="doc-section-item">
             <td>
                 <code>jac_fn</code>
@@ -1942,10 +1967,33 @@ projected-index restriction; mirrors the legacy
 <p>Gammas are the projected geodesic Hamiltonian coefficients; omegas encode
 the Jacobian of each gate w.r.t. each parameter, projected onto the Pauli
 basis. This is the single combined body the GEOPE update step calls (one
-<code>compute_U_fn</code> and one <code>jac_fn</code> evaluation), matching the legacy
-numerics; :func:<code>get_gammas_fn</code> / :func:<code>get_omegas_fn</code> are the separately
-testable halves. Returned un-jitted so it fuses into the enclosing
-<code>@jax.jit</code> update step on first <code>optimize()</code>.</p>
+<code>compute_U_fn</code> and one <code>jac_fn</code> evaluation);
+:func:<code>get_gammas_fn</code> / :func:<code>get_omegas_fn</code> are the separately testable
+halves. Returned un-jitted so it fuses into the enclosing <code>@jax.jit</code>
+update step on first <code>optimize()</code>.</p>
+<p><strong>Both arguments are left-trivialised before projecting, and they must be.</strong>
+The Pauli basis is Hermitian, so <code>project_omegas_fn</code> computes
+<span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(P_k M)/d\)</span> and therefore keeps only the
+traceless-Hermitian part of <span class="arithmatex">\(M\)</span>. The raw quantities are <em>ambient</em>: <code>geo_fn</code>
+returns <span class="arithmatex">\(U\Omega'\)</span> and the Jacobian columns are <span class="arithmatex">\(\partial_{g,k}U\)</span>, both of
+the form <span class="arithmatex">\(U\cdot(\text{traceless Hermitian})\)</span>, whose Hermitian part rotates
+with <span class="arithmatex">\(U\)</span>. Projecting those directly discards most of each matrix and makes
+the downstream least squares
+(:func:<code>geope.geope.linear_comb_projected_coeffs_multigate</code>) minimise in a
+<span class="arithmatex">\(U\)</span>-dependent seminorm rather than in <span class="arithmatex">\(\langle\cdot,\cdot\rangle_F\)</span>.</p>
+<p>Multiplying by <span class="arithmatex">\(U^\dagger\)</span> first gives <span class="arithmatex">\(\Omega'\)</span> and
+<span class="arithmatex">\(iU^\dagger\partial_{g,k}U\)</span>, which are traceless Hermitian, so the
+projection is an isometry onto its coefficients and the solve is exactly the
+Frobenius-orthogonal projection of the geodesic tangent onto
+<span class="arithmatex">\(\mathrm{Im}(\mathrm D\Phi)\)</span> that the geodesic step is defined to be. This
+is what makes the achieved velocity satisfy <span class="arithmatex">\(\Psi=P\Omega\)</span>, and with it the
+least-squares-residual lemma that the second-order line search
+(:class:<code>geope.line_searches.QuadraticArmijo</code>) leans on when it substitutes
+<span class="arithmatex">\(\|\Omega\|_F^2\)</span> for the intrinsic curvature term. Left translation is itself
+an isometry — it is the <em>projection after it</em> that was lossy, which is why
+the two operations cannot be commuted.</p>
+<p><code>examples/left_trivialisation.py</code> is a runnable worked example of the
+failure and this fix.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
