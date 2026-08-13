@@ -178,6 +178,32 @@ class Parameters:
         else:
             self.drift_basis = None
 
+        # Control and drift must address disjoint basis elements.
+        if self.drift_basis is not None:
+            shared = self.projected_indices & self.drift_indices
+            if shared.any():
+                shared_labels = [str(l) for l in np.array(self.basis.labels)[shared]]
+                raise ValueError(
+                    f"Control and drift bases overlap on {shared_labels}; they "
+                    "must be disjoint. Drift values are written after control "
+                    "values on shared basis elements, which would silently "
+                    "overwrite the control coefficient (and zero its gradient "
+                    "under `param_transform`).\n\n"
+                    "To control a basis element that also carries a constant "
+                    "offset, leave it out of the drift basis and add the "
+                    "constant through `param_transform`:\n\n"
+                    "def param_transform(x):\n"
+                    f'    idx = list(basis.labels).index("{shared_labels[0]}")\n'
+                    f"    x = x.at[idx].add(offset)  # the {shared_labels[0]} "
+                    "drift value\n"
+                    "    return x\n\n"
+                    "Repeat the two body lines for each shared element listed "
+                    "above, then pass `param_transform=param_transform` to "
+                    "`Parameters` and drop those elements from the drift "
+                    "basis. See the `Parameters` section of docs/user_guide.md "
+                    "for a worked example."
+                )
+
         # --- Immutable config ---
         self.target = np.array(target) if target is not None else None
         self.piecewise_steps = piecewise_steps
