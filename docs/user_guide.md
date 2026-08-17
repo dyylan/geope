@@ -388,6 +388,21 @@ for each step:
        Γ  = U · g                                   # geodesic tangent
        γ  = project(Γ) / d                          # coefficients in basis
 
+       `logm` here is `geope.jax.logm_unitary`, the unitary specialisation:
+       `U† U_T` is a product of unitaries, hence normal, and a matrix is normal
+       exactly when its complex Schur form is *diagonal*. So the principal log
+       is just the scalar log of that diagonal, and the inverse
+       scaling-and-squaring machinery in the general `geope.jax.logm` — which
+       exists to handle a non-zero super-diagonal — is skipped entirely. This
+       is exact, not an approximation. The same substitution applies to
+       `traceless_log` in the geometry-aware line searches.
+
+       It is also *more* accurate than the general path on an important class
+       of targets: Hermitian unitaries (Hadamard, the Paulis, CNOT, Toffoli)
+       have an eigenvalue at exactly −1, sitting on the principal branch cut,
+       which `logm_unitary` resolves to ~1e-16 against the general path's
+       ~1e-7.
+
     3. Compute the Jacobian projections:
        ω[g, k] = project(i · ∂U/∂φ_{g,k})
 

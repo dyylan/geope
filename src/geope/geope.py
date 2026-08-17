@@ -20,7 +20,7 @@ from .line_searches import (
     LineSearchContext,
     LineSearchGeometry,
 )
-from .jax import logm, get_hvp_propagator
+from .jax import logm_unitary, get_hvp_propagator
 from .parameters import Parameters
 from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
@@ -781,7 +781,11 @@ class Geope:
             def traceless_log(U):
                 # A = log_min(y^dagger x): principal log, traceless-projected to
                 # su(d) (the same choice as the geodesic step's Hamiltonian).
-                L = logm(target.conj().T @ U, key)
+                # The argument is unitary, so the specialised log applies; note
+                # the order U_T^dagger U is the conjugate of the geodesic step's
+                # U^dagger U_T, so the two logs differ by a sign. ``key`` is
+                # inert in logm_unitary and kept only for signature parity.
+                L = logm_unitary(target.conj().T @ U, key)
                 return L - (jnp.trace(L) / d) * eye_d
 
             def distance_f(t):
