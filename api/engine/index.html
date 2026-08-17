@@ -1711,7 +1711,7 @@ left-trivialises it, and projects that onto the Pauli basis (normalised by
 the dimension). Returned un-jitted so it composes inside an enclosing
 <code>@jax.jit</code>.</p>
 <p><code>geo_fn</code> returns the <em>ambient</em> tangent <span class="arithmatex">\(U\Omega'\)</span> with
-<span class="arithmatex">\(\Omega'=-i\log(U^\dagger U_T)\)</span>; the <span class="arithmatex">\(U^\dagger\)</span> applied here recovers
+<span class="arithmatex">\(\Omega'=-i\log(U^\dagger V)\)</span>; the <span class="arithmatex">\(U^\dagger\)</span> applied here recovers
 <span class="arithmatex">\(\Omega'\)</span> itself. That matters because the Pauli basis is Hermitian, so
 <code>project_omegas</code> keeps only the traceless-Hermitian part of its argument --
 see :func:<code>get_gammas_and_omegas_fn</code> for why projecting the ambient matrix
