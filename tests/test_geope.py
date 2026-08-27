@@ -50,6 +50,8 @@ from geope.geope import (
 )
 from geope.line_searches import (
     Adam,
+    ApproximateQuadraticArmijo,
+    Armijo,
     GoldenSection,
     LineSearch,
     QuadraticArmijo,
@@ -175,6 +177,50 @@ def full_basis_2q():
 def projected_basis_2q():
     """Heisenberg 2-qubit basis (9 elements ⊂ 15) — a proper subset of the full basis."""
     return construct_Heisenberg_pauli_basis(2)
+
+
+@dataclasses.dataclass(frozen=True)
+class _GeometryProbe(ApproximateQuadraticArmijo):
+    """``ApproximateQuadraticArmijo`` that also reports its geometry.
+
+    The geometry is computed inside the jitted update and normally never leaves,
+    so this widens the threaded line-search state to carry the fields a test
+    wants to assert on. ``ctx.geometry()`` is memoised per step, so calling it
+    here costs nothing extra.
+    """
+
+    name = "geometry_probe"
+
+    def init(self):
+        return {
+            **super().init(),
+            "q": jnp.asarray(0.0, jnp.float64),
+            "q_exact": jnp.asarray(0.0, jnp.float64),
+            "rho": jnp.asarray(0.0, jnp.float64),
+            "xi_rel": jnp.asarray(0.0, jnp.float64),
+        }
+
+    def __call__(self, ctx):
+        g = ctx.geometry()
+        dt, state = super().__call__(ctx)
+        extra = {"q": g.q, "q_exact": g.q_exact, "rho": g.rho, "xi_rel": g.xi_rel}
+        return dt, {**state, **extra}
+
+
+def _run_with_geometry_probe(params, max_steps):
+    """Optimise with the probe, returning one dict of geometry per step."""
+    rows = []
+
+    def record(step, history, geope):
+        st = geope.line_search_state or {}
+        if "q" in st:
+            rows.append({k: float(st[k]) for k in ("q", "q_exact", "rho", "xi_rel")})
+        return True
+
+    Geope(params, history=History()).optimize(
+        max_steps=max_steps, line_search=_GeometryProbe(), callbacks=(record,)
+    )
+    return rows
 
 
 @pytest.fixture
@@ -808,6 +854,170 @@ class TestLinearCombProjectedCoeffsMultigate:
 
 
 # ---------------------------------------------------------------------------
+# Tests — linear_comb_projected_coeffs_multigate diagnostics
+# ---------------------------------------------------------------------------
+
+_LS_DIAGNOSTIC_KEYS = {"residual", "residual_rel", "rank", "cond"}
+
+
+class TestLinearCombProjectedCoeffsDiagnostics:
+    def test_default_returns_bare_array(self):
+        """Without the flag the return value stays a plain array.
+
+        Regression guard for existing callers (the exploration notebooks call
+        this positionally and index the result directly).
+        """
+        comb_vecs = jnp.ones((2, 3, 4))
+        target = jnp.ones(4)
+        result = linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
+        assert isinstance(result, jnp.ndarray)
+        assert result.shape == (2, 3)
+
+    def test_returns_solution_and_diagnostics(self):
+        comb_vecs = jnp.ones((2, 3, 4))
+        target = jnp.ones(4)
+        sol, diag = linear_comb_projected_coeffs_multigate(
+            comb_vecs, target, None, return_diagnostics=True
+        )
+        assert sol.shape == (2, 3)
+        assert set(diag) == _LS_DIAGNOSTIC_KEYS
+        # The solution must be identical to the no-diagnostics call.
+        assert jnp.allclose(
+            sol, linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
+        )
+
+    def test_exactly_solvable_system(self):
+        """A consistent system has ~zero residual and full rank."""
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+            ]
+        )
+        target = jnp.array([0.5, 0.3, 0.1, 0.0])
+        sol, diag = linear_comb_projected_coeffs_multigate(
+            comb_vecs, target, None, return_diagnostics=True
+        )
+        assert jnp.allclose(sol[0], jnp.array([0.5, 0.3, 0.1]), atol=1e-10)
+        assert diag["residual"] < 1e-10
+        assert diag["residual_rel"] < 1e-10
+        assert int(diag["rank"]) == 3
+
+    def test_residual_matches_direct_computation(self):
+        """An inconsistent system's residual equals ||A x - b|| recomputed."""
+        # Column space spans only e0/e1, so the e2 component is unreachable.
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            ]
+        )
+        target = jnp.array([0.5, 0.3, 0.4])
+        sol, diag = linear_comb_projected_coeffs_multigate(
+            comb_vecs, target, None, return_diagnostics=True
+        )
+        A = jnp.concatenate(comb_vecs, axis=0).T
+        expected = jnp.linalg.norm(A @ sol.reshape(-1) - target)
+        assert jnp.allclose(diag["residual"], expected, atol=1e-10)
+        # The unreachable component is exactly the residual here.
+        assert jnp.allclose(diag["residual"], 0.4, atol=1e-10)
+        assert jnp.allclose(
+            diag["residual_rel"], expected / jnp.linalg.norm(target), atol=1e-10
+        )
+
+    def test_zero_target_relative_residual_is_zero_not_nan(self):
+        """The 0/0 guard: at convergence the geodesic tangent vanishes.
+
+        ``residual_rel`` divides by ``||target||``, which goes to zero as the
+        optimisation converges, so it must be defined (0.0) rather than NaN.
+        """
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0], [0.0, 1.0]],
+            ]
+        )
+        target = jnp.zeros(2)
+        sol, diag = linear_comb_projected_coeffs_multigate(
+            comb_vecs, target, None, return_diagnostics=True
+        )
+        assert jnp.allclose(sol, 0, atol=1e-10)
+        assert not jnp.isnan(diag["residual_rel"])
+        assert diag["residual_rel"] == 0.0
+        assert diag["residual"] < 1e-10
+
+    def test_rank_deficient_input(self):
+        """Duplicate columns drop the rank and keep ``cond`` finite."""
+        # Two identical omega rows -> the stacked matrix is rank 1.
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 1.0, 0.0], [1.0, 1.0, 0.0]],
+            ]
+        )
+        target = jnp.array([1.0, 1.0, 0.0])
+        _, diag = linear_comb_projected_coeffs_multigate(
+            comb_vecs, target, None, return_diagnostics=True
+        )
+        assert int(diag["rank"]) < 2
+        assert jnp.isfinite(diag["cond"])
+
+    def test_ill_conditioned_reports_large_cond(self):
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0, 0.0], [0.0, 1e-8, 0.0]],
+            ]
+        )
+        target = jnp.array([1.0, 1.0, 0.0])
+        _, diag = linear_comb_projected_coeffs_multigate(
+            comb_vecs, target, None, return_diagnostics=True
+        )
+        assert diag["cond"] > 1e6
+
+    def test_with_expander(self):
+        """The residual is the constrained one (solve is on A @ E)."""
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            ]
+        )
+        target = jnp.array([0.5, 0.3, 0.0])
+        # Expander tying the two coefficients together: only the symmetric
+        # combination is reachable, so the fit cannot be exact.
+        expander = jnp.array([[1.0], [1.0]])
+        sol, diag = linear_comb_projected_coeffs_multigate(
+            comb_vecs, target, expander, return_diagnostics=True
+        )
+        A = jnp.concatenate(comb_vecs, axis=0).T
+        expected = jnp.linalg.norm(A @ sol.reshape(-1) - target)
+        assert jnp.allclose(diag["residual"], expected, atol=1e-10)
+        assert diag["residual"] > 1e-3
+
+    def test_diagnostics_under_jit(self):
+        """The real call site is jitted, so the diagnostics must be traceable."""
+        comb_vecs = jnp.ones((2, 3, 4))
+        target = jnp.arange(4, dtype=jnp.float64)
+
+        @jax.jit
+        def solve(cv, t):
+            return linear_comb_projected_coeffs_multigate(
+                cv, t, None, return_diagnostics=True
+            )
+
+        sol, diag = solve(comb_vecs, target)
+        assert sol.shape == (2, 3)
+        assert set(diag) == _LS_DIAGNOSTIC_KEYS
+        assert all(jnp.isfinite(diag[k]) for k in ("residual", "residual_rel", "cond"))
+
+    def test_complex_input_gives_real_diagnostics(self):
+        """The standard (non-param_transform) path runs in complex128."""
+        comb_vecs = jnp.ones((2, 3, 4), dtype=jnp.complex128)
+        target = jnp.array([1.0, 1.0j, 0.5, 0.0], dtype=jnp.complex128)
+        _, diag = linear_comb_projected_coeffs_multigate(
+            comb_vecs, target, None, return_diagnostics=True
+        )
+        for key in ("residual", "residual_rel", "cond"):
+            assert not jnp.iscomplexobj(diag[key]), key
+            assert jnp.isfinite(diag[key]), key
+
+
+# ---------------------------------------------------------------------------
 # Tests — hvp_forward_over_reverse
 # ---------------------------------------------------------------------------
 
@@ -1171,6 +1381,178 @@ class TestGeope:
         g.optimize(max_steps=200, precision=0.9999999, line_search=QuadraticArmijo())
         assert g.history.best_fidelity > 0.999
 
+    # --- non-quadratic Armijo (first-order, no HVP) ----------------------
+
+    def test_armijo_value_semantics(self):
+        # Frozen-dataclass value equality (drives the compile memo).
+        assert Armijo() == Armijo()
+        assert Armijo(c1=1e-3) != Armijo()
+        assert Armijo() != QuadraticArmijo()
+
+    def test_armijo_runs_and_threads_n_eval(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # The first-order Armijo runs end to end, improves fidelity, and threads
+        # its per-step evaluation count as an integer state.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        g = Geope(p, history=History())
+        f0 = float(g.params.fidelity)
+        g.optimize(max_steps=60, line_search=Armijo())
+        assert isinstance(g.line_search, Armijo)
+        assert g.history.best_fidelity > f0
+        for f in g.history.fidelities:
+            assert 0 <= f <= 1
+        # n_eval populated: at least the F0 probe plus the seed evaluation.
+        assert int(g.line_search_state["n_eval"]) >= 2
+
+    def test_armijo_converges(self, cnot, full_basis_2q, projected_basis_2q):
+        # Seeding at the full bracket step and backtracking is enough to drive
+        # synthesis to high fidelity — no curvature needed.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        g = Geope(p, history=History())
+        g.optimize(max_steps=200, precision=0.9999999, line_search=Armijo())
+        assert g.history.best_fidelity > 0.999
+
+    def test_armijo_steps_within_bracket(self, cnot, full_basis_2q, projected_basis_2q):
+        # Every line-search step must land in [-max_step_size / G, 0]. Positive
+        # entries are the Gram-Schmidt fallback, which is not the line search.
+        max_step_size, steps = 0.9, 6
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=steps)
+        g = Geope(p, history=History())
+        g.optimize(max_steps=30, line_search=Armijo(), max_step_size=max_step_size)
+        a = -max_step_size / steps
+        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
+            if dt <= 0:
+                assert a - 1e-12 <= dt <= 0.0
+
+    def test_armijo_works_under_param_transform(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # The payoff of never calling ctx.geometry(): Armijo runs in the float64
+        # param_transform mode, where QuadraticArmijo raises NotImplementedError.
+        def transform(phi):
+            out = jnp.zeros(full_basis_2q.lie_algebra_dim)
+            out = out.at[0].set(jnp.cos(phi[0]))
+            out = out.at[1].set(jnp.sin(phi[1]))
+            out = out.at[2].set(phi[2] ** 2)
+            return out
+
+        def make():
+            return Geope(
+                _params_2q(
+                    cnot,
+                    full_basis_2q,
+                    projected_basis_2q,
+                    piecewise_steps=2,
+                    param_transform=transform,
+                    n_experimental_params=3,
+                ),
+                history=History(),
+            )
+
+        g = make()
+        g.optimize(max_steps=5, line_search=Armijo())
+        assert isinstance(g.line_search, Armijo)
+        for f in g.history.fidelities:
+            assert np.isfinite(f)
+
+        with pytest.raises(NotImplementedError):
+            make().optimize(max_steps=5, line_search=QuadraticArmijo())
+
+    # --- residual-aware quadratic Armijo ---------------------------------
+
+    def test_approx_quadratic_armijo_value_semantics(self):
+        # Frozen-dataclass value equality (drives the compile memo), and it must
+        # not compare equal to the surrogate-curvature variant.
+        assert ApproximateQuadraticArmijo() == ApproximateQuadraticArmijo()
+        assert ApproximateQuadraticArmijo(c1=1e-3) != ApproximateQuadraticArmijo()
+        assert ApproximateQuadraticArmijo() != QuadraticArmijo()
+
+    def test_approx_quadratic_armijo_runs_and_threads_n_eval(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        g = Geope(p, history=History())
+        f0 = float(g.params.fidelity)
+        g.optimize(max_steps=60, line_search=ApproximateQuadraticArmijo())
+        assert isinstance(g.line_search, ApproximateQuadraticArmijo)
+        assert g.history.best_fidelity > f0
+        for f in g.history.fidelities:
+            assert 0 <= f <= 1
+        assert int(g.line_search_state["n_eval"]) >= 1
+
+    def test_approx_quadratic_armijo_converges(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        g = Geope(p, history=History())
+        g.optimize(
+            max_steps=200,
+            precision=0.9999999,
+            line_search=ApproximateQuadraticArmijo(),
+        )
+        assert g.history.best_fidelity > 0.999
+
+    def test_q_exact_never_exceeds_q(self, cnot, full_basis_2q, projected_basis_2q):
+        # K_A <= I, so the exact intrinsic curvature can never exceed the
+        # ||Omega||^2 surrogate. Checked on every step of a real run.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        rows = _run_with_geometry_probe(p, max_steps=8)
+        assert rows  # the probe actually recorded something
+        for r in rows:
+            assert r["q_exact"] <= r["q"] + 1e-9
+            assert np.isfinite(r["q_exact"]) and np.isfinite(r["rho"])
+            assert 0.0 <= r["xi_rel"] <= 1.0
+
+    def test_zero_residual_leaves_q_exact_equal_to_q(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # With 6 x 9 = 54 unknowns against 15 equations the least-squares solve is
+        # underdetermined, so it fits the geodesic tangent exactly: the direction
+        # is radial, xi_rel vanishes and the two curvatures coincide. This is the
+        # regime in which ApproximateQuadraticArmijo is a no-op.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=6)
+        rows = _run_with_geometry_probe(p, max_steps=5)
+        for r in rows:
+            assert r["xi_rel"] < 1e-6
+            assert np.isclose(r["q_exact"], r["q"], rtol=1e-9, atol=1e-9)
+
+    def test_nonzero_residual_separates_the_two_curvatures(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # One piecewise step gives 9 unknowns against 15 equations, so the
+        # geodesic tangent is genuinely unreachable and the residual is non-zero.
+        # This is the regime the exact curvature exists for, so assert the
+        # correction actually does something here.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=1)
+        rows = _run_with_geometry_probe(p, max_steps=4)
+        assert any(r["xi_rel"] > 1e-3 for r in rows), "expected a non-zero residual"
+        assert any(
+            r["q"] - r["q_exact"] > 1e-9 for r in rows
+        ), "exact curvature should differ from the surrogate when xi_rel > 0"
+
+    def test_approx_quadratic_armijo_rejects_param_transform(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # Geometry-aware, so it inherits QuadraticArmijo's restriction.
+        def transform(phi):
+            out = jnp.zeros(full_basis_2q.lie_algebra_dim)
+            out = out.at[0].set(jnp.cos(phi[0]))
+            out = out.at[1].set(jnp.sin(phi[1]))
+            out = out.at[2].set(phi[2] ** 2)
+            return out
+
+        p = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=2,
+            param_transform=transform,
+            n_experimental_params=3,
+        )
+        with pytest.raises(NotImplementedError):
+            Geope(p).optimize(max_steps=5, line_search=ApproximateQuadraticArmijo())
+
     # --- run-control knobs (optimize() arguments) ------------------------
 
     def test_run_knobs_stored_from_optimize(self, params_2q):
@@ -1285,6 +1667,131 @@ class TestGeope:
         g.optimize(max_steps=2)
         n2 = len(g.history)
         assert n2 >= n1
+
+    # --- least-squares diagnostics ---------------------------------------
+
+    def test_ls_diagnostics_sentinels_before_any_solve(self, params_2q):
+        """Available (as sentinels) from construction, before any solve."""
+        g = Geope(params_2q)
+        assert set(g.ls_diagnostics) == _LS_DIAGNOSTIC_KEYS
+        assert np.isnan(g.ls_diagnostics["residual"])
+        assert np.isnan(g.ls_diagnostics["residual_rel"])
+        assert np.isnan(g.ls_diagnostics["cond"])
+        assert g.ls_diagnostics["rank"] == -1
+
+    def test_ls_diagnostics_populated_after_optimize(self, params_2q):
+        g = Geope(params_2q)
+        g.optimize(max_steps=3)
+        diag = g.ls_diagnostics
+        assert np.isfinite(diag["residual"])
+        assert np.isfinite(diag["residual_rel"])
+        assert 0.0 <= diag["residual_rel"] <= 1.0 + 1e-9
+        assert diag["rank"] > 0
+        # Host-side plain scalars, not device arrays.
+        assert isinstance(diag["residual"], float)
+        assert isinstance(diag["rank"], int)
+
+    def test_ls_diagnostics_reset_by_init(self, params_2q):
+        """init() re-seeds the sentinels so a fresh run never sees stale values."""
+        g = Geope(params_2q)
+        g.optimize(max_steps=2)
+        assert np.isfinite(g.ls_diagnostics["residual"])
+        g.init(g.init_parameters, g.drift_parameters, None, 42)
+        assert np.isnan(g.ls_diagnostics["residual"])
+        assert g.ls_diagnostics["rank"] == -1
+
+    def test_ls_diagnostics_logged_via_logging_fn(self, params_2q):
+        """The documented opt-in recipe, and the step-0 raggedness trap."""
+        g = Geope(
+            params_2q,
+            history=History(
+                logging_fn=lambda gg: {
+                    "fidelities": gg.params.fidelity,
+                    "ls_residual_rel": gg.ls_diagnostics["residual_rel"],
+                    "ls_rank": gg.ls_diagnostics["rank"],
+                    "ls_cond": gg.ls_diagnostics["cond"],
+                }
+            ),
+        )
+        g.optimize(max_steps=4)
+        # Every column must be equal-length (step 0 records the sentinel rather
+        # than starting the column late), else to_dataframe() would raise.
+        lengths = {k: len(v) for k, v in g.history.logs.items()}
+        assert len(set(lengths.values())) == 1, lengths
+        residuals = g.history["ls_residual_rel"]
+        assert np.isnan(residuals[0])  # step-0 sentinel: no solve yet
+        assert all(np.isfinite(r) for r in residuals[1:])
+        assert all(r > 0 for r in g.history["ls_rank"][1:])
+
+    def test_ls_diagnostics_decrease_as_fidelity_converges(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        """The relative residual shrinks toward 0 as the run converges.
+
+        Also the convergence guard end-to-end: the geodesic tangent vanishes as
+        fidelity -> 1, so residual_rel must stay finite (not 0/0 NaN) there.
+        """
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
+        g = Geope(
+            p,
+            history=History(
+                logging_fn=lambda gg: {
+                    "fidelities": float(gg.params.fidelity),
+                    "ls_residual_rel": gg.ls_diagnostics["residual_rel"],
+                }
+            ),
+        )
+        g.optimize(max_steps=300)
+        assert g.params.fidelity > 0.999
+        residuals = g.history["ls_residual_rel"][1:]
+        assert all(np.isfinite(r) for r in residuals)
+        # Converged: the geodesic direction is now essentially reachable.
+        assert residuals[-1] < 1e-2
+        assert residuals[-1] < residuals[0]
+
+    def test_ls_diagnostics_with_pulse_constraints(self):
+        """The expander_override update_step also threads the diagnostics."""
+        proj = construct_restricted_pauli_basis(3, ["x", "z", "zz"])
+        p = Parameters(
+            basis=construct_full_pauli_basis(3),
+            projected_basis=proj,
+            target=qft_unitary(3),
+            piecewise_steps=4,
+            pulse_constraints={(1, 2): ["zz"]},
+            seed=7,
+            init_spread=0.3,
+        )
+        g = Geope(p)
+        g.optimize(max_steps=3)
+        assert np.isfinite(g.ls_diagnostics["residual_rel"])
+        assert g.ls_diagnostics["rank"] > 0
+
+    def test_ls_diagnostics_with_param_transform(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        """The float64 (param_transform) path yields real, finite diagnostics."""
+        n_exp = 3
+
+        def transform(phi):
+            out = jnp.zeros(full_basis_2q.lie_algebra_dim)
+            out = out.at[0].set(jnp.cos(phi[0]))
+            out = out.at[1].set(jnp.sin(phi[1]))
+            out = out.at[2].set(phi[2] ** 2)
+            return out
+
+        p = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=2,
+            param_transform=transform,
+            n_experimental_params=n_exp,
+        )
+        g = Geope(p)
+        g.optimize(max_steps=3)
+        assert np.isfinite(g.ls_diagnostics["residual"])
+        assert np.isfinite(g.ls_diagnostics["residual_rel"])
+        assert g.ls_diagnostics["rank"] > 0
 
     def test_optimize_verbose(self, cnot, full_basis_2q, projected_basis_2q, capsys):
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q)

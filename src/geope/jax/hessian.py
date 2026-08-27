@@ -232,3 +232,87 @@ def get_hvp_propagator(
     else:
         raise ValueError(f"Unknown method {method!r}; expected 'eig' or 'block'.")
     return jax.jit(partial(hvp_propagator, step_fn=step_fn))
+
+
+def su_hessian_quadratic_form(A: Array, Omega: Array) -> tuple[Array, Array]:
+    r"""The Riemannian-Hessian quadratic form of the squared geodesic distance.
+
+    Evaluates $\langle\Omega,\mathcal K_A\Omega\rangle_F$, the intrinsic term of the
+    second derivative of $F=\tfrac12 d_g(\cdot,y)^2$ along a curve with
+    left-trivialised velocity $\Omega$, where
+
+    $$\mathcal K_A=\frac{\operatorname{ad}_A}{2}
+      \coth\!\left(\frac{\operatorname{ad}_A}{2}\right)$$
+
+    is the left-trivialised Riemannian Hessian at $x$ with
+    $A=\log_{\min}(y^\dagger x)$.
+
+    No operator is ever formed. $\mathcal K_A$ is diagonal in the eigenbasis of
+    $A$: since $A\in\mathfrak{su}(N)$ is skew-Hermitian, $-iA$ is Hermitian and a
+    single ``eigh`` gives $A=Q\,i\operatorname{diag}(\theta)\,Q^\dagger$. On the
+    root plane of the pair $(j,k)$ the operator $\operatorname{ad}_A$ has
+    eigenvalue $i\delta_{jk}$ with $\delta_{jk}=\theta_j-\theta_k$, so
+    $\mathcal K_A$ has the real eigenvalue $h(\delta_{jk})$ and, with
+    $\tilde\Omega=Q^\dagger\Omega Q$,
+
+    $$\langle\Omega,\mathcal K_A\Omega\rangle_F
+      =\sum_{j,k}h(\delta_{jk})\,\bigl|\tilde\Omega_{jk}\bigr|^2,
+      \qquad
+      h(\delta)=\frac{\delta}{2}\cot\!\left(\frac{\delta}{2}\right),
+      \quad h(0)=1,$$
+
+    which is manifestly real.
+
+    Unlike the surrogate $\|\Omega\|_F^2$, this is exact for an **arbitrary**
+    $\Omega$ — it does not assume the tangent matching $\Omega\parallel A$. The
+    two agree exactly when $\Omega\parallel A$, because $[A,A]=0$ gives
+    $\mathcal K_AA=A$ (the radial eigenvalue is $1$).
+
+    Since $h$ decreases from $1$ to $0$ on $[0,\pi)$, the eigenphase spread
+    $\rho=\Delta(A)=\max_j\theta_j-\min_j\theta_j$ bounds the whole spectrum:
+    for $\rho<\pi$,
+
+    $$\mu(\rho)I\preceq\mathcal K_A\preceq I,
+      \qquad \mu(\rho)=\frac{\rho}{2}\cot\!\left(\frac{\rho}{2}\right)>0,$$
+
+    so $\|\Omega\|_F^2$ is always an *upper* bound on the returned value there.
+    Beyond $\rho=\pi$ the form is indefinite, and $h$ diverges as
+    $|\delta|\to2\pi$ — the cut locus, where $\log_{\min}$ stops being unique.
+    ``rho`` is returned alongside so callers can test for that.
+
+    Args:
+        A: Skew-Hermitian ``Array`` of shape ``(d, d)``; the minimum-norm
+            logarithm $A=\log_{\min}(y^\dagger x)$, traceless for
+            $\mathfrak{su}(N)$.
+        Omega: ``Array`` of shape ``(d, d)``; the left-trivialised velocity
+            $\Omega=x^\dagger\,d\phi_\theta[p]$.
+
+    Returns:
+        A tuple ``(value, rho)`` of real scalars: the quadratic form
+        $\langle\Omega,\mathcal K_A\Omega\rangle_F$ and the eigenphase spread
+        $\rho=\Delta(A)$, both from the same eigendecomposition.
+
+    Example:
+        ```python
+        # Radial direction: the form reduces to ||A||_F^2 exactly.
+        value, rho = su_hessian_quadratic_form(A, A)
+        ```
+    """
+    # -1j * A is Hermitian for skew-Hermitian A, so eigh gives the eigenphases
+    # theta_j of A directly (A = Q i diag(theta) Q^dagger).
+    theta, Q = jnp.linalg.eigh(-1j * A)
+    delta = theta[:, None] - theta[None, :]
+
+    # h(delta) = (delta/2) cot(delta/2), continuously extended to h(0) = 1. The
+    # diagonal always hits delta = 0, so the small branch is never unused. Both
+    # branches of a `where` are evaluated, so feed tan() a *safe* argument -
+    # otherwise tan(0) in the discarded branch poisons the result (and any
+    # derivative) with nan.
+    small = jnp.abs(delta) < 1e-8
+    half = 0.5 * jnp.where(small, 1.0, delta)
+    h = jnp.where(small, 1.0 - delta**2 / 12.0, half / jnp.tan(half))
+
+    Omega_tilde = Q.conj().T @ Omega @ Q
+    value = jnp.sum(h * jnp.abs(Omega_tilde) ** 2)
+    rho = theta[-1] - theta[0]  # eigh returns ascending eigenvalues
+    return value, rho

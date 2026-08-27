@@ -6,6 +6,7 @@ Tested items:
     - _golden_section_search
     - _adam_line_search
     - _quadratic_armijo_line_search
+    - _armijo_line_search
 """
 
 import pytest
@@ -22,6 +23,7 @@ from geope.line_searches import (
     _golden_section_search,
     _adam_line_search,
     _quadratic_armijo_line_search,
+    _armijo_line_search,
 )
 
 # ===================================================================
@@ -194,8 +196,8 @@ class TestQuadraticArmijoLineSearch:
         assert int(n) == 1
 
     def test_nonpositive_curvature_falls_back_to_full_step(self):
-        # q <= q_floor: no trustworthy minimiser -> full step t0 = a, accepted on
-        # a purely linear (descent) objective.
+        # q <= 0: the model is concave, so it has no minimiser -> full step
+        # t0 = a, accepted on a purely linear (descent) objective.
         s, F0 = 1.0, 1.0
         fF = lambda t: F0 + s * t  # linear, min on [-1, 0] at t = -1
         t, F, n = _quadratic_armijo_line_search(fF, -1.0, s, -1.0, F0)
@@ -218,4 +220,87 @@ class TestQuadraticArmijoLineSearch:
         s, q, F0 = 1.0, 4.0, 1.0
         fF = lambda t: F0 + s * t + 0.5 * q * t**2
         t, F, n = jax.jit(lambda: _quadratic_armijo_line_search(fF, -1.0, s, q, F0))()
+        assert bool(jnp.isfinite(t)) and bool(jnp.isfinite(F))
+
+
+# ===================================================================
+# Tests — _armijo_line_search
+# ===================================================================
+#
+# The non-quadratic sibling: same one-sided bracket [a, 0] with a < 0 and s > 0,
+# but the seed is the full bracket step t0 = a and no curvature is consumed. With
+# s omitted it defaults to the radial slope s = 2 * F0, so the objectives below
+# use F0 = 1.0 and a true slope of 2.0 to be consistent with that.
+
+
+class TestArmijoLineSearch:
+    def test_returns_triple(self):
+        fF = lambda t: 1.0 + 2.0 * t
+        result = _armijo_line_search(fF, -1.0)
+        assert len(result) == 3
+
+    def test_takes_full_step_when_accepted(self):
+        # Linear descent objective: the full bracket step satisfies Armijo
+        # outright, so no backtracking happens. n_eval == 2: the F0 probe plus
+        # the seed evaluation.
+        fF = lambda t: 1.0 + 2.0 * t
+        t, F, n = _armijo_line_search(fF, -1.0)
+        assert jnp.isclose(t, -1.0)
+        assert int(n) == 2
+        assert jnp.isclose(F, fF(-1.0))
+
+    def test_backtracks_when_full_step_overshoots(self):
+        # A steep upward curvature makes the full step *increase* the objective,
+        # so the search must contract until sufficient decrease holds.
+        c1 = 1e-4
+        F0 = 1.0
+        s = 2.0 * F0  # the radial slope the routine will infer
+        fF = lambda t: F0 + s * t + 0.5 * 100.0 * t**2
+        t, F, n = _armijo_line_search(fF, -1.0, c1=c1)
+        assert int(n) > 2
+        assert -1.0 <= float(t) <= 0.0
+        assert float(F) <= F0 + c1 * float(t) * s + 1e-9  # Armijo holds at return
+
+    def test_explicit_F0_and_s_skip_the_probe(self):
+        # Supplying F0 saves its evaluation (n_eval == 1), and passing the same
+        # values the routine would have inferred reproduces the same step.
+        fF = lambda t: 1.0 + 2.0 * t
+        t_auto, F_auto, n_auto = _armijo_line_search(fF, -1.0)
+        t, F, n = _armijo_line_search(fF, -1.0, F0=1.0, s=2.0)
+        assert int(n) == 1
+        assert int(n_auto) == 2
+        assert jnp.isclose(t, t_auto) and jnp.isclose(F, F_auto)
+
+    def test_explicit_slope_changes_the_threshold(self):
+        # The Armijo bound is F0 + c1 * t * s with t < 0, so a *larger* s is a
+        # *stricter* demand and buys a shorter step. c1 is raised here because at
+        # the default 1e-4 the slope barely moves the threshold at all.
+        F0, c1 = 1.0, 0.4
+        fF = lambda t: F0 + 2.0 * t + 0.5 * 6.0 * t**2  # fF(-1) = 2.0 > F0
+        t_radial, _, _ = _armijo_line_search(fF, -1.0, c1=c1)  # radial s = 2 * F0
+        t_steep, F_steep, _ = _armijo_line_search(fF, -1.0, F0=F0, s=4.0, c1=c1)
+        assert abs(float(t_steep)) < abs(float(t_radial))
+        assert float(F_steep) <= F0 + c1 * float(t_steep) * 4.0 + 1e-9
+
+    def test_respects_t_min(self):
+        # No descent anywhere on the bracket: Armijo can never pass, so the search
+        # contracts to the floor and gives up there rather than looping forever.
+        t_min = 1e-2
+        fF = lambda t: 1.0 - 2.0 * t  # increases as t goes negative
+        t, F, n = _armijo_line_search(fF, -1.0, t_min=t_min)
+        assert t_min <= abs(float(t))
+        assert -1.0 <= float(t) <= 0.0
+        assert jnp.isclose(F, fF(t))
+
+    def test_converged_objective_accepts_seed(self):
+        # F0 <= 0 makes the Armijo test vacuous (nothing can beat it), so the
+        # guard accepts the seed instead of grinding down to t_min.
+        fF = lambda t: t**2  # fF(0) = 0, and every trial is worse
+        t, F, n = _armijo_line_search(fF, -1.0)
+        assert jnp.isclose(t, -1.0)
+        assert int(n) == 2
+
+    def test_jittable(self):
+        fF = lambda t: 1.0 + 2.0 * t
+        t, F, n = jax.jit(lambda: _armijo_line_search(fF, -1.0))()
         assert bool(jnp.isfinite(t)) and bool(jnp.isfinite(F))

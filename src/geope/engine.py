@@ -397,14 +397,16 @@ def get_gammas_and_omegas_fn(
     Frobenius-orthogonal projection of the geodesic tangent onto
     $\mathrm{Im}(\mathrm D\Phi)$ that the geodesic step is defined to be. This
     is what makes the achieved velocity satisfy $\Psi=P\Omega$, and with it the
-    least-squares-residual lemma that the second-order line search
-    (:class:`geope.line_searches.QuadraticArmijo`) leans on when it substitutes
-    $\|\Omega\|_F^2$ for the intrinsic curvature term. Left translation is itself
-    an isometry — it is the *projection after it* that was lossy, which is why
-    the two operations cannot be commuted.
+    least-squares-residual lemma the second-order line searches rely on:
+    :class:`geope.line_searches.QuadraticArmijo` substitutes
+    $\|\Omega\|_F^2$ for the intrinsic curvature term, which is valid only under
+    it, and :class:`geope.line_searches.ApproximateQuadraticArmijo` evaluates
+    that term exactly. Left translation is itself an isometry — it is the
+    *projection after it* that was lossy, which is why the two operations cannot
+    be commuted.
 
-    ``examples/left_trivialisation.py`` is a runnable worked example of the
-    failure and this fix.
+    ``tests/test_factories.py`` pins this invariant directly, with a
+    rank-deficient Jacobian that makes the ambient-projection failure visible.
 
     Args:
         compute_U_fn: Parameter-list -> unitary.

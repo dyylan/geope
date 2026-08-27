@@ -20,12 +20,12 @@ from .line_searches import (
     LineSearchContext,
     LineSearchGeometry,
 )
-from .jax import logm_unitary, get_hvp_propagator
+from .jax import logm_unitary, get_hvp_propagator, su_hessian_quadratic_form
 from .parameters import Parameters
 from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
 from functools import partial
-from typing import Callable
+from typing import Any, Callable
 
 # Single source of truth for the run-control knob defaults, shared by the
 # ``__init__``-body initialisers and the ``optimize()`` signature defaults so
@@ -58,6 +58,14 @@ class Geope:
         line_search_state: The current line-search state pytree (re-``init()``d
             per run); ``None`` until :meth:`optimize` is first called.
         step_size: Transient last line-search step size.
+        ls_diagnostics: Diagnostics of the *most recent* geodesic least-squares
+            solve, as a dict of host-side scalars with keys ``residual``,
+            ``residual_rel``, ``rank`` and ``cond`` (see
+            :func:`linear_comb_projected_coeffs_multigate`). Seeded with
+            ``nan`` / ``-1``
+            sentinels before the first solve of a run. Not logged by default —
+            pass a ``logging_fn`` to `History` (or read it from a callback) to
+            record it.
         history: Optional `History` logger (``None`` unless supplied),
             holding the full run trajectory.
     """
@@ -316,6 +324,14 @@ class Geope:
             self.params.compute_U_fn(free_params)
         )
         self.step_size = 0
+        # line search diagnostics
+        self.ls_diagnostics = {
+            "residual": float("nan"),
+            "residual_rel": float("nan"),
+            "rank": -1,
+            "cond": float("nan"),
+        }
+
         if self.history is not None:
             self.history.reset()
             self.history.record(self)  # step 0
@@ -436,15 +452,27 @@ class Geope:
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
             free_params = self._free(self.params.parameters).astype(_dtype)
-            coeffs, new_params_update, fidelity, step_size, self.line_search_state = (
-                update_step(
-                    free_params,
-                    self.params.parameters,
-                    self.params.piecewise_steps,
-                    self._split_key(),
-                    self.line_search_state,
-                )
+            (
+                coeffs,
+                new_params_update,
+                fidelity,
+                step_size,
+                self.line_search_state,
+                ls_diagnostics,
+            ) = update_step(
+                free_params,
+                self.params.parameters,
+                self.params.piecewise_steps,
+                self._split_key(),
+                self.line_search_state,
             )
+            # Pull the diagnostics to the host
+            self.ls_diagnostics = {
+                "residual": float(ls_diagnostics["residual"]),
+                "residual_rel": float(ls_diagnostics["residual_rel"]),
+                "rank": int(ls_diagnostics["rank"]),
+                "cond": float(ls_diagnostics["cond"]),
+            }
 
             if fidelity > self.precision:
                 if self.verbose:
@@ -467,6 +495,9 @@ class Geope:
                         end="\r",
                     )
                 if self.gram_schmidt_step_size:
+                    # The fallback replaces the step, but the geodesic solve
+                    # still happened, so ls_diagnostics stays the correct
+                    # description of this step's least-squares problem.
                     new_params_update, fidelity, step_size = self.gram_schmidt(coeffs)
                 pass
 
@@ -496,6 +527,11 @@ class Geope:
         full basis. Computes the fidelity if not provided, sets
         ``params.parameters`` / ``params.fidelity``, and records a row into
         ``history`` when one is attached.
+
+        A recorded row reads :attr:`ls_diagnostics` as-is. Inside
+        :meth:`optimize` that holds the current step's solve; called directly
+        from user code it holds whatever the last solve left there (or the
+        sentinels, if there has been none).
 
         Args:
             params: Parameter array (full, projected+drift, or projected shape).
@@ -778,6 +814,9 @@ class Geope:
             f = partial(infidelity_t, params=sliced_params, coeffs=coeffs)
             max_step_size = self.max_step_size / piecewise_steps
 
+            # TODO: I think we can reuse the Log from project-Gamma and omega
+            # TODO: I would like this to be cleaner and ensure that geometry does
+            # is not some bloated object.
             def traceless_log(U):
                 # A = log_min(y^dagger x): principal log, traceless-projected to
                 # su(d) (the same choice as the geodesic step's Hamiltonian).
@@ -813,19 +852,39 @@ class Geope:
                 _, V, W = hvp_fn(jnp.real(sliced_params), coeffs)
                 Omega = x.conj().T @ V
                 K_acc = V.conj().T @ V + x.conj().T @ W
-                # s, q are the exact 1st/2nd derivatives of F(theta + t coeffs).
+                # s is the exact first derivative of F(theta + t coeffs) for any
+                # Omega -- it assumes no tangent matching.
                 s = jnp.real(jnp.trace(A.conj().T @ Omega))
                 omega_norm2 = jnp.real(jnp.trace(Omega.conj().T @ Omega))
                 accel = jnp.real(jnp.trace(A.conj().T @ K_acc))
-                # <Omega, K_A Omega> ~ ||Omega||^2 (radial eigenvalue 1, exact
-                # under tangent matching Omega ~ -A); avoids the K_A operator.
+                # Two curvatures. ``q`` uses the radial surrogate
+                # <Omega, K_A Omega> ~ ||Omega||^2, exact only when Omega is
+                # parallel to A (K_A A = A); ``q_exact`` evaluates that term
+                # properly, which is what matters once the least-squares solve
+                # leaves a residual and the geodesic direction is unreachable.
                 q = omega_norm2 + accel
+                q_intrinsic, rho = su_hessian_quadratic_form(A, Omega)
+                q_exact = q_intrinsic + accel
+                # Relative tangent-matching error: the sine of the angle between
+                # Omega and A. ``coeffs`` is renormalised to a fixed norm, so a
+                # plain ||Omega - A|| would report that arbitrary rescale as
+                # error; the angle is scale-invariant and vanishes exactly when
+                # q_exact == q.
+                denom = A_norm2 * omega_norm2
+                positive = denom > 0
+                # cos^2 of the angle; at a converged iterate (A -> 0) both norms
+                # vanish, so define the directions as aligned there (xi_rel = 0).
+                cos2 = jnp.where(positive, s**2 / jnp.where(positive, denom, 1.0), 1.0)
+                xi_rel = jnp.sqrt(jnp.clip(1.0 - cos2, 0.0, 1.0))
                 g = LineSearchGeometry(
                     F0=0.5 * A_norm2,
                     s=s,
                     q=q,
                     chi=accel / omega_norm2,
                     A_norm2=A_norm2,
+                    q_exact=q_exact,
+                    rho=rho,
+                    xi_rel=xi_rel,
                 )
                 geom_cache["g"] = g
                 return g
@@ -849,7 +908,7 @@ class Geope:
 
     def get_update_step(
         self, expander_override: Array | None = None
-    ) -> Callable[..., tuple[Array, Array, Array, Array]]:
+    ) -> Callable[..., tuple[Array, Array, Array, Array, Any, dict[str, Array]]]:
         """Build a JIT-compiled geodesic update step function.
 
         Computes the optimal linear combination of omegas that matches
@@ -864,7 +923,15 @@ class Geope:
             A JIT-compiled callable
             ``update_step(free_params, params, piecewise_steps, key, ls_state)``
             returning
-            ``(coeffs, new_params, fidelity, step_size, new_ls_state)``.
+            ``(coeffs, new_params, fidelity, step_size, new_ls_state,
+            ls_diagnostics)``.
+
+            ``ls_diagnostics`` describes the least-squares solve for this step
+            (see
+            :func:`linear_comb_projected_coeffs_multigate`). Note ``coeffs`` is
+            renormalised to fixed norm $\\sqrt{N_g}$ *after* the solve, so the
+            diagnostics rate the quality of the geodesic *direction* fit, not
+            the error of the step actually taken.
         """
 
         @jax.jit
@@ -883,8 +950,11 @@ class Geope:
             else:
                 expander_gates = None
 
-            sol = linear_comb_projected_coeffs_multigate(
-                omegas_steps_phis, gammaU_params, expander_gates
+            sol, ls_diagnostics = linear_comb_projected_coeffs_multigate(
+                omegas_steps_phis,
+                gammaU_params,
+                expander_gates,
+                return_diagnostics=True,
             )
 
             # Expand the coefficients. In experimental (param_transform) mode
@@ -906,7 +976,14 @@ class Geope:
                 self.update_linesearch(params, coeffs, piecewise_steps, key, ls_state)
             )
 
-            return coeffs, new_params, fidelity_new_phi, step_size, new_ls_state
+            return (
+                coeffs,
+                new_params,
+                fidelity_new_phi,
+                step_size,
+                new_ls_state,
+                ls_diagnostics,
+            )
 
         return update_step
 
@@ -986,28 +1063,87 @@ def build_pulse_expander(
 
 
 def linear_comb_projected_coeffs_multigate(
-    combination_vectors: Array, target_vector: Array, expander: Array | None
-) -> Array:
+    combination_vectors: Array,
+    target_vector: Array,
+    expander: Array | None,
+    *,
+    return_diagnostics: bool = False,
+) -> Array | tuple[Array, dict[str, Array]]:
     """Solve for the linear combination of omegas matching a target vector.
 
     Uses least-squares to find coefficients that best reproduce
     `target_vector` from the columns of the concatenated
-    `combination_vectors`, optionally expanded by a constraint matrix.
+    `combination_vectors`, optionally expanded by a constraint matrix. Writing
+    $A=\\omega^T E$ (or $\\omega^T$ when there is no expander) and
+    $b=\\gamma$, this solves
+
+    $$\\text{sol} = \\arg\\min_x \\lVert A x - b\\rVert_2 .$$
 
     Args:
         combination_vectors: ``Array`` of omega vectors with shape
             ``(piecewise_steps, K_proj, K_full)``.
         target_vector: The target geodesic direction ``Array``.
         expander: Optional constraint expansion ``Array``, or ``None``.
+        return_diagnostics: When ``True``, also return a dict of scalar
+            diagnostics for the solve. They come for free from the same
+            ``jnp.linalg.lstsq`` call, which computes its residual
+            unconditionally, so this adds no work.
 
     Returns:
-        Solution ``Array`` of shape ``(piecewise_steps, K_proj)``.
+        Solution ``Array`` of shape ``(piecewise_steps, K_proj)``. When
+        ``return_diagnostics`` is ``True``, a tuple ``(sol, diagnostics)``
+        where ``diagnostics`` holds real scalars
+
+        * ``residual`` — $\\lVert A\\,\\text{sol} - b\\rVert_2$.
+        * ``residual_rel`` — $\\lVert A\\,\\text{sol}-b\\rVert_2/\\lVert
+          b\\rVert_2$, in $[0, 1]$; ``0.0`` when $\\lVert b\\rVert_2$
+          vanishes. This is the headline number: it measures how much of the
+          geodesic direction lies outside the controllable subspace, and is
+          comparable across steps and across problems.
+        * ``rank`` — the numerical rank of $A$.
+        * ``cond`` — $\\sigma_0/\\sigma_{\\text{rank}-1}$, the condition
+          number over the singular values retained above the ``rcond``
+          cutoff, i.e. the effective conditioning of the solve.
+
+        Note the residual describes the fit of the *unnormalised* solution:
+        the caller rescales it to a fixed norm before stepping, so these are
+        direction-quality diagnostics, not the error of the step taken.
     """
     comb_vecs = jnp.concatenate(combination_vectors, axis=0)
     comb_vecs_T = comb_vecs.T @ expander if expander is not None else comb_vecs.T
 
+    # ``lstsq`` returns (x, squared residual, rank, singular values); JAX
+    # computes the residual unconditionally (``numpy_resid=False``) so that it
+    # stays jit-safe, which makes the diagnostics below free.
     res = jnp.linalg.lstsq(comb_vecs_T, target_vector)
-    # TODO: If the residual is too large, we want to throw NaN and handle the error.
 
     sol = expander @ res[0] if expander is not None else res[0]
-    return sol.reshape(combination_vectors.shape[0], combination_vectors.shape[1])
+    sol = sol.reshape(combination_vectors.shape[0], combination_vectors.shape[1])
+    if not return_diagnostics:
+        return sol
+
+    # ``res[1]`` is the squared 2-norm, shaped (1,) because the target is 1-D.
+    residual = jnp.sqrt(res[1][0])
+    target_norm = jnp.linalg.norm(target_vector)
+    # Near convergence the geodesic tangent vanishes, so the relative residual
+    # is a genuine 0/0; define it as 0 there (the residual vanishes with it).
+    nonzero = target_norm > 0
+    safe_norm = jnp.where(nonzero, target_norm, 1.0)
+    residual_rel = jnp.where(nonzero, residual / safe_norm, 0.0)
+
+    rank = res[2]
+    singular_values = res[3]
+    # Singular values are descending, so index ``rank - 1`` is the smallest one
+    # retained above the rcond cutoff (JAX clamps the traced index).
+    smallest_kept = singular_values[rank - 1]
+    positive = smallest_kept > 0
+    safe_smallest: Array = jnp.where(positive, smallest_kept, 1.0)
+    cond = jnp.where(positive, singular_values[0] / safe_smallest, jnp.inf)
+
+    diagnostics = {
+        "residual": residual,
+        "residual_rel": residual_rel,
+        "rank": rank,
+        "cond": cond,
+    }
+    return sol, diagnostics
