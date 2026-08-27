@@ -1987,11 +1987,13 @@ projection is an isometry onto its coefficients and the solve is exactly the
 Frobenius-orthogonal projection of the geodesic tangent onto
 <span class="arithmatex">\(\mathrm{Im}(\mathrm D\Phi)\)</span> that the geodesic step is defined to be. This
 is what makes the achieved velocity satisfy <span class="arithmatex">\(\Psi=P\Omega\)</span>, and with it the
-least-squares-residual lemma that the second-order line search
-(:class:<code>geope.line_searches.QuadraticArmijo</code>) leans on when it substitutes
-<span class="arithmatex">\(\|\Omega\|_F^2\)</span> for the intrinsic curvature term. Left translation is itself
-an isometry — it is the <em>projection after it</em> that was lossy, which is why
-the two operations cannot be commuted.</p>
+least-squares-residual lemma the second-order line searches rely on:
+:class:<code>geope.line_searches.QuadraticArmijo</code> substitutes
+<span class="arithmatex">\(\|\Omega\|_F^2\)</span> for the intrinsic curvature term, which is valid only under
+it, and :class:<code>geope.line_searches.ApproximateQuadraticArmijo</code> evaluates
+that term exactly. Left translation is itself an isometry — it is the
+<em>projection after it</em> that was lossy, which is why the two operations cannot
+be commuted.</p>
 <p><code>examples/left_trivialisation.py</code> is a runnable worked example of the
 failure and this fix.</p>
 

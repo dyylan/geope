@@ -1159,6 +1159,23 @@ per run); <code>None</code> until :meth:<code>optimize</code> is first called.</
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="geope.geope.Geope.ls_diagnostics">ls_diagnostics</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Diagnostics of the <em>most recent</em> geodesic least-squares
+solve, as a dict of host-side scalars with keys <code>residual</code>,
+<code>residual_rel</code>, <code>rank</code> and <code>cond</code> (see
+:func:<code>linear_comb_projected_coeffs_multigate</code>). Seeded with
+<code>nan</code> / <code>-1</code>
+sentinels before the first solve of a run. Not logged by default —
+pass a <code>logging_fn</code> to <code>History</code> (or read it from a callback) to
+record it.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="geope.geope.Geope.history">history</span></code></td>
             <td>
             </td>
@@ -1735,6 +1752,10 @@ optimiser.</p>
 full basis. Computes the fidelity if not provided, sets
 <code>params.parameters</code> / <code>params.fidelity</code>, and records a row into
 <code>history</code> when one is attached.</p>
+<p>A recorded row reads :attr:<code>ls_diagnostics</code> as-is. Inside
+:meth:<code>optimize</code> that holds the current step's solve; called directly
+from user code it holds whatever the last solve left there (or the
+sentinels, if there has been none).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2074,7 +2095,7 @@ version. Used by pulse-shape constraints.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2084,7 +2105,7 @@ version. Used by pulse-shape constraints.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2094,7 +2115,7 @@ version. Used by pulse-shape constraints.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2104,11 +2125,81 @@ version. Used by pulse-shape constraints.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>(coeffs, new_params, fidelity, step_size, new_ls_state)</code>.</p>
+                <p>``(coeffs, new_params, fidelity, step_size, new_ls_state,</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>ls_diagnostics)``.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>ls_diagnostics</code> describes the least-squares solve for this step</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(see</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>func:<code>linear_comb_projected_coeffs_multigate</code>). Note <code>coeffs</code> is</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>renormalised to fixed norm <span class="arithmatex">\(\sqrt{N_g}\)</span> <em>after</em> the solve, so the</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>diagnostics rate the quality of the geodesic <em>direction</em> fit, not</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>the error of the step actually taken.</p>
               </div>
             </td>
           </tr>
