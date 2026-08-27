@@ -405,8 +405,8 @@ def get_gammas_and_omegas_fn(
     *projection after it* that was lossy, which is why the two operations cannot
     be commuted.
 
-    ``examples/left_trivialisation.py`` is a runnable worked example of the
-    failure and this fix.
+    ``tests/test_factories.py`` pins this invariant directly, with a
+    rank-deficient Jacobian that makes the ambient-projection failure visible.
 
     Args:
         compute_U_fn: Parameter-list -> unitary.

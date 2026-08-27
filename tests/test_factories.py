@@ -294,7 +294,7 @@ class TestGammasOmegas:
 # its argument; the raw quantities are U * (traceless Hermitian), so projecting
 # them directly is lossy in a U-dependent way and the downstream least squares
 # stops being the Frobenius-orthogonal projection it is defined to be. See
-# ``examples/left_trivialisation.py`` for the worked argument.
+# :func:`geope.engine.get_gammas_and_omegas_fn` for the worked argument.
 #
 # Two things make these tests bite, and both are load-bearing:
 #   * the Jacobian must be rank-deficient (8 dof against dim su(4) = 15). When it

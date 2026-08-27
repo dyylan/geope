@@ -20,7 +20,7 @@ from .line_searches import (
     LineSearchContext,
     LineSearchGeometry,
 )
-from .jax import logm_unitary, get_hvp_propagator
+from .jax import logm_unitary, get_hvp_propagator, su_hessian_quadratic_form
 from .parameters import Parameters
 from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
