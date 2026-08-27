@@ -1994,8 +1994,8 @@ it, and :class:<code>geope.line_searches.ApproximateQuadraticArmijo</code> evalu
 that term exactly. Left translation is itself an isometry — it is the
 <em>projection after it</em> that was lossy, which is why the two operations cannot
 be commuted.</p>
-<p><code>examples/left_trivialisation.py</code> is a runnable worked example of the
-failure and this fix.</p>
+<p><code>tests/test_factories.py</code> pins this invariant directly, with a
+rank-deficient Jacobian that makes the ambient-projection failure visible.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
