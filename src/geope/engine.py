@@ -8,7 +8,7 @@ from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
-from .jax.logm import logm
+from .jax.logm import logm_unitary
 from .jax.dexpm import (
     get_Ui_fn,
     get_dexpm,
@@ -202,13 +202,19 @@ def geodesic_hamiltonian(
         projective: If ``True``, subtract the global-phase generator
             (SU geodesic). If ``False``, keep it (U geodesic).
             Defaults to ``True``.
-        key: JAX random key forwarded to ``logm``. Defaults to
-            ``jax.random.key(0)``.
+        key: Unused, retained for signature compatibility. The
+            unitary-specialised ``logm_unitary`` needs no randomness;
+            only the general ``logm`` did, to seed its 1-norm estimator.
+            Defaults to ``jax.random.key(0)``.
 
     Returns:
         The geodesic tangent ``Array`` $U g'$ at the current unitary.
     """
-    g = -1.0j * logm(jnp.einsum("ji,jk->ik", unitary.conj(), target_unitary), key=key)
+    # $U^\dagger U_T$ is a product of unitaries, so the unitary-specialised
+    # log applies; ``key`` is inert there.
+    g = -1.0j * logm_unitary(
+        jnp.einsum("ji,jk->ik", unitary.conj(), target_unitary), key=key
+    )
     if projective:
         Id = jnp.eye(g.shape[0])
         global_phase = jnp.real(jnp.einsum("ij,ji->", Id, g)) / g.shape[0]
@@ -285,7 +291,7 @@ def get_gammas_fn(
     ``@jax.jit``.
 
     ``geo_fn`` returns the *ambient* tangent $U\Omega'$ with
-    $\Omega'=-i\log(U^\dagger U_T)$; the $U^\dagger$ applied here recovers
+    $\Omega'=-i\log(U^\dagger V)$; the $U^\dagger$ applied here recovers
     $\Omega'$ itself. That matters because the Pauli basis is Hermitian, so
     `project_omegas` keeps only the traceless-Hermitian part of its argument --
     see :func:`get_gammas_and_omegas_fn` for why projecting the ambient matrix
@@ -302,7 +308,9 @@ def get_gammas_fn(
 
     def gammas(free_params: Array, key: Array) -> Array:
         unitary = compute_U_fn(free_params)
-        gammaU = unitary.conj().T @ geo_fn(unitary, key=key)  # seed for logm
+        gammaU = unitary.conj().T @ geo_fn(
+            unitary, key=key
+        )  # key inert, kept for parity
         return project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(axis=0) / (
             gammaU.shape[0]
         )
@@ -417,7 +425,7 @@ def get_gammas_and_omegas_fn(
         unitary = compute_U_fn(free_params)
         # Left-trivialise before projecting -- see the note on the factory above.
         u_dag = unitary.conj().T
-        gammaU = u_dag @ geo_fn(unitary, key=key)  # seed for logm
+        gammaU = u_dag @ geo_fn(unitary, key=key)  # key inert, kept for parity
         gammaU_params = project_omegas_fn(jnp.expand_dims(gammaU, axis=0)).squeeze(
             axis=0
         ) / (gammaU.shape[0])

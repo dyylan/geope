@@ -19,7 +19,7 @@ from .dexpm import (
     expm_hvp,
     expm_hvp_eig,
 )
-from .logm import logm, rsf2csf, roots_legendre, sqrtm
+from .logm import logm, logm_unitary
 from .jacobian import (
     jacobian_propagator,
     get_jacobian_propagator,
