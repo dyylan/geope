@@ -8,7 +8,7 @@ from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
-from .lie import Basis
+from .geometry.lie import Basis
 from .utils import (
     prepare_random_parameters,
     merge_constraints,
@@ -17,14 +17,10 @@ from .utils import (
 from .line_searches import (
     GoldenSection,
     LineSearch,
-    LineSearchContext,
-    LineSearchGeometry,
 )
-from .jax import logm_unitary, get_hvp_propagator, su_hessian_quadratic_form
 from .parameters import Parameters
 from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
-from functools import partial
 from typing import Any, Callable
 
 # Single source of truth for the run-control knob defaults, shared by the
@@ -33,6 +29,13 @@ from typing import Any, Callable
 DEFAULT_PRECISION = 0.9999999
 DEFAULT_MAX_STEP_SIZE = 0.9
 DEFAULT_GRAM_SCHMIDT_STEP_SIZE = 1.3
+
+# Relative threshold for "this step made progress", applied to the line search's
+# own objective. It matches what the loop was really testing before: the old
+# ``jnp.isclose(fidelity, previous, atol=(1 - precision) / 100)`` guard carried
+# numpy's default ``rtol=1e-5``, which dominated that nominal ``atol=1e-9`` by
+# four orders of magnitude.
+PROGRESS_RTOL = 1e-5
 
 
 class Geope:
@@ -147,16 +150,15 @@ class Geope:
         self.pulse_constraints = params.pulse_constraints
 
         # The line search and its hyperparameters are arguments of optimize(),
-        # not the constructor. The JIT-compiled update_step / update_linesearch
-        # bake the line search and max_step_size into their closures, so they
-        # are built lazily by optimize() (via _configure_line_search) and
-        # rebuilt only when that configuration changes. The line-search object
-        # and its threaded state stay unset until the first optimize() call.
+        # not the constructor. The JIT-compiled update_step bakes the line search
+        # and max_step_size into its closure, so it is built lazily by optimize()
+        # (via _configure_line_search) and rebuilt only when that configuration
+        # changes. The line-search object and its threaded state stay unset until
+        # the first optimize() call.
         self.line_search = None
         self.line_search_state = None
         self._linesearch_config = None
         self.update_step = None
-        self.update_linesearch = None
 
         self.verbose = verbose
         # Initialize parameters
@@ -318,11 +320,7 @@ class Geope:
         else:
             self.drift_parameters = None
         self.params.parameters = np.array(self.init_parameters)
-        _dtype = np.float64 if self._real_params else np.complex128
-        free_params = jnp.array(self._free(self.params.parameters)).astype(_dtype)
-        self.params.fidelity = self.params.fid_U_fn(
-            self.params.compute_U_fn(free_params)
-        )
+        self.params.fidelity = self.params.manifold.fidelity_at(self.params.free())
         self.step_size = 0
         # line search diagnostics
         self.ls_diagnostics = {
@@ -347,14 +345,13 @@ class Geope:
         :meth:`optimize` after this returns, so the memo's early ``return``
         below never silently skips a state reset.
 
-        The JIT-compiled ``update_step`` / ``update_linesearch`` close over the
-        line-search object and ``max_step_size`` (baked into the
-        ``update_linesearch`` closure), so they must be recreated and re-traced
-        whenever either changes. The current configuration is memoised in
-        ``_linesearch_config`` so that repeated ``optimize()`` calls with
-        unchanged settings reuse the already-compiled functions instead of
-        triggering a fresh JAX recompilation; the frozen-dataclass value
-        ``__eq__`` makes two configs-equal line searches memo-equal.
+        The JIT-compiled ``update_step`` closes over the line-search object and
+        ``max_step_size``, so it must be recreated and re-traced whenever either
+        changes. The current configuration is memoised in ``_linesearch_config``
+        so that repeated ``optimize()`` calls with unchanged settings reuse the
+        already-compiled function instead of triggering a fresh JAX
+        recompilation; the frozen-dataclass value ``__eq__`` makes two
+        configs-equal line searches memo-equal.
 
         Args:
             line_search: The :class:`~geope.line_searches.LineSearch` object.
@@ -369,9 +366,6 @@ class Geope:
         self.max_step_size = max_step_size
         if self._linesearch_config == config:
             return
-        self.update_linesearch = self.get_update_linesearch(
-            self.params.fid_U_fn, self.params.compute_U_fn
-        )
         self.update_step = self.get_update_step()
         self._linesearch_config = config
 
@@ -409,6 +403,12 @@ class Geope:
                 the 1-based index of the step just completed, ``history`` is
                 ``geope.history`` (may be ``None``), and ``geope`` is this
                 optimiser.
+
+        A step is kept when it reduced the line search's own objective by more
+        than ``PROGRESS_RTOL`` relatively (`GoldenSection` and `Adam` minimise
+        the infidelity, the Armijo family the squared geodesic distance);
+        otherwise the Gram-Schmidt fallback replaces it. Convergence is always
+        tested on the fidelity.
 
         Returns:
             The bound `Parameters` instance, carrying the final
@@ -448,24 +448,18 @@ class Geope:
         cbs = normalize_callbacks(callbacks)
 
         step = 0
-        _dtype = jnp.float64 if self._real_params else jnp.complex128
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
-            free_params = self._free(self.params.parameters).astype(_dtype)
             (
                 coeffs,
                 new_params_update,
                 fidelity,
+                value0,
+                value,
                 step_size,
                 self.line_search_state,
                 ls_diagnostics,
-            ) = update_step(
-                free_params,
-                self.params.parameters,
-                self.params.piecewise_steps,
-                self._split_key(),
-                self.line_search_state,
-            )
+            ) = update_step(self.params.free(), self.line_search_state)
             # Pull the diagnostics to the host
             self.ls_diagnostics = {
                 "residual": float(ls_diagnostics["residual"]),
@@ -474,24 +468,28 @@ class Geope:
                 "cond": float(ls_diagnostics["cond"]),
             }
 
+            # Accept on the objective the line search actually minimised: both
+            # are minimised, so progress is value0 - value. Testing fidelity
+            # here instead used to discard perfectly good steps from the
+            # distance-objective searches.
+            progressed = value0 - value > PROGRESS_RTOL * abs(value0)
+
             if fidelity > self.precision:
                 if self.verbose:
                     print(
                         f"[{step}/{max_steps}] [Fidelity = {fidelity}] A solution!                                                                     ",
                         end="\r",
                     )
-            elif (fidelity > self.params.fidelity) and not jnp.isclose(
-                fidelity, self.params.fidelity, atol=(1 - self.precision) / 100
-            ):
+            elif progressed:
                 if self.verbose:
                     print(
-                        f"[{step}/{max_steps}] [Fidelity = {fidelity}] Omega geodesic gave a positive fidelity update for this step...                 ",
+                        f"[{step}/{max_steps}] [Fidelity = {fidelity}] Omega geodesic reduced the {self.line_search.objective} for this step...                 ",
                         end="\r",
                     )
             else:
                 if self.verbose:
                     print(
-                        f"[{step}/{max_steps}] [Fidelity = {self.params.fidelity}] Omega geodesic gave a negative fidelity update for this step. Moving phi away...    ",
+                        f"[{step}/{max_steps}] [Fidelity = {self.params.fidelity}] Omega geodesic stalled on the {self.line_search.objective} for this step. Moving phi away...    ",
                         end="\r",
                     )
                 if self.gram_schmidt_step_size:
@@ -542,6 +540,10 @@ class Geope:
         Returns:
             The fidelity of the new parameter set.
         """
+        # Parameters are real by construction; the update arrives in the
+        # holomorphic-Jacobian dtype (complex128, imaginary part exactly zero),
+        # so drop it here rather than letting numpy discard it with a warning.
+        params = np.real(np.asarray(params))
         if self._real_params:
             # Experimental space: only (piecewise_steps, n_exp) is valid
             new_params = np.array(params)
@@ -578,9 +580,7 @@ class Geope:
                 "Parameter shape does not match with full basis, projected & drift basis, or projected basis."
             )
         if fidelity is None:
-            _dtype = jnp.float64 if self._real_params else jnp.complex128
-            free_params = self._free(new_params).astype(_dtype)
-            fidelity = self.params.fid_U_fn(self.params.compute_U_fn(free_params))
+            fidelity = self.params.manifold.fidelity_at(self.params.free(new_params))
         if step_size is None:
             step_size = self.max_step_size
         self.params.parameters = new_params
@@ -593,17 +593,6 @@ class Geope:
     def _split_key(self) -> jax.Array:
         self._key, subkey = jax.random.split(self._key)
         return subkey
-
-    def _free(self, parameters):
-        """Select the free (projected+drift) parameter columns.
-
-        Identity in experimental (``param_transform``) mode, where every column
-        is already a free parameter; otherwise selects the proj+drift columns
-        via ``params.proj_drift_indices``. Works on numpy or JAX arrays.
-        """
-        if self._real_params:
-            return parameters
-        return parameters[:, self.params.proj_drift_indices]
 
     def gram_schmidt(self, coeffs: Array) -> tuple[Array, Array, float]:
         """Generate a Gram-Schmidt orthogonal fallback direction.
@@ -669,12 +658,11 @@ class Geope:
         fids = {}
         scaled_gs_step = self.gram_schmidt_step_size
         if self._real_params:
-            _dtype = jnp.float64
-            current_params = self._free(self.params.parameters)
+            current_params = self.params.free()
             for sign in [1, -1]:
                 new_exp = current_params + sign * scaled_gs_step * coeffs
-                fids[sign] = self.params.fid_U_fn(
-                    self.params.compute_U_fn(jnp.array(new_exp, dtype=_dtype))
+                fids[sign] = self.params.manifold.fidelity_at(
+                    jnp.asarray(new_exp, dtype=jnp.float64)
                 )
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
@@ -695,9 +683,7 @@ class Geope:
             # is by construction the fidelity of the parameters returned.
             for sign in [1, -1]:
                 trial = current_params + sign * scaled_gs_step * direction
-                fids[sign] = self.params.fid_U_fn(
-                    self.params.compute_U_fn(jnp.array(trial))
-                )
+                fids[sign] = self.params.manifold.fidelity_at(jnp.asarray(trial))
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
             new_parameters = current_params + sign * scaled_gs_step * direction
@@ -766,9 +752,7 @@ class Geope:
                 params[:, full_idx] = scale * tmpl
         self.params.parameters = params
         # Recompute fidelity after enforcement
-        _dtype = jnp.float64 if getattr(self, "_real_params", False) else jnp.complex128
-        free_params = self._free(params).astype(_dtype)
-        fid = float(self.params.fid_U_fn(self.params.compute_U_fn(free_params)))
+        fid = float(self.params.manifold.fidelity_at(self.params.free(params)))
         self.params.fidelity = fid
         if self.history is not None:
             if "parameters" in self.history.logs:
@@ -778,141 +762,22 @@ class Geope:
             if "infidelities" in self.history.logs:
                 self.history.logs["infidelities"][-1] = 1 - fid
 
-    def get_update_linesearch(
-        self, fid_fn: Callable[..., Array], compute_U_fn: Callable[..., Array]
-    ) -> Callable[..., tuple[Array, Array, Array]]:
-        """Build a JIT-compiled line-search update function.
-
-        Returns a function that, given current parameters and a search
-        direction, finds the optimal step size via the configured
-        line-search method.
-
-        Args:
-            fid_fn: JIT-compiled fidelity function.
-            compute_U_fn: JIT-compiled unitary computation function.
-
-        Returns:
-            A callable
-            ``update_linesearch(params, coeffs, piecewise_steps, ls_state)``
-            that returns ``(new_parameters, fidelity, dt, new_ls_state)``.
-        """
-
-        infid_fn = self.params.infid_U_fn
-        # Factory-time handles for the SU(N) geometry
-        target = jnp.asarray(self.params.target)
-        d = self.params.proj_drift_basis.dim
-        eye_d = jnp.eye(d, dtype=jnp.complex128)
-        hvp_fn = get_hvp_propagator(jnp.asarray(self.params.proj_drift_basis.basis))
-        real_params = self._real_params
-
-        def infidelity_t(t, params, coeffs):
-            return infid_fn(compute_U_fn(params + t * coeffs))
-
-        @jax.jit
-        def update_linesearch(params, coeffs, piecewise_steps, key, ls_state):
-            sliced_params = self._free(params)
-            f = partial(infidelity_t, params=sliced_params, coeffs=coeffs)
-            max_step_size = self.max_step_size / piecewise_steps
-
-            # TODO: I think we can reuse the Log from project-Gamma and omega
-            # TODO: I would like this to be cleaner and ensure that geometry does
-            # is not some bloated object.
-            def traceless_log(U):
-                # A = log_min(y^dagger x): principal log, traceless-projected to
-                # su(d) (the same choice as the geodesic step's Hamiltonian).
-                # The argument is unitary, so the specialised log applies; note
-                # the order U_T^dagger U is the conjugate of the geodesic step's
-                # U^dagger U_T, so the two logs differ by a sign. ``key`` is
-                # inert in logm_unitary and kept only for signature parity.
-                L = logm_unitary(target.conj().T @ U, key)
-                return L - (jnp.trace(L) / d) * eye_d
-
-            def distance_f(t):
-                # Squared-geodesic-distance objective along the ray, F = 1/2 ||A||^2.
-                A = traceless_log(compute_U_fn(sliced_params + t * coeffs))
-                return 0.5 * jnp.real(jnp.trace(A.conj().T @ A))
-
-            geom_cache = {}
-
-            def geometry():
-                # Lazy + memoised: only traced if the line search calls it, so
-                # zeroth-order methods pay no logm/HVP cost.
-                if "g" in geom_cache:
-                    return geom_cache["g"]
-                if real_params:
-                    raise NotImplementedError(
-                        "Geometry-aware line searches (e.g. QuadraticArmijo) are "
-                        "not supported under param_transform; use GoldenSection "
-                        "or Adam."
-                    )
-                x = compute_U_fn(sliced_params)
-                A = traceless_log(x)
-                A_norm2 = jnp.real(jnp.trace(A.conj().T @ A))
-                # Directional first/second derivatives of the product unitary.
-                _, V, W = hvp_fn(jnp.real(sliced_params), coeffs)
-                Omega = x.conj().T @ V
-                K_acc = V.conj().T @ V + x.conj().T @ W
-                # s is the exact first derivative of F(theta + t coeffs) for any
-                # Omega -- it assumes no tangent matching.
-                s = jnp.real(jnp.trace(A.conj().T @ Omega))
-                omega_norm2 = jnp.real(jnp.trace(Omega.conj().T @ Omega))
-                accel = jnp.real(jnp.trace(A.conj().T @ K_acc))
-                # Two curvatures. ``q`` uses the radial surrogate
-                # <Omega, K_A Omega> ~ ||Omega||^2, exact only when Omega is
-                # parallel to A (K_A A = A); ``q_exact`` evaluates that term
-                # properly, which is what matters once the least-squares solve
-                # leaves a residual and the geodesic direction is unreachable.
-                q = omega_norm2 + accel
-                q_intrinsic, rho = su_hessian_quadratic_form(A, Omega)
-                q_exact = q_intrinsic + accel
-                # Relative tangent-matching error: the sine of the angle between
-                # Omega and A. ``coeffs`` is renormalised to a fixed norm, so a
-                # plain ||Omega - A|| would report that arbitrary rescale as
-                # error; the angle is scale-invariant and vanishes exactly when
-                # q_exact == q.
-                denom = A_norm2 * omega_norm2
-                positive = denom > 0
-                # cos^2 of the angle; at a converged iterate (A -> 0) both norms
-                # vanish, so define the directions as aligned there (xi_rel = 0).
-                cos2 = jnp.where(positive, s**2 / jnp.where(positive, denom, 1.0), 1.0)
-                xi_rel = jnp.sqrt(jnp.clip(1.0 - cos2, 0.0, 1.0))
-                g = LineSearchGeometry(
-                    F0=0.5 * A_norm2,
-                    s=s,
-                    q=q,
-                    chi=accel / omega_norm2,
-                    A_norm2=A_norm2,
-                    q_exact=q_exact,
-                    rho=rho,
-                    xi_rel=xi_rel,
-                )
-                geom_cache["g"] = g
-                return g
-
-            ctx = LineSearchContext(
-                f=f,
-                a=-max_step_size,
-                b=jnp.asarray(0.0, jnp.float64),
-                state=ls_state,
-                geometry=geometry,
-                distance_f=distance_f,
-            )
-            dt, new_ls_state = self.line_search(ctx)
-            new_parameters = sliced_params + dt * coeffs
-            # Objective-agnostic
-            fidelity = fid_fn(compute_U_fn(new_parameters))
-
-            return new_parameters, fidelity, dt, new_ls_state
-
-        return update_linesearch
-
     def get_update_step(
         self, expander_override: Array | None = None
-    ) -> Callable[..., tuple[Array, Array, Array, Array, Any, dict[str, Array]]]:
-        """Build a JIT-compiled geodesic update step function.
+    ) -> Callable[..., tuple]:
+        r"""Build the JIT-compiled geodesic update step.
 
-        Computes the optimal linear combination of omegas that matches
-        the geodesic direction, then performs a line search.
+        One jitted function per line-search configuration, and one
+        `geope.geometry.GeometricContext` per call of it. The step is: open the
+        context, solve the least-squares problem for the linear combination of
+        omegas that best matches the geodesic direction, renormalise it, attach
+        it to the context, and line-search along it.
+
+        The context is built *inside* this function and never leaves it — it is a
+        trace-time object, not a pytree. Everything the line search needs (the
+        ray, the slope, the curvature) it reads off that one context, so the base
+        point's propagator, Jacobian and matrix logarithm are each evaluated
+        once per step however geometry-hungry the line search is.
 
         Args:
             expander_override: Optional constraint expander to use in
@@ -920,26 +785,27 @@ class Geope:
                 version. Used by pulse-shape constraints.
 
         Returns:
-            A JIT-compiled callable
-            ``update_step(free_params, params, piecewise_steps, key, ls_state)``
-            returning
-            ``(coeffs, new_params, fidelity, step_size, new_ls_state,
-            ls_diagnostics)``.
+            A JIT-compiled callable ``update_step(free_params, ls_state)``
+            returning ``(coeffs, new_params, fidelity, value0, value, step_size,
+            new_ls_state, ls_diagnostics)``.
 
-            ``ls_diagnostics`` describes the least-squares solve for this step
-            (see
+            ``value`` is the line search's own objective at the accepted step and
+            ``value0`` the same objective at ``t = 0``, which is what
+            :meth:`optimize` tests for progress. ``ls_diagnostics`` describes the
+            least-squares solve for this step (see
             :func:`linear_comb_projected_coeffs_multigate`). Note ``coeffs`` is
-            renormalised to fixed norm $\\sqrt{N_g}$ *after* the solve, so the
+            renormalised to fixed norm $\sqrt{N_g}$ *after* the solve, so the
             diagnostics rate the quality of the geodesic *direction* fit, not
             the error of the step actually taken.
         """
+        manifold = self.params.manifold
+        line_search = self.line_search
+        # Bracket half-width: baked in, so it joins the compile memo.
+        max_step_size = self.max_step_size
 
         @jax.jit
-        def update_step(free_params, params, piecewise_steps, key, ls_state):
-
-            gammaU_params, omegas_steps_phis = self.params.gammas_and_omegas(
-                free_params, key
-            )
+        def update_step(free_params, ls_state):
+            ctx = manifold.context(free_params)
 
             if expander_override is not None:
                 expander_gates = expander_override
@@ -951,37 +817,43 @@ class Geope:
                 expander_gates = None
 
             sol, ls_diagnostics = linear_comb_projected_coeffs_multigate(
-                omegas_steps_phis,
-                gammaU_params,
+                ctx.omegas,
+                ctx.gammas,
                 expander_gates,
                 return_diagnostics=True,
             )
 
-            # Expand the coefficients. In experimental (param_transform) mode
-            # every column is free, so the solution maps straight to coeffs;
-            # otherwise embed it at the projected indices of the proj+drift basis.
-            if self._real_params:
-                coeffs = sol
-            else:
-                coeffs = jnp.zeros(
-                    (
-                        self.params.piecewise_steps,
-                        self.params.proj_drift_basis.lie_algebra_dim,
-                    )
-                )
-                coeffs = coeffs.at[:, self.params.proj_indices_projdrift_basis].set(sol)
+            # Scatter the solved columns back over the chart's parameters (a
+            # no-op under param_transform, where every column is solvable), then
+            # fix the direction's norm so the bracket means the same thing at
+            # every step.
+            coeffs = manifold.tangent.embed(sol)
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
+            ctx.set_direction(coeffs)
 
-            new_params, fidelity_new_phi, step_size, new_ls_state = (
-                self.update_linesearch(params, coeffs, piecewise_steps, key, ls_state)
-            )
+            # One-sided bracket on the descent side: a useful step is negative
+            # (see `MatrixLieGroup.coefficients` for why), and t = 0 is "don't move".
+            a = -max_step_size / free_params.shape[0]
+            result = line_search(ctx, a, jnp.asarray(0.0, jnp.float64), ls_state)
+            new_params = free_params + result.dt * coeffs
+
+            if line_search.objective == "infidelity":
+                # The search already evaluated the infidelity at the accepted
+                # step, and fidelity = 1 - infidelity exactly: no extra propagator.
+                value0 = ctx.infidelity
+                fidelity = 1.0 - result.value
+            else:
+                value0 = ctx.F0
+                fidelity = manifold.fidelity_at(new_params)
 
             return (
                 coeffs,
                 new_params,
-                fidelity_new_phi,
-                step_size,
-                new_ls_state,
+                fidelity,
+                value0,
+                result.value,
+                result.dt,
+                result.state,
                 ls_diagnostics,
             )
 

@@ -49,7 +49,7 @@ def hessian_propagator(
 
     Memory note: the returned tensor is dense with shape ``(G, G, d, d, K, K)``,
     i.e. $O(G^2 d^2 K^2)$. For the infidelity-cost Hessian, prefer
-    `geope.engine.get_hessian_propagator_fn`, which contracts on the fly and never
+    `geope.geometry.lie.groups.get_hessian_propagator_fn`, which contracts on the fly and never
     materialises this object.
 
     Args:
@@ -154,7 +154,7 @@ def hvp_propagator(
     the product unitary along a parameter-space direction $p$, without forming
     the full Jacobian or the dense $(G, G, d, d, K, K)$ Hessian of
     `hessian_propagator`. With the product convention of
-    :func:`geope.engine.compute_matrices_params_list_fn`,
+    :func:`geope.geometry.chart.compute_matrices_params_list_fn`,
     $\phi(\theta) = U_{G-1} \cdots U_1 U_0$ with each gate left-multiplied,
     define the partial product $X_g = U_g \cdots U_0$ with derivatives
     $V_g = \dot X_g(0)$, $W_g = \ddot X_g(0)$ along $\theta(t) = \theta + t p$.
@@ -232,6 +232,55 @@ def get_hvp_propagator(
     else:
         raise ValueError(f"Unknown method {method!r}; expected 'eig' or 'block'.")
     return jax.jit(partial(hvp_propagator, step_fn=step_fn))
+
+
+# --- the autodiff alternative to the manual propagator above -----------------
+
+
+def hvp_forward_over_reverse(
+    f: Callable[[Array], Array], params: Array, v: Array
+) -> Array:
+    r"""Compute a Hessian-vector product via forward-over-reverse mode.
+
+    The chart-agnostic counterpart of `hvp_propagator`: it differentiates any
+    scalar callable rather than exploiting the product-of-exponentials structure,
+    so it works on the ``param_transform`` path where the manual propagator
+    cannot.
+
+    Args:
+        f: Scalar-valued callable of ``params``.
+        params: Parameter ``Array`` at which to evaluate.
+        v: Tangent ``Array`` for the Hessian-vector product.
+
+    Returns:
+        The Hessian-vector product $\nabla^2 f \cdot v$.
+    """
+    v = v.reshape(params.shape)
+    return jax.jvp(jax.grad(f), (params,), (v,))[1]
+
+
+def get_hessian_fn(infid_fn: Callable[[Array], Array]) -> Callable[[Array], Array]:
+    """Build the full Hessian function via forward-over-reverse HVPs.
+
+    Materialises the Hessian of ``infid_fn`` by mapping `hvp_forward_over_reverse`
+    over the identity matrix's columns — the autodiff drop-in for
+    `get_hessian_propagator`, and what `geope.geometry.Manifold.hessian` falls
+    back to when no analytic form is available. Returned un-jitted so it fuses
+    into the enclosing ``@jax.jit`` update step.
+
+    Args:
+        infid_fn: Scalar-valued infidelity callable of the free parameters.
+
+    Returns:
+        A ``Callable[[Array], Array]`` ``hess(y)`` returning the Hessian.
+    """
+
+    def hess(y: Array) -> Array:
+        return jax.vmap(lambda x: hvp_forward_over_reverse(infid_fn, y, x))(
+            jnp.eye(y.size, dtype=y.dtype)
+        )
+
+    return hess
 
 
 def su_hessian_quadratic_form(A: Array, Omega: Array) -> tuple[Array, Array]:

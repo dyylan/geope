@@ -12,22 +12,32 @@ drives GEOPE's compile memo (``Adam(1e-2) == Adam(1e-2)`` ⇒ no recompile) and 
 immutability keeps hyperparameter sweeps correct (a config cannot be mutated in
 place and silently reuse a stale compiled function).
 
-**The call contract.** ``Geope`` builds a :class:`LineSearchContext` once per step
-(inside the jitted ``update_linesearch``) and calls ``line_search(ctx)``, which
-returns ``(dt, new_state)``. The context always carries the cheap scalar
-objective ``ctx.f`` (infidelity along the line), the bracket ``ctx.a``/``ctx.b``,
-and the threaded ``ctx.state``. It *also* offers, behind lazy accessors, the
-squared-geodesic-distance objective ``ctx.distance_f`` and the exact SU(N)
-second-order geometry ``ctx.geometry()`` — because the line search is traced
-*inside* the jitted update, a lazy accessor a method never calls is never traced,
-so zeroth-order methods pay nothing for the ``logm``/HVP the geometry needs.
+**The call contract.** ``Geope`` builds one
+:class:`~geope.geometry.GeometricContext` per step (inside the jitted update) and
+calls ``line_search(ctx, a, b, state)``, which returns a :class:`LineSearchResult`
+``(dt, value, state)``. The context carries **only geometry**; the bracket
+``[a, b]`` and the threaded state are the search's own bookkeeping and travel
+alongside it, which is what lets a consumer with no bracket (``Gecko``) share the
+same context type. Every quantity on the context is lazy, and the line search is
+traced *inside* the jitted update, so a quantity a method never reads is never
+traced: zeroth-order methods pay nothing for the ``logm``/HVP the geometry needs.
+
+Each search declares which scalar objective it minimises as the class attribute
+``objective`` — ``"infidelity"`` (``ctx.infidelity_at``) or ``"distance"``
+(``ctx.distance_at``, the squared geodesic distance). It is deliberately *not* a
+dataclass field, so it stays out of the value ``__eq__`` that drives the compile
+memo. ``value`` in the result is that objective at the accepted step — every 1-D
+minimiser already computes it — and ``Geope.optimize`` decides whether the step
+made progress by comparing it against the same objective at ``t = 0``.
 
 The three orders of information cost different things per GEOPE step:
 :class:`GoldenSection` and :class:`Adam` are zeroth-order and evaluate only the
-cheap infidelity ``ctx.f``; :class:`Armijo` is first-order and evaluates the
-``logm``-bearing ``ctx.distance_f`` a few times but forms no derivative;
-:class:`QuadraticArmijo` is second-order and additionally pays one ``logm`` plus
-one directional HVP to seed its step from the exact curvature.
+cheap ``ctx.infidelity_at``; :class:`Armijo` is first-order and evaluates the
+``logm``-bearing ``ctx.distance_at`` a few times but forms no derivative;
+:class:`QuadraticArmijo` is second-order and additionally pays one directional
+HVP to seed its step from the exact curvature. None of them pays for a second
+matrix logarithm: the context's single ``ctx.A`` serves the geodesic step and the
+line search alike.
 
 Cross-step state is a JAX pytree threaded through the jitted update (mirroring
 ``Grape.optimizer_state``): a jitted closure traces once, so persistent state
@@ -46,88 +56,21 @@ import jax.numpy as jnp
 from jax import Array
 
 
-class LineSearchGeometry(NamedTuple):
-    """Exact second-order geometry of the objective along the search ray.
-
-    All fields are in the *coefficient* units of the search direction ``coeffs``
-    (i.e. derivatives of ``t -> F(theta + t * coeffs)``), so the model minimiser
-    ``-s / q`` is directly the step GEOPE adds. Assembled by ``Geope`` from the
-    SU(N) log and the directional HVP (see :meth:`Geope.get_update_linesearch`).
-
-    The slope ``s`` is exact for an arbitrary $\\Omega$. The curvature comes in two
-    flavours: ``q`` substitutes $\\|\\Omega\\|_F^2$ for the intrinsic term
-    $\\langle\\Omega,\\mathcal K_A\\Omega\\rangle_F$, which is exact only when
-    $\\Omega\\parallel A$ (i.e. when the geodesic direction is exactly reachable),
-    while ``q_exact`` evaluates that term properly. They coincide iff
-    ``xi_rel == 0``; otherwise ``q_exact <= q``, since $\\mathcal K_A\\preceq I$.
+class LineSearchResult(NamedTuple):
+    """What a :class:`LineSearch` returns.
 
     Attributes:
-        F0: The squared-geodesic-distance objective at the current point.
-        s: Slope $\\psi'(0) = \\langle A, \\Omega\\rangle_F$. Exact for any
-            $\\Omega$ — it makes no tangent-matching assumption.
-        q: Curvature $\\psi''(0)$ with the *radial surrogate* for the intrinsic
-            term: $\\|\\Omega\\|_F^2 + \\langle A, V^\\dagger V +
-            x^\\dagger W\\rangle_F$.
-        chi: The dimensionless radial bending coefficient $\\chi_\\phi$,
-            $\\langle A,\\dot\\Omega(0)\\rangle_F / \\|\\Omega\\|_F^2$.
-        A_norm2: $\\|A\\|_F^2 = 2 F0$.
-        q_exact: Curvature $\\psi''(0)$ with the exact intrinsic term,
-            $\\langle\\Omega,\\mathcal K_A\\Omega\\rangle_F + \\langle A,
-            V^\\dagger V + x^\\dagger W\\rangle_F$ (see
-            :func:`geope.jax.su_hessian_quadratic_form`).
-        rho: The eigenphase spread $\\rho = \\Delta(A)$. Below $\\pi$ the
-            intrinsic Hessian is positive definite; at $2\\pi$ lies the cut locus.
-        xi_rel: The relative tangent-matching error: the sine of the angle
-            between $\\Omega$ and $A$, i.e. the fraction of the geodesic
-            direction the controls cannot reproduce. This is the least-squares
-            residual made dimensionless, and it is ``0`` exactly when the
-            geodesic direction is reachable. Deliberately *scale-invariant*:
-            ``coeffs`` is renormalised to a fixed norm, so $\\|\\Omega\\|_F$
-            carries an arbitrary factor that a plain
-            $\\|\\Omega - A\\|_F/\\|A\\|_F$ would misreport as error, whereas
-            ``q_exact == q`` holds for any scale multiple of $A$.
+        dt: The accepted step size along the search direction.
+        value: The search's own ``objective`` at ``dt`` — every 1-D minimiser
+            computes this anyway, and ``Geope.optimize`` tests progress against
+            it rather than against a quantity the search never minimised.
+        state: The new line-search-owned state pytree (always carries
+            ``"n_eval"``).
     """
 
-    F0: Array
-    s: Array
-    q: Array
-    chi: Array
-    A_norm2: Array
-    q_exact: Array
-    rho: Array
-    xi_rel: Array
-
-
-@dataclass(frozen=True, eq=False)
-class LineSearchContext:
-    """Per-step information handed to a :class:`LineSearch`.
-
-    Built once per GEOPE step inside the jitted ``update_linesearch`` and
-    consumed immediately, so it is a plain (non-pytree) container: its array
-    fields are traced values and its callables are closures over the current
-    parameters/direction. The two lazy accessors are the point of the design —
-    they are only traced if a line search actually calls them.
-
-    Attributes:
-        f: The scalar infidelity along the line, ``f(t) -> infidelity``. Cheap;
-            always present.
-        a: Bracket endpoint (GEOPE passes ``-max_step_size / piecewise_steps``).
-        b: Bracket endpoint (GEOPE passes ``0.0``).
-        state: The threaded, line-search-owned state pytree.
-        geometry: Lazy, memoised accessor ``() -> LineSearchGeometry`` giving the
-            exact SU(N) slope/curvature along the direction. Calling it traces a
-            ``logm`` and a directional HVP.
-        distance_f: The squared-geodesic-distance objective along the line,
-            ``distance_f(t) -> ½‖log_min(y† U(θ+t·coeffs))‖²``, whose derivatives
-            ``geometry()`` reports (used for the Armijo sufficient-decrease test).
-    """
-
-    f: Callable[[Array], Array]
-    a: Array
-    b: Array
+    dt: Array
+    value: Array
     state: dict
-    geometry: Callable[[], LineSearchGeometry]
-    distance_f: Callable[[Array], Array]
 
 
 class LineSearch:
@@ -137,16 +80,34 @@ class LineSearch:
     JAX-pytree state. The base state carries only ``{"n_eval"}`` — the per-step
     count of 1-D-objective evaluations the search spent — which every line
     search reports; stateful searches (e.g. :class:`Adam`) extend it.
+
+    Attributes:
+        objective: Which scalar of the context this search minimises,
+            ``"infidelity"`` or ``"distance"``. A class attribute, not a
+            dataclass field, so it stays out of the compile memo; ``Geope`` reads
+            it to interpret :attr:`LineSearchResult.value`.
     """
 
     name = "line_search"
+    objective: str = "infidelity"
 
     def init(self):
         """Return a fresh state pytree (called once per ``optimize()`` run)."""
         return {"n_eval": jnp.asarray(0, jnp.int32)}
 
-    def __call__(self, ctx: LineSearchContext):
-        """Choose a step from ``ctx``; return ``(dt, new_state)``."""
+    def __call__(self, ctx, a: Array, b: Array, state: dict) -> LineSearchResult:
+        """Choose a step on the bracket ``[a, b]``.
+
+        Args:
+            ctx: The step's :class:`~geope.geometry.GeometricContext`, with a
+                direction already set.
+            a: Bracket endpoint (``Geope`` passes ``-max_step_size / G``).
+            b: Bracket endpoint (``Geope`` passes ``0.0``).
+            state: This search's threaded state from the previous step.
+
+        Returns:
+            A :class:`LineSearchResult`.
+        """
         raise NotImplementedError
 
 
@@ -154,9 +115,9 @@ class LineSearch:
 class GoldenSection(LineSearch):
     """Golden-section search (the default) — zeroth-order.
 
-    Minimises the infidelity ``ctx.f`` on the bracket; never touches the
-    geometry, so it incurs no ``logm``/HVP cost. Carries only the base
-    ``{"n_eval"}`` state (the per-step evaluation count).
+    Minimises ``ctx.infidelity_at`` on the bracket, and reads nothing else off
+    the context: no logarithm, no Jacobian, no HVP is traced on its account.
+    Carries only the base ``{"n_eval"}`` state (the per-step evaluation count).
 
     Args:
         tol: Convergence tolerance for the search interval. Defaults to 1e-5.
@@ -165,14 +126,16 @@ class GoldenSection(LineSearch):
     name = "golden_section"
     tol: float = 1e-5
 
-    def __call__(self, ctx: LineSearchContext):
-        dt, _, n_eval = _golden_section_search(ctx.f, ctx.a, ctx.b, tol=self.tol)
-        return dt, {"n_eval": n_eval}
+    def __call__(self, ctx, a, b, state):
+        dt, value, n_eval = _golden_section_search(
+            ctx.infidelity_at, a, b, tol=self.tol
+        )
+        return LineSearchResult(dt, value, {"n_eval": n_eval})
 
 
 @dataclass(frozen=True)
 class Adam(LineSearch):
-    """1-D Adam line search — zeroth-order (minimises ``ctx.f``).
+    """1-D Adam line search — zeroth-order (minimises ``ctx.infidelity_at``).
 
     Args:
         lr: Adam learning rate. Defaults to 0.05.
@@ -205,12 +168,12 @@ class Adam(LineSearch):
             "n_eval": jnp.asarray(0, jnp.int32),
         }
 
-    def __call__(self, ctx: LineSearchContext):
-        t0 = ctx.state["t_prev"] if self.warm_start else 0.0
-        dt, _, n_eval = _adam_line_search(
-            ctx.f,
-            ctx.a,
-            ctx.b,
+    def __call__(self, ctx, a, b, state):
+        t0 = state["t_prev"] if self.warm_start else 0.0
+        dt, value, n_eval = _adam_line_search(
+            ctx.infidelity_at,
+            a,
+            b,
             lr=self.lr,
             num_steps=self.num_steps,
             finite_difference=self.finite_difference,
@@ -220,7 +183,7 @@ class Adam(LineSearch):
             beta2=self.beta2,
             eps=self.eps,
         )
-        return dt, {"t_prev": dt, "n_eval": n_eval}
+        return LineSearchResult(dt, value, {"t_prev": dt, "n_eval": n_eval})
 
 
 @dataclass(frozen=True)
@@ -230,23 +193,22 @@ class Armijo(LineSearch):
     The non-quadratic sibling of :class:`QuadraticArmijo`: it seeds the trial
     step at the full bracket step $t_0=a=-t_{\max}$ instead of at the quadratic
     model minimiser $-s/q$, and then enforces sufficient decrease by Armijo
-    backtracking on ``ctx.distance_f``. Nothing here forms a derivative of the
-    product unitary, so — unlike :class:`QuadraticArmijo` — no directional HVP
-    (and no Jacobian/JVP) is ever traced.
+    backtracking on ``ctx.distance_at``. The note's §15 shows this loses nothing
+    in correctness — termination follows from the descent slope alone, and the
+    curvature only rescales the *first* trial.
 
-    The slope the Armijo test needs comes for free from the objective value. Under
-    the exact tangent matching $\Omega=-A$ that the geodesic step targets, the
-    note *Quadratic-Seeded Armijo Line Search on $\mathrm{SU}(N)$* (§11) gives
-    $s=\|A\|_F^2=2F_0$, so the test reduces to
+    Both quantities the Armijo test needs are free: ``ctx.F0`` is the objective
+    at $t=0$, which tier 0 of the context has already computed from its single
+    logarithm, and ``ctx.s`` is the exact slope $\langle A,\Omega\rangle$, one
+    contraction of tier 0's Jacobian. So this search spends no propagator and no
+    logarithm of its own before its first trial, and it uses the exact slope
+    rather than the radial $s=2F_0$ of the note's §11 — which held only under
+    perfect tangent matching, and not once ``coeffs`` has been renormalised.
 
-    $$F(t)\le F_0\,(1-2c_1 t),$$
-
-    i.e. it uses only the current and trial objective values. The note's §15 also
-    shows termination follows from the descent slope alone — the curvature $q$
-    only rescales the *first* trial, it is not needed for correctness.
-
-    Because it never calls ``ctx.geometry()``, this line search also works under
-    ``param_transform``, where :class:`QuadraticArmijo` raises.
+    Because it never reads the *curvature*, this line search still works under
+    ``param_transform`` (where the chart has no analytic second differential and
+    :class:`QuadraticArmijo` raises): the slope comes from the Jacobian, not the
+    HVP.
 
     Args:
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
@@ -255,19 +217,22 @@ class Armijo(LineSearch):
     """
 
     name = "armijo"
+    objective = "distance"
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
 
-    def __call__(self, ctx: LineSearchContext):
-        dt, _, n_eval = _armijo_line_search(
-            ctx.distance_f,
-            ctx.a,
+    def __call__(self, ctx, a, b, state):
+        dt, value, n_eval = _armijo_line_search(
+            ctx.distance_at,
+            a,
+            F0=ctx.F0,
+            s=ctx.s,
             c1=self.c1,
             beta=self.beta,
             t_min=self.t_min,
         )
-        return dt, {"n_eval": n_eval}
+        return LineSearchResult(dt, value, {"n_eval": n_eval})
 
 
 @dataclass(frozen=True)
@@ -276,16 +241,17 @@ class QuadraticArmijo(LineSearch):
 
     Implements the note *Quadratic-Seeded Armijo Line Search on
     $\mathrm{SU}(N)$*: it reads the exact slope $s=\psi'(0)$ and curvature
-    $q=\psi''(0)$ of the squared-geodesic-distance objective from
-    ``ctx.geometry()``, seeds the trial step at the local quadratic minimiser
+    $q=\psi''(0)$ of the squared-geodesic-distance objective off the context
+    (``ctx.s`` and ``ctx.q``), seeds the trial step at the local quadratic minimiser
     $-s/q$ (clipped to the bracket, with a full-bracket fallback when the
     curvature is non-positive), and enforces sufficient decrease with Armijo
-    backtracking on ``ctx.distance_f``. The per-step evaluation count is recorded
+    backtracking on ``ctx.distance_at``. The per-step evaluation count is recorded
     in the state as ``n_eval``.
 
-    Requires the standard (projective) mode; ``ctx.geometry()`` raises under
-    ``param_transform``. See :class:`Armijo` for the first-order variant that
-    drops the curvature (and with it the HVP and that restriction).
+    Requires the standard mode; ``ctx.q`` raises under ``param_transform``, where
+    the chart has no exponential-product structure for the HVP to exploit. See
+    :class:`Armijo` for the first-order variant that drops the curvature (and
+    with it the HVP and that restriction).
 
     Args:
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
@@ -294,26 +260,23 @@ class QuadraticArmijo(LineSearch):
     """
 
     name = "quadratic_armijo"
+    objective = "distance"
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
 
-    def init(self):
-        return {"n_eval": jnp.asarray(0, jnp.int32)}
-
-    def __call__(self, ctx: LineSearchContext):
-        g = ctx.geometry()
-        dt, _, n_eval = _quadratic_armijo_line_search(
-            ctx.distance_f,
-            ctx.a,
-            g.s,
-            g.q,
-            g.F0,
+    def __call__(self, ctx, a, b, state):
+        dt, value, n_eval = _quadratic_armijo_line_search(
+            ctx.distance_at,
+            a,
+            ctx.s,
+            ctx.q,
+            ctx.F0,
             c1=self.c1,
             beta=self.beta,
             t_min=self.t_min,
         )
-        return dt, {"n_eval": n_eval}
+        return LineSearchResult(dt, value, {"n_eval": n_eval})
 
 
 @dataclass(frozen=True)
@@ -321,7 +284,7 @@ class ApproximateQuadraticArmijo(LineSearch):
     r"""Residual-aware quadratic-seeded Armijo line search — second-order.
 
     Identical to :class:`QuadraticArmijo` except in *which* curvature seeds the
-    step: it uses ``ctx.geometry().q_exact`` rather than ``q``. The difference is
+    step: it uses ``ctx.q_exact`` rather than ``ctx.q``. The difference is
     the intrinsic term of $\psi''(0)$,
 
     $$\psi''(0)=\underbrace{\langle\Omega,\mathcal K_A\Omega\rangle_F}
@@ -350,8 +313,7 @@ class ApproximateQuadraticArmijo(LineSearch):
     the ``logm`` and HVP both already pay. Note that the slope ``s`` needs no
     correction — it is exact for any $\Omega$.
 
-    Requires the standard (projective) mode; ``ctx.geometry()`` raises under
-    ``param_transform``.
+    Requires the standard mode; ``ctx.q_exact`` raises under ``param_transform``.
 
     Args:
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
@@ -360,23 +322,23 @@ class ApproximateQuadraticArmijo(LineSearch):
     """
 
     name = "approximate_quadratic_armijo"
+    objective = "distance"
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
 
-    def __call__(self, ctx: LineSearchContext):
-        g = ctx.geometry()
-        dt, _, n_eval = _quadratic_armijo_line_search(
-            ctx.distance_f,
-            ctx.a,
-            g.s,
-            g.q_exact,
-            g.F0,
+    def __call__(self, ctx, a, b, state):
+        dt, value, n_eval = _quadratic_armijo_line_search(
+            ctx.distance_at,
+            a,
+            ctx.s,
+            ctx.q_exact,
+            ctx.F0,
             c1=self.c1,
             beta=self.beta,
             t_min=self.t_min,
         )
-        return dt, {"n_eval": n_eval}
+        return LineSearchResult(dt, value, {"n_eval": n_eval})
 
 
 # ---------------------------------------------------------------------------
@@ -739,7 +701,7 @@ def _armijo_line_search(
 
     Args:
         fF: Scalar-valued objective along the ray, ``fF(t) -> value`` (e.g. the
-            squared-geodesic-distance pullback ``ctx.distance_f``).
+            squared-geodesic-distance pullback ``ctx.distance_at``).
         a: Maximum-magnitude (bracket) step; ``a < 0`` on GEOPE's convention.
         F0: The objective value ``fF(0)``. Evaluated here when omitted, which
             costs one ``fF`` evaluation.

@@ -14,29 +14,53 @@ The core algorithm is the **geodesic method**: at each step it computes the shor
 
 The entry point is `Parameters` — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, `param_transform`, bounds, init values, seed, projective flag). Pass it to `Geope` and call `.optimize(max_steps=...)`. The returned `Parameters` carries the live/final `parameters` and `fidelity` (and `to_dict()`); the full run trajectory and `best_*` helpers live on an opt-in `History` logger (`geope.history`).
 
-The optimisation functions themselves (unitary computation, fidelity, Jacobian,
-geodesic Hamiltonian, gammas/omegas, Hessian) are **pure function factories** in
-`engine.py`. They are built lazily and cached on the `Parameters` object on first
-use, so there is no separate engine object — `Geope`, `Grape` and `Gecko` all read
-the functions straight off the (shared) `Parameters`. The factories return
-un-jitted callables; JIT compilation happens once, when the optimiser's
-`update_step` is first traced inside `optimize()`.
+The mathematics lives in the `geometry/` package, with each piece owned by
+whatever it actually depends on. `geometry/chart.py` holds the **pulse model** —
+the product-of-exponentials chart and its Jacobians — which belongs to no
+manifold and imports nothing but JAX. Everything that *is* manifold-specific (the
+metric, the logarithm, the fidelity formulas) hangs off a `Manifold`.
+`Parameters.manifold` is the single lazily-built, memoised bridge between the
+two, so there is no separate engine object: `Geope`, `Grape` and `Gecko` all read
+what they need off the (shared) `Parameters`.
+
+Those factories return **un-jitted** callables, so they fuse into the
+optimiser's `update_step`, which is JIT-compiled once when `optimize()` first
+traces it. The exceptions are the manifold's two host-facing objectives,
+`manifold.fidelity_at` and `manifold.infidelity_at`: those are called one trial
+pulse at a time from Python loops, so they are compiled once and memoised on
+the manifold. Calling them inside a trace still works — a jitted callable
+inlines.
 
 ## Class hierarchy
 
 ```
-Basis, Hamiltonian, Unitary      (lie.py)
-
-engine.py  — pure function factories (get_jacobian_fn, get_geodesic_hamiltonian_fn,
-             get_gammas_and_omegas_fn, get_hessian_fn, fidelity helpers, …)
+jax/       — differentiable primitives (logm, dexpm, the propagator
+             Jacobian/Hessian, the autodiff Hessian)
+                ↓ used by
+geometry/chart.py — the pulse model: the product-of-exponentials chart and its
+             Jacobians. Manifold-agnostic; imports nothing but JAX.
+                ↓ composed by
+geometry/  — Manifold  ──owns──▶ compute_U (the chart), target
+             │                   TangentBundle (jacobian, hvp, fibre coordinates)
+             └──▶ GeometricContext: every per-step quantity, in cost tiers
                 ↓ built lazily & cached on
 Parameters                       (parameters.py)
                 ↘
                   Geope / Grape  (geope.py / grape.py)
                   Gecko          (gecko.py)
+
+geometry/lie/      Basis + the UnitaryGroup / SpecialUnitaryGroup manifolds,
+                   with the fidelity formulas they own
+geometry/stiefel/  Stiefel (orthonormal m-frames, canonical metric) and
+                   StateSphere — state preparation; neither is a Lie group
 ```
 
-## Lie group classes (`lie.py`)
+The optimisers know nothing about *which* space they are walking: `Geope`, the
+line searches and `Gecko` speak only to the `Manifold` interface. Gate synthesis
+on $\mathrm{SU}(d)$ and state preparation on $\mathbb{CP}^{n-1}$ are the same
+code with a different manifold.
+
+## Lie group classes (`geometry/lie/`)
 
 ### `Basis`
 
@@ -78,34 +102,20 @@ Key methods:
 - `generate_bounds(bounds_map, piecewise_steps)` — converts `{"x": (-1, 1)}` to `(lower, upper)` arrays.
 - `apply_interaction_graph(graph)` / `apply_interaction_map(map)` — prune to hardware connectivity.
 
-### `Hamiltonian`
+### Removed: `Hamiltonian` and `Unitary`
 
-Represents $H = \sum_i \phi_i G_i$ and its unitary $U = e^{iH}$.
+These two host-side wrapper classes were a second, numpy/scipy implementation of
+mathematics the geometry layer now owns, and were removed. Their replacements:
 
-```python
-Hamiltonian(basis, parameters)
-```
-
-| Attribute | Description |
-|-----------|-------------|
-| `basis` | the `Basis` object |
-| `parameters` | coefficient vector $\phi$ |
-| `matrix` | $\sum_i \phi_i G_i$ |
-| `unitary` | `Unitary(expm(i·matrix))` |
-
-Methods:
-
-- `geodesic_hamiltonian(target_unitary)` — a `Hamiltonian` whose parameters are the geodesic direction $-i\log(U^\dagger U_T)$ decomposed in the basis.
-- `fidelity(unitary_matrix)` — $|\mathrm{Tr}(U^\dagger V)|/d$.
-- `parameters_from_hamiltonian(H, basis)` (static) — coefficients via $\mathrm{Re}\,\mathrm{Tr}(G_i H)/d$.
-
-### `Unitary`
-
-Wraps a unitary matrix with validation. Validates $UU^\dagger = I$ on construction.
-
-- `parameters(basis)` — Lie-algebra coefficients via the principal `logm`.
-- `fidelity(other)`.
-- `geodesic_hamiltonian(basis, target)`.
+| was | is |
+|---|---|
+| `Hamiltonian(basis, phi).matrix` | `basis.linear_span(phi)` — the same $\sum_k \phi_k G_k$ |
+| `Hamiltonian(basis, phi).unitary.matrix` | `params.manifold.compute_U(phi)` — the chart, for the whole piecewise pulse rather than one gate |
+| `Hamiltonian.parameters_from_hamiltonian(H, basis)` | `geope.geometry.lie.pauli_projector.project_omegas` — the same $\mathrm{Re}\,\mathrm{Tr}(G_i H)/d$ |
+| `h.geodesic_hamiltonian(V)` / `u.geodesic_hamiltonian(basis, V)` | `-params.manifold.log(U, V)`, then `.coefficients(U, ...)` — i.e. `ctx.A` and `ctx.gammas` |
+| `Unitary.unitary_fidelity(A, B)` | `params.manifold.fidelity(A, B)` |
+| `Unitary(U).parameters(basis)` | `m.coefficients(I, m.log(I, U))` |
+| `Unitary(U)`'s $UU^\dagger = I$ check | `manifold.validate_point(U)` — which `Parameters` runs on your `target` at construction, so an off-manifold target now fails loudly instead of yielding meaningless fidelities |
 
 ## Basis construction utilities (`utils.py`)
 
@@ -282,26 +292,62 @@ properties (computed once from `basis` / `projected_basis` / `drift_basis`):
 - `drift_indices_projdrift_basis` — drift mask within the proj+drift subspace.
 - `proj_drift_basis` — `Basis` containing only the projected + drift elements; used for all JIT computations.
 
-### Optimisation functions (`engine.py`, cached on `Parameters`)
+### The manifold (`params.manifold`)
 
-The optimisation primitives are **pure function factories** in `engine.py`. Each
-is built lazily and cached on the `Parameters` object on first access, so the
-optimisers read them as `params.<name>` (there is no engine object). They return
-**un-jitted** callables that fuse into the optimiser's `@jax.jit update_step` —
-so compilation happens once, on the first `optimize()` call, not at construction.
+Everything the optimisers need hangs off **one** lazily-built, cached handle:
 
-- `params.compute_U_fn(params_list)` — scans over piecewise steps via `jax.lax.scan`:
-  $\,U = \prod_g \exp\!\bigl(i \sum_i \phi_{g,i}\,G_i\bigr).$ Input shape: $(N_g, K_{\text{pd}})$.
-- `params.fid_U_fn(U)` — $|\mathrm{Tr}(U_T^\dagger U)|/d$ when `projective=True`, $\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)/d$ when `projective=False`.
-- `params.project_omegas_fn` — projects matrices onto the full Pauli basis via trace inner products $\mathrm{Tr}(G_i M)$. For $n > 5$ uses on-the-fly batched projection to manage memory.
-- `params.jac_fn` — Jacobian $\partial U/\partial\phi_{g,k}$ (JAX autodiff, `holomorphic=True`; a real/imag-split Jacobian under `param_transform`).
-- `params.geo_fn` — geodesic tangent at $U$: $U \cdot \bigl(-i\log(U^\dagger U_T)\bigr)$, with the global-phase generator subtracted when `projective=True`.
-- `params.gammas_and_omegas` — the combined geodesic-coefficients-and-Jacobian-projection used by the GEOPE update step.
-- `params.infid_U_fn`, `params.infid_fn`, `params.grad_fn`, `params.hess_fn` — infidelity helpers; `grad_fn`/`hess_fn` are used by GRAPE.
+```python
+m = params.manifold          # bound to this problem's chart and target
+m.compute_U(phi)             # the chart: parameters -> a point on the manifold
+m.fidelity_at(phi)           # the convergence score (compiled); m.infidelity_at(phi) is the cost
+m.value_and_grad, m.hessian  # what GRAPE differentiates
+m.tangent.jacobian           # the chart's pushforward
+m.context(phi)               # the per-step geometry (see below)
+```
 
-Because the functions are cached on `Parameters`, sharing one `Parameters`
-between a `Geope` and a `Gecko` reuses the identical callables — so JAX reuses
-the compiled traces instead of recompiling.
+`Parameters` chooses the manifold from `projective` (or from an explicit
+`manifold=`) and binds it on first access, so a `Geope` and a `Gecko` sharing one
+`Parameters` share the compiled traces. The manifold is where the SU-vs-U choice
+lives — it is consulted nowhere else.
+
+**The per-step context.** `m.context(phi)` returns a `GeometricContext`: every
+geometric quantity a step needs, each a lazily-computed cached property, grouped
+by what it costs.
+
+| tier | quantities | cost |
+| --- | --- | --- |
+| 0 — base point | `point`, `jacobian`, `A`, `F0`, `gammas`, `omegas`, `fidelity`, `infidelity` | one propagator, one Jacobian, **one** logarithm |
+| 1 — direction | `V`, `Omega`, `s`, `xi_rel` | free: a contraction of tier 0's Jacobian |
+| 2 — curvature | `W`, `q`, `q_exact`, `rho`, `chi` | one directional HVP plus one `eigh` |
+| 3 — ray | `point_at(t)`, `infidelity_at(t)`, `distance_at(t)` | one propagator per trial point |
+
+Laziness is load-bearing rather than an optimisation: `Gecko` reads only
+`omegas`, and so never traces the matrix logarithm at all. Only tier 0 is
+direction-free — the search direction arrives via `ctx.set_direction(coeffs)`
+after the least-squares solve (which needs `gammas`/`omegas`) and may be set
+once; every direction-dependent property raises before that.
+
+The context is **trace-time only**: build one per step inside the jitted update,
+and never return it from a jitted function or put it in a `scan`/`while_loop`
+carry.
+
+**Migrating from `params.<name>_fn`.** The eleven cached function properties are
+gone; each has a home on the manifold:
+
+| was | is |
+| --- | --- |
+| `params.compute_U_fn` | `params.manifold.compute_U` |
+| `params.fid_U_fn(U)` / `infid_U_fn(U)` | `params.manifold.fidelity(U, target)` / `.infidelity(...)` |
+| `params.fid_U_fn(params.compute_U_fn(phi))` | `params.manifold.fidelity_at(phi)` |
+| `params.infid_fn(phi)` | `params.manifold.infidelity_at(phi)` |
+| `params.grad_fn` / `params.hess_fn` | `params.manifold.value_and_grad` / `.hessian` |
+| `params.jac_fn` | `params.manifold.tangent.jacobian` |
+| `params.geo_fn(U)` | `-params.manifold.log(U, target)` (at the base point; no `U·` to undo) |
+| `params.project_omegas_fn` | `params.manifold.coefficients(point, tangent)` |
+| `params.gammas_and_omegas(phi, key)` | `params.manifold.context(phi).gammas` / `.omegas` |
+| `params.free(...)` | *(new)* the free parameter columns, in the pipeline's dtype |
+
+`params.projective` still reads as before; it now delegates to the manifold.
 
 ### `Geope` (`geope.py`)
 
@@ -344,7 +390,7 @@ The line searches are immutable config objects (frozen dataclasses):
 - `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — geometry-aware second-order line search: seeds the step from the SU(N) curvature (clipped to the bracket, falling back to the full step when the curvature is non-positive) and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
 - `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` (standard/projective mode only).
 
-    Whether it changes anything is structural: the solve has `piecewise_steps × K_proj` unknowns against `K_basis` equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. `LineSearchGeometry.xi_rel` reports the residual as the (scale-invariant) sine of the angle between $\Omega$ and $A$, and tracks `ls_diagnostics["residual_rel"]` closely; it is `0` exactly when the two curvatures agree.
+    Whether it changes anything is structural: the solve has `piecewise_steps × K_proj` unknowns against `K_basis` equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. `GeometricContext.xi_rel` reports the residual as the (scale-invariant) sine of the angle between $\Omega$ and $A$, and tracks `ls_diagnostics["residual_rel"]` closely; it is `0` exactly when the two curvatures agree.
 
 The three differ in what they evaluate per step, not just in flops: `GoldenSection`/`Adam` evaluate the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[-t_{\max}, 0]$ and is clipped to $-t_{\max}$, which is exactly where `Armijo` starts anyway.
 
@@ -416,7 +462,7 @@ for each step:
     1. Extract free_params = parameters[:, proj_drift_indices]
 
     2. Compute the geodesic direction:
-       U  = compute_U_fn(free_params)
+       U  = manifold.compute_U(free_params)        # ctx.point
        g  = -i · logm(U† U_T)                       # generator in u(d)
        g  = g - Tr(g)/d · I        if projective    # drop global-phase generator
        Γ  = U · g                                   # geodesic tangent
@@ -455,13 +501,13 @@ for each step:
        try ±proj_c, keep the side with higher fidelity
 ```
 
-The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under the algorithm's sign convention: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ orients `coeffs` such that negative `dt` reduces infidelity. The minimiser operates on `infid_U_fn`, which is always non-negative, so the search is well-defined in both `projective=True` and `projective=False` modes. `Geope` reports `fidelity = 1 - infid` at the chosen step.
+The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under the algorithm's sign convention: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity $\Omega$ to $A$, the geodesic tangent *pointing away from* the target, so negative `dt` is what approaches it. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
 
 ### Key functions
 
-- **`gammas_and_omegas(free_params)`** — per-iteration core. Computes the unitary, the geodesic Hamiltonian, the projection $\gamma$, the full Jacobian $\partial U/\partial\phi$, and the per-parameter projections $\omega$. Returns $(\gamma, \omega)$. **Both quantities are left-trivialised (multiplied by $U^\dagger$) before projecting**, and this is load-bearing: the Pauli basis is Hermitian, so `project_omegas_fn` keeps only the traceless-Hermitian part of its argument, while the raw geodesic tangent $U\Omega'$ and Jacobian columns $\partial_{g,k}U$ are $U\cdot(\text{Hermitian})$ and mostly fall outside it. The $U^\dagger$ makes $\Omega'$ and $iU^\dagger\partial_{g,k}U$ Hermitian, the projection lossless, and the least squares below an honest $\langle\cdot,\cdot\rangle_F$-orthogonal projection of the geodesic tangent onto $\mathrm{Im}(\mathrm{D}\Phi)$ — which is what the second-order line searches assume. Left translation is itself an isometry; it is the projection *after* it that would be lossy, so the two cannot be commuted.
+- **`ctx.gammas` / `ctx.omegas`** — the least-squares operands, and the per-iteration core: one propagator, one Jacobian and one logarithm produce both. **Tangent vectors are mapped into the manifold's own representation before being resolved into coefficients** (on a group, left-trivialised by $U^\dagger$), and this is load-bearing: the Pauli basis is Hermitian, so the projection keeps only the traceless-Hermitian part of what it is handed, while the raw geodesic tangent and Jacobian columns are $U\cdot(\text{skew-Hermitian})$ and mostly fall outside it. Left-trivialising first makes the projection lossless and the least squares an honest $\langle\cdot,\cdot\rangle_F$-orthogonal projection of the geodesic tangent onto $\mathrm{Im}(\mathrm{D}\Phi)$ — which is what the second-order line searches assume. Left translation is itself an isometry; it is the projection *after* it that would be lossy, so the two cannot be commuted. Both operands go through the same coefficient map, so the residual compares like with like.
 - **`linear_comb_projected_coeffs_multigate(ω, γ, E, *, return_diagnostics=False)`** — least-squares solve, optionally through a constraint expander $E$. With `return_diagnostics=True` it returns `(sol, diagnostics)`, the second a dict of `residual` / `residual_rel` / `rank` / `cond` scalars; these come free from the same `lstsq` call and are what `Geope` surfaces as `ls_diagnostics`.
-- **`update_linesearch(params, coeffs, piecewise_steps)`** — golden-section minimisation of $\mathrm{infid}(\phi + t \cdot \mathrm{coeffs})$ over $t \in [-t_{\max}, 0]$.
+- **`Geope.update_step(free_params, ls_state)`** — the whole step, in one jitted function: open the context, solve, renormalise the direction, attach it, line-search. It returns the accepted step alongside the line search's objective at $t=0$ and at the accepted step, which is what the loop tests for progress (see below).
 
 ## Callbacks
 
@@ -541,7 +587,7 @@ The output is a 1-D array whose length is either:
 - `projected_basis.lie_algebra_dim` — taken as projected-basis coefficients;
 - `basis.lie_algebra_dim` — relevant projected entries extracted automatically via `projected_basis.overlap(basis)`.
 
-`Parameters.n_experimental_params` sets the input dimension. When `param_transform` is set, the engine's `compute_U_fn` is wrapped to apply `vmap(τ)` over the gate axis, embed the result into the proj+drift slots, broadcast drift coefficients, and delegate to the unitary-product code. The Jacobian is replaced by a split-real-imaginary version (real intermediates in `τ` would otherwise drop the imaginary part under holomorphic autodiff).
+`Parameters.n_experimental_params` sets the input dimension. When `param_transform` is set, the manifold's chart is wrapped to apply `vmap(τ)` over the gate axis, embed the result into the proj+drift slots, broadcast drift coefficients, and delegate to the unitary-product code. The Jacobian is replaced by a split-real-imaginary version (real intermediates in `τ` would otherwise drop the imaginary part under holomorphic autodiff), and the chart loses its exponential-product structure — so `tangent.generators` is `None`, which is the single signal that disables the analytic HVP (and with it the curvature tier and the second-order line searches) and the manual propagator Hessian.
 
 ### Helper: `make_per_element_transform`
 
@@ -604,12 +650,76 @@ F_{\text{proj}}(U, U_T) = \frac{|\mathrm{Tr}(U_T^\dagger U)|}{d}, \qquad
 F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 $$
 
+The flag chooses the **manifold**: `projective=True` gives
+`SpecialUnitaryGroup` (traceless $\mathfrak{su}(d)$ tangents, phase quotiented
+out) and `projective=False` gives `UnitaryGroup` (all of $\mathfrak u(d)$, the
+phase controllable). That single choice carries the fidelity, the tangent
+projection and the geodesic with it — nothing else in the pipeline branches on
+it.
+
 $F_{\text{proj}} \in [0,1]$ is invariant under $U \mapsto e^{i\theta}U$ (the global phase is unobservable). $F_{\text{full}} \in [-1,1]$ is not. Use `projective=False` only when the absolute phase matters — for example, when the gate is a sub-block of a larger coherent unitary, or when stitching multiple gates whose relative phase enters the composite fidelity.
 
 Two pathologies to keep in mind for phase-sensitive mode:
 
 - **Traceless targets** (Hadamard, single-qubit $X/Y/Z$, etc.) make the gradient of $F_{\text{full}}$ vanish at $U = I$ in every direction; a random init near identity has no descent direction. Use larger `init_spread` or non-zero `init_values`.
 - **Stopping criterion**. `precision = 0.9999999` is meaningful for $F_{\text{proj}}$. For $F_{\text{full}}$ the same threshold is valid near the optimum (both fidelities agree as $U \to U_T$), but the optimiser may transit negative-fidelity regions on its way — that's geometry, not a bug.
+
+## Subspace synthesis on Stiefel manifolds
+
+When only an $m$-dimensional subspace of the target matters — a gate mediated by
+a bosonic mode whose final state is irrelevant, a subspace encoding, a state
+preparation — the rest of the unitary is **redundancy**. Optimising over it is
+wasted work. Pass a `Stiefel` manifold instead and it is quotiented out:
+
+```python
+from geope import Parameters, Geope, Stiefel
+
+# Two spins coupled through one boson (max 2 bosons -> Fock dim 3), so N = 12.
+# Score only the four spin states with the boson in vacuum: m = 4.
+E = np.zeros((12, 4), complex)
+for spin in range(4):
+    E[3 * spin, spin] = 1.0                      # |spin> (x) |0>
+
+params = Parameters(
+    basis=construct_full_spin_boson_basis(2, 1, 2),
+    projected_basis=construct_restricted_spin_boson_basis(
+        2, 1, {1: ["x", "y"], 2: ["x", "y"]}, 2),
+    target=E @ np.diag([1, 1, 1, -1]),           # CZ on the vacuum subspace
+    piecewise_steps=10,
+    manifold=Stiefel(dim=12, frame=4, base_frame=E),
+)
+Geope(params).optimize(max_steps=300)
+```
+
+A point is an orthonormal $m$-frame $Q \in \mathbb C^{N\times m}$, the chart is
+$\Phi(\phi) = U(\phi)E$, and the fidelity
+$\lvert\mathrm{Tr}(Q_\star^\dagger Q)\rvert/m$ scores only the frame. In the
+example above the boson starts and ends in vacuum without appearing anywhere in
+the objective — leaving it simply is not free.
+
+| argument | meaning |
+|---|---|
+| `dim` | the ambient dimension $N$ |
+| `frame` | the number of scored columns $m$; a point is `(N, m)` |
+| `base_frame` | the frame $E$ the pulse acts on; defaults to the first $m$ basis states |
+| `projective` | keyword-only, default `True`; as for SU/U, whether a global phase is physical |
+
+Three things to know:
+
+- **The metric is the canonical one**, $\langle\Delta,\Upsilon\rangle_Q =
+  \mathrm{Tr}(\Delta^\dagger(\mathbb 1 - \tfrac12 QQ^\dagger)\Upsilon)$, not the
+  embedded Frobenius metric: rotations *within* the frame carry half the weight
+  of leakage out of it. These are different Riemannian manifolds with different
+  geodesics.
+- **The logarithm is iterative** (Zimmermann–Hüper), unlike every other manifold
+  here. It costs a $2m\times2m$ Schur decomposition per iteration and typically
+  converges in 5–10, so keep $m$ modest. At $m = N$ there is no redundancy left
+  and `SpecialUnitaryGroup` is the better choice; at $m = 1$ prefer
+  `StateSphere`, whose logarithm is closed-form.
+- **`ApproximateQuadraticArmijo` is unavailable.** The canonical metric has no
+  closed-form Riemannian Hessian, so `ctx.q_exact` and `ctx.rho` raise
+  `NotImplementedError` rather than silently falling back to the flat surrogate.
+  `GoldenSection`, `Adam`, `Armijo` and `QuadraticArmijo` all work.
 
 ## Null-space optimisation (`Gecko`)
 

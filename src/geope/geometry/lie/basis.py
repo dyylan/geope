@@ -7,8 +7,24 @@ import re
 import jax
 import jax.numpy as jnp
 from jax import Array
+from typing import TYPE_CHECKING
 
-from .. import utils
+
+def traces(b_1: np.ndarray, b_2: np.ndarray) -> Array:
+    """Compute the trace inner-product Gram matrix between two basis sets.
+
+    Returns a matrix $G_{ij} = \\mathrm{Tr}(B^{(1)}_i B^{(2)}_j)$ for
+    all pairs of basis elements.
+
+    Args:
+        b_1: First basis tensor ``np.ndarray`` of shape ``(K1, d, d)``.
+        b_2: Second basis tensor ``np.ndarray`` of shape ``(K2, d, d)``.
+
+    Returns:
+        A complex ``Array`` of shape ``(K1, K2)``.
+    """
+    # Vectorized Gram matrix calculation
+    return jnp.einsum("ikl,jlk->ij", jnp.asarray(b_1), jnp.asarray(b_2))
 
 
 class Basis:
@@ -110,7 +126,7 @@ class Basis:
             A boolean ``np.ndarray`` of length ``other.lie_algebra_dim``
             that is ``True`` where an overlap exists.
         """
-        out = utils.traces(self.basis, other.basis)
+        out = traces(self.basis, other.basis)
         return ~np.isclose(np.sum(out, axis=0), 0)
 
     def verify(self) -> bool:
@@ -120,7 +136,7 @@ class Basis:
             ``True`` if the trace-inner-product Gram matrix is diagonal,
             ``False`` otherwise.
         """
-        out = utils.traces(self.basis, self.basis)
+        out = traces(self.basis, self.basis)
         return np.allclose(np.diag(np.diag(out)), out)
 
     def apply_interaction_graph(

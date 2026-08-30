@@ -303,10 +303,10 @@ class TestGecko:
 
     def test_reuses_geope_cached_functions(self, geope_2q):
         # Sharing the Parameters reuses the cached (and thus already-compiled)
-        # optimisation functions instead of rebuilding them.
+        # bound manifold instead of rebuilding it.
         gk = Gecko(geope_2q.params)
-        assert gk.params.compute_U_fn is geope_2q.params.compute_U_fn
-        assert gk.params.gammas_and_omegas is geope_2q.params.gammas_and_omegas
+        assert gk.params.manifold is geope_2q.params.manifold
+        assert gk.params.manifold.compute_U is geope_2q.params.manifold.compute_U
 
     def test_non_parameters_raises(self, geope_2q):
         with pytest.raises(TypeError):

@@ -59,7 +59,7 @@ from geope.utils import (
     merge_constraints,
 )
 
-from geope.lie import Basis
+from geope.geometry.lie import Basis
 
 # ===================================================================
 # Tests — trace_dot_jit

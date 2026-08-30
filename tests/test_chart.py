@@ -1,10 +1,12 @@
 """
-Tests for geope/engine.py.
+Tests for geope/geometry/chart.py — the pulse model.
+
+The product-of-exponentials chart every manifold is coordinatised by. The
+fidelity formulas that used to share ``engine.py`` with it now live with the
+group that owns them, and are tested in tests/test_manifolds.py.
 
 Tested items:
   Functions:
-    - fidelity
-    - get_fidelity_fn
     - compute_matrices_params_list_fn
     - get_compute_matrices_params_list_fn
 """
@@ -17,13 +19,11 @@ import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
-from geope.engine import (
-    fidelity,
-    get_fidelity_fn,
+from geope.geometry.chart import (
     compute_matrices_params_list_fn,
     get_compute_matrices_params_list_fn,
 )
-from geope.lie import Basis
+from geope.geometry.lie import Basis
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
@@ -83,60 +83,6 @@ def projected_basis_2q():
 # ---------------------------------------------------------------------------
 # Tests — fidelity
 # ---------------------------------------------------------------------------
-
-
-class TestFidelity:
-    def test_identity_with_itself(self, identity_2x2):
-        assert jnp.isclose(fidelity(identity_2x2, identity_2x2), 1.0, atol=1e-12)
-
-    def test_identity_with_itself_4x4(self, identity_4x4):
-        assert jnp.isclose(fidelity(identity_4x4, identity_4x4), 1.0, atol=1e-12)
-
-    def test_orthogonal_unitaries(self):
-        """X and I are not orthogonal, but fidelity < 1."""
-        I = jnp.eye(2, dtype=complex)
-        X = jnp.array([[0, 1], [1, 0]], dtype=complex)
-        fid = fidelity(X, I)
-        assert fid < 1.0
-
-    def test_same_unitary_fidelity_one(self, hadamard):
-        assert jnp.isclose(fidelity(hadamard, hadamard), 1.0, atol=1e-12)
-
-    def test_range_0_to_1(self, identity_4x4, cnot):
-        fid = fidelity(identity_4x4, cnot)
-        assert 0 <= fid <= 1.0
-
-    def test_fidelity_symmetry(self, identity_2x2, hadamard):
-        f1 = fidelity(identity_2x2, hadamard)
-        f2 = fidelity(hadamard, identity_2x2)
-        assert jnp.isclose(f1, f2, atol=1e-12)
-
-    def test_cnot_with_itself(self, cnot):
-        assert jnp.isclose(fidelity(cnot, cnot), 1.0, atol=1e-12)
-
-    def test_global_phase_invariance(self, hadamard):
-        """Fidelity of U and e^{iθ}U should be 1."""
-        phase = jnp.exp(1j * 0.3)
-        assert jnp.isclose(fidelity(hadamard, phase * hadamard), 1.0, atol=1e-12)
-
-
-# ---------------------------------------------------------------------------
-# Tests — get_fidelity_fn
-# ---------------------------------------------------------------------------
-
-
-class TestGetFidelityFn:
-    def test_returns_callable(self, cnot):
-        fn = get_fidelity_fn(cnot)
-        assert callable(fn)
-
-    def test_matches_direct_call(self, identity_4x4, cnot):
-        fn = get_fidelity_fn(cnot)
-        assert jnp.isclose(fn(identity_4x4), fidelity(identity_4x4, cnot), atol=1e-12)
-
-    def test_self_target_gives_one(self, cnot):
-        fn = get_fidelity_fn(cnot)
-        assert jnp.isclose(fn(cnot), 1.0, atol=1e-12)
 
 
 # ---------------------------------------------------------------------------

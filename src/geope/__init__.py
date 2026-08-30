@@ -1,4 +1,4 @@
-from .engine import (
+from .geometry.lie.groups import (
     fidelity,
     infidelity,
     fidelity_full,
@@ -12,13 +12,23 @@ from .geope import (
 from . import line_searches
 from .line_searches import (
     LineSearch,
-    LineSearchContext,
-    LineSearchGeometry,
+    LineSearchResult,
     Adam,
     ApproximateQuadraticArmijo,
     Armijo,
     GoldenSection,
     QuadraticArmijo,
+)
+
+from .geometry import (
+    GeometricContext,
+    Manifold,
+    MatrixLieGroup,
+    SpecialUnitaryGroup,
+    StateSphere,
+    Stiefel,
+    TangentBundle,
+    UnitaryGroup,
 )
 
 from .gecko import (
@@ -37,10 +47,8 @@ from .utils import (
     History,
 )
 
-from .lie import (
+from .geometry.lie import (
     Basis,
-    Hamiltonian,
-    Unitary,
 )
 
 from .utils import (

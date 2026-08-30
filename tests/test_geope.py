@@ -5,9 +5,7 @@ The Gecko tests live in ``test_gecko.py`` and the History tests in
 ``test_history.py``.
 
 Tested items:
-  Functions (geope.engine):
-    - geodesic_hamiltonian
-    - get_geodesic_hamiltonian_fn
+  Functions (geope.geometry):
     - linear_comb_projected_coeffs_multigate
     - hvp_forward_over_reverse
   Classes:
@@ -47,6 +45,7 @@ from geope.geope import (
     DEFAULT_PRECISION,
     DEFAULT_MAX_STEP_SIZE,
     DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
+    PROGRESS_RTOL,
 )
 from geope.line_searches import (
     Adam,
@@ -54,24 +53,24 @@ from geope.line_searches import (
     Armijo,
     GoldenSection,
     LineSearch,
+    LineSearchResult,
     QuadraticArmijo,
 )
-from geope.engine import (
-    geodesic_hamiltonian,
-    get_geodesic_hamiltonian_fn,
-    hvp_forward_over_reverse,
+from geope.geometry.chart import (
     get_compute_matrices_params_list_fn,
     get_jacobian_fn,
-    get_hessian_fn,
-    get_hessian_propagator_fn,
-    get_infidelity_fn,
-    get_infidelity_full_fn,
 )
+from geope.geometry.lie.groups import (
+    get_hessian_propagator_fn,
+    infidelity,
+    infidelity_full,
+)
+from geope.jax.hessian import get_hessian_fn, hvp_forward_over_reverse
 from geope.gecko import Gecko
 from geope.parameters import Parameters
 from geope.utils.history import History
-from geope.lie import Basis, Hamiltonian, Unitary
-from geope.engine import fidelity
+from geope.geometry.lie import Basis
+from geope.geometry.lie.groups import fidelity
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
@@ -185,8 +184,8 @@ class _GeometryProbe(ApproximateQuadraticArmijo):
 
     The geometry is computed inside the jitted update and normally never leaves,
     so this widens the threaded line-search state to carry the fields a test
-    wants to assert on. ``ctx.geometry()`` is memoised per step, so calling it
-    here costs nothing extra.
+    wants to assert on. Every context quantity is memoised per step, so reading
+    them here costs nothing extra.
     """
 
     name = "geometry_probe"
@@ -200,11 +199,38 @@ class _GeometryProbe(ApproximateQuadraticArmijo):
             "xi_rel": jnp.asarray(0.0, jnp.float64),
         }
 
-    def __call__(self, ctx):
-        g = ctx.geometry()
-        dt, state = super().__call__(ctx)
-        extra = {"q": g.q, "q_exact": g.q_exact, "rho": g.rho, "xi_rel": g.xi_rel}
-        return dt, {**state, **extra}
+    def __call__(self, ctx, a, b, state):
+        result = super().__call__(ctx, a, b, state)
+        extra = {
+            "q": ctx.q,
+            "q_exact": ctx.q_exact,
+            "rho": ctx.rho,
+            "xi_rel": ctx.xi_rel,
+        }
+        return result._replace(state={**result.state, **extra})
+
+
+@dataclasses.dataclass(frozen=True)
+class _ReportingSearch(LineSearch):
+    """Stubs the line-search contract to exercise the loop's progress test.
+
+    Takes a zero step and *reports* ``factor * value0`` as its objective there,
+    so what is under test is the loop's accept/reject arithmetic rather than any
+    real 1-D minimiser. ``objective`` is a field here (it is a plain class
+    attribute on the real searches) so a single stub can play either role.
+    """
+
+    name = "reporting"
+    factor: float = 1.0
+    objective: str = "infidelity"
+
+    def __call__(self, ctx, a, b, state):
+        value0 = ctx.F0 if self.objective == "distance" else ctx.infidelity
+        return LineSearchResult(
+            jnp.asarray(0.0, jnp.float64),
+            self.factor * value0,
+            {"n_eval": jnp.asarray(1, jnp.int32)},
+        )
 
 
 def _run_with_geometry_probe(params, max_steps):
@@ -724,10 +750,8 @@ class TestCostHessianPropagator:
         # GRAPE parameters are real-valued.
         y = jax.random.normal(jax.random.key(17), (G, K)) * 0.3
 
-        infid_U = (
-            get_infidelity_fn(target) if projective else get_infidelity_full_fn(target)
-        )
-        infid = lambda x: infid_U(compute_U(x))
+        infid_U = infidelity if projective else infidelity_full
+        infid = lambda x: infid_U(compute_U(x), target)
         H_auto = get_hessian_fn(infid)(y).reshape(G * K, G * K)
         H_man = get_hessian_propagator_fn(
             basis, target, projective=projective, method=method
@@ -743,68 +767,8 @@ class TestCostHessianPropagator:
         assert jnp.allclose(H, H.T, atol=1e-9)
 
 
-# ---------------------------------------------------------------------------
-# Tests — geodesic_hamiltonian
-# ---------------------------------------------------------------------------
-
-
-class TestGeodesicHamiltonian:
-    def test_identity_to_identity_2x2(self, identity_2x2):
-        """Same unitary and target ⇒ geodesic hamiltonian ≈ 0."""
-        result = geodesic_hamiltonian(identity_2x2, identity_2x2)
-        assert result.shape == (2, 2)
-        assert jnp.allclose(result, 0, atol=1e-10)
-
-    def test_identity_to_identity_4x4(self, identity_4x4):
-        result = geodesic_hamiltonian(identity_4x4, identity_4x4)
-        assert result.shape == (4, 4)
-        assert jnp.allclose(result, 0, atol=1e-10)
-
-    def test_output_shape_2x2(self, identity_2x2, hadamard):
-        result = geodesic_hamiltonian(identity_2x2, hadamard)
-        assert result.shape == (2, 2)
-
-    def test_output_shape_4x4(self, identity_4x4, cnot):
-        result = geodesic_hamiltonian(identity_4x4, cnot)
-        assert result.shape == (4, 4)
-
-    def test_nonzero_for_different_unitaries(self, identity_2x2, hadamard):
-        result = geodesic_hamiltonian(identity_2x2, hadamard)
-        assert not jnp.allclose(result, 0, atol=1e-5)
-
-    def test_traceless_after_global_phase_removal(self, identity_2x2, hadamard):
-        """The function removes the global phase, so U†·result should be traceless."""
-        result = geodesic_hamiltonian(identity_2x2, hadamard)
-        # For unitary = I, U† @ result = result
-        trace_val = jnp.trace(result)
-        assert jnp.abs(trace_val) < 1e-8
-
-    def test_target_equal_unitary_4x4(self, cnot):
-        result = geodesic_hamiltonian(cnot, cnot)
-        assert jnp.allclose(result, 0, atol=1e-10)
-
-
-# ---------------------------------------------------------------------------
-# Tests — get_geodesic_hamiltonian_fn
-# ---------------------------------------------------------------------------
-
-
-class TestGetGeodesicHamiltonianFn:
-    def test_returns_callable(self, hadamard):
-        fn = get_geodesic_hamiltonian_fn(hadamard)
-        assert callable(fn)
-
-    def test_partial_matches_direct_call(self, identity_2x2, hadamard):
-        fn = get_geodesic_hamiltonian_fn(hadamard)
-        result_partial = fn(identity_2x2)
-        result_direct = geodesic_hamiltonian(identity_2x2, hadamard)
-        assert jnp.allclose(result_partial, result_direct)
-
-    def test_partial_preserves_target(self, identity_4x4, cnot):
-        fn = get_geodesic_hamiltonian_fn(cnot)
-        result = fn(identity_4x4)
-        assert result.shape == (4, 4)
-
+# The geodesic tangent itself is a manifold primitive now
+# (``Manifold.log``); its tests live in tests/test_geometry.py.
 
 # ---------------------------------------------------------------------------
 # Tests — linear_comb_projected_coeffs_multigate
@@ -1402,8 +1366,9 @@ class TestGeope:
         assert g.history.best_fidelity > f0
         for f in g.history.fidelities:
             assert 0 <= f <= 1
-        # n_eval populated: at least the F0 probe plus the seed evaluation.
-        assert int(g.line_search_state["n_eval"]) >= 2
+        # n_eval populated: at least the seed evaluation. F0 comes off the
+        # context now, so the probe the old implementation spent is gone.
+        assert int(g.line_search_state["n_eval"]) >= 1
 
     def test_armijo_converges(self, cnot, full_basis_2q, projected_basis_2q):
         # Seeding at the full bracket step and backtracking is enough to drive
@@ -1414,16 +1379,22 @@ class TestGeope:
         assert g.history.best_fidelity > 0.999
 
     def test_armijo_steps_within_bracket(self, cnot, full_basis_2q, projected_basis_2q):
-        # Every line-search step must land in [-max_step_size / G, 0]. Positive
-        # entries are the Gram-Schmidt fallback, which is not the line search.
+        # Every line-search step must land in [-max_step_size / G, 0]. The
+        # Gram-Schmidt fallback is disabled so that every recorded step size
+        # really is one the line search chose (the fallback steps by
+        # +/- gram_schmidt_step_size, either sign).
         max_step_size, steps = 0.9, 6
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=steps)
         g = Geope(p, history=History())
-        g.optimize(max_steps=30, line_search=Armijo(), max_step_size=max_step_size)
+        g.optimize(
+            max_steps=30,
+            line_search=Armijo(),
+            max_step_size=max_step_size,
+            gram_schmidt_step_size=0,
+        )
         a = -max_step_size / steps
         for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            if dt <= 0:
-                assert a - 1e-12 <= dt <= 0.0
+            assert a - 1e-12 <= dt <= 0.0
 
     def test_armijo_works_under_param_transform(
         self, cnot, full_basis_2q, projected_basis_2q
@@ -1552,6 +1523,71 @@ class TestGeope:
         )
         with pytest.raises(NotImplementedError):
             Geope(p).optimize(max_steps=5, line_search=ApproximateQuadraticArmijo())
+
+    # --- accepting on the line search's own objective --------------------
+
+    def test_a_stalled_step_triggers_the_gram_schmidt_fallback(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # A search that does not move cannot have made progress on any
+        # objective, so the fallback must replace the step. Its signature is the
+        # step size: +/- gram_schmidt_step_size rather than a bracket step.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
+        g = Geope(p, history=History())
+        g.optimize(max_steps=3, line_search=_ReportingSearch(factor=1.0))
+        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert np.isclose(abs(dt), DEFAULT_GRAM_SCHMIDT_STEP_SIZE)
+
+    def test_a_stalled_step_without_the_fallback_does_not_move(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
+        g = Geope(p, history=History())
+        before = np.array(p.parameters)
+        g.optimize(
+            max_steps=3,
+            line_search=_ReportingSearch(factor=1.0),
+            gram_schmidt_step_size=0,
+        )
+        np.testing.assert_allclose(np.array(p.parameters), before, atol=1e-12)
+
+    def test_progress_below_the_threshold_counts_as_a_stall(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # A relative improvement under PROGRESS_RTOL is noise, not progress.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
+        g = Geope(p, history=History())
+        g.optimize(
+            max_steps=2, line_search=_ReportingSearch(factor=1.0 - PROGRESS_RTOL / 100)
+        )
+        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert np.isclose(abs(dt), DEFAULT_GRAM_SCHMIDT_STEP_SIZE)
+
+    def test_progress_above_the_threshold_keeps_the_step(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # Reported improvement well above the threshold: the step is kept, so no
+        # fallback runs and the recorded step size is the search's own zero.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
+        g = Geope(p, history=History())
+        g.optimize(max_steps=2, line_search=_ReportingSearch(factor=0.5))
+        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert np.isclose(dt, 0.0)
+
+    def test_a_distance_objective_step_is_judged_on_the_distance(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # The regression the rule exists for: a search minimising the geodesic
+        # distance is judged on the distance. Reporting a halved distance keeps
+        # the step even though the fidelity did not move at all (dt = 0).
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
+        g = Geope(p, history=History())
+        g.optimize(
+            max_steps=2, line_search=_ReportingSearch(factor=0.5, objective="distance")
+        )
+        assert g.line_search.objective == "distance"
+        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert np.isclose(dt, 0.0)
 
     # --- run-control knobs (optimize() arguments) ------------------------
 
@@ -1942,7 +1978,7 @@ class TestGeope:
         g = Geope(p)
         new_params, reported, _ = g.gram_schmidt(self._projected_direction(p))
         true_fid = float(
-            p.fid_U_fn(p.compute_U_fn(jnp.array(new_params, dtype=jnp.complex128)))
+            p.manifold.fidelity_at(jnp.asarray(new_params, dtype=jnp.complex128))
         )
         assert np.isclose(float(reported), true_fid, rtol=0, atol=1e-12)
 
@@ -1980,15 +2016,18 @@ class TestGeope:
         ):
             assert not hasattr(geope_2q, name)
 
-    # --- get_update_linesearch (internal helper exposed on instance) ------
+    # --- the jitted update step (built lazily by optimize) ----------------
 
-    def test_update_linesearch_returns_callable(self, geope_2q):
-        # Built lazily by optimize(); max_steps=0 configures without iterating.
+    def test_update_step_is_built_by_optimize(self, geope_2q):
+        # max_steps=0 configures the line search without iterating.
+        assert geope_2q.update_step is None
         geope_2q.optimize(max_steps=0)
-        assert callable(geope_2q.update_linesearch)
+        assert callable(geope_2q.update_step)
 
-    def test_gammas_and_omegas_returns_callable(self, geope_2q):
-        assert callable(geope_2q.params.gammas_and_omegas)
+    def test_manifold_is_bound_and_shared(self, geope_2q):
+        m = geope_2q.params.manifold
+        assert m.is_bound
+        assert geope_2q.params.manifold is m  # cached on Parameters
 
     def test_update_step_returns_callable(self, geope_2q):
         # Built lazily by optimize(); max_steps=0 configures without iterating.

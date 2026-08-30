@@ -81,14 +81,7 @@ class Gecko:
         # Compute a baseline fidelity if the params have never been evaluated
         # (e.g. a fresh Parameters that has not been through Geope.optimize).
         if self.params.fidelity is None:
-            _dtype = jnp.float64 if self._real_params else jnp.complex128
-            free_params = self._free(self.params.parameters)
-            free_params = (
-                jnp.real(free_params) if self._real_params else free_params
-            ).astype(_dtype)
-            self.params.fidelity = self.params.fid_U_fn(
-                self.params.compute_U_fn(free_params)
-            )
+            self.params.fidelity = self.params.manifold.fidelity_at(self.params.free())
 
         self.history = history
         if self.history is not None:
@@ -104,17 +97,6 @@ class Gecko:
         self.parameter_bounds = None
         self.lower_bounds = None
         self.upper_bounds = None
-
-    def _free(self, parameters):
-        """Select the free (projected+drift) parameter columns.
-
-        Identity in experimental (``param_transform``) mode, where every column
-        is already a free parameter; otherwise selects the proj+drift columns
-        via ``params.proj_drift_indices``. Works on numpy or JAX arrays.
-        """
-        if self._real_params:
-            return parameters
-        return parameters[:, self.params.proj_drift_indices]
 
     def smooth(
         self,
@@ -445,8 +427,7 @@ class Gecko:
             proj_idx_pd = self.params.proj_indices_projdrift_basis
             drift_idx_pd = self.params.drift_indices_projdrift_basis
         robustness_fn = get_robustness_null_space_fn(
-            self.params.fid_U_fn,
-            self.params.compute_U_fn,
+            self.params.manifold.fidelity_at,
             proj_idx_pd,
             drift_idx_pd,
             drift_params,
@@ -674,21 +655,19 @@ class Gecko:
         else:
             expander = None
         fid = 0
-        # The engine functions (``gammas_and_omegas``, ``compute_U_fn``,
-        # ``fid_U_fn``) are returned un-jitted by design: they are built to fuse
-        # into an enclosing ``@jax.jit``, the way ``Geope.optimize``'s update
-        # step wraps them. Gecko's loop must do the same — otherwise each call
-        # runs eagerly and its inner ``lax.scan``s recompile every iteration.
-        # Wrap them once here so they compile a single time and the compiled
-        # traces are reused across all iterations.
-        gammas_and_omegas = jax.jit(self.params.gammas_and_omegas)
-        fid_of_params = jax.jit(
-            lambda fp: self.params.fid_U_fn(self.params.compute_U_fn(fp))
-        )
+        # A ``GeometricContext`` is trace-time only, so the context-reading
+        # closure has to be jitted here rather than memoised on the manifold;
+        # un-jitted, each iteration would re-lower its inner ``lax.scan``s.
+        # ``manifold.fidelity_at`` is already compiled and memoised.
+        #
+        # Reading ``omegas`` off the context and nothing else is what keeps the
+        # matrix logarithm out of this loop entirely: every context quantity is
+        # lazy, and the geodesic tangent is never asked for.
+        manifold = self.params.manifold
+        omegas_fn = jax.jit(lambda fp: manifold.context(fp).omegas)
+        fid_of_params = manifold.fidelity_at
         while (diff > diff_tol) and (c < max_steps):
-            # TODO: Can we create a function that just returns `omegas_steps_phis`?
-            _, omegas_steps_phis = gammas_and_omegas(free_params, jax.random.key(0))
-            vh, num = find_null_space(omegas_steps_phis, expander)
+            vh, num = find_null_space(omegas_fn(free_params), expander)
 
             assert num > 0, "Nullspace is empty!"
             null_space = vh[num:, :].T.conj()
@@ -937,8 +916,7 @@ def get_length_null_space_fn(
 
 
 def get_robustness_null_space_fn(
-    fid_U_fn: Callable,
-    compute_U_fn: Callable,
+    fidelity_at: Callable,
     proj_indices: np.ndarray,
     drift_indices: np.ndarray,
     drift_params: np.ndarray | None,
@@ -956,9 +934,8 @@ def get_robustness_null_space_fn(
     perturbation $\\delta_k$ is applied uniformly to all gate segments.
 
     Args:
-        fid_U_fn: JIT-compiled fidelity function taking a unitary.
-        compute_U_fn: JIT-compiled function computing the unitary
-            from free parameters.
+        fidelity_at: The fidelity of a free-parameter array against the
+            target (``manifold.fidelity_at``).
         proj_indices: Boolean mask of projected positions within the
             proj+drift basis.
         drift_indices: Boolean mask of drift positions within the
@@ -1002,9 +979,7 @@ def get_robustness_null_space_fn(
             for k, pidx in enumerate(_pi):
                 gate_idxs = jnp.arange(n_steps) * n_proj + pidx
                 perturbation = perturbation.at[gate_idxs].set(delta_vec[k])
-            return fid_U_fn(
-                compute_U_fn(_make_free_params(proj_flat_real + perturbation))
-            )
+            return fidelity_at(_make_free_params(proj_flat_real + perturbation))
 
         fidelities = jax.vmap(fid_at_deltas)(delta_combinations)
         return jnp.real(1.0 - jnp.min(fidelities))

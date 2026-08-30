@@ -7,7 +7,7 @@ Covers the GRAPE optimiser after its public API was aligned with Geope:
   - Geope-style result model (params.parameters is the current array,
     params.fidelity is a scalar, trajectory in an optional History),
   - reproducibility from an integer seed and a jax.random.key seed,
-  - the param_transform path via the cached params.compute_U_fn.
+  - the param_transform path via the bound params.manifold.
 """
 
 import pytest
@@ -146,8 +146,8 @@ class TestGrapeReproducibility:
 
 
 class TestGrapeParamTransform:
-    """The param_transform path wraps compute_U_fn via the cached
-    ``params.compute_U_fn`` (operating in experimental space)."""
+    """The param_transform path wraps the manifold's chart, so
+    ``params.manifold`` operates in experimental space."""
 
     def _exp_params(self, cnot, full_basis_2q, projected_basis_2q, seed=42):
         n_exp = projected_basis_2q.lie_algebra_dim

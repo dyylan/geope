@@ -1,5 +1,5 @@
 """
-Tests for geope/lie.py.
+Tests for geope/geometry/lie/basis.py.
 
 Tested items:
   Classes:
@@ -8,22 +8,17 @@ Tested items:
               _generate_plot_labels, _generate_interaction_labels,
               _generate_interaction_qubits, _generate_interaction_graph,
               _generate_interaction_map, _remove_basis_elements, __len__)
-    - Hamiltonian  (init, matrix, unitary, geodesic_hamiltonian, fidelity,
-                    parameters_from_hamiltonian)
-    - Unitary  (init, fidelity, parameters, geodesic_hamiltonian, __matmul__,
-                _check_is_unitary, unitary_fidelity, parameters_from_unitary)
 """
 
 import pytest
 import numpy as np
-import scipy.linalg as spla
 
 import jax
 import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
-from geope.lie import Basis, Hamiltonian, Unitary
+from geope.geometry.lie import Basis
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
@@ -61,29 +56,6 @@ def full_basis_2q():
 @pytest.fixture
 def heisenberg_2q():
     return construct_Heisenberg_pauli_basis(2)
-
-
-@pytest.fixture
-def identity_2x2():
-    return np.eye(2, dtype=complex)
-
-
-@pytest.fixture
-def identity_4x4():
-    return np.eye(4, dtype=complex)
-
-
-@pytest.fixture
-def hadamard():
-    return np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
-
-
-@pytest.fixture
-def cnot():
-    return np.array(
-        [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]],
-        dtype=complex,
-    )
 
 
 # ===================================================================
@@ -296,190 +268,3 @@ class TestBasisGenerateBounds:
         for gate_lower, gate_upper in zip(lower, upper):
             assert len(gate_lower) == 3
             assert len(gate_upper) == 3
-
-
-# ===================================================================
-# Tests — Hamiltonian
-# ===================================================================
-
-
-class TestHamiltonian:
-    def test_init_creates_matrix(self, basis_1q):
-        params = np.array([1.0, 0.0, 0.0])
-        h = Hamiltonian(basis_1q, params)
-        X = np.array([[0, 1], [1, 0]], dtype=complex)
-        assert np.allclose(h.matrix, X)
-
-    def test_matrix_shape(self, basis_1q):
-        h = Hamiltonian(basis_1q, np.ones(3))
-        assert h.matrix.shape == (2, 2)
-
-    def test_unitary_created(self, basis_1q):
-        h = Hamiltonian(basis_1q, np.array([0.5, 0.0, 0.0]))
-        assert isinstance(h.unitary, Unitary)
-        assert h.unitary.matrix.shape == (2, 2)
-
-    def test_unitary_is_unitary(self, basis_1q):
-        h = Hamiltonian(basis_1q, np.array([0.3, 0.4, 0.5]))
-        U = h.unitary.matrix
-        assert np.allclose(U @ U.conj().T, np.eye(2), atol=1e-10)
-
-    def test_zero_params_gives_identity_unitary(self, basis_1q):
-        h = Hamiltonian(basis_1q, np.zeros(3))
-        assert np.allclose(h.unitary.matrix, np.eye(2), atol=1e-12)
-
-    def test_parameters_stored(self, basis_1q):
-        params = np.array([1.0, 2.0, 3.0])
-        h = Hamiltonian(basis_1q, params)
-        assert np.array_equal(h.parameters, params)
-
-    def test_basis_stored(self, basis_1q):
-        h = Hamiltonian(basis_1q, np.zeros(3))
-        assert h.basis is basis_1q
-
-
-class TestHamiltonianGeodesic:
-    def test_self_geodesic_is_zero(self, basis_1q):
-        params = np.array([0.5, 0.3, 0.1])
-        h = Hamiltonian(basis_1q, params)
-        geo = h.geodesic_hamiltonian(h.unitary.matrix)
-        assert isinstance(geo, Hamiltonian)
-        assert np.allclose(geo.matrix, 0, atol=1e-10)
-
-    def test_geodesic_returns_hamiltonian(self, basis_1q, hadamard):
-        h = Hamiltonian(basis_1q, np.zeros(3))
-        geo = h.geodesic_hamiltonian(hadamard)
-        assert isinstance(geo, Hamiltonian)
-
-    def test_geodesic_unitary_achieves_target(self, basis_1q, hadamard):
-        h = Hamiltonian(basis_1q, np.zeros(3))
-        geo = h.geodesic_hamiltonian(hadamard)
-        # h.unitary @ geo.unitary should approximate target
-        composed = h.unitary.matrix @ geo.unitary.matrix
-        fid = float(Unitary.unitary_fidelity(composed, hadamard))
-        assert fid > 0.99
-
-
-class TestHamiltonianFidelity:
-    def test_self_fidelity_one(self, basis_1q):
-        h = Hamiltonian(basis_1q, np.array([0.5, 0.3, 0.1]))
-        fid = h.fidelity(h.unitary.matrix)
-        assert jnp.isclose(fid, 1.0, atol=1e-10)
-
-    def test_identity_vs_other(self, basis_1q, hadamard):
-        h = Hamiltonian(basis_1q, np.zeros(3))
-        fid = h.fidelity(hadamard)
-        assert 0 <= fid <= 1
-
-
-class TestHamiltonianParametersFromHamiltonian:
-    def test_roundtrip_1q(self, basis_1q):
-        params_in = np.array([0.5, -0.3, 0.7])
-        h = Hamiltonian(basis_1q, params_in)
-        params_out = Hamiltonian.parameters_from_hamiltonian(h.matrix, basis_1q)
-        assert np.allclose(params_out, params_in, atol=1e-10)
-
-    def test_zero_hamiltonian(self, basis_1q):
-        H = np.zeros((2, 2), dtype=complex)
-        params = Hamiltonian.parameters_from_hamiltonian(H, basis_1q)
-        assert np.allclose(params, 0)
-
-    def test_output_length(self, full_basis_2q):
-        H = np.zeros((4, 4), dtype=complex)
-        params = Hamiltonian.parameters_from_hamiltonian(H, full_basis_2q)
-        assert len(params) == full_basis_2q.lie_algebra_dim
-
-
-# ===================================================================
-# Tests — Unitary
-# ===================================================================
-
-
-class TestUnitary:
-    def test_identity(self):
-        u = Unitary(np.eye(2, dtype=complex))
-        assert u.n == 1
-        assert np.allclose(u.matrix, np.eye(2))
-
-    def test_identity_4x4(self):
-        u = Unitary(np.eye(4, dtype=complex))
-        assert u.n == 2
-
-    def test_hadamard(self, hadamard):
-        u = Unitary(hadamard)
-        assert u.n == 1
-
-    def test_non_unitary_raises(self):
-        with pytest.raises(ValueError, match="unitary"):
-            Unitary(np.array([[1, 1], [0, 1]], dtype=complex))
-
-    def test_non_square_raises(self):
-        with pytest.raises((ValueError, IndexError)):
-            Unitary(np.array([[1, 0, 0], [0, 1, 0]], dtype=complex))
-
-
-class TestUnitaryFidelity:
-    def test_self_fidelity(self, hadamard):
-        u = Unitary(hadamard)
-        fid = u.fidelity(hadamard)
-        assert jnp.isclose(fid, 1.0, atol=1e-10)
-
-    def test_identity_vs_hadamard(self, hadamard):
-        u = Unitary(np.eye(2, dtype=complex))
-        fid = u.fidelity(hadamard)
-        assert 0 <= fid <= 1
-
-    def test_static_fidelity(self, hadamard):
-        fid = Unitary.unitary_fidelity(hadamard, hadamard)
-        assert jnp.isclose(fid, 1.0, atol=1e-10)
-
-    def test_static_fidelity_symmetry(self, identity_2x2, hadamard):
-        f1 = Unitary.unitary_fidelity(identity_2x2, hadamard)
-        f2 = Unitary.unitary_fidelity(hadamard, identity_2x2)
-        assert jnp.isclose(f1, f2, atol=1e-12)
-
-
-class TestUnitaryParameters:
-    def test_identity_gives_zero_params(self, basis_1q):
-        u = Unitary(np.eye(2, dtype=complex))
-        params = u.parameters(basis_1q)
-        assert np.allclose(params, 0, atol=1e-10)
-
-    def test_roundtrip(self, basis_1q):
-        params_in = np.array([0.3, -0.2, 0.5])
-        h = Hamiltonian(basis_1q, params_in)
-        params_out = h.unitary.parameters(basis_1q)
-        assert np.allclose(params_out, params_in, atol=1e-8)
-
-    def test_static_method(self, basis_1q):
-        params = Unitary.parameters_from_unitary(np.eye(2, dtype=complex), basis_1q)
-        assert np.allclose(params, 0, atol=1e-10)
-
-
-class TestUnitaryGeodesic:
-    def test_self_geodesic_zero(self, basis_1q):
-        u = Unitary(np.eye(2, dtype=complex))
-        geo = u.geodesic_hamiltonian(basis_1q, np.eye(2, dtype=complex))
-        assert isinstance(geo, Hamiltonian)
-        assert np.allclose(geo.matrix, 0, atol=1e-10)
-
-    def test_returns_hamiltonian(self, basis_1q, hadamard):
-        u = Unitary(np.eye(2, dtype=complex))
-        geo = u.geodesic_hamiltonian(basis_1q, hadamard)
-        assert isinstance(geo, Hamiltonian)
-
-
-class TestUnitaryMatmul:
-    def test_identity_compose(self):
-        u1 = Unitary(np.eye(2, dtype=complex))
-        u2 = Unitary(np.eye(2, dtype=complex))
-        result = u1 @ u2
-        assert isinstance(result, Unitary)
-        assert np.allclose(result.matrix, np.eye(2))
-
-    def test_compose_is_unitary(self, hadamard):
-        u1 = Unitary(hadamard)
-        u2 = Unitary(hadamard)
-        result = u1 @ u2
-        # H @ H = I
-        assert np.allclose(result.matrix, np.eye(2), atol=1e-10)

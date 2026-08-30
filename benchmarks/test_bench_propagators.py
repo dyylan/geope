@@ -5,7 +5,7 @@ function of system size ``n`` (Hilbert dimension ``d = 2**n``) and pulse length
 ``G`` (``piecewise_steps``):
 
 * ``compute_matrices`` — the forward product unitary
-  :func:`geope.engine.compute_matrices_params_list_fn` (a ``jax.lax.scan`` of
+  :func:`geope.geometry.chart.compute_matrices_params_list_fn` (a ``jax.lax.scan`` of
   ``expm(i * sum_k x_k B_k)``).
 * ``jvp`` — the directional first derivative
   :func:`geope.jax.get_jvp_propagator` (single-``scan`` ``(X, V)`` recursion).
@@ -41,7 +41,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from geope.engine import get_compute_matrices_params_list_fn
+from geope.geometry.chart import get_compute_matrices_params_list_fn
 from geope.jax import get_jvp_propagator, get_hvp_propagator
 from geope.utils import construct_restricted_pauli_basis
 

@@ -115,16 +115,6 @@ class Grape:
         self._key, subkey = jax.random.split(self._key)
         return subkey
 
-    def _free(self, parameters):
-        """Select the free (projected+drift) parameter columns.
-
-        Identity in experimental (``param_transform``) mode; otherwise selects
-        the proj+drift columns via ``params.proj_drift_indices``.
-        """
-        if self._real_params:
-            return parameters
-        return parameters[:, self.params.proj_drift_indices]
-
     def _proj_drift_mask(self) -> np.ndarray:
         """Effective proj+drift index mask used to scatter free params back.
 
@@ -221,11 +211,7 @@ class Grape:
             self.drift_parameters = None
 
         self.params.parameters = np.array(self.init_parameters)
-        _dtype = np.float64 if self._real_params else np.complex128
-        free_params = self._free(self.params.parameters).astype(_dtype)
-        self.params.fidelity = self.params.fid_U_fn(
-            self.params.compute_U_fn(free_params)
-        )
+        self.params.fidelity = self.params.manifold.fidelity_at(self.params.free())
         self.step_size = 0
         # A change of parameters invalidates any optax state built for the
         # previous parameter values; force a rebuild on the next optimize().
@@ -255,6 +241,7 @@ class Grape:
         if self._optimizer_config == config and self.optimizer_state is not None:
             return
         proj_drift_mask = self._proj_drift_mask()
+        manifold = self.params.manifold
         if method in ["gd", "adam"]:
             learning_rate = optimizer_kwargs.get("learning_rate")
             if method == "gd":
@@ -262,7 +249,7 @@ class Grape:
             else:
                 optimizer = optax.adam(learning_rate=learning_rate)
             self.update_step = get_update_step_gd(
-                proj_drift_mask, self.params.grad_fn, optimizer
+                proj_drift_mask, manifold.value_and_grad, optimizer
             )
         elif method in ["nr-trm", "nr-rfo"]:
             # Use backtracking for second order optimization
@@ -273,9 +260,9 @@ class Grape:
                 delta = optimizer_kwargs.get("delta")
                 self.update_step = get_update_step_trm(
                     proj_drift_mask,
-                    self.params.infid_fn,
-                    self.params.grad_fn,
-                    self.params.hess_fn,
+                    manifold.infidelity_at,
+                    manifold.value_and_grad,
+                    manifold.hessian,
                     optimizer,
                     delta,
                 )
@@ -283,19 +270,17 @@ class Grape:
                 kappa = optimizer_kwargs.get("kappa", 100)
                 self.update_step = get_update_step_rfo(
                     proj_drift_mask,
-                    self.params.infid_fn,
-                    self.params.grad_fn,
-                    self.params.hess_fn,
+                    manifold.infidelity_at,
+                    manifold.value_and_grad,
+                    manifold.hessian,
                     optimizer,
                     kappa,
                 )
         else:
             raise NotImplementedError(f"Method {method} not implemented")
 
-        _dtype = np.float64 if self._real_params else np.complex128
-        free_params = self._free(self.params.parameters).astype(_dtype)
         self.optimizer = optimizer
-        self.optimizer_state = {"optimizer": optimizer.init(free_params)}
+        self.optimizer_state = {"optimizer": optimizer.init(self.params.free())}
         self.method = method
         self._optimizer_config = config
 
@@ -338,12 +323,10 @@ class Grape:
         cbs = normalize_callbacks(callbacks)
 
         step = 0
-        _dtype = np.float64 if self._real_params else np.complex128
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
-            free_params = self._free(self.params.parameters).astype(_dtype)
             new_parameters, infidelity, self.optimizer_state = self.update_step(
-                free_params, self.optimizer_state
+                self.params.free(), self.optimizer_state
             )
             if self.verbose:
                 if infidelity < 1 - self.precision:

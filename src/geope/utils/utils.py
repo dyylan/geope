@@ -7,7 +7,7 @@ from jax import Array
 import itertools as it
 from typing import Callable
 
-from .. import lie
+from ..geometry.lie.basis import Basis, traces
 
 
 @jax.jit
@@ -24,23 +24,6 @@ def trace_dot_jit(x: Array, y: Array) -> Array:
         A scalar trace ``Array``.
     """
     return jnp.trace(x @ y)
-
-
-def traces(b_1: np.ndarray, b_2: np.ndarray) -> Array:
-    """Compute the trace inner-product Gram matrix between two basis sets.
-
-    Returns a matrix $G_{ij} = \\mathrm{Tr}(B^{(1)}_i B^{(2)}_j)$ for
-    all pairs of basis elements.
-
-    Args:
-        b_1: First basis tensor ``np.ndarray`` of shape ``(K1, d, d)``.
-        b_2: Second basis tensor ``np.ndarray`` of shape ``(K2, d, d)``.
-
-    Returns:
-        A complex ``Array`` of shape ``(K1, K2)``.
-    """
-    # Vectorized Gram matrix calculation
-    return jnp.einsum("ikl,jlk->ij", jnp.asarray(b_1), jnp.asarray(b_2))
 
 
 def check_xy_comb(comb: tuple[int, ...]) -> bool:
@@ -225,7 +208,7 @@ def control_to_indices(
     return keep
 
 
-def filter_basis_by_control(basis: lie.Basis, control: dict) -> lie.Basis:
+def filter_basis_by_control(basis: Basis, control: dict) -> Basis:
     """Filter a Basis keeping only operators that match a control dict.
 
     For each basis element, inspect its label, build the qubit-index key
@@ -248,7 +231,7 @@ def filter_basis_by_control(basis: lie.Basis, control: dict) -> lie.Basis:
     n_qubits = (
         basis._n_qubits_override if basis._n_qubits_override is not None else None
     )
-    return lie.Basis(b, labels=l, n_qubits=n_qubits)
+    return Basis(b, labels=l, n_qubits=n_qubits)
 
 
 def make_per_element_transform(transforms: list[Callable | None]) -> Callable:
@@ -278,7 +261,7 @@ def make_per_element_transform(transforms: list[Callable | None]) -> Callable:
 
 def construct_restricted_pauli_basis(
     n: int, restriction: list[str] | dict[int | tuple[int, ...], list[str]]
-) -> lie.Basis:
+) -> Basis:
     """Construct a Pauli basis restricted by allowed interactions.
 
     Args:
@@ -320,10 +303,10 @@ def construct_restricted_pauli_basis(
             b.append(p)
             l.append(s)
 
-    return lie.Basis(np.stack(b), labels=l)
+    return Basis(np.stack(b), labels=l)
 
 
-def construct_Heisenberg_pauli_basis(n: int) -> lie.Basis:
+def construct_Heisenberg_pauli_basis(n: int) -> Basis:
     """Construct the Pauli basis for a Heisenberg-type Hamiltonian.
 
     Includes all single-body Pauli terms and two-body terms of the
@@ -361,10 +344,10 @@ def construct_Heisenberg_pauli_basis(n: int) -> lie.Basis:
             b.append(p)
             l.append(s)
 
-    return lie.Basis(np.stack(b), labels=l)
+    return Basis(np.stack(b), labels=l)
 
 
-def construct_two_body_pauli_basis(n: int) -> lie.Basis:
+def construct_two_body_pauli_basis(n: int) -> Basis:
     """Construct the full two-body Pauli basis.
 
     Includes all Pauli strings acting on at most two qubits.
@@ -401,10 +384,10 @@ def construct_two_body_pauli_basis(n: int) -> lie.Basis:
             b.append(p)
             l.append(s)
 
-    return lie.Basis(np.stack(b), labels=l)
+    return Basis(np.stack(b), labels=l)
 
 
-def construct_full_pauli_basis(n: int) -> lie.Basis:
+def construct_full_pauli_basis(n: int) -> Basis:
     """Construct the full $n$-qubit Pauli basis (excluding identity).
 
     Contains all $4^n - 1$ non-identity Pauli strings.
@@ -441,7 +424,7 @@ def construct_full_pauli_basis(n: int) -> lie.Basis:
         b.append(p)
         l.append(s)
 
-    return lie.Basis(np.stack(b), labels=l)
+    return Basis(np.stack(b), labels=l)
 
 
 def creation_annihilation_operators(
@@ -467,7 +450,7 @@ def creation_annihilation_operators(
 
 def construct_full_spin_boson_basis(
     n_spins: int, n_bosons: int, boson_truncation: int = 3
-) -> lie.Basis:
+) -> Basis:
     """Construct the full spin-boson Pauli-like basis.
 
     Combines all $n$-qubit Pauli strings with bosonic position ($q$)
@@ -523,7 +506,7 @@ def construct_full_spin_boson_basis(
             b.append(pb)
             l.append(sb)
 
-    return lie.Basis(np.stack(b), labels=l)
+    return Basis(np.stack(b), labels=l)
 
 
 def construct_restricted_spin_boson_basis(
@@ -531,7 +514,7 @@ def construct_restricted_spin_boson_basis(
     n_bosons: int,
     restriction: list[str] | dict[int | tuple[int, ...], list[str]],
     boson_truncation: int = 3,
-) -> lie.Basis:
+) -> Basis:
     """Construct a restricted spin-boson basis.
 
     Like `construct_full_spin_boson_basis` but only includes Pauli
@@ -594,7 +577,7 @@ def construct_restricted_spin_boson_basis(
                 b.append(pb)
                 l.append(sb)
 
-    return lie.Basis(np.stack(b), labels=l)
+    return Basis(np.stack(b), labels=l)
 
 
 def prepare_random_parameters(

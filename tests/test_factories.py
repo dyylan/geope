@@ -1,10 +1,16 @@
 """
 Tests for the standalone function factories in geope/engine.py (issue #13).
 
-These exercise the Jacobian, Hessian, gammas and omegas builders directly —
-with no Engine or optimiser object — demonstrating that the individual
-components are now independently testable and benchmarkable, and verifying them
-against finite differences / ``jax`` references rather than against each other.
+These exercise the Jacobian and Hessian builders directly — with no optimiser
+object — demonstrating that the individual components are independently testable
+and benchmarkable, and verifying them against finite differences / ``jax``
+references rather than against each other.
+
+The per-step geometry the GEOPE step is built from (gammas, omegas and the
+left-trivialisation invariant they must satisfy) is assembled by
+``geope.geometry``, so those tests read it off a
+``Manifold.context``; the manifold and tangent-space primitives themselves are
+covered in tests/test_geometry.py.
 """
 
 import pytest
@@ -15,19 +21,15 @@ import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
-from geope.engine import (
+from geope.geometry.chart import (
     get_compute_matrices_params_list_fn,
-    get_infidelity_fn,
-    get_geodesic_hamiltonian_fn,
     get_jacobian_fn,
-    get_gammas_fn,
-    get_omegas_fn,
-    get_gammas_and_omegas_fn,
-    get_hessian_fn,
 )
+from geope.geometry.lie.groups import infidelity
+from geope.jax.hessian import get_hessian_fn
 from geope.geope import linear_comb_projected_coeffs_multigate
 from geope.jax import su_hessian_quadratic_form
-from geope.lie.pauli_projector import get_project_omegas_fn
+from geope.geometry.lie.pauli_projector import get_project_omegas_fn
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -92,8 +94,7 @@ class TestHessianFactory:
         basis = _pauli_basis_1q()
         compute_U = get_compute_matrices_params_list_fn(basis)
         target = jnp.array([[0, 1], [1, 0]], dtype=complex)  # X gate
-        infid_U = get_infidelity_fn(target)
-        infid = lambda x: infid_U(compute_U(x))
+        infid = lambda x: infidelity(compute_U(x), target)
         hess = get_hessian_fn(infid)
         y = jnp.array([[0.2, -0.1, 0.4]])
         H = np.array(hess(y)).reshape(y.size, y.size)
@@ -232,15 +233,15 @@ class TestSuHessianQuadraticForm:
 
 
 # ---------------------------------------------------------------------------
-# Gammas / Omegas factories — split halves match the combined function
+# Gammas / Omegas — shapes and laziness, read off a GeometricContext
 # ---------------------------------------------------------------------------
 
 
 class TestGammasOmegas:
     @pytest.fixture
     def pieces(self):
-        # Source the (un-jitted) building blocks the way the optimiser does:
-        # straight off a Parameters object — no engine involved.
+        # Source the geometry the way the optimiser does: one context off the
+        # Parameters' bound manifold.
         p = Parameters(
             basis=construct_full_pauli_basis(2),
             projected_basis=construct_Heisenberg_pauli_basis(2),
@@ -248,42 +249,34 @@ class TestGammasOmegas:
             piecewise_steps=2,
             seed=0,
         )
-        proj_indices = p.proj_indices_projdrift_basis
-        has_pd = p.proj_drift_basis.lie_algebra_dim > 0
         K = p.proj_drift_basis.lie_algebra_dim
         free = jax.random.normal(jax.random.key(1), (2, K)).astype(jnp.complex128)
-        return p, proj_indices, has_pd, free
-
-    def test_split_matches_combined(self, pieces):
-        p, proj_indices, has_pd, free = pieces
-        key = jax.random.key(5)
-        gammas = get_gammas_fn(p.compute_U_fn, p.geo_fn, p.project_omegas_fn)
-        omegas = get_omegas_fn(
-            p.compute_U_fn, p.jac_fn, p.project_omegas_fn, proj_indices, has_pd
-        )
-        combined = get_gammas_and_omegas_fn(
-            p.compute_U_fn,
-            p.jac_fn,
-            p.geo_fn,
-            p.project_omegas_fn,
-            proj_indices,
-            has_pd,
-        )
-        g_c, o_c = combined(free, key)
-        np.testing.assert_allclose(
-            np.array(gammas(free, key)), np.array(g_c), atol=1e-10
-        )
-        np.testing.assert_allclose(np.array(omegas(free)), np.array(o_c), atol=1e-10)
+        return p, free
 
     def test_omega_restriction_shape(self, pieces):
-        p, proj_indices, has_pd, free = pieces
-        omegas = get_omegas_fn(
-            p.compute_U_fn, p.jac_fn, p.project_omegas_fn, proj_indices, has_pd
-        )
-        out = np.array(omegas(free))
+        p, free = pieces
+        out = np.array(p.manifold.context(free).omegas)
         # (piecewise_steps, n_projected, full_basis_dim)
         assert out.shape[0] == 2
-        assert out.shape[1] == int(np.sum(proj_indices))
+        assert out.shape[1] == int(np.sum(p.proj_indices_projdrift_basis))
+        assert out.shape[2] == p.basis.lie_algebra_dim
+
+    def test_gammas_shape(self, pieces):
+        p, free = pieces
+        assert np.array(p.manifold.context(free).gammas).shape == (
+            p.basis.lie_algebra_dim,
+        )
+
+    def test_both_come_from_one_propagator_and_one_jacobian(self, pieces):
+        # The combined evaluation the old ``gammas_and_omegas`` existed to
+        # provide is now just tier-0 memoisation: gammas and omegas share the
+        # same ``unitary``, and omegas is the only reader of the Jacobian.
+        p, free = pieces
+        ctx = p.manifold.context(free)
+        _ = ctx.gammas
+        point_after_gammas = ctx.point
+        _ = ctx.omegas
+        assert ctx.point is point_after_gammas
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +287,7 @@ class TestGammasOmegas:
 # its argument; the raw quantities are U * (traceless Hermitian), so projecting
 # them directly is lossy in a U-dependent way and the downstream least squares
 # stops being the Frobenius-orthogonal projection it is defined to be. See
-# :func:`geope.engine.get_gammas_and_omegas_fn` for the worked argument.
+# the geodesic step's coefficient contract for the worked argument.
 #
 # Two things make these tests bite, and both are load-bearing:
 #   * the Jacobian must be rank-deficient (8 dof against dim su(4) = 15). When it
@@ -327,36 +320,45 @@ class TestLeftTrivialisation:
         return p, pidx, free
 
     @staticmethod
-    def _left_trivialised(p, pidx, free, key):
-        """The matrices the projection *should* be handed: A and i U^dag dU."""
-        U = np.asarray(p.compute_U_fn(free))
-        A = U.conj().T @ np.asarray(p.geo_fn(U, key=key))
-        dU = np.transpose(np.asarray(p.jac_fn(free)), [2, 3, 0, 1])
+    def _left_trivialised(p, pidx, free):
+        """The matrices the projection *should* be handed: A and i U^dag dU.
+
+        Rebuilt here from the manifold's own primitives, independently of the
+        context that is under test.
+        """
+        m = p.manifold
+        U = np.asarray(m.compute_U(free))
+        # The context's convention: the tangent at U, pointing away from the
+        # target, so that the slope of the distance objective is positive.
+        A = -np.asarray(m.log(U, m.target))
+        dU = np.transpose(np.asarray(m.tangent.jacobian(free)), [2, 3, 0, 1])
         J = 1j * np.einsum("ab,gkbc->gkac", U.conj().T, dU)[:, pidx]
         return U, A, J
 
     def test_projections_are_of_the_left_trivialised_matrices(self, deficient):
-        """gammas and omegas must be the projections of A and i U^dag dU.
+        """gammas and omegas must be the projections of iA and i U^dag dU.
 
-        Not a Hermiticity check on the rebuilt matrices: ``project_omegas``
-        returns *real* coefficients against a Hermitian basis, so any rebuild is
+        Not a Hermiticity check on the rebuilt matrices: the projector returns
+        *real* coefficients against a Hermitian basis, so any rebuild is
         Hermitian whatever it was handed. The invariant is that the coefficients
         are those of the left-trivialised matrices.
         """
         p, pidx, free = deficient
-        key = jax.random.key(5)
-        _, A, J = self._left_trivialised(p, pidx, free, key)
-        gammas, omegas = p.gammas_and_omegas(free, key)
+        _, A, J = self._left_trivialised(p, pidx, free)
+        ctx = p.manifold.context(free)
         d = p.proj_drift_basis.dim
+        project = p.manifold.tangent.project
 
+        # gammas and omegas go through the same coefficient map, with no extra
+        # normalisation on either side.
         np.testing.assert_allclose(
-            np.asarray(gammas),
-            np.asarray(p.project_omegas_fn(A[None])).squeeze(0) / d,
+            np.asarray(ctx.gammas),
+            np.asarray(project(1j * A[None])).squeeze(0),
             atol=1e-12,
         )
         np.testing.assert_allclose(
-            np.asarray(omegas),
-            np.asarray(p.project_omegas_fn(J.reshape(-1, d, d))).reshape(
+            np.asarray(ctx.omegas),
+            np.asarray(project(J.reshape(-1, d, d))).reshape(
                 J.shape[0], J.shape[1], -1
             ),
             atol=1e-12,
@@ -371,25 +373,30 @@ class TestLeftTrivialisation:
         the intrinsic curvature term.
         """
         p, pidx, free = deficient
-        key = jax.random.key(5)
         d = p.proj_drift_basis.dim
-        _, A, J = self._left_trivialised(p, pidx, free, key)
+        _, A, J = self._left_trivialised(p, pidx, free)
+        # Both sides Hermitian, as the projection sees them: J is already
+        # i U^dag dU, so the geodesic tangent enters as iA (see
+        # ``TangentSpace.coefficients``).
+        Ah = 1j * A
 
-        # Independent reference: least squares of A onto span(J) in matrix space,
-        # under the real inner product Re tr(X^dagger Y).
+        # Independent reference: least squares of iA onto span(J) in matrix
+        # space, under the real inner product Re tr(X^dagger Y).
         B = J.reshape(-1, d * d).T
         Br = np.concatenate([B.real, B.imag], axis=0)
-        ar = np.concatenate([A.real.ravel(), A.imag.ravel()])
+        ar = np.concatenate([Ah.real.ravel(), Ah.imag.ravel()])
         r = Br @ np.linalg.lstsq(Br, ar, rcond=None)[0]
         PA = (r[: d * d] + 1j * r[d * d :]).reshape(d, d)
         # The fixture must be genuinely deficient, or this asserts nothing.
-        assert np.linalg.norm(A - PA) / np.linalg.norm(A) > 1e-2
+        assert np.linalg.norm(Ah - PA) / np.linalg.norm(Ah) > 1e-2
 
-        gammas, omegas = p.gammas_and_omegas(free, key)
-        sol = np.asarray(linear_comb_projected_coeffs_multigate(omegas, gammas, None))
+        ctx = p.manifold.context(free)
+        sol = np.asarray(
+            linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
+        )
         psi = np.einsum("gk,gkab->ab", sol, J)
 
-        # Compare directions: gammas carry a 1/d and Geope renormalises anyway.
+        # Compare directions only: Geope renormalises the solution anyway.
         cos = float(np.real(np.trace(PA.conj().T @ psi))) / (
             np.linalg.norm(PA) * np.linalg.norm(psi)
         )
@@ -415,7 +422,7 @@ class TestParametersMetadata:
         assert not np.any(p.drift_indices_projdrift_basis)
 
     def test_with_drift_masks(self):
-        from geope.lie import Basis
+        from geope.geometry.lie import Basis
 
         fb = construct_full_pauli_basis(2)
         pb = construct_Heisenberg_pauli_basis(2)
@@ -447,7 +454,7 @@ class TestParametersMetadata:
 
 def _overlapping_drift_basis():
     """Drift basis on ZI/IZ — both inside the Heisenberg projected basis."""
-    from geope.lie import Basis
+    from geope.geometry.lie import Basis
 
     Z = np.array([[1, 0], [0, -1]], dtype=complex)
     I = np.eye(2, dtype=complex)
@@ -456,7 +463,7 @@ def _overlapping_drift_basis():
 
 def _disjoint_drift_basis():
     """Drift basis on XZ/ZX — outside the Heisenberg projected basis."""
-    from geope.lie import Basis
+    from geope.geometry.lie import Basis
 
     X = np.array([[0, 1], [1, 0]], dtype=complex)
     Z = np.array([[1, 0], [0, -1]], dtype=complex)
@@ -524,8 +531,9 @@ class TestLazyCaching:
             projected_basis=construct_Heisenberg_pauli_basis(2),
             target=CNOT,
         )
-        assert p.compute_U_fn is p.compute_U_fn  # cached (same object)
-        assert p.gammas_and_omegas is p.gammas_and_omegas
+        assert p.manifold is p.manifold  # cached (same object)
+        assert p.manifold.compute_U is p.manifold.compute_U
+        assert p.manifold.hessian is p.manifold.hessian
 
     def test_geodesic_self_is_zero(self):
         p = Parameters(
@@ -533,5 +541,5 @@ class TestLazyCaching:
             projected_basis=construct_Heisenberg_pauli_basis(2),
             target=CNOT,
         )
-        g = p.geo_fn(jnp.array(CNOT), key=jax.random.key(0))
-        assert np.allclose(np.array(g), 0, atol=1e-10)
+        m = p.manifold
+        assert np.allclose(np.array(m.log(m.target, jnp.array(CNOT))), 0, atol=1e-10)

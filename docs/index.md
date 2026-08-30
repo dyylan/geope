@@ -69,9 +69,10 @@ The library is organised around a few core components:
 
 | Module | Description |
 |--------|-------------|
-| `Basis`, `Hamiltonian`, `Unitary` | Lie algebraic objects for defining Pauli-string bases, Hamiltonians, and unitaries. |
-| `Parameters` | State object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and `param_transform`. The single user-facing entry point; it also lazily builds and caches the optimisation functions (unitary, fidelity, Jacobian, geodesic, …). |
-| `engine` | Pure function factories for the optimisation primitives (unitary, fidelity, geodesic Hamiltonian, Jacobian, Hessian, gammas/omegas). They return un-jitted callables; JIT happens once when the optimiser is first run. |
+| `Basis` | The Lie-algebraic object defining a Pauli-string basis of Hermitian generators. |
+| `geometry` | The geometry layer: `Manifold` and its `UnitaryGroup` / `SpecialUnitaryGroup` / `StateSphere` implementations, the `TangentBundle`, and the per-step `GeometricContext`. |
+| `Parameters` | State object bundling basis, control/drift configuration, target, constraints, pulse-shape constraints, and `param_transform`. The single user-facing entry point; it lazily builds and caches the bound `manifold`, off which everything geometric hangs. |
+| `geometry.chart` | The pulse model — the product-of-exponentials chart and its Jacobians. Un-jitted callables, so JIT happens once when the optimiser's update step is first traced. |
 | `Geope` | Top-level optimiser that runs the full GEOPE algorithm; requires a `Parameters` object. |
 | `Gecko` | Kernel ("auxiliary cost") optimiser that refines a solution — smoothing, pulse length, speed, robustness, bounds — while preserving fidelity. Constructed from a `Parameters` object (pass a `Geope`'s `geope.params` to reuse its cached, already-compiled functions). |
 | `utils` | Utilities for constructing restricted Pauli bases, Heisenberg and 2-local Hamiltonians, line search, and more. |

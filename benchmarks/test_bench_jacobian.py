@@ -3,7 +3,7 @@
 Compares :func:`geope.jax.get_jacobian_propagator` (the hand-written
 ``(G, K) -> (G, d, d, K)`` stitch) against the production autodiff path
 ``jax.jacobian(compute_U_fn, holomorphic=True)`` built by
-:func:`geope.engine.get_jacobian_fn` over the ``jax.lax.scan`` product
+:func:`geope.geometry.chart.get_jacobian_fn` over the ``jax.lax.scan`` product
 unitary.
 
 Two benchmark families per size:
@@ -26,7 +26,10 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from geope.engine import get_compute_matrices_params_list_fn, get_jacobian_fn
+from geope.geometry.chart import (
+    get_compute_matrices_params_list_fn,
+    get_jacobian_fn,
+)
 from geope.jax import get_jacobian_propagator
 
 from conftest import make_basis, make_params, warm

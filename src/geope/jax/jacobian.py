@@ -43,7 +43,7 @@ def jacobian_propagator(
     r"""Compute the full Jacobian propagator of the product unitary.
 
     The product unitary follows the convention of
-    :func:`geope.engine.compute_matrices_params_list_fn`, where each gate is
+    :func:`geope.geometry.chart.compute_matrices_params_list_fn`, where each gate is
     left-multiplied onto the accumulator,
 
     $$U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(i \sum_k x_{i,k} G_k\Big).$$
@@ -140,7 +140,7 @@ def jvp_propagator(
     Computes the value and the single-direction derivative of the product
     unitary along a parameter-space direction $p$, without forming the full
     Jacobian. With the product convention of
-    :func:`geope.engine.compute_matrices_params_list_fn`,
+    :func:`geope.geometry.chart.compute_matrices_params_list_fn`,
     $\phi(\theta) = U_{G-1} \cdots U_1 U_0$ with each gate left-multiplied,
     define the partial product $X_g = U_g \cdots U_0$ and its derivative
     $V_g = \dot X_g(0)$ along $\theta(t) = \theta + t p$. Since
