@@ -183,25 +183,49 @@ class StateSphere(Manifold):
     def hessian_quadratic_form(
         self, point: Array, a: Array, omega: Array
     ) -> tuple[Array, Array]:
-        r"""$\lVert\Omega_\parallel\rVert^2 + \theta\cot\theta\,\lVert\Omega_\perp\rVert^2$.
+        r"""$\lVert\Omega_\parallel\rVert^2 + 2\theta\cot2\theta\,\lVert\Omega_J\rVert^2 + \theta\cot\theta\,\lVert\Omega_\perp\rVert^2$.
 
-        On a sphere the Riemannian Hessian of $\tfrac12 d^2$ is the identity along
-        the radial direction $A$ and $\theta\cot\theta$ on its orthogonal
-        complement — the same shape as the group's
-        $\frac{\operatorname{ad}}{2}\coth\frac{\operatorname{ad}}{2}$ spectrum, and
-        likewise $\preceq I$ for $\theta < \pi$. Returns $\theta$ as the
-        cut-locus diagnostic: it diverges at $\theta = \pi$, the antipode.
+        $\mathbb{CP}^{n-1}$ is a symmetric space, so the Riemannian Hessian of
+        $\tfrac12 d^2$ is $\sqrt{\mathcal R}\cot\sqrt{\mathcal R}$ with
+        $\mathcal R$ the curvature operator along the geodesic. **Its spectrum
+        is not that of a round sphere.** Fubini–Study sectional curvature is $1$
+        on most planes but $4$ on the *complex line* $\mathrm{span}(\hat A,
+        i\hat A)$, so the Hessian splits three ways: eigenvalue $1$ along the
+        radial $\hat A$, $2\theta\cot2\theta$ along $i\hat A$, and
+        $\theta\cot\theta$ on the rest. Treating $i\hat A$ like any other
+        perpendicular direction is wrong by up to a factor of several, and gets
+        the *sign* wrong past $\theta = \pi/4$, where $2\theta\cot2\theta$ turns
+        negative while $\theta\cot\theta$ is still positive.
+
+        Returns $\theta$ as the cut-locus diagnostic. It diverges at
+        $\theta = \pi/2$ — the whole diameter of $\mathbb{CP}^{n-1}$, the
+        antipode of the *projective* space rather than of the sphere above it,
+        and the largest value `log`'s $\arccos\lvert\langle x,y\rangle\rvert$ can
+        return.
         """
         theta = jnp.sqrt(self.norm2(point, a))
         far = theta > _TINY
         safe_theta = jnp.where(far, theta, 1.0)
-        # Component of Omega along A, in units of length.
-        parallel = jnp.where(far, self.inner(point, a, omega) / safe_theta, 0.0)
-        # theta * cot(theta), continuously extended to 1 at theta = 0. Feed tan a
-        # safe argument: both branches of a `where` are evaluated.
-        h = jnp.where(far, safe_theta / jnp.tan(safe_theta), 1.0)
-        perpendicular = self.norm2(point, omega) - parallel**2
-        return parallel**2 + h * perpendicular, theta
+        unit = a / safe_theta
+        # Components of Omega along A and along its complex partner iA, in units
+        # of length; the pair spans the curvature-4 plane.
+        parallel = jnp.where(far, self.inner(point, unit, omega), 0.0)
+        complex_partner = jnp.where(far, self.inner(point, 1j * unit, omega), 0.0)
+
+        # u * cot(u), continuously extended to 1 at u = 0. Both branches of a
+        # `where` are evaluated, so feed tan() a *safe* argument - and feed the
+        # near branch 0, not the 1.0 used above as a safe divisor, or the kernel
+        # returns cot(1) instead of 1 when A vanishes.
+        angle = jnp.where(far, theta, 0.0)
+
+        def cot(u: Array) -> Array:
+            small = jnp.abs(u) < 1e-8
+            safe = jnp.where(small, 1.0, u)
+            return jnp.where(small, 1.0 - u**2 / 3.0, safe / jnp.tan(safe))
+
+        rest = self.norm2(point, omega) - parallel**2 - complex_partner**2
+        value = parallel**2 + cot(2.0 * angle) * complex_partner**2 + cot(angle) * rest
+        return value, theta
 
     def fidelity(self, x: Array, y: Array) -> Array:
         r"""$\lvert\langle x, y\rangle\rvert \in [0, 1]$ — the state fidelity."""

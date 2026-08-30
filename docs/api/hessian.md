@@ -9,10 +9,15 @@ $(G, G, d, d, K, K)$ tensor. The **autodiff** pair works on any chart, including
 the `param_transform` path where no exponential-product structure exists — which
 is why `Manifold.hessian` falls back to it there.
 
-`su_hessian_quadratic_form` is a different object: the Riemannian Hessian of the
-squared geodesic distance, which supplies
-`SpecialUnitaryGroup.hessian_quadratic_form` and the curvature the second-order
-line searches seed their step from.
+`su_hessian_quadratic_form` and `stiefel_hessian_quadratic_form` are a different
+object: the Riemannian Hessian of the squared geodesic distance, which supplies
+`SpecialUnitaryGroup.hessian_quadratic_form` and
+`Stiefel.hessian_quadratic_form`, and the curvature the second-order line
+searches seed their step from. The two are shaped very differently — a
+bi-invariant group's is a scalar function $\frac{\mathrm{ad}}2\coth
+\frac{\mathrm{ad}}2$ of one adjoint operator, evaluated without ever forming it,
+while a general Stiefel manifold is *not* symmetric and needs the blocks of an
+operator exponential solving the Jacobi equation.
 
 ## Manual propagator derivatives
 
@@ -33,3 +38,5 @@ line searches seed their step from.
 ## Riemannian curvature
 
 ::: geope.jax.hessian.su_hessian_quadratic_form
+
+::: geope.jax.hessian.stiefel_hessian_quadratic_form

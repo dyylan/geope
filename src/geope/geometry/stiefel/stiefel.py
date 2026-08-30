@@ -45,7 +45,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from ...jax.hessian import get_hvp_propagator
+from ...jax.hessian import get_hvp_propagator, stiefel_hessian_quadratic_form
 from ...jax.logm import logm_unitary
 from ..chart import get_compute_matrices_params_list_fn
 from ..manifold import Manifold
@@ -374,26 +374,44 @@ class Stiefel(Manifold):
     def hessian_quadratic_form(
         self, point: Array, a: Array, omega: Array
     ) -> tuple[Array, Array]:
-        r"""Unavailable: the canonical metric admits no closed-form $\mathcal K_A$.
+        r"""The block-Jacobi form $\langle Z, E_{12}^{-1}E_{11}Z\rangle$ — phase-blind only.
 
-        On a group the Riemannian Hessian of $\tfrac12 d^2$ is
-        $\frac{\mathrm{ad}}{2}\coth\frac{\mathrm{ad}}{2}$ and on the sphere it is
-        $\theta\cot\theta$; the canonical Stiefel metric has neither. Rather than
-        return the flat surrogate and let `ApproximateQuadraticArmijo` silently
-        stop being exact, this fails — the same way a missing `TangentBundle.hvp`
-        does under ``param_transform``.
+        There is no eigenangle formula: a general Stiefel manifold is normal
+        homogeneous but not *symmetric*, so neither the group's
+        $\frac{\mathrm{ad}}{2}\coth\frac{\mathrm{ad}}{2}$ nor the sphere's
+        $\theta\cot\theta$ applies. What does exist is exact — the Jacobi
+        equation has constant coefficients in a homogeneous moving frame, so
+        $\mathcal K^{\mathrm{St}}_S$ is read off the blocks of one operator
+        exponential. See `geope.jax.stiefel_hessian_quadratic_form`.
 
-        Only `geope.line_searches.ApproximateQuadraticArmijo` (and the `rho`
-        diagnostic) need it: `geope.line_searches.QuadraticArmijo` builds its
-        curvature from ``ctx.q``, which uses the radial surrogate
-        $\lVert\Omega\rVert^2$ and never calls this.
+        **Note the negation.** The context hands over ``a = -Log_Q(Q_star)``,
+        pointing *away* from the target, and unlike $\mathfrak{su}(d)$ this form
+        is genuinely **not even** in its argument — $-\Delta$ addresses the
+        geodesic reflection of the target, a different Hessian. Only at $m = N$
+        does evenness return, because there the manifold is the group.
+
+        **Unavailable when ``projective``.** Phase alignment inside `log` makes
+        the objective the squared distance on the $\mathrm U(1)$ *quotient*
+        $\mathrm{St}_m(\mathbb C^N)/\mathrm U(1)$, whose Hessian carries an
+        O'Neill term this construction does not have; measured against a finite
+        difference of `distance2`, the total-space form is off by up to a few
+        percent there. Rather than let `ApproximateQuadraticArmijo` quietly stop
+        being exact, this fails — the same way a missing `TangentBundle.hvp` does
+        under ``param_transform``. The other four line searches run in both
+        modes, and `geope.line_searches.QuadraticArmijo` builds its curvature
+        from ``ctx.q``, which uses the radial surrogate $\lVert\Omega\rVert^2$
+        and never calls this.
         """
-        raise NotImplementedError(
-            f"{self.name} has no closed-form Riemannian Hessian for the canonical "
-            "metric, so `ctx.q_exact` and `ctx.rho` are unavailable here. Use "
-            "GoldenSection, Adam, Armijo or QuadraticArmijo — all four run on "
-            "this manifold; only ApproximateQuadraticArmijo reads `q_exact`."
-        )
+        if self.projective:
+            raise NotImplementedError(
+                f"{self.name} with projective=True measures distance on the U(1) "
+                "quotient, whose Riemannian Hessian this does not implement, so "
+                "`ctx.q_exact` and `ctx.rho` are unavailable here. Pass "
+                "projective=False for the exact form, or use GoldenSection, Adam, "
+                "Armijo or QuadraticArmijo — all four run in either mode; only "
+                "ApproximateQuadraticArmijo reads `q_exact`."
+            )
+        return stiefel_hessian_quadratic_form(point, -a, omega)
 
     def fidelity(self, x: Array, y: Array) -> Array:
         r"""$\lvert\mathrm{Tr}(y^\dagger x)\rvert/m$, or $\mathrm{Re}\,\mathrm{Tr}/m$.

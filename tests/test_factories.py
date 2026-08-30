@@ -15,6 +15,7 @@ covered in tests/test_geometry.py.
 
 import pytest
 import numpy as np
+import scipy.linalg as spla
 
 import jax
 import jax.numpy as jnp
@@ -28,7 +29,7 @@ from geope.geometry.chart import (
 from geope.geometry.lie.groups import infidelity
 from geope.jax.hessian import get_hessian_fn
 from geope.geope import linear_comb_projected_coeffs_multigate
-from geope.jax import su_hessian_quadratic_form
+from geope.jax import stiefel_hessian_quadratic_form, su_hessian_quadratic_form
 from geope.geometry.lie.pauli_projector import get_project_omegas_fn
 from geope.parameters import Parameters
 from geope.utils import (
@@ -229,6 +230,186 @@ class TestSuHessianQuadraticForm:
         value, _ = jax.jit(su_hessian_quadratic_form)(A, Omega)
         grad = jax.grad(lambda s: su_hessian_quadratic_form(A, s * Omega)[0])(1.0)
         assert bool(jnp.isfinite(value))
+        assert np.isclose(float(grad), 2.0 * float(value), rtol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Canonical-Stiefel Riemannian-Hessian quadratic form
+# ---------------------------------------------------------------------------
+
+
+def _rand_stiefel(n, m, seed, norm=0.6):
+    """A random frame in St_m(C^n) with a tangent at it, scaled to ``norm``."""
+    rng = np.random.default_rng(seed)
+    q = np.linalg.qr(rng.normal(size=(n, m)) + 1j * rng.normal(size=(n, m)))[0]
+    weight = np.eye(n) - 0.5 * q @ q.conj().T
+
+    def tangent(scale):
+        z = rng.normal(size=(n, m)) + 1j * rng.normal(size=(n, m))
+        overlap = q.conj().T @ z
+        t = z - q @ (0.5 * (overlap + overlap.conj().T))
+        return scale * t / np.sqrt(np.real(np.trace(t.conj().T @ weight @ t)))
+
+    return q, tangent(norm), tangent(1.0)
+
+
+def _dense_stiefel_hessian_form(q, delta, xi):
+    r"""Reference form via the *un-reduced* block exponential on all of T_Q.
+
+    Builds L_S and M_S column by column on the full ``2Nm - m^2``-dimensional
+    horizontal space, using a complete orthonormal complement ``Q_perp`` with no
+    regard for where ``B``'s support lies, then takes ``E_12^{-1} E_11`` on that
+    whole space. It therefore validates the **two-sector split** itself — not
+    merely the arithmetic inside each sector — since the implementation under
+    test never forms an operator of this size and never materialises ``Q_2``.
+    """
+    n, m = q.shape
+    q_perp = np.linalg.qr(np.concatenate([q, delta], axis=1), mode="complete")[0][:, m:]
+    a = q.conj().T @ delta
+    b = q_perp.conj().T @ delta
+    c = q.conj().T @ xi
+    d = q_perp.conj().T @ xi
+    k = n - m
+
+    # A real basis of {(C, D) : C skew-Hermitian m x m, D in C^{k x m}}.
+    basis = []
+    for j in range(m):
+        for i in range(m):
+            e = np.zeros((m, m), complex)
+            if i == j:
+                e[i, i] = 1j
+            elif i < j:
+                e[i, j], e[j, i] = 1.0, -1.0
+            else:
+                e[i, j] = e[j, i] = 1j
+            basis.append((e, np.zeros((k, m), complex)))
+    for i in range(k):
+        for j in range(m):
+            for unit in (1.0, 1j):
+                blk = np.zeros((k, m), complex)
+                blk[i, j] = unit
+                basis.append((np.zeros((m, m), complex), blk))
+    basis = [(c_, d_) for c_, d_ in basis if np.any(c_) or np.any(d_)]
+    dim = len(basis)
+
+    def inner(x, y):
+        return 0.5 * np.real(np.trace(x[0].conj().T @ y[0])) + np.real(
+            np.trace(x[1].conj().T @ y[1])
+        )
+
+    # Gram-Schmidt, so the coordinate dot product *is* the canonical metric.
+    frame = []
+    for vec in basis:
+        for prev in frame:
+            proj = inner(prev, vec)
+            vec = (vec[0] - proj * prev[0], vec[1] - proj * prev[1])
+        norm = np.sqrt(inner(vec, vec))
+        if norm > 1e-9:
+            frame.append((vec[0] / norm, vec[1] / norm))
+    dim = len(frame)
+    assert dim == 2 * n * m - m * m
+
+    def l_op(cc, dd):
+        return (a @ cc - cc @ a - b.conj().T @ dd + dd.conj().T @ b, b @ cc - dd @ a)
+
+    def m_op(cc, dd):
+        f = dd @ b.conj().T - b @ dd.conj().T
+        return (np.zeros((m, m), complex), -f @ b)
+
+    def coords(vec):
+        return np.array([inner(e, vec) for e in frame])
+
+    l_mat = np.column_stack([coords(l_op(*e)) for e in frame])
+    m_mat = np.column_stack([coords(m_op(*e)) for e in frame])
+    block = np.block(
+        [[np.zeros((dim, dim)), np.eye(dim)], [m_mat, -l_mat]],
+    )
+    exp = spla.expm(block)
+    e11, e12 = exp[:dim, :dim], exp[:dim, dim:]
+    z = coords((c, d))
+    return float(z @ np.linalg.solve(e12, e11 @ z))
+
+
+class TestStiefelHessianQuadraticForm:
+    @pytest.mark.parametrize(
+        "n, m",
+        [(6, 2), (4, 2), (5, 3), (6, 3), (5, 1), (4, 4)],
+        ids="6x2 4x2 5x3 6x3 5x1 4x4".split(),
+    )
+    @pytest.mark.parametrize("norm", [0.3, 0.9])
+    def test_matches_the_unreduced_operator_reference(self, n, m, norm):
+        # The reduced two-sector evaluation must agree with the full-space block
+        # exponential the note prescribes, across every regime of p = min(m, N-m).
+        q, delta, xi = _rand_stiefel(n, m, seed=n * 100 + m, norm=norm)
+        value, _ = stiefel_hessian_quadratic_form(
+            jnp.asarray(q), jnp.asarray(delta), jnp.asarray(xi)
+        )
+        assert np.isclose(
+            float(value), _dense_stiefel_hessian_form(q, delta, xi), rtol=1e-8
+        )
+
+    @pytest.mark.parametrize("n, m", [(6, 2), (5, 3), (4, 4)])
+    def test_radial_direction_is_exact(self, n, m):
+        # K_S S = S: the Jacobi field with z(0) = S, z(1) = 0 is just (1-t)S, so
+        # the form collapses to ||Delta||_Q^2 with no operator error at all.
+        q, delta, _ = _rand_stiefel(n, m, seed=7 * n + m, norm=0.8)
+        q_j, d_j = jnp.asarray(q), jnp.asarray(delta)
+        value, _ = stiefel_hessian_quadratic_form(q_j, d_j, d_j)
+        weight = np.eye(n) - 0.5 * q @ q.conj().T
+        norm2 = float(np.real(np.trace(delta.conj().T @ weight @ delta)))
+        assert np.isclose(float(value), norm2, rtol=1e-11)
+
+    def test_zero_delta_is_finite_and_equals_the_surrogate(self):
+        # Delta = 0 gives L = M = 0, so K = I exactly and no tan/solve branch may
+        # leak a nan into either sector.
+        q, _, xi = _rand_stiefel(6, 2, seed=3)
+        zero = jnp.zeros((6, 2), dtype=jnp.complex128)
+        value, spread = stiefel_hessian_quadratic_form(
+            jnp.asarray(q), zero, jnp.asarray(xi)
+        )
+        weight = np.eye(6) - 0.5 * q @ q.conj().T
+        norm2 = float(np.real(np.trace(xi.conj().T @ weight @ xi)))
+        assert bool(jnp.isfinite(value))
+        assert np.isclose(float(value), norm2, rtol=1e-11)
+        assert np.isclose(float(spread), 0.0, atol=1e-12)
+
+    def test_rho_matches_the_lift_eigenphase_spread(self):
+        q, delta, xi = _rand_stiefel(6, 2, seed=21, norm=1.1)
+        _, rho = stiefel_hessian_quadratic_form(
+            jnp.asarray(q), jnp.asarray(delta), jnp.asarray(xi)
+        )
+        # The full N x N lift, including the ambient zeros the reduction drops.
+        q_perp = np.linalg.qr(np.concatenate([q, delta], axis=1), mode="complete")[0][
+            :, 2:
+        ]
+        a, b = q.conj().T @ delta, q_perp.conj().T @ delta
+        lift = np.block([[a, -b.conj().T], [b, np.zeros((4, 4), complex)]])
+        phases = np.linalg.eigvalsh(-1j * lift)
+        assert np.isclose(float(rho), float(phases.max() - phases.min()), atol=1e-10)
+
+    def test_survives_a_second_independent_trace(self):
+        """The skew basis depends only on ``m``, so it is cached — but the cache
+        must hold *numpy*. Memoising a `jax.Array` built inside the first trace
+        leaks it into every later one, and the second `jit` at the same frame
+        size dies with `UnexpectedTracerError`. One shape, two traces is the
+        only arrangement that catches it.
+        """
+        q, delta, xi = _rand_stiefel(6, 2, seed=44, norm=0.5)
+        args = (jnp.asarray(q), jnp.asarray(delta), jnp.asarray(xi))
+        first = jax.jit(lambda *a: stiefel_hessian_quadratic_form(*a)[0])(*args)
+        # A distinct jit: same shapes, same m, a separately traced function.
+        second = jax.jit(lambda *a: 1.0 * stiefel_hessian_quadratic_form(*a)[0])(*args)
+        assert np.isclose(float(first), float(second), rtol=1e-12)
+
+    def test_jittable_and_differentiable(self):
+        q, delta, xi = _rand_stiefel(6, 2, seed=15, norm=0.5)
+        q_j, d_j, x_j = jnp.asarray(q), jnp.asarray(delta), jnp.asarray(xi)
+        value, _ = jax.jit(stiefel_hessian_quadratic_form)(q_j, d_j, x_j)
+        grad = jax.grad(lambda s: stiefel_hessian_quadratic_form(q_j, d_j, s * x_j)[0])(
+            1.0
+        )
+        assert bool(jnp.isfinite(value))
+        # The form is quadratic in Omega, so d/ds at s = 1 is twice the value.
         assert np.isclose(float(grad), 2.0 * float(value), rtol=1e-9)
 
 

@@ -309,7 +309,9 @@ class ApproximateQuadraticArmijo(LineSearch):
 
     Because $\mathcal K_A\preceq I$, ``q_exact <= q`` always, so this seeds a
     **longer** step than :class:`QuadraticArmijo`. The extra cost over it is one
-    ``eigh`` (see :func:`geope.jax.su_hessian_quadratic_form`), negligible beside
+    ``eigh`` on a group (see :func:`geope.jax.su_hessian_quadratic_form`; on
+    `geope.Stiefel` it is instead one small operator exponential, see
+    :func:`geope.jax.stiefel_hessian_quadratic_form`), negligible beside
     the ``logm`` and HVP both already pay. Note that the slope ``s`` needs no
     correction — it is exact for any $\Omega$.
 

@@ -40,6 +40,7 @@ from geope.geometry.lie.groups import (
     infidelity_full,
 )
 from geope.geope import Geope, linear_comb_projected_coeffs_multigate
+from geope.jax import su_hessian_quadratic_form
 from geope.gecko import Gecko
 from geope.parameters import Parameters
 from geope.line_searches import (
@@ -107,11 +108,20 @@ def _stiefel_problem(target_scale=1.0):
     )
 
 
+def _stiefel_phase_problem(target_scale=1.0):
+    """The same frame, phase-sensitive — the mode whose Hessian is exact."""
+    return _params(
+        target=target_scale * CNOT_FRAME,
+        manifold=Stiefel(dim=4, frame=2, projective=False),
+    )
+
+
 PROBLEMS = {
     "SU(d)": _su_problem,
     "U(d)": _u_problem,
     "CP(n-1)": _sphere_problem,
     "St(4,2)": _stiefel_problem,
+    "St(4,2) phase": _stiefel_phase_problem,
 }
 
 
@@ -136,8 +146,9 @@ def space(request):
     velocity = _velocity(manifold, free, coeffs)
     # Whether the manifold supplies a closed-form Riemannian Hessian is a
     # *capability*, not an identity: `param_transform` already withdraws tier 2
-    # from the groups, and Stiefel's canonical metric has no closed form. Probe
-    # for it so the contracts below stay ignorant of which space they are on.
+    # from the groups, and projective Stiefel measures distance on a quotient
+    # whose Hessian is not implemented. Probe for it so the contracts below stay
+    # ignorant of which space they are on.
     try:
         manifold.hessian_quadratic_form(point, velocity, velocity)
         has_curvature = True
@@ -162,7 +173,7 @@ def space(request):
 def _skip_without_curvature(space):
     """Skip a contract that only applies where tier 2 exists."""
     if not space.has_curvature:
-        pytest.skip(f"{space.name} has no closed-form Riemannian Hessian")
+        pytest.skip(f"{space.name} does not supply a Riemannian Hessian")
 
 
 def _velocity(manifold, free, coeffs):
@@ -446,6 +457,30 @@ class TestContextOnEveryManifold:
         for t in (0.0, -0.1):
             assert np.isfinite(float(ctx.distance_at(t)))
             assert np.isfinite(float(ctx.infidelity_at(t)))
+
+    def test_s_and_q_exact_are_the_derivatives_they_claim_to_be(self, space):
+        """``s`` and ``q_exact`` against a finite difference of ``distance_at``.
+
+        The one test that ties the whole of tier 2 to the objective it describes
+        — the manifold's intrinsic Hessian *and* the chart's `accel` together,
+        along the real parameter ray rather than along a geodesic. Nothing else
+        in the suite compares a curvature to an actual second derivative, which
+        is exactly how a wrong closed form survives every algebraic contract.
+        """
+        _skip_without_curvature(space)
+        m = space.manifold
+        ctx = m.context(space.free)
+        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
+        ctx.set_direction(m.tangent.embed(sol))
+
+        h = 1e-4
+        f = [float(ctx.distance_at(t)) for t in (-2 * h, -h, 0.0, h, 2 * h)]
+        slope = (f[0] - 8 * f[1] + 8 * f[3] - f[4]) / (12 * h)
+        curvature = (-f[0] + 16 * f[1] - 30 * f[2] + 16 * f[3] - f[4]) / (12 * h * h)
+        # `s` *is* psi'(0), positive on a descent direction — which is why the
+        # bracket is [-t_max, 0] and the accepted step comes out negative.
+        assert float(ctx.s) == pytest.approx(slope, rel=1e-6, abs=1e-9)
+        assert float(ctx.q_exact) == pytest.approx(curvature, rel=1e-5, abs=1e-8)
 
     def test_the_solved_direction_descends(self, space):
         # The whole algorithm in one assertion: the least-squares direction has a
@@ -747,15 +782,77 @@ class TestStiefel:
             0.5 * float(jnp.linalg.norm(d)) ** 2, rel=1e-10
         )
 
-    def test_curvature_is_gated_not_approximated(self):
-        """No closed-form K_A exists, so it fails loudly rather than silently
-        degrading `ApproximateQuadraticArmijo` to the flat surrogate."""
+    def test_curvature_is_gated_not_approximated_under_projective(self):
+        """Phase alignment makes the objective the U(1) *quotient's* squared
+        distance, whose Hessian carries an O'Neill term this does not have. It
+        fails loudly rather than silently degrading `ApproximateQuadraticArmijo`
+        to a form that is a few percent wrong."""
         rng = np.random.default_rng(9)
         man = Stiefel(6, 3)
         q = _rand_frame(6, 3, rng)
         d = _rand_tangent(man, q, rng)
         with pytest.raises(NotImplementedError, match="QuadraticArmijo"):
             man.hessian_quadratic_form(q, d, d)
+
+    @pytest.mark.parametrize(
+        "n, m",
+        [(6, 2), (4, 2), (6, 3), (8, 2), (9, 3), (5, 1), (5, 3), (4, 4)],
+        ids="6x2 4x2 6x3 8x2 9x3 5x1 5x3 4x4".split(),
+    )
+    def test_hessian_form_matches_a_finite_difference(self, n, m):
+        """The definitive check, across every regime of ``p = min(m, N-m)``.
+
+        ``2m < N`` leaves a live D_2 sector, ``2m == N`` empties it, ``2m > N``
+        truncates it, and ``m == N`` removes the complement altogether. Moving
+        along a *geodesic* zeroes the chart's acceleration, so the second
+        derivative of the squared distance is the intrinsic term alone.
+        """
+        rng = np.random.default_rng(100 + 10 * n + m)
+        man = Stiefel(n, m, projective=False)
+        q = _rand_frame(n, m, rng)
+        target = man.exp(q, _rand_tangent(man, q, rng, 0.6))
+        xi = _rand_tangent(man, q, rng, 1.0)
+
+        h = 1e-4
+        vals = [
+            float(man.distance2(man.exp(q, t * xi), target))
+            for t in (-2 * h, -h, 0.0, h, 2 * h)
+        ]
+        fd = (-vals[0] + 16 * vals[1] - 30 * vals[2] + 16 * vals[3] - vals[4]) / (
+            12 * h * h
+        )
+        # The context's convention: A points *away* from the target.
+        a = -man.log(q, target)
+        value, _ = man.hessian_quadratic_form(q, a, xi)
+        assert float(value) == pytest.approx(fd, rel=1e-6)
+
+    def test_hessian_form_is_not_even_in_a(self):
+        """Unlike su(d), -A addresses the geodesic *reflection* of the target,
+        which is a different Hessian. This is why the hook negates the context's
+        ``A = -log`` instead of passing it through as the group does."""
+        rng = np.random.default_rng(31)
+        man = Stiefel(6, 2, projective=False)
+        q = _rand_frame(6, 2, rng)
+        a = _rand_tangent(man, q, rng, 0.6)
+        xi = _rand_tangent(man, q, rng, 1.0)
+        forward, _ = man.hessian_quadratic_form(q, a, xi)
+        backward, _ = man.hessian_quadratic_form(q, -a, xi)
+        assert not np.isclose(float(forward), float(backward), rtol=1e-6)
+
+    def test_m_equals_N_reproduces_the_group_hessian(self):
+        """At m=N the vertical space vanishes, M_S = 0, and the block-Jacobi
+        operator collapses to the group's ad/2 coth(ad/2) — value and spread
+        alike, up to the canonical metric's factor of one half."""
+        rng = np.random.default_rng(32)
+        man = Stiefel(4, 4, projective=False)
+        q = _rand_frame(4, 4, rng)
+        a = _rand_tangent(man, q, rng, 0.7)
+        xi = _rand_tangent(man, q, rng, 1.0)
+        value, spread = man.hessian_quadratic_form(q, -a, xi)
+        # Left-trivialise: on a group the canonical metric is half the Frobenius.
+        group, rho = su_hessian_quadratic_form(jnp.conj(q).T @ a, jnp.conj(q).T @ xi)
+        assert float(value) == pytest.approx(0.5 * float(group), rel=1e-10)
+        assert float(spread) == pytest.approx(float(rho), rel=1e-10)
 
     def test_log_is_jittable_and_nests_in_a_while_loop(self):
         """`Armijo` calls `distance_at` inside its own `lax.while_loop`, so the
@@ -802,10 +899,35 @@ class TestStiefelEndToEnd:
         g.optimize(max_steps=120, line_search=line_search)
         assert g.history.best_fidelity > 0.999
 
-    def test_approximate_quadratic_armijo_is_refused(self):
+    def test_approximate_quadratic_armijo_is_refused_when_projective(self):
         g = Geope(self._problem())
         with pytest.raises(NotImplementedError, match="QuadraticArmijo"):
             g.optimize(max_steps=2, line_search=ApproximateQuadraticArmijo())
+
+    @staticmethod
+    def _phase_problem(pieces):
+        return Parameters(
+            basis=construct_full_pauli_basis(2),
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT_FRAME,
+            piecewise_steps=pieces,
+            seed=11,
+            manifold=Stiefel(dim=4, frame=2, projective=False),
+        )
+
+    @pytest.mark.parametrize("pieces", [1, 4])
+    def test_approximate_quadratic_armijo_runs_phase_sensitively(self, pieces):
+        """Where the Hessian *is* exact, the residual-aware search runs and
+        converges — the whole point of implementing the block-Jacobi form.
+
+        Two pulse lengths, so two separate compilations of `update_step` in one
+        process: the Hessian caches its skew basis on the frame size, and a
+        cache holding anything trace-local would leak from the first into the
+        second.
+        """
+        g = Geope(self._phase_problem(pieces), history=History())
+        g.optimize(max_steps=150, line_search=ApproximateQuadraticArmijo())
+        assert g.history.best_fidelity > 0.999
 
     def test_only_the_frame_is_scored(self):
         """The fidelity ignores the complement — that *is* the redundancy."""

@@ -318,7 +318,7 @@ by what it costs.
 | --- | --- | --- |
 | 0 — base point | `point`, `jacobian`, `A`, `F0`, `gammas`, `omegas`, `fidelity`, `infidelity` | one propagator, one Jacobian, **one** logarithm |
 | 1 — direction | `V`, `Omega`, `s`, `xi_rel` | free: a contraction of tier 0's Jacobian |
-| 2 — curvature | `W`, `q`, `q_exact`, `rho`, `chi` | one directional HVP plus one `eigh` |
+| 2 — curvature | `W`, `accel`, `chi`, `q`, `q_exact`, `rho` | one directional HVP plus the manifold's Riemannian Hessian |
 | 3 — ray | `point_at(t)`, `infidelity_at(t)`, `distance_at(t)` | one propagator per trial point |
 
 Laziness is load-bearing rather than an optimisation: `Gecko` reads only
@@ -388,7 +388,7 @@ The line searches are immutable config objects (frozen dataclasses):
 - `Adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)` — 1-D Adam line search. `finite_difference=False` uses an exact autodiff gradient; `warm_start=True` seeds each step from the previous step's `t`.
 - `Armijo(c1=1e-4, beta=0.5, t_min=1e-8)` — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step $-t_{\max}$ and backtracks, taking the slope from the objective value alone ($s = 2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
 - `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — geometry-aware second-order line search: seeds the step from the SU(N) curvature (clipped to the bracket, falling back to the full step when the curvature is non-positive) and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
-- `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` (standard/projective mode only).
+- `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` on a group or the state sphere, and one small operator exponential on `Stiefel` (standard mode only; on `Stiefel` it also needs `projective=False`, see below).
 
     Whether it changes anything is structural: the solve has `piecewise_steps × K_proj` unknowns against `K_basis` equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. `GeometricContext.xi_rel` reports the residual as the (scale-invariant) sine of the angle between $\Omega$ and $A$, and tracks `ls_diagnostics["residual_rel"]` closely; it is `0` exactly when the two curvatures agree.
 
@@ -716,10 +716,23 @@ Three things to know:
   converges in 5–10, so keep $m$ modest. At $m = N$ there is no redundancy left
   and `SpecialUnitaryGroup` is the better choice; at $m = 1$ prefer
   `StateSphere`, whose logarithm is closed-form.
-- **`ApproximateQuadraticArmijo` is unavailable.** The canonical metric has no
-  closed-form Riemannian Hessian, so `ctx.q_exact` and `ctx.rho` raise
-  `NotImplementedError` rather than silently falling back to the flat surrogate.
-  `GoldenSection`, `Adam`, `Armijo` and `QuadraticArmijo` all work.
+- **`ApproximateQuadraticArmijo` needs `projective=False`.** The Riemannian
+  Hessian of $\tfrac12 d^2$ exists here, but it is not a scalar function of one
+  adjoint the way the group's $\frac{\mathrm{ad}}2\coth\frac{\mathrm{ad}}2$ is —
+  a general Stiefel manifold is normal homogeneous but not *symmetric*. It is
+  instead read off the blocks of one operator exponential (the Jacobi equation
+  has constant coefficients in a homogeneous moving frame); see
+  `geope.jax.stiefel_hessian_quadratic_form`. With `projective=True` the phase
+  alignment makes the objective the squared distance on the $\mathrm U(1)$
+  *quotient*, whose Hessian carries an extra O'Neill term this does not have, so
+  `ctx.q_exact` and `ctx.rho` raise `NotImplementedError` there rather than
+  silently returning a form that is a few percent wrong. `GoldenSection`,
+  `Adam`, `Armijo` and `QuadraticArmijo` all work in either mode.
+
+    Cost is $O(m^6)$ and **independent of $N$** — the Jacobi operator
+    block-diagonalises, and the sector that scales with the ambient dimension
+    reduces to right multiplications on an $m\times m$ Gram. Measured at 0.08 ms
+    for $m = 2$ and 6 ms for $m = 8$; past that prefer `QuadraticArmijo`.
 
 ## Null-space optimisation (`Gecko`)
 

@@ -28,7 +28,7 @@ class GeometricContext:
     |---|---|---|
     | **0** base point | `point`, `jacobian`, `A`, `A_norm2`, `F0`, `gammas`, `omegas`, `infidelity`, `fidelity` | one propagator, one Jacobian, one logarithm |
     | **1** direction | `V`, `Omega`, `omega_norm2`, `s`, `xi_rel` | free: one contraction of tier 0's Jacobian |
-    | **2** curvature | `W`, `accel`, `chi`, `q`, `q_exact`, `rho` | one directional HVP plus one ``eigh`` |
+    | **2** curvature | `W`, `accel`, `chi`, `q`, `q_exact`, `rho` | one directional HVP plus the manifold's Riemannian Hessian |
     | **3** ray | `point_at`, `infidelity_at`, `fidelity_at`, `distance_at` | one propagator per trial point |
 
     Only tier 0 is direction-free. Tiers 1–3 need the search direction, tier 3
@@ -278,7 +278,12 @@ class GeometricContext:
 
     @cached_property
     def _hessian_form(self) -> tuple[Array, Array]:
-        """``(intrinsic curvature, eigenphase spread)`` — one ``eigh``."""
+        """``(intrinsic curvature, cut-locus spread)`` from one hook call.
+
+        One ``eigh`` on a group or the state sphere; one small operator
+        exponential on `geope.geometry.stiefel.stiefel.Stiefel`, whose Hessian
+        is not a scalar function of a single adjoint.
+        """
         return self.manifold.hessian_quadratic_form(self.point, self.A, self.Omega)
 
     @cached_property

@@ -153,6 +153,19 @@ class Manifold(ABC):
         ``point``, plus a scalar diagnostic of how close ``a`` is to the cut
         locus. Must be exact for an arbitrary $\Omega$, and must reduce to
         $\lVert A\rVert^2$ when $\Omega = A$ (the radial direction).
+
+        **``a`` is the context's $A = -\mathrm{Log}_x(y)$**, pointing *away* from
+        the target, so an implementation that cares about the sign must negate
+        it. Most do not — on a bi-invariant group and on the sphere the kernel is
+        even in $A$ — but `geope.geometry.stiefel.stiefel.Stiefel` genuinely is
+        not: $-A$ addresses the geodesic reflection of the target, which has a
+        different Hessian. Do not read the group's evenness as the contract.
+
+        A manifold may decline: raising `NotImplementedError` is the documented
+        way to withdraw `GeometricContext.q_exact` and `GeometricContext.rho`
+        (and with them `geope.line_searches.ApproximateQuadraticArmijo`) rather
+        than return an inexact form, and `tests/test_manifolds.py` probes for the
+        capability instead of assuming it.
         """
 
     @abstractmethod
