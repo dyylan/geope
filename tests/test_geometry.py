@@ -33,7 +33,7 @@ from geope.geometry import (
     UnitaryGroup,
 )
 from geope.geope import linear_comb_projected_coeffs_multigate
-from geope.geometry.lie.pauli_projector import get_project_omegas_fn
+from geope.geometry.lie.basis import get_project_omegas_fn
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,

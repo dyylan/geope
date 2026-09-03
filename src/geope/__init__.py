@@ -70,12 +70,7 @@ from .utils import (
     construct_full_spin_boson_basis,
     construct_restricted_spin_boson_basis,
     prepare_random_parameters,
-    construct_commuting_ansatz_matrix,
-    remove_solution_free_parameters,
-    multikron,
-    multimatmul,
     multicontrol_unitary,
     qft_unitary,
-    golden_section_search_np,
     merge_constraints,
 )

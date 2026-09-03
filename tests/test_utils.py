@@ -18,10 +18,7 @@ Tested items:
     - construct_full_spin_boson_basis
     - construct_restricted_spin_boson_basis
     - prepare_random_parameters
-    - multikron
-    - multicontrol_unitary
     - qft_unitary
-    - golden_section_search_np
     - merge_constraints
   Raw 1-D minimisers (private, defined in geope.line_searches, exercised here):
     - _golden_section_search
@@ -53,7 +50,6 @@ from geope.utils import (
     construct_full_spin_boson_basis,
     construct_restricted_spin_boson_basis,
     prepare_random_parameters,
-    multikron,
     multicontrol_unitary,
     qft_unitary,
     merge_constraints,
@@ -412,35 +408,6 @@ class TestPrepareRandomParameters:
             proj, expander=expander, key=jax.random.key(42)
         )
         assert result.shape == (4,)
-
-
-# ===================================================================
-# Tests — multikron
-# ===================================================================
-
-
-class TestMultikron:
-    def test_two_matrices(self):
-        A = np.array([[1, 0], [0, 2]])
-        B = np.array([[3, 0], [0, 4]])
-        result = multikron([A, B])
-        expected = np.kron(A, B)
-        assert np.allclose(result, expected)
-
-    def test_three_matrices(self):
-        I = np.eye(2)
-        result = multikron([I, I, I])
-        assert np.allclose(result, np.eye(8))
-
-    def test_single_matrix(self):
-        A = np.array([[1, 2], [3, 4]])
-        assert np.array_equal(multikron([A]), A)
-
-    def test_shape(self):
-        A = np.eye(2)
-        B = np.eye(3)
-        result = multikron([A, B])
-        assert result.shape == (6, 6)
 
 
 # ===================================================================

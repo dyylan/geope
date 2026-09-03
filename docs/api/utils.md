@@ -30,16 +30,8 @@
 
 ::: geope.utils.prepare_random_parameters
 
-::: geope.utils.construct_commuting_ansatz_matrix
-
-::: geope.utils.remove_solution_free_parameters
-
-::: geope.utils.multikron
-
 ::: geope.utils.multicontrol_unitary
 
 ::: geope.utils.qft_unitary
-
-::: geope.utils.golden_section_search_np
 
 ::: geope.utils.merge_constraints
