@@ -8,8 +8,6 @@
 
 ::: geope.utils.check_Heisenberg_comb
 
-::: geope.utils.check_2_local_comb
-
 ::: geope.utils.restriction_function
 
 ::: geope.utils.restriction_order_function

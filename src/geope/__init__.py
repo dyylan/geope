@@ -56,7 +56,6 @@ from .utils import (
     traces,
     check_xy_comb,
     check_Heisenberg_comb,
-    check_2_local_comb,
     restriction_function,
     restriction_order_function,
     control_to_indices,

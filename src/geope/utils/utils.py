@@ -76,26 +76,6 @@ def check_Heisenberg_comb(comb: tuple[int, ...]) -> bool:
     return True
 
 
-def check_2_local_comb(comb: tuple[int, ...]) -> bool:
-    """Check whether a Pauli index combination is at most 2-local.
-
-    Allows any term acting on at most two qubits.
-
-    Args:
-        comb: Tuple of integers (0=I, 1=X, 2=Y, 3=Z).
-
-    Returns:
-        ``True`` if the combination involves at most two non-identity
-        Pauli operators.
-    """
-    if len(np.nonzero(comb)[0]) == 1:
-        return True
-    elif len(np.nonzero(comb)[0]) > 2:
-        return False
-    else:
-        return True
-
-
 def restriction_function(restriction: list[str]) -> Callable[[tuple[int, ...]], bool]:
     """Create a filter function from a list of allowed interaction strings.
 

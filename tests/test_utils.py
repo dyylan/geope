@@ -7,7 +7,6 @@ Tested items:
     - traces
     - check_xy_comb
     - check_Heisenberg_comb
-    - check_2_local_comb
     - restriction_function
     - restriction_order_function
     - construct_restricted_pauli_basis
@@ -39,7 +38,6 @@ from geope.utils import (
     traces,
     check_xy_comb,
     check_Heisenberg_comb,
-    check_2_local_comb,
     restriction_function,
     restriction_order_function,
     construct_restricted_pauli_basis,
@@ -161,23 +159,6 @@ class TestCheckHeisenbergComb:
 
     def test_three_body_rejected(self):
         assert check_Heisenberg_comb((1, 2, 3)) is False
-
-
-# ===================================================================
-# Tests — check_2_local_comb
-# ===================================================================
-
-
-class TestCheck2LocalComb:
-    def test_single_body(self):
-        assert check_2_local_comb((1, 0)) is True
-
-    def test_two_body(self):
-        assert check_2_local_comb((1, 2)) is True
-        assert check_2_local_comb((3, 1)) is True
-
-    def test_three_body_rejected(self):
-        assert check_2_local_comb((1, 2, 3)) is False
 
 
 # ===================================================================
