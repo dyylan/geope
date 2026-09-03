@@ -36,13 +36,13 @@ class Manifold(ABC):
 
     Attributes:
         target: The target point being synthesised; ``None`` when unbound.
-        compute_U: The chart $\Phi$, ``phi -> point``; ``None`` when unbound.
+        compute_point: The chart $\Phi$, ``phi -> point``; ``None`` when unbound.
         tangent: The `TangentBundle`; ``None`` when unbound. Keyword-only, and
             defaulted, so a subclass can declare positional fields of its own.
     """
 
     target: Array | None = field(default=None, kw_only=True)
-    compute_U: Callable[[Array], Array] | None = field(default=None, kw_only=True)
+    compute_point: Callable[[Array], Array] | None = field(default=None, kw_only=True)
     tangent: TangentBundle | None = field(default=None, kw_only=True)
 
     #: ``True`` when the geometry quotients out a global phase.
@@ -234,7 +234,7 @@ class Manifold(ABC):
         """Whether a chart, tangent bundle and target are attached."""
         return (
             self.target is not None
-            and self.compute_U is not None
+            and self.compute_point is not None
             and self.tangent is not None
         )
 
@@ -242,7 +242,7 @@ class Manifold(ABC):
         self,
         *,
         target: Array,
-        compute_U: Callable[[Array], Array],
+        compute_point: Callable[[Array], Array],
         tangent: TangentBundle,
     ) -> Manifold:
         """Attach the run's chart, tangent bundle and target.
@@ -252,7 +252,7 @@ class Manifold(ABC):
 
         Args:
             target: The target point, of shape ``ambient_shape``.
-            compute_U: The chart ``phi -> point``.
+            compute_point: The chart ``phi -> point``.
             tangent: The `TangentBundle`.
 
         Returns:
@@ -267,7 +267,9 @@ class Manifold(ABC):
                 f"{self.name} expects a {tuple(self.ambient_shape)} target, got "
                 f"{tuple(target.shape)}."
             )
-        return replace(self, target=target, compute_U=compute_U, tangent=tangent)
+        return replace(
+            self, target=target, compute_point=compute_point, tangent=tangent
+        )
 
     def validate_point(self, point: np.ndarray, what: str = "point") -> None:
         """Raise if ``point`` does not lie on this manifold.
@@ -300,7 +302,7 @@ class Manifold(ABC):
         if not self.is_bound:
             raise ValueError(
                 f"{what} needs a bound manifold: call `bind(target=..., "
-                "compute_U=..., tangent=...)`, or read the manifold off "
+                "compute_point=..., tangent=...)`, or read the manifold off "
                 "`Parameters.manifold`, which binds it for you."
             )
 
@@ -318,7 +320,7 @@ class Manifold(ABC):
         was replacing.
         """
         self._require_bound("fidelity_at")
-        return jax.jit(lambda phi: self.fidelity(self.compute_U(phi), self.target))
+        return jax.jit(lambda phi: self.fidelity(self.compute_point(phi), self.target))
 
     @cached_property
     def infidelity_at(self) -> Callable[[Array], Array]:
@@ -327,7 +329,9 @@ class Manifold(ABC):
         Compiled and memoised, for the same reason as `fidelity_at`.
         """
         self._require_bound("infidelity_at")
-        return jax.jit(lambda phi: self.infidelity(self.compute_U(phi), self.target))
+        return jax.jit(
+            lambda phi: self.infidelity(self.compute_point(phi), self.target)
+        )
 
     @cached_property
     def value_and_grad(self) -> Callable[[Array], tuple[Array, Array]]:

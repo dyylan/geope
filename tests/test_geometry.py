@@ -129,7 +129,7 @@ class TestManifoldIsUsableUnbound:
         m = SpecialUnitaryGroup(4)
         assert m.dim == 4
         assert not m.is_bound
-        assert m.target is None and m.compute_U is None and m.tangent is None
+        assert m.target is None and m.compute_point is None and m.tangent is None
 
     def test_flags_and_manifold_dims(self):
         assert SpecialUnitaryGroup(4).projective is True
@@ -288,22 +288,22 @@ class TestManifoldHessianQuadraticForm:
 
 class TestBind:
     def test_binds_the_chart_target_and_tangent_space(self, su4, tangent_2q):
-        bound = su4.bind(target=CNOT, compute_U=lambda phi: phi, tangent=tangent_2q)
+        bound = su4.bind(target=CNOT, compute_point=lambda phi: phi, tangent=tangent_2q)
         assert bound.is_bound
         assert isinstance(bound, SpecialUnitaryGroup)
         assert bound.tangent is tangent_2q
         np.testing.assert_allclose(np.asarray(bound.target), CNOT)
 
     def test_leaves_the_unbound_manifold_alone(self, su4, tangent_2q):
-        su4.bind(target=CNOT, compute_U=lambda phi: phi, tangent=tangent_2q)
+        su4.bind(target=CNOT, compute_point=lambda phi: phi, tangent=tangent_2q)
         assert not su4.is_bound
 
     def test_rejects_a_mis_shaped_target(self, su4, tangent_2q):
         with pytest.raises(ValueError, match=r"\(4, 4\) target"):
-            su4.bind(target=HADAMARD, compute_U=lambda phi: phi, tangent=tangent_2q)
+            su4.bind(target=HADAMARD, compute_point=lambda phi: phi, tangent=tangent_2q)
 
     def test_bound_manifold_keeps_the_pure_maths(self, su4, tangent_2q):
-        bound = su4.bind(target=CNOT, compute_U=lambda phi: phi, tangent=tangent_2q)
+        bound = su4.bind(target=CNOT, compute_point=lambda phi: phi, tangent=tangent_2q)
         x = jnp.asarray(_random_unitary(4, 30))
         np.testing.assert_allclose(
             np.asarray(bound.log(x, jnp.asarray(CNOT))),
@@ -342,7 +342,7 @@ def _spy_manifold(params):
     spy = _Spy(
         dim=m.dim,
         target=m.target,
-        compute_U=wrap("compute_U", m.compute_U),
+        compute_point=wrap("compute_point", m.compute_point),
         tangent=dataclasses.replace(
             m.tangent, jacobian=wrap("jacobian", m.tangent.jacobian)
         ),
@@ -387,7 +387,7 @@ class TestContextCost:
         ctx.set_direction(coeffs)
         _ = ctx.F0, ctx.s, ctx.q, ctx.q_exact, ctx.xi_rel
 
-        assert dict(counts) == {"compute_U": 1, "jacobian": 1, "log": 1}
+        assert dict(counts) == {"compute_point": 1, "jacobian": 1, "log": 1}
 
     def test_each_ray_point_costs_one_propagator(self, problem):
         p, free, coeffs = problem
@@ -398,9 +398,9 @@ class TestContextCost:
         assert base == {}  # nothing evaluated yet: every tier is lazy
 
         _ = ctx.infidelity_at(-0.1)
-        assert dict(counts) == {"compute_U": 1}
+        assert dict(counts) == {"compute_point": 1}
         _ = ctx.distance_at(-0.1)
-        assert dict(counts) == {"compute_U": 2, "log": 1}
+        assert dict(counts) == {"compute_point": 2, "log": 1}
 
     def test_omegas_never_traces_the_logarithm(self, problem):
         # What makes Gecko cheap: it reads `omegas` and nothing else, so the
@@ -409,14 +409,14 @@ class TestContextCost:
         spy, counts = _spy_manifold(p)
         _ = spy.context(free).omegas
         assert counts["log"] == 0
-        assert dict(counts) == {"compute_U": 1, "jacobian": 1}
+        assert dict(counts) == {"compute_point": 1, "jacobian": 1}
 
     def test_gammas_alone_never_traces_the_jacobian(self, problem):
         p, free, _ = problem
         spy, counts = _spy_manifold(p)
         _ = spy.context(free).gammas
         assert counts["jacobian"] == 0
-        assert dict(counts) == {"compute_U": 1, "log": 1}
+        assert dict(counts) == {"compute_point": 1, "log": 1}
 
     def test_jittable_end_to_end(self, problem):
         # The context is a trace-time object: it must compose inside jit, and

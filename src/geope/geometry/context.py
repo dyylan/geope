@@ -117,7 +117,7 @@ class GeometricContext:
     @cached_property
     def point(self) -> Array:
         r"""The pulse's point on the manifold, $\Phi(\phi)$. One propagator."""
-        return self.manifold.compute_U(self.free_params)
+        return self.manifold.compute_point(self.free_params)
 
     @cached_property
     def jacobian(self) -> Array:
@@ -310,7 +310,7 @@ class GeometricContext:
     def point_at(self, t: Array) -> Array:
         r"""The point at $\phi + t\,p$ — the single gate for all of tier 3."""
         self._require_direction("point_at")
-        return self.manifold.compute_U(self.free_params + t * self.coeffs)
+        return self.manifold.compute_point(self.free_params + t * self.coeffs)
 
     def infidelity_at(self, t: Array) -> Array:
         """The infidelity along the ray. One propagator."""

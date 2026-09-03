@@ -130,7 +130,7 @@ def test_propagators_match_autodiff():
     n, G = 2, 4
     basis = make_restricted_basis(n)
     p, v = _real_params_and_dir(G, basis.shape[0])
-    compute_U = get_compute_matrices_params_list_fn(basis)
+    compute_point = get_compute_matrices_params_list_fn(basis)
 
     # Real eig-path inputs, cast to complex for the holomorphic forward map so
     # the two paths build the same Hermitian A = sum_k x_k B_k.
@@ -139,13 +139,15 @@ def test_propagators_match_autodiff():
 
     # First order: value and directional derivative.
     X_jvp, V_jvp = get_jvp_propagator(basis, method="eig")(p, v)
-    X_ref, V_ref = jax.jvp(compute_U, (p_c,), (v_c,))
+    X_ref, V_ref = jax.jvp(compute_point, (p_c,), (v_c,))
     assert jnp.allclose(X_jvp, X_ref, atol=1e-8)
     assert jnp.allclose(V_jvp, V_ref, atol=1e-8)
 
     # Second order: nest jax.jvp to get D^2 phi[v, v].
     X_hvp, V_hvp, W_hvp = get_hvp_propagator(basis, method="eig")(p, v)
-    _, W_ref = jax.jvp(lambda q: jax.jvp(compute_U, (q,), (v_c,))[1], (p_c,), (v_c,))
+    _, W_ref = jax.jvp(
+        lambda q: jax.jvp(compute_point, (q,), (v_c,))[1], (p_c,), (v_c,)
+    )
     assert jnp.allclose(X_hvp, X_ref, atol=1e-8)
     assert jnp.allclose(V_hvp, V_ref, atol=1e-8)
     assert jnp.allclose(W_hvp, W_ref, atol=1e-8)

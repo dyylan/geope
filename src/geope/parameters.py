@@ -349,7 +349,7 @@ class Parameters:
         sharing one `Parameters` share the bound chart and JAX reuses the
         compiled traces rather than recompiling. Assembled by
         `geope.geometry.bind_manifold`; every optimisation function the
-        optimisers need hangs off it — ``manifold.compute_U``,
+        optimisers need hangs off it — ``manifold.compute_point``,
         ``manifold.fidelity_at``, ``manifold.value_and_grad``,
         ``manifold.hessian``, ``manifold.tangent.jacobian`` and
         ``manifold.context(phi)``.
@@ -529,19 +529,19 @@ def _bind_manifold(params: "Parameters") -> Manifold:
     Returns:
         The bound `Manifold`.
     """
-    compute_U = params.manifold_spec.chart(params.proj_drift_basis)
+    compute_point = params.manifold_spec.chart(params.proj_drift_basis)
     if params.param_transform is None:
-        jacobian = get_jacobian_fn(compute_U)
+        jacobian = get_jacobian_fn(compute_point)
         # The chart is a plain product of exponentials in these generators, so
         # the manual propagator HVP and Hessian apply.
         generators = params.proj_drift_basis
         # Only the projected columns are solvable; the drift is held fixed.
         columns = params.proj_indices_projdrift_basis
     else:
-        compute_U = wrap_compute_U_param_transform(params, compute_U)
+        compute_point = wrap_compute_point_param_transform(params, compute_point)
         # Holomorphic autodiff through the real-valued user transform would drop
         # the imaginary part of the intermediates.
-        jacobian = get_split_jacobian_fn(compute_U)
+        jacobian = get_split_jacobian_fn(compute_point)
         # Experimental space: no exponential-product structure to exploit, and
         # every column is free.
         generators = None
@@ -562,19 +562,19 @@ def _bind_manifold(params: "Parameters") -> Manifold:
         columns=columns,
     )
     return params.manifold_spec.bind(
-        target=params.target, compute_U=compute_U, tangent=tangent
+        target=params.target, compute_point=compute_point, tangent=tangent
     )
 
 
-def wrap_compute_U_param_transform(
-    params: "Parameters", raw_compute_U: Callable[[Array], Array]
+def wrap_compute_point_param_transform(
+    params: "Parameters", raw_compute_point: Callable[[Array], Array]
 ) -> Callable[[Array], Array]:
     r"""Wrap the chart to honour ``params.param_transform``.
 
     The user-facing experimental parameters $\phi^{\mathrm{exp}}$ are mapped to
     projected-basis coefficients via ``params.param_transform`` (possibly
     step-dependent), embedded into the proj+drift basis, and combined with the
-    drift before the original ``raw_compute_U`` is called — so the whole pipeline
+    drift before the original ``raw_compute_point`` is called — so the whole pipeline
     then runs uniformly on $\phi^{\mathrm{exp}}$.
 
     It lives here rather than with the chart because it is the one piece of chart
@@ -586,7 +586,7 @@ def wrap_compute_U_param_transform(
 
     Args:
         params: The `Parameters` object carrying ``param_transform``.
-        raw_compute_U: The projected-basis chart.
+        raw_compute_point: The projected-basis chart.
 
     Returns:
         The wrapped experimental-space chart.
@@ -619,9 +619,9 @@ def wrap_compute_U_param_transform(
     else:
         _drift = None
 
-    def _wrapped_compute_U(
+    def _wrapped_compute_point(
         exp_params,
-        _raw=raw_compute_U,
+        _raw=raw_compute_point,
         _tf=params.param_transform,
         _pi=proj_idx_pd,
         _di=drift_idx_pd,
@@ -649,4 +649,4 @@ def wrap_compute_U_param_transform(
             )
         return _raw(full)
 
-    return _wrapped_compute_U
+    return _wrapped_compute_point

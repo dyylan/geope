@@ -2,7 +2,7 @@
 
 Compares :func:`geope.jax.get_jacobian_propagator` (the hand-written
 ``(G, K) -> (G, d, d, K)`` stitch) against the production autodiff path
-``jax.jacobian(compute_U_fn, holomorphic=True)`` built by
+``jax.jacobian(compute_point_fn, holomorphic=True)`` built by
 :func:`geope.geometry.chart.get_jacobian_fn` over the ``jax.lax.scan`` product
 unitary.
 
@@ -70,8 +70,8 @@ def test_jacobian_propagator_exec(benchmark, size):
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
 def test_jacobian_autodiff_exec(benchmark, size):
     basis, params = _setup(size)
-    compute_U_fn = get_compute_matrices_params_list_fn(basis)
-    fn = jax.jit(get_jacobian_fn(compute_U_fn))
+    compute_point_fn = get_compute_matrices_params_list_fn(basis)
+    fn = jax.jit(get_jacobian_fn(compute_point_fn))
     warm(fn, params)
     benchmark.pedantic(
         lambda: jax.block_until_ready(fn(params)), rounds=10, warmup_rounds=1
@@ -81,12 +81,12 @@ def test_jacobian_autodiff_exec(benchmark, size):
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
 def test_jacobian_autodiff_compile(benchmark, size):
     basis, params = _setup(size)
-    compute_U_fn = get_compute_matrices_params_list_fn(basis)
+    compute_point_fn = get_compute_matrices_params_list_fn(basis)
 
     # AOT lower().compile() recompiles on every call, isolating XLA compile
     # cost from execution and from the jit dispatch cache.
     def compile_once():
-        return jax.jit(get_jacobian_fn(compute_U_fn)).lower(params).compile()
+        return jax.jit(get_jacobian_fn(compute_point_fn)).lower(params).compile()
 
     benchmark.pedantic(compile_once, rounds=COMPILE_ROUNDS, warmup_rounds=0)
 
@@ -107,10 +107,10 @@ def test_manual_matches_autodiff():
     """Guard: the two paths must compute the same Jacobian (else the
     execution benchmarks are not comparing equivalent work)."""
     basis, params = _setup((2, 3))
-    compute_U_fn = get_compute_matrices_params_list_fn(basis)
+    compute_point_fn = get_compute_matrices_params_list_fn(basis)
 
     jac_manual = get_jacobian_propagator(basis)(params)  # (G, d, d, K)
-    jac_auto = get_jacobian_fn(compute_U_fn)(params)  # (d, d, G, K)
+    jac_auto = get_jacobian_fn(compute_point_fn)(params)  # (d, d, G, K)
     jac_auto = jnp.transpose(jac_auto, (2, 0, 1, 3))  # -> (G, d, d, K)
 
     assert jnp.allclose(jac_manual, jac_auto, atol=1e-8)

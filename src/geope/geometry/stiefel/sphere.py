@@ -245,11 +245,11 @@ class StateSphere(Manifold):
         base state. This is what makes a homogeneous space reuse the group's chart
         machinery wholesale.
         """
-        compute_U = get_compute_matrices_params_list_fn(generators.basis)
+        compute_point = get_compute_matrices_params_list_fn(generators.basis)
         base = jnp.asarray(self.base_point, dtype=jnp.complex128)
 
         def chart(free_params: Array) -> Array:
-            return compute_U(free_params) @ base
+            return compute_point(free_params) @ base
 
         return chart
 

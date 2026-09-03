@@ -343,7 +343,7 @@ def get_hessian_propagator_fn(
 
     Args:
         basis: Proj+drift basis ``(K, d, d)`` — the same basis the bound
-            ``compute_U`` uses.
+            ``compute_point`` uses.
         target: Target unitary ``(d, d)``.
         projective: Match the projective (``True``) or phase-sensitive
             (``False``) infidelity.
@@ -368,12 +368,12 @@ def get_hessian_propagator_fn(
     else:
         raise ValueError(f"Unknown method {method!r}; expected 'eig' or 'block'.")
 
-    compute_U = get_compute_matrices_params_list_fn(basis)
+    compute_point = get_compute_matrices_params_list_fn(basis)
     t_conj = jnp.asarray(target).conj()
     d = jnp.asarray(target).shape[0]
 
     def hess(y: Array) -> Array:
-        U = compute_U(y)
+        U = compute_point(y)
         dU = jacobian_propagator(y, Ui_fn, jac_step)  # (G, d, d, K)
         H = hessian_propagator(y, Ui_fn, jac_step, hess_step)  # (G, G, d, d, K, K)
 

@@ -40,7 +40,7 @@ jax/       — differentiable primitives (logm, dexpm, the propagator
 geometry/chart.py — the pulse model: the product-of-exponentials chart and its
              Jacobians. Manifold-agnostic; imports nothing but JAX.
                 ↓ composed by
-geometry/  — Manifold  ──owns──▶ compute_U (the chart), target
+geometry/  — Manifold  ──owns──▶ compute_point (the chart), target
              │                   TangentBundle (jacobian, hvp, fibre coordinates)
              └──▶ GeometricContext: every per-step quantity, in cost tiers
                 ↓ built lazily & cached on
@@ -110,7 +110,7 @@ mathematics the geometry layer now owns, and were removed. Their replacements:
 | was | is |
 |---|---|
 | `Hamiltonian(basis, phi).matrix` | `basis.linear_span(phi)` — the same $\sum_k \phi_k G_k$ |
-| `Hamiltonian(basis, phi).unitary.matrix` | `params.manifold.compute_U(phi)` — the chart, for the whole piecewise pulse rather than one gate |
+| `Hamiltonian(basis, phi).unitary.matrix` | `params.manifold.compute_point(phi)` — the chart, for the whole piecewise pulse rather than one gate |
 | `Hamiltonian.parameters_from_hamiltonian(H, basis)` | `geope.geometry.lie.pauli_projector.project_omegas` — the same $\mathrm{Re}\,\mathrm{Tr}(G_i H)/d$ |
 | `h.geodesic_hamiltonian(V)` / `u.geodesic_hamiltonian(basis, V)` | `-params.manifold.log(U, V)`, then `.coefficients(U, ...)` — i.e. `ctx.A` and `ctx.gammas` |
 | `Unitary.unitary_fidelity(A, B)` | `params.manifold.fidelity(A, B)` |
@@ -298,7 +298,7 @@ Everything the optimisers need hangs off **one** lazily-built, cached handle:
 
 ```python
 m = params.manifold          # bound to this problem's chart and target
-m.compute_U(phi)             # the chart: parameters -> a point on the manifold
+m.compute_point(phi)             # the chart: parameters -> a point on the manifold
 m.fidelity_at(phi)           # the convergence score (compiled); m.infidelity_at(phi) is the cost
 m.value_and_grad, m.hessian  # what GRAPE differentiates
 m.tangent.jacobian           # the chart's pushforward
@@ -336,9 +336,9 @@ gone; each has a home on the manifold:
 
 | was | is |
 | --- | --- |
-| `params.compute_U_fn` | `params.manifold.compute_U` |
+| `params.compute_point_fn` | `params.manifold.compute_point` |
 | `params.fid_U_fn(U)` / `infid_U_fn(U)` | `params.manifold.fidelity(U, target)` / `.infidelity(...)` |
-| `params.fid_U_fn(params.compute_U_fn(phi))` | `params.manifold.fidelity_at(phi)` |
+| `params.fid_U_fn(params.compute_point_fn(phi))` | `params.manifold.fidelity_at(phi)` |
 | `params.infid_fn(phi)` | `params.manifold.infidelity_at(phi)` |
 | `params.grad_fn` / `params.hess_fn` | `params.manifold.value_and_grad` / `.hessian` |
 | `params.jac_fn` | `params.manifold.tangent.jacobian` |
@@ -462,7 +462,7 @@ for each step:
     1. Extract free_params = parameters[:, proj_drift_indices]
 
     2. Compute the geodesic direction:
-       U  = manifold.compute_U(free_params)        # ctx.point
+       U  = manifold.compute_point(free_params)        # ctx.point
        g  = -i · logm(U† U_T)                       # generator in u(d)
        g  = g - Tr(g)/d · I        if projective    # drop global-phase generator
        Γ  = U · g                                   # geodesic tangent

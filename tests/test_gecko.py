@@ -306,7 +306,9 @@ class TestGecko:
         # bound manifold instead of rebuilding it.
         gk = Gecko(geope_2q.params)
         assert gk.params.manifold is geope_2q.params.manifold
-        assert gk.params.manifold.compute_U is geope_2q.params.manifold.compute_U
+        assert (
+            gk.params.manifold.compute_point is geope_2q.params.manifold.compute_point
+        )
 
     def test_non_parameters_raises(self, geope_2q):
         with pytest.raises(TypeError):

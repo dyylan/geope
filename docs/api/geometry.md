@@ -4,7 +4,7 @@ The geometry layer owns the manifold GEOPE walks, its tangent bundle, and every
 per-step geometric quantity the optimisers read. The ownership chain is
 
 ```
-Manifold  --owns-->  compute_U      (the chart Phi: parameters -> the manifold)
+Manifold  --owns-->  compute_point      (the chart Phi: parameters -> the manifold)
    |                 target         (the point being synthesised)
    |
    '-----owns-->  TangentBundle --owns-->  Basis      (coordinatises the fibres)

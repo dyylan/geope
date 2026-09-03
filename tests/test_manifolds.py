@@ -141,8 +141,8 @@ def space(request):
     coeffs[:, params.proj_indices_projdrift_basis] = 0.35
     coeffs = jnp.asarray(coeffs)
 
-    point = manifold.compute_U(free)
-    other = manifold.compute_U(free + 0.7 * coeffs)
+    point = manifold.compute_point(free)
+    other = manifold.compute_point(free + 0.7 * coeffs)
     velocity = _velocity(manifold, free, coeffs)
     # Whether the manifold supplies a closed-form Riemannian Hessian is a
     # *capability*, not an identity: `param_transform` already withdraws tier 2
@@ -348,7 +348,7 @@ class TestHookContracts:
 
         def omega(t):
             phi = space.free + t * space.coeffs
-            return m.to_tangent(m.compute_U(phi), _velocity(m, phi, space.coeffs))
+            return m.to_tangent(m.compute_point(phi), _velocity(m, phi, space.coeffs))
 
         h = 1e-5
         fd = (omega(h) - omega(-h)) / (2.0 * h)
@@ -431,7 +431,7 @@ class TestHookContracts:
 
     def test_chart_maps_into_the_ambient_space(self, space):
         m = space.manifold
-        assert m.compute_U(space.free).shape == tuple(m.ambient_shape)
+        assert m.compute_point(space.free).shape == tuple(m.ambient_shape)
 
     def test_hessian_is_available(self, space):
         m = space.manifold
@@ -933,7 +933,7 @@ class TestStiefelEndToEnd:
         """The fidelity ignores the complement — that *is* the redundancy."""
         p = self._problem()
         Geope(p).optimize(max_steps=120)
-        q = p.manifold.compute_U(p.free())
+        q = p.manifold.compute_point(p.free())
         assert float(p.manifold.fidelity(q, jnp.asarray(CNOT_FRAME))) > 0.999
 
 
@@ -984,7 +984,7 @@ class TestStiefelSpinBoson:
         yet it starts and ends in vacuum, because leaving it is not free."""
         p = self._problem()
         Geope(p).optimize(max_steps=300)
-        frame = p.manifold.compute_U(p.free())
+        frame = p.manifold.compute_point(p.free())
         occupied = [
             float(
                 jnp.sum(jnp.abs(frame[self.FOCK * s + 1 : self.FOCK * (s + 1), s]) ** 2)

@@ -168,7 +168,7 @@ class TestGrapeParamTransform:
         g = Grape(p)
         n_exp = projected_basis_2q.lie_algebra_dim
         assert g._real_params is True
-        # Experimental space: drift is folded into compute_U, and every column
+        # Experimental space: drift is folded into compute_point, and every column
         # is a free parameter.
         assert g.drift_parameters is None
         assert g._proj_drift_mask().sum() == n_exp

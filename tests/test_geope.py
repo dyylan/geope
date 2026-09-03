@@ -423,11 +423,11 @@ class TestGetJacobianPropagator:
         jac_propagator = fn_propagator(params)  # (1, 2, 2, 3)
 
         # jax.jacobian over full compute
-        def compute_U(p):
+        def compute_point(p):
             A = jnp.tensordot(p[0], basis, axes=[[-1], [0]])
             return jax.scipy.linalg.expm(1j * A)
 
-        jac_auto = jax.jacobian(compute_U, holomorphic=True)(params)  # (2,2,1,3)
+        jac_auto = jax.jacobian(compute_point, holomorphic=True)(params)  # (2,2,1,3)
         # manual shape is (1,2,2,3), auto shape is (2,2,1,3) — rearrange
         jac_auto_rearranged = jnp.transpose(jac_auto, (2, 0, 1, 3))  # (1,2,2,3)
         assert jnp.allclose(jac_propagator, jac_auto_rearranged, atol=1e-8)
@@ -444,8 +444,8 @@ class TestGetJacobianPropagator:
             params
         )  # (3, 4, 4, 15)
 
-        compute_U = get_compute_matrices_params_list_fn(basis)
-        jac_auto = get_jacobian_fn(compute_U)(params)  # (4, 4, 3, 15)
+        compute_point = get_compute_matrices_params_list_fn(basis)
+        jac_auto = get_jacobian_fn(compute_point)(params)  # (4, 4, 3, 15)
         jac_auto = jnp.transpose(jac_auto, (2, 0, 1, 3))  # (3, 4, 4, 15)
 
         assert jac_propagator.shape == (3, 4, 4, K)
@@ -523,8 +523,8 @@ class TestD2expm:
 
 class TestHessianPropagator:
     def _autodiff(self, basis, params):
-        compute_U = get_compute_matrices_params_list_fn(basis)
-        h = jax.jacfwd(jax.jacrev(compute_U, holomorphic=True), holomorphic=True)
+        compute_point = get_compute_matrices_params_list_fn(basis)
+        h = jax.jacfwd(jax.jacrev(compute_point, holomorphic=True), holomorphic=True)
         return jnp.transpose(h(params), (2, 4, 0, 1, 3, 5))  # -> (i, j, a, c, k, l)
 
     @pytest.mark.parametrize("method", ["eig", "block"])
@@ -634,11 +634,11 @@ class TestExpmDirectionalPrimitives:
 
 
 def _autodiff_dir_derivs(basis, params, p):
-    """Reference ``(phi, Dphi[p], D2phi[p,p])`` via jvp-of-jvp through compute_U."""
-    compute_U = get_compute_matrices_params_list_fn(basis)
-    X = compute_U(params)
-    V = jax.jvp(compute_U, (params,), (p,))[1]
-    W = jax.jvp(lambda z: jax.jvp(compute_U, (z,), (p,))[1], (params,), (p,))[1]
+    """Reference ``(phi, Dphi[p], D2phi[p,p])`` via jvp-of-jvp through compute_point."""
+    compute_point = get_compute_matrices_params_list_fn(basis)
+    X = compute_point(params)
+    V = jax.jvp(compute_point, (params,), (p,))[1]
+    W = jax.jvp(lambda z: jax.jvp(compute_point, (z,), (p,))[1], (params,), (p,))[1]
     return X, V, W
 
 
@@ -664,12 +664,12 @@ class TestJvpPropagator:
     def test_finite_difference(self):
         """Note §11: V ≈ (phi(θ+hp) − phi(θ−hp)) / 2h."""
         basis = jnp.asarray(construct_full_pauli_basis(2).basis)
-        compute_U = get_compute_matrices_params_list_fn(basis)
+        compute_point = get_compute_matrices_params_list_fn(basis)
         params = jax.random.normal(jax.random.key(52), (3, basis.shape[0])) * 0.3
         p = jax.random.normal(jax.random.key(53), (3, basis.shape[0])) * 0.3
         _, V = get_jvp_propagator(basis)(params.astype(complex), p.astype(complex))
         h = 1e-6
-        V_fd = (compute_U(params + h * p) - compute_U(params - h * p)) / (2 * h)
+        V_fd = (compute_point(params + h * p) - compute_point(params - h * p)) / (2 * h)
         assert jnp.allclose(V, V_fd, atol=1e-6)
 
     def test_unknown_method_raises(self):
@@ -713,15 +713,15 @@ class TestHvpPropagator:
     def test_finite_difference(self):
         """Note §11: W ≈ (phi(θ+hp) − 2phi(θ) + phi(θ−hp)) / h^2."""
         basis = jnp.asarray(construct_full_pauli_basis(2).basis)
-        compute_U = get_compute_matrices_params_list_fn(basis)
+        compute_point = get_compute_matrices_params_list_fn(basis)
         params = jax.random.normal(jax.random.key(58), (3, basis.shape[0])) * 0.3
         p = jax.random.normal(jax.random.key(59), (3, basis.shape[0])) * 0.3
         _, _, W = get_hvp_propagator(basis)(params.astype(complex), p.astype(complex))
         h = 1e-4
         W_fd = (
-            compute_U(params + h * p)
-            - 2 * compute_U(params)
-            + compute_U(params - h * p)
+            compute_point(params + h * p)
+            - 2 * compute_point(params)
+            + compute_point(params - h * p)
         ) / h**2
         assert jnp.allclose(W, W_fd, atol=1e-4)
 
@@ -746,12 +746,12 @@ class TestCostHessianPropagator:
         basis = jnp.asarray(construct_full_pauli_basis(n).basis)
         K = basis.shape[0]
         target = jnp.asarray(qft_unitary(n))
-        compute_U = get_compute_matrices_params_list_fn(basis)
+        compute_point = get_compute_matrices_params_list_fn(basis)
         # GRAPE parameters are real-valued.
         y = jax.random.normal(jax.random.key(17), (G, K)) * 0.3
 
         infid_U = infidelity if projective else infidelity_full
-        infid = lambda x: infid_U(compute_U(x), target)
+        infid = lambda x: infid_U(compute_point(x), target)
         H_auto = get_hessian_fn(infid)(y).reshape(G * K, G * K)
         H_man = get_hessian_propagator_fn(
             basis, target, projective=projective, method=method

@@ -69,10 +69,12 @@ def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], 
     return partial(compute_matrices_params_list_fn, basis=basis)
 
 
-def get_jacobian_fn(compute_U_fn: Callable[[Array], Array]) -> Callable[[Array], Array]:
+def get_jacobian_fn(
+    compute_point_fn: Callable[[Array], Array]
+) -> Callable[[Array], Array]:
     """Build the autodiff Jacobian of the chart w.r.t. parameters.
 
-    Returns the holomorphic ``jax.jacobian`` of ``compute_U_fn``. This is the
+    Returns the holomorphic ``jax.jacobian`` of ``compute_point_fn``. This is the
     live Jacobian path for *all* system sizes: the manual Jacobian
     (`geope.jax.jacobian.get_jacobian_propagator`) exists and is independently
     tested, but is not currently wired into the optimisation pipeline (the
@@ -80,18 +82,18 @@ def get_jacobian_fn(compute_U_fn: Callable[[Array], Array]) -> Callable[[Array],
     issue #4).
 
     Args:
-        compute_U_fn: Callable mapping a parameter list to the chart's point.
+        compute_point_fn: Callable mapping a parameter list to the chart's point.
 
     Returns:
         A ``Callable[[Array], Array]`` returning the Jacobian of the point.
     """
-    return jax.jacobian(compute_U_fn, argnums=0, holomorphic=True)
+    return jax.jacobian(compute_point_fn, argnums=0, holomorphic=True)
 
 
 def get_split_jacobian_fn(
-    compute_U_fn: Callable[[Array], Array],
+    compute_point_fn: Callable[[Array], Array],
 ) -> Callable[[Array], Array]:
-    """Build a real/imag-split Jacobian of ``compute_U_fn``.
+    """Build a real/imag-split Jacobian of ``compute_point_fn``.
 
     Used on the ``param_transform`` path: differentiating through the
     real-valued user transform with a holomorphic Jacobian would discard the
@@ -99,14 +101,14 @@ def get_split_jacobian_fn(
     imaginary parts, each differentiated, then recombined.
 
     Args:
-        compute_U_fn: The (wrapped) experimental-space chart.
+        compute_point_fn: The (wrapped) experimental-space chart.
 
     Returns:
         A ``Callable[[Array], Array]`` returning the complex Jacobian.
     """
 
     def _split_U(x):
-        U = compute_U_fn(x)
+        U = compute_point_fn(x)
         return jnp.stack([jnp.real(U), jnp.imag(U)])
 
     _raw_jac_split = jax.jacobian(_split_U, argnums=0)

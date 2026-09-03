@@ -55,21 +55,23 @@ CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=
 class TestJacobianFactory:
     def test_matches_finite_difference_1q(self):
         basis = _pauli_basis_1q()
-        compute_U = get_compute_matrices_params_list_fn(basis)
-        jac = get_jacobian_fn(compute_U)
+        compute_point = get_compute_matrices_params_list_fn(basis)
+        jac = get_jacobian_fn(compute_point)
         x = jnp.array([[0.3, -0.2, 0.5]], dtype=complex)
         J = np.array(jac(x))  # (d, d, G, K)
         eps = 1e-6
         for k in range(3):
             dx = np.zeros((1, 3), dtype=complex)
             dx[0, k] = eps
-            fd = (np.array(compute_U(x + dx)) - np.array(compute_U(x - dx))) / (2 * eps)
+            fd = (np.array(compute_point(x + dx)) - np.array(compute_point(x - dx))) / (
+                2 * eps
+            )
             np.testing.assert_allclose(J[:, :, 0, k], fd, atol=1e-5)
 
     def test_multi_gate_shape(self):
         basis = _pauli_basis_1q()
-        compute_U = get_compute_matrices_params_list_fn(basis)
-        jac = get_jacobian_fn(compute_U)
+        compute_point = get_compute_matrices_params_list_fn(basis)
+        jac = get_jacobian_fn(compute_point)
         x = jnp.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], dtype=complex)
         J = np.array(jac(x))
         assert J.shape == (2, 2, 2, 3)  # (d, d, G, K)
@@ -92,9 +94,9 @@ class TestHessianFactory:
 
     def test_matches_jax_hessian_infidelity(self):
         basis = _pauli_basis_1q()
-        compute_U = get_compute_matrices_params_list_fn(basis)
+        compute_point = get_compute_matrices_params_list_fn(basis)
         target = jnp.array([[0, 1], [1, 0]], dtype=complex)  # X gate
-        infid = lambda x: infidelity(compute_U(x), target)
+        infid = lambda x: infidelity(compute_point(x), target)
         hess = get_hessian_fn(infid)
         y = jnp.array([[0.2, -0.1, 0.4]])
         H = np.array(hess(y)).reshape(y.size, y.size)
@@ -507,7 +509,7 @@ class TestLeftTrivialisation:
         context that is under test.
         """
         m = p.manifold
-        U = np.asarray(m.compute_U(free))
+        U = np.asarray(m.compute_point(free))
         # The context's convention: the tangent at U, pointing away from the
         # target, so that the slope of the distance objective is positive.
         A = -np.asarray(m.log(U, m.target))
@@ -712,7 +714,7 @@ class TestLazyCaching:
             target=CNOT,
         )
         assert p.manifold is p.manifold  # cached (same object)
-        assert p.manifold.compute_U is p.manifold.compute_U
+        assert p.manifold.compute_point is p.manifold.compute_point
         assert p.manifold.hessian is p.manifold.hessian
 
     def test_geodesic_self_is_zero(self):

@@ -4,7 +4,7 @@ GEOPE synthesises a target by walking a Riemannian manifold. This package owns
 that manifold and its tangent bundle, so that nothing else has to:
 
 ```
-Manifold  --owns-->  compute_U      (the chart Phi: R^(G x K) -> M)
+Manifold  --owns-->  compute_point      (the chart Phi: R^(G x K) -> M)
    |                 target         (the point being synthesised)
    |
    '-----owns-->  TangentBundle --owns-->  Basis      (coordinatises the fibres)

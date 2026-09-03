@@ -3,7 +3,7 @@
 Two objects are benchmarked:
 
 * the **propagator** Hessian ``d^2U/dphi^2`` — `get_hessian_propagator` (spectral,
-  prefix/suffix products) vs autodiff ``jax.jacfwd(jax.jacrev(compute_U))``;
+  prefix/suffix products) vs autodiff ``jax.jacfwd(jax.jacrev(compute_point))``;
 * the **infidelity-cost** Hessian ``(P, P)`` — `get_hessian_propagator_fn`
   (Goodwin-Kuprov) vs the autodiff `get_hessian_fn` over the same infidelity.
 
@@ -55,8 +55,10 @@ def test_propagator_hessian_propagator_exec(benchmark, size):
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
 def test_propagator_hessian_autodiff_exec(benchmark, size):
     _, basis, params = _setup(size)
-    compute_U = get_compute_matrices_params_list_fn(basis)
-    fn = jax.jit(jax.jacfwd(jax.jacrev(compute_U, holomorphic=True), holomorphic=True))
+    compute_point = get_compute_matrices_params_list_fn(basis)
+    fn = jax.jit(
+        jax.jacfwd(jax.jacrev(compute_point, holomorphic=True), holomorphic=True)
+    )
     jax.block_until_ready(fn(params))
     benchmark.pedantic(
         lambda: jax.block_until_ready(fn(params)), rounds=10, warmup_rounds=1
@@ -78,8 +80,8 @@ def test_cost_hessian_propagator_exec(benchmark, size):
 def test_cost_hessian_autodiff_exec(benchmark, size):
     n, basis, params = _setup(size, real=True)
     target = jnp.asarray(qft_unitary(n))
-    compute_U = get_compute_matrices_params_list_fn(basis)
-    fn = jax.jit(get_hessian_fn(lambda x: infidelity(compute_U(x), target)))
+    compute_point = get_compute_matrices_params_list_fn(basis)
+    fn = jax.jit(get_hessian_fn(lambda x: infidelity(compute_point(x), target)))
     jax.block_until_ready(fn(params))
     benchmark.pedantic(
         lambda: jax.block_until_ready(fn(params)), rounds=10, warmup_rounds=1

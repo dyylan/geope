@@ -77,7 +77,7 @@ class Grape:
         else:
             self._key = jax.random.key(0)
         self._real_params = params.param_transform is not None
-        # The optimisation functions (compute_U/fid/infid/grad/hess) and the
+        # The optimisation functions (compute_point/fid/infid/grad/hess) and the
         # algebraic metadata are read directly off ``params`` (built lazily and
         # cached there). No engine, no eager JIT.
 

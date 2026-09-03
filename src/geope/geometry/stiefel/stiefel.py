@@ -432,11 +432,11 @@ class Stiefel(Manifold):
 
     def chart(self, generators) -> Callable[[Array], Array]:
         r"""$\Phi(\phi) = U(\phi)E$ — the pulse's unitary applied to the base frame."""
-        compute_U = get_compute_matrices_params_list_fn(generators.basis)
+        compute_point = get_compute_matrices_params_list_fn(generators.basis)
         base = self._base
 
         def chart(free_params: Array) -> Array:
-            return compute_U(free_params) @ base
+            return compute_point(free_params) @ base
 
         return chart
 
