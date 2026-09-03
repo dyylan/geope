@@ -34,26 +34,6 @@ class Manifold(ABC):
     `hessian_quadratic_form`. `bind` attaches the run's chart, tangent bundle and
     target, which is what a per-step `GeometricContext` needs.
 
-    **Implementing a new manifold.** Provide the eleven hooks below (plus
-    `chart_hvp` if the chart has an analytic second differential). Nothing in the
-    optimiser, the line searches or the context knows anything else about the
-    space, so a manifold that is not a Lie group — no identity, no left
-    translation, point-dependent tangent spaces — satisfies exactly the same
-    interface: see `geope.geometry.stiefel.sphere.StateSphere` for a worked
-    non-group example.
-
-    Two contracts hold the interface together:
-
-    * `coefficients` need only be **faithful and metric-consistent up to one
-      fixed positive constant** — not surjective, not orthonormal. That is what
-      lets a manifold without a global frame coordinatise its fibres by any
-      convenient linear map, and what makes the geodesic least-squares problem
-      the metric-orthogonal projection it is defined to be.
-    * `log`, `distance2` and `hessian_quadratic_form` must be the geodesic
-      primitives **of this manifold's own `inner`**. A space carrying two
-      standard metrics (Stiefel: embedded and canonical) is therefore two
-      classes — they are different Riemannian manifolds.
-
     Attributes:
         target: The target point being synthesised; ``None`` when unbound.
         compute_U: The chart $\Phi$, ``phi -> point``; ``None`` when unbound.
