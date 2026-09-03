@@ -48,4 +48,3 @@ from .tangent import TangentBundle
 from .lie.groups import MatrixLieGroup, SpecialUnitaryGroup, UnitaryGroup
 from .stiefel.sphere import StateSphere
 from .stiefel.stiefel import Stiefel
-from .binding import bind_manifold
