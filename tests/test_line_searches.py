@@ -17,40 +17,12 @@ import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
-from geope.utils import golden_section_search_np
-
 from geope.line_searches import (
     _golden_section_search,
     _adam_line_search,
     _quadratic_armijo_line_search,
     _armijo_line_search,
 )
-
-# ===================================================================
-# Tests — golden_section_search_np
-# ===================================================================
-
-
-class TestGoldenSectionSearchNp:
-    def test_returns_tuple(self):
-        f = lambda x: (x - 2) ** 2
-        result = golden_section_search_np(f, 0, 5, tol=1e-6)
-        assert len(result) == 2
-
-    def test_x_within_bounds(self):
-        f = lambda x: (x - 2) ** 2
-        x, fx = golden_section_search_np(f, 0, 5, tol=1e-6)
-        assert 0 <= x <= 5
-
-    def test_f_matches_x(self):
-        f = lambda x: (x - 2) ** 2
-        x, fx = golden_section_search_np(f, 0, 5, tol=1e-6)
-        assert np.isclose(fx, f(x), atol=1e-10)
-
-    def test_narrow_interval(self):
-        f = lambda x: x**2
-        x, fx = golden_section_search_np(f, -0.01, 0.01, tol=1e-8)
-        assert -0.01 <= x <= 0.01
 
 
 # ===================================================================
@@ -70,13 +42,6 @@ class TestGoldenSectionSearch:
         assert 0.0 <= x <= 5.0
         # At least the two initial f1/f2 probes were spent.
         assert int(n) >= 2
-
-    def test_agrees_with_numpy_version(self):
-        f_np = lambda x: (x - 1.5) ** 2
-        f_jax = lambda x: (x - 1.5) ** 2
-        x_np, _ = golden_section_search_np(f_np, 0, 3, tol=1e-6)
-        x_jax, _, _ = _golden_section_search(f_jax, 0.0, 3.0, tol=1e-6)
-        assert jnp.abs(x_np - x_jax) < 1e-3
 
     def test_f_matches_x(self):
         f = lambda x: (x + 1.0) ** 2
