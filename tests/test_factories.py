@@ -30,7 +30,6 @@ from geope.geometry.lie.groups import infidelity
 from geope.jax.hessian import get_hessian_fn
 from geope.geope import linear_comb_projected_coeffs_multigate
 from geope.jax import stiefel_hessian_quadratic_form, su_hessian_quadratic_form
-from geope.geometry.lie.pauli_projector import get_project_omegas_fn
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
