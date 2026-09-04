@@ -114,5 +114,4 @@ nav:
         - "api/logm.md"
         - "api/jacobian.md"
         - "api/hessian.md"
-        - "api/pauli_projector.md"
         - "api/utils.md"
