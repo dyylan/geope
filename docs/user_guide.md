@@ -12,15 +12,19 @@ where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis gener
 
 The core algorithm is the **geodesic method**: at each step it computes the shortest path on $U(d)$ from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.
 
-The entry point is `Parameters` — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, `param_transform`, bounds, init values, seed, projective flag). Pass it to `Geope` and call `.optimize(max_steps=...)`. The returned `Parameters` carries the live/final `parameters` and `fidelity` (and `to_dict()`); the full run trajectory and `best_*` helpers live on an opt-in `History` logger (`geope.history`).
+The entry point is `Parameters` — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, `param_transform`, bounds, init values, seed, manifold). Pass it to `Geope` and call `.optimize(max_steps=...)`. The returned `Parameters` carries the live/final `parameters` and `fidelity` (and `to_dict()`); the full run trajectory and `best_*` helpers live on an opt-in `History` logger (`geope.history`).
 
-The mathematics lives in the `geometry/` package, with each piece owned by
-whatever it actually depends on. `geometry/chart.py` holds the **pulse model** —
-the product-of-exponentials chart and its Jacobians — which belongs to no
-manifold and imports nothing but JAX. Everything that *is* manifold-specific (the
-metric, the logarithm, the fidelity formulas) hangs off a `Manifold`.
-`Parameters.manifold` is the single lazily-built, memoised bridge between the
-two, so there is no separate engine object: `Geope`, `Grape` and `Gecko` all read
+The mathematics lives in the `geometry/` package, split along one line: **every
+manifold GEOPE walks is a submanifold of the ambient space
+$\mathcal A = \mathbb C^{N\times m}$, and the pulse acts on all of them the same
+way.** So `geometry/chart.py` owns everything *valued in* $\mathcal A$ — the
+orbit map $\Phi(\phi) = U(\phi)\,x_0$ and its whole jet
+$(\Phi, \mathrm D\Phi, \mathrm D^2\Phi)$ — while everything that happens *inside
+a tangent space* $T_x\mathcal M$ (the metric, the coefficient frame, the
+logarithm, the fidelity) hangs off a `Manifold`, with `to_tangent` the one bridge
+between them. `Parameters.manifold` is where the two are composed — once, in
+`Parameters.__init__`, by `Manifold.bind`, which holds no mathematics of its own
+— so there is no separate engine object: `Geope`, `Grape` and `Gecko` all read
 what they need off the (shared) `Parameters`.
 
 Those factories return **un-jitted** callables, so they fuse into the
@@ -28,7 +32,7 @@ optimiser's `update_step`, which is JIT-compiled once when `optimize()` first
 traces it. The exceptions are the manifold's two host-facing objectives,
 `manifold.fidelity_at` and `manifold.infidelity_at`: those are called one trial
 pulse at a time from Python loops, so they are compiled once and memoised on
-the manifold. Calling them inside a trace still works — a jitted callable
+the manifold when first read. Calling them inside a trace still works — a jitted callable
 inlines.
 
 ## Class hierarchy
@@ -37,13 +41,17 @@ inlines.
 jax/       — differentiable primitives (logm, dexpm, the propagator
              Jacobian/Hessian, the autodiff Hessian)
                 ↓ used by
-geometry/chart.py — the pulse model: the product-of-exponentials chart and its
-             Jacobians. Manifold-agnostic; imports nothing but JAX.
+geometry/chart.py — the ambient layer: the orbit map Phi(phi) = U(phi)·x_0 and
+             its whole jet (Phi, DPhi, D^2Phi). Everything valued in the ambient
+             space C^(N x m); manifold-agnostic, imports only JAX + geope.jax.
                 ↓ composed by
-geometry/  — Manifold  ──owns──▶ compute_point (the chart), target
-             │                   TangentBundle (jacobian, hvp, fibre coordinates)
+geometry/  — Manifold  ──owns──▶ base_point (x_0 = Phi(0)), target
+             │                   compute_point (the chart), and a
+             │                   TangentBundle (frame, jacobian, hvp, columns)
+             │                   — `Manifold.bind` attaches all but base_point,
+             │                   and holds no mathematics of its own
              └──▶ GeometricContext: every per-step quantity, in cost tiers
-                ↓ built lazily & cached on
+                ↓ built once, in __init__, on
 Parameters                       (parameters.py)
                 ↘
                   Geope / Grape  (geope.py / grape.py)
@@ -111,7 +119,7 @@ mathematics the geometry layer now owns, and were removed. Their replacements:
 |---|---|
 | `Hamiltonian(basis, phi).matrix` | `basis.linear_span(phi)` — the same $\sum_k \phi_k G_k$ |
 | `Hamiltonian(basis, phi).unitary.matrix` | `params.manifold.compute_point(phi)` — the chart, for the whole piecewise pulse rather than one gate |
-| `Hamiltonian.parameters_from_hamiltonian(H, basis)` | `geope.geometry.lie.pauli_projector.project_omegas` — the same $\mathrm{Re}\,\mathrm{Tr}(G_i H)/d$ |
+| `Hamiltonian.parameters_from_hamiltonian(H, basis)` | `geope.geometry.lie.basis.project_omegas` — the same $\mathrm{Re}\,\mathrm{Tr}(G_i H)/d$ |
 | `h.geodesic_hamiltonian(V)` / `u.geodesic_hamiltonian(basis, V)` | `-params.manifold.log(U, V)`, then `.coefficients(U, ...)` — i.e. `ctx.A` and `ctx.gammas` |
 | `Unitary.unitary_fidelity(A, B)` | `params.manifold.fidelity(A, B)` |
 | `Unitary(U).parameters(basis)` | `m.coefficients(I, m.log(I, U))` |
@@ -218,7 +226,7 @@ Parameters(basis=None, control=None, drift=None,
            constraints=None, pulse_constraints=None, bounds=None,
            init_spread=0.1, seed=None,
            param_transform=None, n_experimental_params=None,
-           projective=True)
+           manifold=None)
 ```
 
 | Parameter | Description |
@@ -238,7 +246,7 @@ Parameters(basis=None, control=None, drift=None,
 | `seed` | random seed |
 | `param_transform` | callable mapping experimental params to basis coefficients |
 | `n_experimental_params` | length of the experimental input; defaults to `projected_basis.lie_algebra_dim` |
-| `projective` | `True` (default) for projective fidelity, `False` for phase-sensitive |
+| `manifold` | the `Manifold` to synthesise on; defaults to `SpecialUnitaryGroup(basis.dim)`. Pass `UnitaryGroup(d)` for the phase-sensitive fidelity, or a `StateSphere` / `Stiefel` for state and subspace problems |
 
 A basis element may not appear in both the control and the drift basis. Drift
 coefficients are written after control coefficients on the combined proj+drift array,
@@ -305,10 +313,32 @@ m.tangent.jacobian           # the chart's pushforward
 m.context(phi)               # the per-step geometry (see below)
 ```
 
-`Parameters` chooses the manifold from `projective` (or from an explicit
-`manifold=`) and binds it on first access, so a `Geope` and a `Gecko` sharing one
-`Parameters` share the compiled traces. The manifold is where the SU-vs-U choice
-lives — it is consulted nowhere else.
+`Parameters` binds the manifold you pass (or the default
+`SpecialUnitaryGroup(basis.dim)`) at construction and keeps the one handle, so a
+`Geope` and a `Gecko` sharing one `Parameters` share the compiled traces. The
+manifold is where the SU-vs-U choice lives — it is consulted nowhere else, and
+there is no separate flag to reconcile it against.
+
+**What `bind` actually attaches.** Every manifold here is a submanifold of one
+ambient space $\mathcal A = \mathbb C^{N\times m}$, and the pulse acts on all of
+them identically, by left multiplication: the chart is the orbit map
+$\Phi(\phi) = U(\phi)\,x_0$ through the manifold's `base_point`. So
+`geope.geometry.chart` builds the whole ambient jet
+$(\Phi, \mathrm D\Phi, \mathrm D^2\Phi)$ and `bind` only composes it, together
+with two pieces of problem data:
+
+| passed to `bind` | what it is |
+|---|---|
+| `generators` | the proj+drift `Basis` the pulse is a product of exponentials in |
+| `frame` | the **ambient coefficient frame** `m.coefficients` resolves a tangent against (`params.basis`) |
+| `columns` | which coefficient columns the geodesic solve may move |
+| `wrap_chart` | the `param_transform` reparametrisation of the chart's *input*, or `None` |
+
+`frame` is optional, and `None` is not a degraded mode. The groups resolve
+tangents against a Hermitian matrix frame; `StateSphere` and `Stiefel` use a
+real/imaginary split of the ambient array instead and need no frame — which is
+also far cheaper, $2Nm$ coefficients against a matrix frame's $d^2$ (2 048
+against ~10⁶ at ten qubits). A manifold that needs no frame builds no projector.
 
 **The per-step context.** `m.context(phi)` returns a `GeometricContext`: every
 geometric quantity a step needs, each a lazily-computed cached property, grouped
@@ -317,8 +347,8 @@ by what it costs.
 | tier | quantities | cost |
 | --- | --- | --- |
 | 0 — base point | `point`, `jacobian`, `A`, `F0`, `gammas`, `omegas`, `fidelity`, `infidelity` | one propagator, one Jacobian, **one** logarithm |
-| 1 — direction | `V`, `Omega`, `s`, `xi_rel` | free: a contraction of tier 0's Jacobian |
-| 2 — curvature | `W`, `accel`, `chi`, `q`, `q_exact`, `rho` | one directional HVP plus the manifold's Riemannian Hessian |
+| 1 — direction | `V`, `Omega`, `omega_norm2`, `velocity`, `xi_rel` | free: a contraction of tier 0's Jacobian |
+| 2 — curvature | `W`, `acceleration`, `chi`, `q`, `q_exact`, `rho` | one directional HVP plus the manifold's Riemannian Hessian |
 | 3 — ray | `point_at(t)`, `infidelity_at(t)`, `distance_at(t)` | one propagator per trial point |
 
 Laziness is load-bearing rather than an optimisation: `Gecko` reads only
@@ -343,7 +373,7 @@ gone; each has a home on the manifold:
 | `params.grad_fn` / `params.hess_fn` | `params.manifold.value_and_grad` / `.hessian` |
 | `params.jac_fn` | `params.manifold.tangent.jacobian` |
 | `params.geo_fn(U)` | `-params.manifold.log(U, target)` (at the base point; no `U·` to undo) |
-| `params.project_omegas_fn` | `params.manifold.coefficients(point, tangent)` |
+| `params.project_omegas_fn` | `params.manifold.coefficients(point, tangent)` — the frame lives on `manifold.tangent.frame` |
 | `params.gammas_and_omegas(phi, key)` | `params.manifold.context(phi).gammas` / `.omegas` |
 | `params.free(...)` | *(new)* the free parameter columns, in the pipeline's dtype |
 
@@ -650,14 +680,15 @@ F_{\text{proj}}(U, U_T) = \frac{|\mathrm{Tr}(U_T^\dagger U)|}{d}, \qquad
 F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 $$
 
-The flag chooses the **manifold**: `projective=True` gives
-`SpecialUnitaryGroup` (traceless $\mathfrak{su}(d)$ tangents, phase quotiented
-out) and `projective=False` gives `UnitaryGroup` (all of $\mathfrak u(d)$, the
-phase controllable). That single choice carries the fidelity, the tangent
-projection and the geodesic with it — nothing else in the pipeline branches on
-it.
+You choose by passing the **manifold**: `SpecialUnitaryGroup(d)` — the default
+— gives the projective fidelity (traceless $\mathfrak{su}(d)$ tangents, phase
+quotiented out), and `UnitaryGroup(d)` gives the phase-sensitive one (all of
+$\mathfrak u(d)$, the phase controllable). That single choice carries the
+fidelity, the tangent projection and the geodesic with it — nothing else in the
+pipeline branches on it, and `params.projective` simply reports what the manifold
+says.
 
-$F_{\text{proj}} \in [0,1]$ is invariant under $U \mapsto e^{i\theta}U$ (the global phase is unobservable). $F_{\text{full}} \in [-1,1]$ is not. Use `projective=False` only when the absolute phase matters — for example, when the gate is a sub-block of a larger coherent unitary, or when stitching multiple gates whose relative phase enters the composite fidelity.
+$F_{\text{proj}} \in [0,1]$ is invariant under $U \mapsto e^{i\theta}U$ (the global phase is unobservable). $F_{\text{full}} \in [-1,1]$ is not. Use `manifold=UnitaryGroup(d)` only when the absolute phase matters — for example, when the gate is a sub-block of a larger coherent unitary, or when stitching multiple gates whose relative phase enters the composite fidelity.
 
 Two pathologies to keep in mind for phase-sensitive mode:
 
@@ -686,7 +717,7 @@ params = Parameters(
         2, 1, {1: ["x", "y"], 2: ["x", "y"]}, 2),
     target=E @ np.diag([1, 1, 1, -1]),           # CZ on the vacuum subspace
     piecewise_steps=10,
-    manifold=Stiefel(dim=12, frame=4, base_frame=E),
+    manifold=Stiefel(dim=12, frame=4, base_point=E),
 )
 Geope(params).optimize(max_steps=300)
 ```
@@ -701,7 +732,7 @@ the objective — leaving it simply is not free.
 |---|---|
 | `dim` | the ambient dimension $N$ |
 | `frame` | the number of scored columns $m$; a point is `(N, m)` |
-| `base_frame` | the frame $E$ the pulse acts on; defaults to the first $m$ basis states |
+| `base_point` | the frame $E$ the pulse acts on; defaults to the first $m$ basis states. Inherited from `Manifold`, where it is $\Phi(0)$ for every space |
 | `projective` | keyword-only, default `True`; as for SU/U, whether a global phase is physical |
 
 Three things to know:
