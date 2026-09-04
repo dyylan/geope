@@ -18,30 +18,28 @@ from .utils.callbacks import normalize_callbacks, run_callbacks
 
 
 class Gecko:
-    """Null-space ("auxiliary cost") optimiser for GEOPE solutions.
+    """Null-space optimiser for GEOPE solutions.
 
-    ``Gecko`` post-processes an already-found GEOPE solution: it moves the
+    ``Gecko`` post-processes an optimized Pulse solution: it moves the
     parameters within the Jacobian null space so that fidelity is preserved
-    while an auxiliary cost is improved — smoothing, frequency shaping,
-    pulse length, gate speed, robustness, or parameter bounds.
+    while an auxiliary cost is improved.
 
-    A ``Gecko`` is constructed from a `Parameters` object — the same object a
-    `Geope` uses. The optimisation functions are read off ``params`` (built
-    lazily and cached there), so to post-process a `Geope` solution, pass that
-    `Geope`'s ``params``::
+    ``Gecko`` is constructed from a `Parameters` object.
 
         g = Geope(p); g.optimize()
         Gecko(g.params).smooth(...)
 
-    Because the functions are cached on ``params``, the `Gecko` reuses the
+    Because the functions are cached on ``params``, `Gecko` reuses the
     `Geope`'s already-compiled traces rather than recompiling.
 
     Attributes:
-        params: The bound `Parameters` object (live optimisation state).
-        history: Optional `History` logger (``None`` unless supplied).
+        params: The bound `Parameters` object.
+        history: Optional `History` logger. None by default.
+        #TODO: do we need this to be public? Only used in optimize
         step_size: Transient last optimisation rate.
         pulse_constraints: Optional pulse-shape constraint config.
         constraint_expander: Linear-equality constraint expander (from params).
+        #TODO: Are these not in params?
         drift_parameters: Drift parameter ``np.ndarray`` (``None`` in
             experimental / ``param_transform`` mode).
 

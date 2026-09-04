@@ -242,6 +242,7 @@ class Grape:
             return
         proj_drift_mask = self._proj_drift_mask()
         manifold = self.params.manifold
+        # TODO: cut out optax.
         if method in ["gd", "adam"]:
             learning_rate = optimizer_kwargs.get("learning_rate")
             if method == "gd":

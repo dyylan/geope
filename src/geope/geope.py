@@ -21,20 +21,14 @@ from .line_searches import (
 from .parameters import Parameters
 from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
-from typing import Any, Callable
+from typing import Callable
 
-# Single source of truth for the run-control knob defaults, shared by the
-# ``__init__``-body initialisers and the ``optimize()`` signature defaults so
-# the two can never drift.
+# Default settings.
 DEFAULT_PRECISION = 0.9999999
 DEFAULT_MAX_STEP_SIZE = 0.9
 DEFAULT_GRAM_SCHMIDT_STEP_SIZE = 1.3
 
-# Relative threshold for "this step made progress", applied to the line search's
-# own objective. It matches what the loop was really testing before: the old
-# ``jnp.isclose(fidelity, previous, atol=(1 - precision) / 100)`` guard carried
-# numpy's default ``rtol=1e-5``, which dominated that nominal ``atol=1e-9`` by
-# four orders of magnitude.
+# Relative threshold to assert if step made progress.
 PROGRESS_RTOL = 1e-5
 
 
@@ -49,17 +43,23 @@ class Geope:
         params: The bound `Parameters` object (the single source of truth
             for all configuration, the live optimisation state, and the
             lazily-built/cached optimisation functions).
+        #TODO: do we need this to be public? Only used in optimize
         precision: Target fidelity threshold. Set by :meth:`optimize` (the
             ``__init__``-body default holds until the first run).
+        #TODO: do we need this to be public? Only used in optimize
         max_step_size: Maximum line-search step size. Set by :meth:`optimize`
             (baked into the jitted update, so it joins the compile memo).
+        #TODO: do we need this to be public? Only used in optimize
         gram_schmidt_step_size: Step size for Gram-Schmidt fallback moves. Set
             by :meth:`optimize` (host-side only).
+        #TODO: do we need this to be public? Only used in optimize
         line_search: The active :class:`~geope.line_searches.LineSearch` object
             from the most recent :meth:`optimize` call. ``None`` until
             :meth:`optimize` is first called.
+        #TODO: do we need this to be public? Only used in optimize
         line_search_state: The current line-search state pytree (re-``init()``d
             per run); ``None`` until :meth:`optimize` is first called.
+        #TODO: do we need this to be public? Only used in optimize
         step_size: Transient last line-search step size.
         ls_diagnostics: Diagnostics of the *most recent* geodesic least-squares
             solve, as a dict of host-side scalars with keys ``residual``,
@@ -85,11 +85,6 @@ class Geope:
         parameters, drift, constraints, pulse constraints, seed,
         initialisation spread, projective flag and ``param_transform`` are
         all read from it. To construct one, use :class:`Parameters`.
-
-        The run-control knobs ``precision`` / ``max_step_size`` /
-        ``gram_schmidt_step_size`` and the line search are arguments of
-        :meth:`optimize`, not the constructor; they are initialised to their
-        defaults here so the object is valid before the first run.
 
         Args:
             params: A `Parameters` instance bundling every input the
@@ -118,11 +113,11 @@ class Geope:
         elif isinstance(seed, jax.Array):
             self._key = seed  # already a jax.Array key
         else:
+            # TODO: we should have a random seed as default.
             self._key = jax.random.key(0)
         self._real_params = params.param_transform is not None
         # The optimisation functions and algebraic metadata are read directly
-        # off ``params`` (the single source of truth); they are built lazily
-        # and cached there on first access. No engine, no eager JIT.
+        # off ``params``.
 
         if self._real_params:
             init_parameters = self._init_for_param_transform(params)
@@ -340,18 +335,8 @@ class Geope:
         max_step_size: float,
     ) -> None:
         """Select the line search and (re)build its update functions.
-
-        Compilation only — the per-run state is (re)initialised by
-        :meth:`optimize` after this returns, so the memo's early ``return``
-        below never silently skips a state reset.
-
-        The JIT-compiled ``update_step`` closes over the line-search object and
-        ``max_step_size``, so it must be recreated and re-traced whenever either
-        changes. The current configuration is memoised in ``_linesearch_config``
-        so that repeated ``optimize()`` calls with unchanged settings reuse the
-        already-compiled function instead of triggering a fresh JAX
-        recompilation; the frozen-dataclass value ``__eq__`` makes two
-        configs-equal line searches memo-equal.
+        If line_search or max_step changes, we have to rebuild these object
+        to force retracing.
 
         Args:
             line_search: The :class:`~geope.line_searches.LineSearch` object.
@@ -364,6 +349,7 @@ class Geope:
         # identical trace-time behaviour.
         self.line_search = line_search
         self.max_step_size = max_step_size
+        # TODO: Can we do this without the extra self._linsearch_config?
         if self._linesearch_config == config:
             return
         self.update_step = self.get_update_step()
@@ -468,10 +454,7 @@ class Geope:
                 "cond": float(ls_diagnostics["cond"]),
             }
 
-            # Accept on the objective the line search actually minimised: both
-            # are minimised, so progress is value0 - value. Testing fidelity
-            # here instead used to discard perfectly good steps from the
-            # distance-objective searches.
+            # Accept on the objective the line search actually minimised
             progressed = value0 - value > PROGRESS_RTOL * abs(value0)
 
             if fidelity > self.precision:
@@ -492,10 +475,8 @@ class Geope:
                         f"[{step}/{max_steps}] [Fidelity = {self.params.fidelity}] Omega geodesic stalled on the {self.line_search.objective} for this step. Moving phi away...    ",
                         end="\r",
                     )
+                # TODO: Can we just guarantees this is always a float by making it a property?
                 if self.gram_schmidt_step_size:
-                    # The fallback replaces the step, but the geodesic solve
-                    # still happened, so ls_diagnostics stays the correct
-                    # description of this step's least-squares problem.
                     new_params_update, fidelity, step_size = self.gram_schmidt(coeffs)
                 pass
 
