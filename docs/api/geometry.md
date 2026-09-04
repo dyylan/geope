@@ -39,7 +39,9 @@ Manifold  --owns-->  base_point     (x₀ = Φ(0): where the orbit starts)
    |
    '-----owns-->  TangentBundle --owns-->  frame      (the ambient coefficient frame)
                                           jacobian   (the pushforward DΦ)
-                                          hvp        (the second differential D²Φ)
+                                          vjp        (the pullback DΦᵀ)
+                                          hvp        (D²Φ along one direction)
+                                          hessian    (the dense D²Φ)
 ```
 
 A manifold contributes only the point its orbit starts from; the pulse model
@@ -59,6 +61,20 @@ is the worked example.
 ## The tangent bundle
 
 ::: geope.geometry.tangent.TangentBundle
+
+## The cost derivatives
+
+What `Manifold.cost_gradient` and `Manifold.cost_hessian_form` delegate to on
+every manifold in the library — and, through them, what the objective's gradient
+and Hessian are built from. A *shared implementation*, not part of the interface:
+a manifold whose cost is not a function of the ambient overlap declines the hooks
+and gets autodiff instead.
+
+::: geope.geometry.cost.ambient_overlap
+
+::: geope.geometry.cost.trace_cost_gradient
+
+::: geope.geometry.cost.trace_cost_hessian_form
 
 ## The per-step context
 

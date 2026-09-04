@@ -29,17 +29,39 @@ lazily, when the optimiser's top-level `update_step` is first traced.
 
 ::: geope.geometry.chart.get_compute_matrices_params_list_fn
 
-## The chart, and its second differential
+## The chart
 
 ::: geope.geometry.chart.get_chart_fn
 
+## The landed jet
+
+The whole of $(\mathrm D\Phi,\ \mathrm D\Phi^\intercal,\ \mathrm D^2\Phi)$, built
+from the propagator recursions in `geope.jax` and landed on the base point. Right
+multiplication by $x_0$ is linear, so it commutes with differentiation and each
+term lands termwise — which is why a homogeneous space reuses the group's
+machinery wholesale and no manifold writes chart code of its own.
+
+::: geope.geometry.chart.get_chart_jacobian_fn
+
+::: geope.geometry.chart.get_chart_vjp_fn
+
 ::: geope.geometry.chart.get_chart_hvp_fn
 
-## Its Jacobians
+::: geope.geometry.chart.get_chart_hessian_fn
+
+## The autodiff Jacobians
+
+`get_jacobian_fn` is the reference the manual path is tested against.
+`get_split_jacobian_fn` and `get_split_vjp_fn` are the `param_transform` path's
+only option: a user-supplied transform has no exponential-product structure to
+pull back through, and its real intermediates would lose their imaginary part
+under a holomorphic derivative.
 
 ::: geope.geometry.chart.get_jacobian_fn
 
 ::: geope.geometry.chart.get_split_jacobian_fn
+
+::: geope.geometry.chart.get_split_vjp_fn
 
 ## Related
 
@@ -48,6 +70,7 @@ mathematics in question:
 
 | what | where |
 | --- | --- |
-| the fidelity formulas, and the manual propagator Hessian | [manifolds](manifolds.md) — they are the *group's* |
+| the fidelity formulas | [manifolds](manifolds.md) — they are the *group's* |
+| the objective's gradient and Hessian, assembled from this jet | [manifolds](manifolds.md) — `Manifold.value_and_grad` / `.hessian` |
 | the autodiff Hessian and its HVP | [hessian](hessian.md) — `geope.jax.hessian` |
 | the `param_transform` chart wrapper | `geope.parameters` — the one place that reads a `Parameters` |

@@ -39,7 +39,7 @@ inlines.
 
 ```
 jax/       — differentiable primitives (logm, dexpm, the propagator
-             Jacobian/Hessian, the autodiff Hessian)
+             Jacobian/pullback/Hessian, the autodiff Hessian)
                 ↓ used by
 geometry/chart.py — the ambient layer: the orbit map Phi(phi) = U(phi)·x_0 and
              its whole jet (Phi, DPhi, D^2Phi). Everything valued in the ambient
@@ -119,7 +119,7 @@ mathematics the geometry layer now owns, and were removed. Their replacements:
 |---|---|
 | `Hamiltonian(basis, phi).matrix` | `basis.linear_span(phi)` — the same $\sum_k \phi_k G_k$ |
 | `Hamiltonian(basis, phi).unitary.matrix` | `params.manifold.compute_point(phi)` — the chart, for the whole piecewise pulse rather than one gate |
-| `Hamiltonian.parameters_from_hamiltonian(H, basis)` | `geope.geometry.lie.basis.project_omegas` — the same $\mathrm{Re}\,\mathrm{Tr}(G_i H)/d$ |
+| `Hamiltonian.parameters_from_hamiltonian(H, basis)` | `geope.geometry.basis.project_omegas` — the same $\mathrm{Re}\,\mathrm{Tr}(G_i H)/d$ |
 | `h.geodesic_hamiltonian(V)` / `u.geodesic_hamiltonian(basis, V)` | `-params.manifold.log(U, V)`, then `.coefficients(U, ...)` — i.e. `ctx.A` and `ctx.gammas` |
 | `Unitary.unitary_fidelity(A, B)` | `params.manifold.fidelity(A, B)` |
 | `Unitary(U).parameters(basis)` | `m.coefficients(I, m.log(I, U))` |
@@ -308,8 +308,8 @@ Everything the optimisers need hangs off **one** lazily-built, cached handle:
 m = params.manifold          # bound to this problem's chart and target
 m.compute_point(phi)             # the chart: parameters -> a point on the manifold
 m.fidelity_at(phi)           # the convergence score (compiled); m.infidelity_at(phi) is the cost
-m.value_and_grad, m.hessian  # what GRAPE differentiates
-m.tangent.jacobian           # the chart's pushforward
+m.value_and_grad, m.hessian  # what GRAPE minimises with (analytic, from the propagators)
+m.tangent.jacobian           # the chart's pushforward; m.tangent.vjp is its pullback
 m.context(phi)               # the per-step geometry (see below)
 ```
 
@@ -396,10 +396,10 @@ Geope(params, verbose=False, history=None)
 The iteration cap, the line search, and the three run-control knobs are arguments of `optimize`, not constructor fields:
 
 ```python
-from geope import Adam, ApproximateQuadraticArmijo, Armijo, GoldenSection, QuadraticArmijo
+from geope import ApproximateQuadraticArmijo, Armijo, GoldenSection, QuadraticArmijo
 
 optimize(max_steps=1000,
-         line_search=GoldenSection(),        # default; or Adam(1e-2), Armijo(), QuadraticArmijo()
+         line_search=GoldenSection(),        # default; or Armijo(), QuadraticArmijo()
          precision=0.9999999,
          max_step_size=0.9, gram_schmidt_step_size=1.3)
 ```
@@ -415,14 +415,13 @@ optimize(max_steps=1000,
 The line searches are immutable config objects (frozen dataclasses):
 
 - `GoldenSection(tol=1e-5)` — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
-- `Adam(lr=0.05, num_steps=30, finite_difference=True, warm_start=False, ...)` — 1-D Adam line search. `finite_difference=False` uses an exact autodiff gradient; `warm_start=True` seeds each step from the previous step's `t`.
 - `Armijo(c1=1e-4, beta=0.5, t_min=1e-8)` — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step $-t_{\max}$ and backtracks, taking the slope from the objective value alone ($s = 2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
 - `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — geometry-aware second-order line search: seeds the step from the SU(N) curvature (clipped to the bracket, falling back to the full step when the curvature is non-positive) and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
 - `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` on a group or the state sphere, and one small operator exponential on `Stiefel` (standard mode only; on `Stiefel` it also needs `projective=False`, see below).
 
     Whether it changes anything is structural: the solve has `piecewise_steps × K_proj` unknowns against `K_basis` equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. `GeometricContext.xi_rel` reports the residual as the (scale-invariant) sine of the angle between $\Omega$ and $A$, and tracks `ls_diagnostics["residual_rel"]` closely; it is `0` exactly when the two curvatures agree.
 
-The three differ in what they evaluate per step, not just in flops: `GoldenSection`/`Adam` evaluate the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[-t_{\max}, 0]$ and is clipped to $-t_{\max}$, which is exactly where `Armijo` starts anyway.
+The three differ in what they evaluate per step, not just in flops: `GoldenSection` evaluates the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[-t_{\max}, 0]$ and is clipped to $-t_{\max}$, which is exactly where `Armijo` starts anyway.
 
 The line-search object and `max_step_size` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `GoldenSection()`) reuse the compiled functions, while changing the object or `max_step_size` triggers a one-off recompile. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
 
@@ -617,7 +616,7 @@ The output is a 1-D array whose length is either:
 - `projected_basis.lie_algebra_dim` — taken as projected-basis coefficients;
 - `basis.lie_algebra_dim` — relevant projected entries extracted automatically via `projected_basis.overlap(basis)`.
 
-`Parameters.n_experimental_params` sets the input dimension. When `param_transform` is set, the manifold's chart is wrapped to apply `vmap(τ)` over the gate axis, embed the result into the proj+drift slots, broadcast drift coefficients, and delegate to the unitary-product code. The Jacobian is replaced by a split-real-imaginary version (real intermediates in `τ` would otherwise drop the imaginary part under holomorphic autodiff), and the chart loses its exponential-product structure — so `tangent.generators` is `None`, which is the single signal that disables the analytic HVP (and with it the curvature tier and the second-order line searches) and the manual propagator Hessian.
+`Parameters.n_experimental_params` sets the input dimension. When `param_transform` is set, the manifold's chart is wrapped to apply `vmap(τ)` over the gate axis, embed the result into the proj+drift slots, broadcast drift coefficients, and delegate to the unitary-product code. The Jacobian and its pullback are replaced by split-real-imaginary versions (real intermediates in `τ` would otherwise drop the imaginary part under holomorphic autodiff), and the chart loses its exponential-product structure — so `tangent.generators` is `None`, which is the single signal that drops both second differentials: `tangent.hvp` (and with it the curvature tier and the second-order line searches) and `tangent.hessian` (so `Manifold.hessian` falls back to autodiff). The gradient stays exact, because the pullback is still available — just autodiff-flavoured.
 
 ### Helper: `make_per_element_transform`
 
@@ -758,7 +757,7 @@ Three things to know:
   *quotient*, whose Hessian carries an extra O'Neill term this does not have, so
   `ctx.q_exact` and `ctx.rho` raise `NotImplementedError` there rather than
   silently returning a form that is a few percent wrong. `GoldenSection`,
-  `Adam`, `Armijo` and `QuadraticArmijo` all work in either mode.
+  `Armijo` and `QuadraticArmijo` all work in either mode.
 
     Cost is $O(m^6)$ and **independent of $N$** — the Jacobi operator
     block-diagonalises, and the sector that scales with the ambient dimension

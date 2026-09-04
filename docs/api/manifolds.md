@@ -4,6 +4,14 @@ The spaces GEOPE can synthesise on. Each implements the hooks of
 `geope.geometry.manifold.Manifold`; see that page for the contracts they must
 satisfy.
 
+All four also supply the *declinable* pair `Manifold.cost_gradient` and
+`Manifold.cost_hessian_form`, which is what `Manifold.value_and_grad` and
+`Manifold.hessian` are assembled from — no autodiff. Each does so in two lines,
+because every one of them scores through the same complex ambient overlap
+$z = \sum \bar y\,x$: see `geope.geometry.cost` for the shared formulas and for
+why that is an implementation they happen to share rather than a promise the
+interface makes.
+
 ## Matrix Lie groups
 
 `MatrixLieGroup` is the middle layer that supplies everything
