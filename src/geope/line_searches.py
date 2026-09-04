@@ -199,7 +199,7 @@ class Armijo(LineSearch):
 
     Both quantities the Armijo test needs are free: ``ctx.F0`` is the objective
     at $t=0$, which tier 0 of the context has already computed from its single
-    logarithm, and ``ctx.s`` is the exact slope $\langle A,\Omega\rangle$, one
+    logarithm, and ``ctx.velocity`` is the exact slope $\langle A,\Omega\rangle$, one
     contraction of tier 0's Jacobian. So this search spends no propagator and no
     logarithm of its own before its first trial, and it uses the exact slope
     rather than the radial $s=2F_0$ of the note's §11 — which held only under
@@ -227,7 +227,7 @@ class Armijo(LineSearch):
             ctx.distance_at,
             a,
             F0=ctx.F0,
-            s=ctx.s,
+            s=ctx.velocity,
             c1=self.c1,
             beta=self.beta,
             t_min=self.t_min,
@@ -242,7 +242,7 @@ class QuadraticArmijo(LineSearch):
     Implements the note *Quadratic-Seeded Armijo Line Search on
     $\mathrm{SU}(N)$*: it reads the exact slope $s=\psi'(0)$ and curvature
     $q=\psi''(0)$ of the squared-geodesic-distance objective off the context
-    (``ctx.s`` and ``ctx.q``), seeds the trial step at the local quadratic minimiser
+    (``ctx.velocity`` and ``ctx.q``), seeds the trial step at the local quadratic minimiser
     $-s/q$ (clipped to the bracket, with a full-bracket fallback when the
     curvature is non-positive), and enforces sufficient decrease with Armijo
     backtracking on ``ctx.distance_at``. The per-step evaluation count is recorded
@@ -269,7 +269,7 @@ class QuadraticArmijo(LineSearch):
         dt, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
             a,
-            ctx.s,
+            ctx.velocity,
             ctx.q,
             ctx.F0,
             c1=self.c1,
@@ -333,7 +333,7 @@ class ApproximateQuadraticArmijo(LineSearch):
         dt, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
             a,
-            ctx.s,
+            ctx.velocity,
             ctx.q_exact,
             ctx.F0,
             c1=self.c1,
