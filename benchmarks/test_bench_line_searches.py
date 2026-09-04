@@ -77,7 +77,6 @@ def _rot_1q():
         target=_rx(np.pi / 3),
         piecewise_steps=3,
         seed=SEED,
-        projective=True,
     )
 
 
@@ -88,7 +87,6 @@ def _cnot_2q():
         target=_CNOT,
         piecewise_steps=6,
         seed=SEED,
-        projective=True,
     )
 
 
@@ -99,7 +97,6 @@ def _qft_2q():
         target=qft_unitary(2),
         piecewise_steps=10,
         seed=SEED,
-        projective=True,
     )
 
 
@@ -121,7 +118,6 @@ def _qft_3q():
         target=qft_unitary(3),
         piecewise_steps=20,
         seed=SEED,
-        projective=True,
     )
 
 
@@ -134,7 +130,6 @@ def _toffoli_3q():
         target=multicontrol_unitary(_X, 2),
         piecewise_steps=20,
         seed=SEED,
-        projective=True,
     )
 
 
