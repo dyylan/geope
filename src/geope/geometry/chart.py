@@ -1,17 +1,34 @@
-r"""The pulse model: a product of piecewise-constant exponentials, and its Jacobians.
+r"""The ambient layer: the pulse model, where it lands, and how it differentiates.
 
-This is the *chart* every manifold in the library is coordinatised by,
+Every manifold in the library is a submanifold of one **ambient space**
+$\mathcal A = \mathbb C^{N\times m}$, and the pulse acts on all of them the same
+way — by left multiplication with a product of piecewise-constant exponentials,
 
-$$\Phi(\phi) = \prod_g \exp\Bigl(i\sum_k \phi_{g,k} G_k\Bigr),$$
+$$U(\phi) = \prod_g \exp\Bigl(i\sum_k \phi_{g,k} G_k\Bigr),
+\qquad \Phi(\phi) = U(\phi)\,x_0 .$$
 
-and it belongs to no single manifold: `geope.geometry.lie.groups.MatrixLieGroup`
-takes it as its chart directly, and
-`geope.geometry.stiefel.sphere.StateSphere` composes it with a base state. What
-*is* manifold-specific — the metric, the logarithm, the fidelity — lives on the
-`geope.geometry.manifold.Manifold` hooks instead.
+The chart is therefore the **orbit map** of that one ambient action through a
+base point $x_0 = \Phi(0)$: the identity on a matrix group (where the propagator
+*is* the point), a state on `geope.geometry.stiefel.sphere.StateSphere`, a frame
+on `geope.geometry.stiefel.stiefel.Stiefel`. Only $x_0$ varies, which is why no
+manifold writes chart code of its own — `geope.geometry.manifold.Manifold.bind`
+composes what is here, once.
 
-Like `geope.geometry.tangent`, this module imports nothing but JAX: it sits below
-the manifolds rather than beside them.
+This module owns the whole **jet** $(\Phi,\ \mathrm D\Phi,\ \mathrm D^2\Phi)$,
+i.e. everything valued in $\mathcal A$. What happens in the tangent space
+$T_x\mathcal M$ — the metric, the coefficient frame, the logarithm, the fidelity
+— is the `Manifold`'s, so the two never mix:
+
+```
+ambient  A = C^{N×m}    Φ = U(φ)·x₀ ,  DΦ ,  D²Φ          <- here
+     │
+     │  to_tangent :  A → T_x M
+     ▼
+submanifold  M ⊂ A      inner, coefficients, log, ...     <- Manifold hooks
+```
+
+Like `geope.geometry.tangent`, this module imports nothing but JAX and
+`geope.jax`: it sits *below* the manifolds rather than beside them.
 
 Every factory here returns an **un-jitted** callable, so it fuses into the
 enclosing ``@jax.jit`` update step that `geope.Geope.optimize` traces once.
@@ -27,6 +44,8 @@ from jax import Array
 
 from functools import partial
 from typing import Callable
+
+from ..jax.hessian import get_hvp_propagator
 
 
 def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
@@ -67,6 +86,74 @@ def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], 
         and returns the product unitary.
     """
     return partial(compute_matrices_params_list_fn, basis=basis)
+
+
+def get_chart_fn(
+    generators: np.ndarray, base_point: Array | None = None
+) -> Callable[[Array], Array]:
+    r"""Build the chart: the pulse's orbit through ``base_point``.
+
+    $\Phi(\phi) = U(\phi)\,x_0$, with $U$ the propagator above. Since that
+    propagator's `jax.lax.scan` is seeded at the ambient identity,
+    $\Phi(0) = x_0$ — the base point *is* where the chart starts.
+
+    Args:
+        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        base_point: The point $x_0 \in \mathcal A$ the pulse drives, of shape
+            ``ambient_shape``. ``None`` means the propagator *is* the point,
+            which is the case on any matrix Lie group; the underlying callable is
+            then returned **unchanged**, so no multiplication by the identity is
+            introduced on that hot path. The branch is on a Python value and is
+            resolved at trace time.
+
+    Returns:
+        A ``Callable[[Array], Array]`` mapping ``(G, K)`` parameters to a point
+        of shape ``ambient_shape``.
+    """
+    propagator = get_compute_matrices_params_list_fn(generators)
+    if base_point is None:
+        return propagator
+    base = jnp.asarray(base_point, dtype=jnp.complex128)
+
+    def chart(params_list: Array) -> Array:
+        return propagator(params_list) @ base
+
+    return chart
+
+
+def get_chart_hvp_fn(
+    generators: np.ndarray, base_point: Array | None = None
+) -> Callable[[Array, Array], tuple[Array, Array, Array]]:
+    r"""Build the chart's second differential: the jet $(\Phi,\ \mathrm D\Phi[p],\ \mathrm D^2\Phi[p, p])$.
+
+    The same landing as `get_chart_fn`, applied termwise. That it *can* be
+    applied termwise is the whole reason a homogeneous space reuses the group's
+    propagator machinery wholesale: right multiplication by a constant is linear,
+    so it commutes with differentiation and carries the jet with no
+    manifold-specific code and no linearity contract to uphold.
+
+    Args:
+        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        base_point: As `get_chart_fn` — ``None`` returns the propagator's own HVP
+            unchanged.
+
+    Returns:
+        A ``Callable[[Array, Array], tuple[Array, Array, Array]]`` accepting
+        parameters and a direction, both ``(G, K)``, and returning the triple
+        landed on ``base_point``.
+    """
+    # The bare two-argument form: `method="eig", hermitian=True`, the defaults
+    # the whole pipeline has always run on.
+    propagator_hvp = get_hvp_propagator(jnp.asarray(generators))
+    if base_point is None:
+        return propagator_hvp
+    base = jnp.asarray(base_point, dtype=jnp.complex128)
+
+    def chart_hvp(params_list: Array, direction: Array) -> tuple[Array, Array, Array]:
+        point, velocity, acceleration = propagator_hvp(params_list, direction)
+        return point @ base, velocity @ base, acceleration @ base
+
+    return chart_hvp
 
 
 def get_jacobian_fn(
