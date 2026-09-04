@@ -12,14 +12,12 @@ structure anywhere.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, ClassVar
+from typing import ClassVar
 
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from ...jax.hessian import get_hvp_propagator
-from ..chart import get_compute_matrices_params_list_fn
 from ..manifold import Manifold
 
 # Below this the geodesic quantities are taken at their (finite) limits: the
@@ -61,16 +59,26 @@ class StateSphere(Manifold):
     Attributes:
         dim: The Hilbert-space dimension $n$; a point is an ``(n,)`` state.
         base_point: The initial state $\lvert\psi_0\rangle$ the chart acts on;
-            must be a unit vector of shape ``(n,)``.
+            must be a unit vector of shape ``(n,)``. Inherited from `Manifold`,
+            where it is $\Phi(0)$ for every space; required here, because a
+            sphere has no canonical starting state the way a group has the
+            identity.
     """
 
     dim: int
-    base_point: Array
 
     projective: ClassVar[bool] = True
     name: ClassVar[str] = "CP(n-1)"
 
     def __post_init__(self) -> None:
+        if self.base_point is None:
+            # `Manifold` defaults it to None — "the propagator is the point" —
+            # which is meaningful on a group and not here: the pulse has to be
+            # told which state it drives.
+            raise ValueError(
+                f"{self.name} needs a `base_point`: the initial state the pulse "
+                f"drives, a unit vector of shape ({self.dim},)."
+            )
         base = jnp.asarray(self.base_point)
         if base.shape != (self.dim,):
             raise ValueError(
@@ -124,7 +132,7 @@ class StateSphere(Manifold):
 
     def inner(self, point: Array, x: Array, y: Array) -> Array:
         r"""$\mathrm{Re}\langle x, y\rangle$ — the round metric, inherited from $\mathbb C^n$."""
-        return self._euclidean_inner(x, y)
+        return self.ambient_inner(x, y)
 
     def coefficients(self, point: Array, tangent: Array) -> Array:
         r"""Split into real and imaginary parts: $u \mapsto (\mathrm{Re}\,u, \mathrm{Im}\,u)$.
@@ -235,33 +243,8 @@ class StateSphere(Manifold):
         r"""$1 - \lvert\langle x, y\rangle\rvert \in [0, 1]$."""
         return 1.0 - jnp.abs(self._braket(x, y))
 
-    # --- the chart: the group action on the base state ----------------------
-
-    def chart(self, generators) -> Callable[[Array], Array]:
-        r"""$\Phi(\phi) = U(\phi)\lvert\psi_0\rangle$.
-
-        The pulse's unitary — the same product of piecewise-constant exponentials
-        `geope.geometry.lie.groups.MatrixLieGroup.chart` builds — applied to the
-        base state. This is what makes a homogeneous space reuse the group's chart
-        machinery wholesale.
-        """
-        compute_point = get_compute_matrices_params_list_fn(generators.basis)
-        base = jnp.asarray(self.base_point, dtype=jnp.complex128)
-
-        def chart(free_params: Array) -> Array:
-            return compute_point(free_params) @ base
-
-        return chart
-
-    def chart_hvp(
-        self, generators
-    ) -> Callable[[Array, Array], tuple[Array, Array, Array]]:
-        """The group's propagator HVP, carried through the action by linearity."""
-        group_hvp = get_hvp_propagator(jnp.asarray(generators.basis))
-        base = jnp.asarray(self.base_point, dtype=jnp.complex128)
-
-        def hvp(free_params: Array, direction: Array):
-            x, v, w = group_hvp(free_params, direction)
-            return x @ base, v @ base, w @ base
-
-        return hvp
+    # No chart code. `geope.geometry.chart` lands the pulse propagator on
+    # `base_point`, giving $\Phi(\phi) = U(\phi)\lvert\psi_0\rangle$, and
+    # `Manifold.bind` composes it — which is what makes a homogeneous space
+    # reuse the group's chart machinery wholesale, and this a state-preparation
+    # problem rather than a gate-synthesis one.

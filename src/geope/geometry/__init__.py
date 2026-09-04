@@ -1,33 +1,64 @@
-"""The geometry layer: the manifold, its tangent bundle, and their primitives.
+r"""The geometry layer: an ambient space, the submanifolds in it, and their primitives.
 
-GEOPE synthesises a target by walking a Riemannian manifold. This package owns
-that manifold and its tangent bundle, so that nothing else has to:
+GEOPE synthesises a target by walking a Riemannian manifold, and **every manifold
+here is a submanifold of one ambient space** $\mathcal A = \mathbb C^{N\times m}$:
+
+| base point $x_0$ | the $\mathrm U(N)$-orbit through it |
+| --- | --- |
+| $\mathbb 1_N$ | $\mathrm U(N)$, $\mathrm{SU}(N)$ |
+| $(\mathbb 1_m;\,0)^\intercal$ | $\mathrm{St}_m(\mathbb C^N)$ |
+| $\lvert\psi_0\rangle$ | $S^{2N-1} \to \mathbb{CP}^{N-1}$ |
+
+That is the organising idea, and it draws the one line this package is built
+around. The pulse acts on all of $\mathcal A$ the same way — by left
+multiplication with a product of exponentials — so everything *valued in*
+$\mathcal A$ is shared, and everything that happens *inside a fibre*
+$T_x\mathcal M$ is the submanifold's:
 
 ```
-Manifold  --owns-->  compute_point      (the chart Phi: R^(G x K) -> M)
+ambient  A = C^{N×m}     Phi(phi) = U(phi) x_0 ,  D Phi ,  D^2 Phi      chart.py
+                         the coefficient frame (Paulis, or the standard one)
+     │
+     │   to_tangent :  A -> T_x M          <- the only bridge
+     ▼
+submanifold  M ⊂ A       inner, coefficients, log, tangent_acceleration,
+                         hessian_quadratic_form, fidelity, infidelity   Manifold
+```
+
+Ownership follows that line exactly:
+
+```
+Manifold  --owns-->  base_point     (x_0 = Phi(0): where the orbit starts)
    |                 target         (the point being synthesised)
+   |                 compute_point  (the chart Phi: R^(G x K) -> M)
    |
-   '-----owns-->  TangentBundle --owns-->  Basis      (coordinatises the fibres)
+   '-----owns-->  TangentBundle --owns-->  frame      (the ambient coefficient frame)
                                           jacobian   (the pushforward D Phi)
                                           hvp        (the second differential D^2 Phi)
 ```
 
-The chart maps into the manifold; its differentials map into the tangent bundle.
 A `Manifold` is usable in two states: constructed with only its dimension
-(``SpecialUnitaryGroup(4)``) it is the pure space, and every geometric primitive
-already works — `Manifold.log`, `Manifold.distance2`, `Manifold.fidelity`,
-`Manifold.hessian_quadratic_form`. `Manifold.bind` attaches the chart, the
-tangent bundle and the target, which is what a per-step `GeometricContext` needs.
+(``SpecialUnitaryGroup(4)``) it is the pure space, and its geometric primitives
+already work — `Manifold.log`, `Manifold.distance2`, `Manifold.inner`,
+`Manifold.fidelity`, `Manifold.hessian_quadratic_form`. `Manifold.bind` then
+attaches the chart, the frame and the target, which is what a per-step
+`GeometricContext` needs. (`Manifold.coefficients` is the one primitive that
+needs binding, because a *coordinate choice* is problem data.)
+
+There is no chart hook, and no chart code on any manifold: the chart is
+``Phi(phi) = U(phi) x_0`` everywhere, so only ``base_point`` varies — ``None`` on
+a matrix group, where the propagator *is* the point. `bind` composes what
+`geope.geometry.chart` builds and holds no mathematics of its own.
 
 Modules:
 
+* `chart` — the **ambient layer**: the pulse model and the whole jet
+  $(\Phi, \mathrm D\Phi, \mathrm D^2\Phi)$, landed on a base point.
 * `manifold` — the `Manifold` interface: what the geodesic algorithm needs of a
-  space, with no Lie-group assumption baked in.
-* `tangent` — the `TangentBundle`: fibre coordinates and the chart's
+  submanifold, with no Lie-group assumption baked in.
+* `tangent` — the `TangentBundle`: the ambient coefficient frame and the chart's
   differentials.
 * `context` — the `GeometricContext`: every per-step quantity, in cost tiers.
-* `binding` — `bind_manifold`, the one place that knows both `Parameters` and the
-  geometry layer.
 * `lie` — matrix Lie groups: the `Basis` of Hermitian generators, and the
   `MatrixLieGroup` middle layer with its `UnitaryGroup` / `SpecialUnitaryGroup`.
 * `stiefel` — the Stiefel family: `Stiefel` (orthonormal $m$-frames under the

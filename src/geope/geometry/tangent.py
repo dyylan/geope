@@ -1,10 +1,10 @@
 """The tangent bundle: fibre coordinates and the chart's differentials.
 
-Split out so that it depends on nothing but JAX: the
-metric and the coefficient map are the `geope.geometry.manifold.Manifold`'s (they
-are point-dependent in general), and what is left here is data — which basis
-coordinatises the fibres, how to differentiate the chart, and which coefficient
-columns the geodesic solve may move.
+Everything here is **ambient-side**: the two frames a run is described by, and
+the two differentials of the chart. The *geometry* of $T_x\\mathcal M$ — the
+metric, the coefficient map, the logarithm — is the
+`geope.geometry.manifold.Manifold`'s, because in general all of it depends on the
+base point. That split is why this module depends on nothing but JAX.
 """
 
 from __future__ import annotations
@@ -18,42 +18,45 @@ import jax
 import jax.numpy as jnp
 from jax import Array
 
+# TODO: can we just do this on __init__ and in conf test?
 jax.config.update("jax_enable_x64", True)
 
 if TYPE_CHECKING:
     from .lie.basis import Basis
-
-    from .parameters import Parameters
 
 
 @dataclass(frozen=True, eq=False)
 class TangentBundle:
     r"""The fibre coordinates and the chart's differentials.
 
-    Data, not operations: the metric and the coefficient map are the
+    **Data, not operations.** The metric and the coefficient map are the
     `geope.geometry.manifold.Manifold`'s, because in general both depend on the
-    base point. What is left here is what a chart and a coordinate choice are made
-    of, which is why this module depends on nothing but JAX.
+    base point; what is left here is what a chart and a coordinate choice are
+    *made of*.
 
-    ``basis`` is the **coefficient space** — the basis a manifold's
-    `Manifold.coefficients` resolves a tangent vector against, i.e.
-    ``params.basis``. ``generators`` is a different, smaller set: the chart's own
-    generators (the proj+drift sub-basis), from which ``jacobian`` and `hvp` are
-    built. Both are optional, because a manifold without a global frame
-    coordinatises its fibres without either.
+    The two `geope.geometry.lie.Basis` fields play different roles and are
+    different sizes. ``frame`` is the **ambient coefficient frame**: the basis a
+    manifold's `Manifold.coefficients` resolves a tangent vector against, i.e.
+    ``params.basis``. ``generators`` is the chart's own, smaller sub-basis (the
+    proj+drift one), from which ``jacobian`` and ``hvp`` are built. Both are
+    optional, and for unrelated reasons — see each below.
 
     Attributes:
-        basis: The `Basis` spanning (a subspace of) the tangent space, of shape
-            ``(K, d, d)`` and Hermitian. ``None`` for a manifold that does not
-            coordinatise through a basis.
-        project: Batched projection ``(N, d, d) -> (N, K)`` onto ``basis``
-            (`geope.geometry.lie.pauli_projector`; the on-the-fly variant above
-            5 qubits). ``None`` with ``basis``.
+        frame: The ambient coefficient frame, or ``None``. ``None`` is not a
+            degraded mode: it is the right answer for a manifold whose fibre
+            coordinates are a real/imaginary split of the ambient array rather
+            than a resolution against a matrix frame — which is both Stiefel
+            manifolds, and which is also *cheaper*, $2Nm$ coefficients against a
+            matrix frame's $d^2$. It means no projector is ever built. The
+            projector itself, and the >5-qubit on-the-fly switch, belong to the
+            manifold that reads this (see
+            `geope.geometry.lie.groups.MatrixLieGroup`), because which frame is
+            needed is a property of its `Manifold.coefficients`.
         jacobian: The pushforward of the chart, ``phi -> dPoint/dphi``, of shape
             ``(*ambient_shape, G, K_free)``. ``None`` when unbound.
         hvp: The chart's second differential ``(phi, p) -> (point, V, W)`` with
             $V = \\mathrm D\\Phi_\\phi[p]$ and $W = \\mathrm D^2\\Phi_\\phi[p, p]$, built by
-            `Manifold.chart_hvp`. ``None`` disables the curvature tier of a
+            `Manifold.bind`. ``None`` disables the curvature tier of a
             `GeometricContext` and nothing else.
         generators: The chart's generator sub-basis, present exactly when the
             chart is a plain product of exponentials in it. ``None`` under
@@ -66,17 +69,26 @@ class TangentBundle:
             ``param_transform``.
     """
 
-    basis: Basis | None = None
-    project: Callable[[Array], Array] | None = None
+    frame: Basis | None = None
     jacobian: Callable[[Array], Array] | None = None
     hvp: Callable[[Array, Array], tuple[Array, Array, Array]] | None = None
     generators: Basis | None = None
     columns: np.ndarray | None = None
 
-    @property
-    def coefficient_dim(self) -> int | None:
-        """The number of basis elements $K$, or ``None`` without a ``basis``."""
-        return None if self.basis is None else self.basis.lie_algebra_dim
+    def __post_init__(self) -> None:
+        """The one co-invariant: the analytic HVP exists exactly when the generators do.
+
+        The HVP *is* the propagator recursion in those generators, so a chart
+        built from them has both and a ``param_transform`` chart has neither.
+        `Manifold.bind` sets the pair in one branch, but this is reachable — the
+        tests build bundles directly — so it keeps a hand-built one honest.
+        """
+        if (self.generators is None) != (self.hvp is None):
+            raise ValueError(
+                "`generators` and `hvp` must be given together: the analytic HVP "
+                "is the propagator recursion in those generators, so a chart with "
+                "them has both and a `param_transform` chart has neither."
+            )
 
     def restrict(self, coefficients: Array) -> Array:
         """Keep only the solvable coefficient columns (`columns`).

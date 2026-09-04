@@ -37,17 +37,15 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import cached_property
-from typing import Callable, ClassVar
+from typing import ClassVar
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from ...jax.hessian import get_hvp_propagator, stiefel_hessian_quadratic_form
+from ...jax.hessian import stiefel_hessian_quadratic_form
 from ...jax.logm import logm_unitary
-from ..chart import get_compute_matrices_params_list_fn
 from ..manifold import Manifold
 
 # Membership tolerance on Q^dag Q = 1, matching the group's unitarity tolerance.
@@ -158,9 +156,11 @@ class Stiefel(Manifold):
     Attributes:
         dim: The ambient Hilbert-space dimension $N$.
         frame: The number of frame columns $m$; a point is ``(N, m)``.
-        base_frame: The frame $E$ the chart acts on, ``(N, m)``. Defaults to
+        base_point: The frame $E$ the chart acts on, ``(N, m)``. Defaults to
             $(\mathbb 1_m, 0)^\intercal$, the note's embedding — the first $m$
-            computational basis states.
+            computational basis states. Inherited from `Manifold`, where it is
+            $\Phi(0)$ for every space, and normalised to that default in
+            ``__post_init__`` so it is always a concrete frame.
         projective: Whether a global phase is physical. ``True`` (the default)
             scores $\lvert\mathrm{Tr}\rvert/m$ and phase-aligns the target inside
             `log`; ``False`` scores $\mathrm{Re}\,\mathrm{Tr}/m$ and leaves it. See
@@ -171,7 +171,6 @@ class Stiefel(Manifold):
 
     dim: int
     frame: int
-    base_frame: Array | None = None
     # Keyword-only: re-annotating the base's ``projective`` ClassVar as a field
     # inherits its *position* in the base's annotations, which is ahead of
     # ``dim``; kw_only lifts it out of the positional ordering entirely.
@@ -187,21 +186,23 @@ class Stiefel(Manifold):
                 f"{self.name} needs 1 <= frame <= dim, got frame={self.frame}, "
                 f"dim={self.dim}."
             )
-        if self.base_frame is not None:
-            base = jnp.asarray(self.base_frame)
+        # Normalise `base_point` to a concrete frame here rather than resolving
+        # it on every read: `Manifold` defaults it to None — "the propagator is
+        # the point" — which is meaningful on a group but not on a frame
+        # manifold, where the chart's `(N, N)` propagator has to land on an
+        # `(N, m)` frame. ``object.__setattr__`` is how a frozen dataclass
+        # derives a field, and it runs once, host-side, at construction.
+        if self.base_point is None:
+            base = jnp.eye(self.dim, self.frame, dtype=jnp.complex128)
+        else:
+            base = jnp.asarray(self.base_point, dtype=jnp.complex128)
             if base.shape != self.ambient_shape:
                 raise ValueError(
                     f"{self.name} with dim={self.dim}, frame={self.frame} expects "
-                    f"a {self.ambient_shape} base_frame, got {tuple(base.shape)}."
+                    f"a {self.ambient_shape} base_point, got {tuple(base.shape)}."
                 )
-            self.validate_point(base, "base_frame")
-
-    @cached_property
-    def _base(self) -> Array:
-        r"""The resolved base frame, defaulting to $E = (\mathbb 1_m, 0)^\intercal$."""
-        if self.base_frame is None:
-            return jnp.eye(self.dim, self.frame, dtype=jnp.complex128)
-        return jnp.asarray(self.base_frame, dtype=jnp.complex128)
+            self.validate_point(base, "base_point")
+        object.__setattr__(self, "base_point", base)
 
     # --- the interface ------------------------------------------------------
 
@@ -427,28 +428,3 @@ class Stiefel(Manifold):
     def infidelity(self, x: Array, y: Array) -> Array:
         r"""$1 - F(x, y)$."""
         return 1.0 - self.fidelity(x, y)
-
-    # --- the chart: the group action on the base frame ----------------------
-
-    def chart(self, generators) -> Callable[[Array], Array]:
-        r"""$\Phi(\phi) = U(\phi)E$ — the pulse's unitary applied to the base frame."""
-        compute_point = get_compute_matrices_params_list_fn(generators.basis)
-        base = self._base
-
-        def chart(free_params: Array) -> Array:
-            return compute_point(free_params) @ base
-
-        return chart
-
-    def chart_hvp(
-        self, generators
-    ) -> Callable[[Array, Array], tuple[Array, Array, Array]]:
-        """The group's propagator HVP, carried through the action by linearity."""
-        group_hvp = get_hvp_propagator(jnp.asarray(generators.basis))
-        base = self._base
-
-        def hvp(free_params: Array, direction: Array):
-            x, v, w = group_hvp(free_params, direction)
-            return x @ base, v @ base, w @ base
-
-        return hvp

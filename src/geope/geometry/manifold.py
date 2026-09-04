@@ -1,6 +1,17 @@
-"""The manifold interface: what the geodesic algorithm needs of a space.
+r"""The manifold interface: what the geodesic algorithm needs of a space.
 
-See `geope.geometry` for the ownership chain. This module is deliberately free of
+A `Manifold` here is a **submanifold of the ambient space**
+$\mathcal A = \mathbb C^{N\times m}$ that `geope.geometry.chart` describes, and
+the division of labour between the two is the organising idea of this package:
+
+* everything valued in $\mathcal A$ — the chart $\Phi(\phi) = U(\phi)\,x_0$ and
+  its two differentials — is `geope.geometry.chart`'s, composed once by
+  `Manifold.bind`, which adds no mathematics of its own;
+* everything that happens in $T_x\mathcal M$ — the metric, the coefficient
+  frame, the logarithm, the fidelity — is the *manifold's*, and lives on the
+  hooks below.
+
+`to_tangent` is the one bridge between them. This module is deliberately free of
 any Lie-group assumption — `geope.geometry.lie.groups.MatrixLieGroup` is where
 left-trivialisation and a global generator basis enter, and
 `geope.geometry.stiefel` holds spaces that have neither.
@@ -11,7 +22,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from functools import cached_property
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
@@ -21,26 +32,48 @@ from jax import Array
 jax.config.update("jax_enable_x64", True)
 
 from ..jax.hessian import get_hessian_fn
+from .chart import (
+    get_chart_fn,
+    get_chart_hvp_fn,
+    get_jacobian_fn,
+    get_split_jacobian_fn,
+)
 from .context import GeometricContext
 from .tangent import TangentBundle
+
+if TYPE_CHECKING:
+    # Annotation only: a real import would pull in `lie/__init__`, which imports
+    # `.groups`, which imports this module.
+    from .lie.basis import Basis
 
 
 @dataclass(frozen=True, eq=False)
 class Manifold(ABC):
-    r"""A Riemannian manifold embedded in a space of arrays.
+    r"""A Riemannian submanifold of the ambient space $\mathcal A$.
 
-    Constructed with only its dimensions this is the pure space, and every
-    geometric primitive already works — `log`, `distance2`, `fidelity`,
-    `hessian_quadratic_form`. `bind` attaches the run's chart, tangent bundle and
-    target, which is what a per-step `GeometricContext` needs.
+    Constructed with only its dimensions this is the pure space, and its
+    geometric primitives already work — `log`, `distance2`, `inner`, `norm2`,
+    `fidelity`, `hessian_quadratic_form`. `bind` attaches the run's chart,
+    coefficient frame and target, which is what a per-step `GeometricContext`
+    needs. (`coefficients` is the one exception: a coordinate choice *is* problem
+    data, so it needs the frame that `bind` brings.)
 
     Attributes:
-        target: The target point being synthesised; ``None`` when unbound.
+        base_point: $\Phi(0) \in \mathcal A$ — the point the chart's orbit starts
+            from, and the whole of what a manifold contributes to its own chart.
+            ``None`` means the pulse propagator *is* the point, which is the case
+            on any matrix Lie group; a homogeneous space supplies the state or
+            frame the pulse drives. Unlike the other three this is part of the
+            *space*, set at construction rather than by `bind`.
+        target: The target point; ``None`` when unbound.
         compute_point: The chart $\Phi$, ``phi -> point``; ``None`` when unbound.
-        tangent: The `TangentBundle`; ``None`` when unbound. Keyword-only, and
-            defaulted, so a subclass can declare positional fields of its own.
+        tangent: The `TangentBundle`; ``None`` when unbound.
+
+    All four are keyword-only and defaulted, so a subclass can declare positional
+    fields of its own.
     """
 
+    base_point: Array | None = field(default=None, kw_only=True)
     target: Array | None = field(default=None, kw_only=True)
     compute_point: Callable[[Array], Array] | None = field(default=None, kw_only=True)
     tangent: TangentBundle | None = field(default=None, kw_only=True)
@@ -168,35 +201,6 @@ class Manifold(ABC):
         relation that only happens to hold for the trace fidelities.
         """
 
-    @abstractmethod
-    def chart(self, generators) -> Callable[[Array], Array]:
-        r"""Build the chart $\Phi:\mathbb R^{G\times K}\to M$ from a generator basis.
-
-        Args:
-            generators: The `geope.geometry.lie.Basis` of control (plus drift)
-                generators the pulse is expressed in.
-
-        Returns:
-            An un-jitted ``phi -> point`` callable, to be composed into the
-            optimiser's jitted update.
-        """
-
-    def chart_hvp(
-        self, generators
-    ) -> Callable[[Array, Array], tuple[Array, Array, Array]] | None:
-        r"""The chart's second differential, ``(phi, p) -> (point, V, W)``.
-
-        $V = \mathrm D\Phi_\phi[p]$ and $W = \mathrm D^2\Phi_\phi[p, p]$. Returning
-        ``None`` — the default — simply means this manifold offers no analytic
-        second differential, which disables the curvature tier of a
-        `GeometricContext` (and with it the second-order line searches) and
-        nothing else.
-
-        Args:
-            generators: The same generator basis `chart` was given.
-        """
-        return None
-
     # --- derived from the hooks --------------------------------------------
 
     @property
@@ -204,12 +208,17 @@ class Manifold(ABC):
         """The number of array axes one point has."""
         return len(self.ambient_shape)
 
-    def _euclidean_inner(self, x: Array, y: Array) -> Array:
-        r"""$\mathrm{Re}\sum \bar x\,y$ over the ambient axes — the embedded metric.
+    def ambient_inner(self, x: Array, y: Array) -> Array:
+        r"""$\mathrm{Re}\sum \bar x\,y$ over the ambient axes — the metric of $\mathcal A$.
 
-        The default building block for `inner`: correct for any manifold whose
-        metric is the one induced by the embedding (which includes a
-        bi-invariant group metric, where it is $\mathrm{Re}\,\mathrm{Tr}(x^\dagger y)$).
+        The default building block for `inner`, and correct as it stands for any
+        manifold whose metric is the one *induced by the embedding* — which
+        includes a bi-invariant group metric, where it is
+        $\mathrm{Re}\,\mathrm{Tr}(x^\dagger y)$, and the round metric on the
+        state sphere. A manifold whose metric is **not** the ambient one must say
+        so: `geope.geometry.stiefel.stiefel.Stiefel` carries the canonical metric
+        $\mathrm{Re}\,\mathrm{Tr}(x^\dagger W_Q y)$ instead, which is what gives
+        it different geodesics from the embedding's.
         """
         axes = tuple(range(-self.ambient_ndim, 0))
         return jnp.real(jnp.sum(jnp.conj(x) * y, axis=axes))
@@ -241,34 +250,96 @@ class Manifold(ABC):
     def bind(
         self,
         *,
-        target: Array,
-        compute_point: Callable[[Array], Array],
-        tangent: TangentBundle,
+        target: Array | np.ndarray | None,
+        generators: Basis,
+        frame: Basis | None = None,
+        columns: np.ndarray | None = None,
+        wrap_chart: Callable[[Callable], Callable] | None = None,
     ) -> Manifold:
-        """Attach the run's chart, tangent bundle and target.
+        r"""Attach this problem's chart, coefficient frame and target.
+
+        The seam between the two layers this package is built on, and it holds no
+        mathematics of its own: `geope.geometry.chart` builds the ambient jet
+        $(\Phi,\ \mathrm D\Phi,\ \mathrm D^2\Phi)$ from ``generators`` and this
+        manifold's `base_point`, and everything else here is assembly.
 
         Returns a *new* manifold — this one is frozen — so the unbound
         mathematical object stays reusable.
 
         Args:
-            target: The target point, of shape ``ambient_shape``.
-            compute_point: The chart ``phi -> point``.
-            tangent: The `TangentBundle`.
+            target: The point being synthesised, of shape ``ambient_shape``, or
+                ``None`` for a problem that names no target yet. The chart and
+                the tangent bundle still attach, so the pulse stays computable
+                and differentiable, but `is_bound` stays ``False`` and every
+                target-dependent quantity raises.
+            generators: The chart's generator sub-`geope.geometry.lie.Basis` —
+                the proj+drift basis the pulse is expressed in.
+            frame: The **ambient** coefficient frame `coefficients` resolves a
+                tangent vector against, if this manifold coordinatises through
+                one. ``None`` is not a degraded mode: it is the right answer for
+                a manifold whose fibre coordinates are a real/imaginary split of
+                the ambient array (see
+                `geope.geometry.stiefel.sphere.StateSphere`), and it means no
+                projector is ever built.
+            columns: Boolean mask over the chart's coefficient columns selecting
+                those the geodesic solve may move. ``None`` means every column.
+            wrap_chart: An opaque **reparametrisation of the chart's input**, or
+                ``None``. Its presence is the single ``param_transform`` signal:
+                it disables the analytic HVP (and with it the curvature tier and
+                the manual propagator Hessian) and frees every column. The
+                manifold never inspects it, which is what keeps
+                `geope.parameters.Parameters` out of this layer.
+
+                That it reparametrises the *input* is what lets it wrap the
+                landed chart rather than the bare propagator:
+                $\mathrm{wrap}(\Phi)(\phi) = U(\tau(\phi))\,x_0$ either way, so
+                the base point never has to be threaded through it.
 
         Returns:
             A bound `Manifold` of the same class.
 
         Raises:
-            ValueError: If ``target`` is not of shape ``ambient_shape``.
+            ValueError: If this manifold is already bound, or if ``target`` is
+                not of shape ``ambient_shape``.
         """
-        target = jnp.asarray(target)
-        if target.shape != tuple(self.ambient_shape):
+        if self.is_bound:
             raise ValueError(
-                f"{self.name} expects a {tuple(self.ambient_shape)} target, got "
-                f"{tuple(target.shape)}."
+                f"{self.name} is already bound to a chart and a target. Pass the "
+                "pure space and let `Parameters` bind it; re-binding would "
+                "silently replace what you attached."
             )
+        if target is not None:
+            target = jnp.asarray(target)
+            if target.shape != tuple(self.ambient_shape):
+                raise ValueError(
+                    f"{self.name} expects a {tuple(self.ambient_shape)} target, "
+                    f"got {tuple(target.shape)}."
+                )
+
+        compute_point = get_chart_fn(generators.basis, self.base_point)
+        if wrap_chart is None:
+            hvp = get_chart_hvp_fn(generators.basis, self.base_point)
+            jacobian_fn = get_jacobian_fn
+        else:
+            compute_point = wrap_chart(compute_point)
+            # Holomorphic autodiff through a real-valued user transform would
+            # drop the imaginary part of the intermediates; and there is no
+            # exponential-product structure left to exploit, so no analytic HVP,
+            # no manual propagator Hessian, and every column is free.
+            jacobian_fn = get_split_jacobian_fn
+            generators = hvp = columns = None
+
         return replace(
-            self, target=target, compute_point=compute_point, tangent=tangent
+            self,
+            target=target,
+            compute_point=compute_point,
+            tangent=TangentBundle(
+                frame=frame,
+                jacobian=jacobian_fn(compute_point),
+                hvp=hvp,
+                generators=generators,
+                columns=columns,
+            ),
         )
 
     def validate_point(self, point: np.ndarray, what: str = "point") -> None:
@@ -277,13 +348,15 @@ class Manifold(ABC):
         The *membership* check — unitarity for a matrix group, unit norm on the
         sphere — as opposed to the shape check `bind` does.
 
-        **Host-side only, and deliberately numpy.** `Parameters.__init__` calls
-        it once on the target, at configuration time. It must never run inside a
-        trace: `bind` is reached lazily through `Parameters.manifold`, which may
-        first be touched inside a `jax.jit`, and there even
-        ``jnp.asarray(numpy_array)`` yields a tracer — so a jnp-based check
-        placed on that path raises `ConcretizationTypeError` instead of doing
-        its job. Using numpy keeps that mistake impossible to make quietly.
+        **Host-side only, and deliberately numpy.** Membership of the target is a
+        *configuration-time* question — `Parameters.__init__` calls this once,
+        before the chart exists, so that a bad target fails at construction
+        rather than as a plausible-looking fidelity. Keeping it numpy is what
+        makes the alternative unmakeable: inside a `jax.jit` even
+        ``jnp.asarray(numpy_array)`` yields a tracer, so a jnp-based membership
+        check raises `ConcretizationTypeError` instead of validating. That is
+        the trap that killed ``validate_basis``; keep membership checks
+        host-side and numpy.
 
         The base implementation accepts everything, so a manifold that cannot
         cheaply decide membership simply does not override it.
@@ -302,8 +375,10 @@ class Manifold(ABC):
         if not self.is_bound:
             raise ValueError(
                 f"{what} needs a bound manifold: call `bind(target=..., "
-                "compute_point=..., tangent=...)`, or read the manifold off "
-                "`Parameters.manifold`, which binds it for you."
+                "generators=...)`, or read the manifold off "
+                "`Parameters.manifold`, which binds it for you. A manifold bound "
+                "with `target=None` counts as unbound here — the chart works, "
+                "but nothing that needs a target does."
             )
 
     # --- the chart's objectives, in parameter space -------------------------
@@ -333,12 +408,16 @@ class Manifold(ABC):
             lambda phi: self.infidelity(self.compute_point(phi), self.target)
         )
 
+    # TODO: For GRAPE we will need to use the Jacobian propagators for efficient
+    # calculation of Grad F
     @cached_property
     def value_and_grad(self) -> Callable[[Array], tuple[Array, Array]]:
         """``phi -> (infidelity, dinfidelity/dphi)`` (used by GRAPE)."""
         self._require_bound("value_and_grad")
         return jax.value_and_grad(self.infidelity_at)
 
+    # TODO: For GRAPE we will need to use the Hessian propagators for efficient
+    # calculation of Grad F. Use autodiff only to check in tests.
     @cached_property
     def hessian_autodiff(self) -> Callable[[Array], Array]:
         """The infidelity Hessian by forward-over-reverse HVPs."""

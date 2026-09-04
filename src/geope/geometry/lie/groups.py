@@ -34,7 +34,6 @@ from ...jax.dexpm import (
     get_dexpm_eig,
 )
 from ...jax.hessian import (
-    get_hvp_propagator,
     hessian_propagator,
     su_hessian_quadratic_form,
 )
@@ -42,6 +41,7 @@ from ...jax.jacobian import jacobian_propagator
 from ...jax.logm import logm_unitary
 from ..chart import get_compute_matrices_params_list_fn
 from ..manifold import Manifold
+from .basis import Basis, get_project_omegas_fn, get_project_omegas_fn_otf
 
 # Loose enough for a target assembled in float32 or from a few matrix products,
 # tight enough to catch a genuinely non-unitary matrix.
@@ -171,8 +171,17 @@ class MatrixLieGroup(Manifold):
     # --- what still distinguishes SU from U ---------------------------------
 
     @abstractmethod
-    def project(self, x: Array) -> Array:
-        r"""Project $\mathfrak u(d)$ onto this group's Lie algebra."""
+    def project_algebra(self, x: Array) -> Array:
+        r"""Project $\mathfrak u(d)$ onto this group's Lie algebra.
+
+        Distinct from the two other projections in the pipeline, and it belongs
+        here rather than on the `geope.geometry.TangentBundle`: whether the
+        global phase is a controllable direction is *this group's* structure, not
+        a property of the frame a run happens to be described in. For contrast,
+        `Manifold.to_tangent` is $\mathcal A \to T_x\mathcal M$, and
+        `TangentBundle.frame` is the ambient frame a tangent's coefficients are
+        resolved against.
+        """
 
     # --- the trivialised geometry -------------------------------------------
 
@@ -191,22 +200,59 @@ class MatrixLieGroup(Manifold):
         return jnp.einsum("ji,...jk->...ik", jnp.conj(point), ambient)
 
     def inner(self, point: Array, x: Array, y: Array) -> Array:
-        r"""$\mathrm{Re}\,\mathrm{Tr}(x^\dagger y)$ — bi-invariant, so ``point`` is unused."""
-        return self._euclidean_inner(x, y)
+        r"""$\mathrm{Re}\,\mathrm{Tr}(x^\dagger y)$ — bi-invariant, so ``point`` is unused.
+
+        The ambient metric as it stands: a bi-invariant group metric *is* the one
+        induced by the embedding in $\mathbb C^{d\times d}$.
+        """
+        return self.ambient_inner(x, y)
+
+    @cached_property
+    def _project(self) -> Callable[[Array], Array]:
+        r"""The ambient frame projector, built from `TangentBundle.frame`.
+
+        The >5-qubit on-the-fly switch lives here, beside its only reader:
+        materialising the full $(K, d, d)$ Pauli tensor is memory-bound above
+        that size, and a manifold whose `Manifold.coefficients` needs no frame
+        (either `geope.geometry.stiefel` one) never builds either variant.
+
+        Memoised, and first read from inside the jitted update. Safe: the
+        `geope.geometry.lie.Basis` it closes over is numpy and ``frame.n`` is an
+        ``int``, so nothing here can capture a tracer.
+        """
+        self._require_bound("coefficients")
+        frame = self.tangent.frame
+        if frame is None:
+            raise ValueError(
+                f"{self.name}'s `coefficients` resolves tangent vectors against "
+                "an ambient Hermitian frame, so it needs one: bind with "
+                "`frame=<Basis>` (`Parameters` passes `params.basis`). Only a "
+                "manifold coordinatised by a real/imaginary split of the ambient "
+                "array can leave it None."
+            )
+        if frame.n > 5:
+            return get_project_omegas_fn_otf(frame, batch_size=None)
+        return get_project_omegas_fn(frame)
 
     def coefficients(self, point: Array, tangent: Array) -> Array:
-        r"""Resolve skew-Hermitian algebra elements against the tangent bundle's basis.
+        r"""Resolve skew-Hermitian algebra elements against the ambient frame.
 
         Computes $c_k = \mathrm{Tr}(B_k\,iX)/d$, i.e. the real coefficients with
         $iX = \sum_k c_k B_k$ (equivalently $X = -i\sum_k c_k B_k$), so the metric
         constant of the `Manifold.coefficients` contract is $c = 1/d$.
-        ``point`` is unused: one basis serves every fibre.
+        ``point`` is unused: one frame serves every fibre.
 
-        **What this assumes of the basis.** Hermitian elements, orthogonal under
+        **The factor of $i$ is the whole story of the frame.** The Paulis span
+        $\mathbb C^{d\times d}$ over $\mathbb C$ and the *Hermitian* matrices over
+        $\mathbb R$; multiplied by $i$ they span $\mathfrak u(d)$ over $\mathbb R$.
+        Algebra elements are skew-Hermitian throughout the library, so this is
+        the one place that $i$ appears.
+
+        **What this assumes of the frame.** Hermitian elements, orthogonal under
         the trace inner product and normalised to
         $\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}$ — which every basis
         `geope.utils` constructs satisfies. Completeness is explicitly *not*
-        assumed: a basis with fewer than $\dim\mathfrak g$ elements simply
+        assumed: a frame with fewer than $\dim\mathfrak g$ elements simply
         projects onto a subspace, which the spin-boson bases rely on.
 
         Args:
@@ -216,10 +262,9 @@ class MatrixLieGroup(Manifold):
         Returns:
             A real ``Array`` of shape ``(..., K)``.
         """
-        self._require_bound("coefficients")
         tangent = 1.0j * jnp.asarray(tangent)
         flat = tangent.reshape((-1,) + tangent.shape[-2:])
-        coeffs = self.tangent.project(flat)
+        coeffs = self._project(flat)
         return coeffs.reshape(tangent.shape[:-2] + (coeffs.shape[-1],))
 
     def log(self, x: Array, y: Array, key: Array | None = None) -> Array:
@@ -247,7 +292,7 @@ class MatrixLieGroup(Manifold):
         # applies: exact, and accurate on the branch cut where Hermitian targets
         # put their -1 eigenvalue.
         m = jnp.einsum("ji,jk->ik", jnp.conj(x), y)
-        return self.project(logm_unitary(m, key))
+        return self.project_algebra(logm_unitary(m, key))
 
     def tangent_acceleration(self, point: Array, v: Array, w: Array) -> Array:
         r"""$\dot\Omega(0) = V^\dagger V + U^\dagger W$.
@@ -270,23 +315,6 @@ class MatrixLieGroup(Manifold):
         :func:`geope.jax.su_hessian_quadratic_form`.
         """
         return su_hessian_quadratic_form(a, omega)
-
-    def chart(self, generators) -> Callable[[Array], Array]:
-        r"""The product of piecewise-constant exponentials in ``generators``.
-
-        $\Phi(\phi) = \prod_g \exp\bigl(i\sum_k \phi_{g,k} B_k\bigr)$ — the pulse
-        model, and the structure the manual propagator derivatives exploit.
-        """
-        return get_compute_matrices_params_list_fn(generators.basis)
-
-    def chart_hvp(
-        self, generators
-    ) -> Callable[[Array, Array], tuple[Array, Array, Array]]:
-        r"""The propagator HVP: $O(G)$, and no dense Hessian ever formed.
-
-        See :func:`geope.jax.hvp_propagator`.
-        """
-        return get_hvp_propagator(jnp.asarray(generators.basis))
 
     @cached_property
     def hessian(self) -> Callable[[Array], Array]:
@@ -421,7 +449,7 @@ class UnitaryGroup(MatrixLieGroup):
         r"""$\dim\mathfrak u(d) = d^2$."""
         return self.dim**2
 
-    def project(self, x: Array) -> Array:
+    def project_algebra(self, x: Array) -> Array:
         r"""Identity: every skew-Hermitian matrix is already in $\mathfrak u(d)$."""
         return x
 
@@ -457,7 +485,7 @@ class SpecialUnitaryGroup(MatrixLieGroup):
         r"""$\dim\mathfrak{su}(d) = d^2 - 1$."""
         return self.dim**2 - 1
 
-    def project(self, x: Array) -> Array:
+    def project_algebra(self, x: Array) -> Array:
         r"""Remove the global-phase generator: $x - \tfrac{\mathrm{Tr}x}{d}\mathbb 1$.
 
         Only the imaginary part of the trace is subtracted, so a skew-Hermitian

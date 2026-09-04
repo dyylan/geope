@@ -33,11 +33,33 @@ def traces(b_1: np.ndarray, b_2: np.ndarray) -> Array:
 
 
 class Basis:
-    """A Lie algebra basis for quantum Hamiltonian parameterisation.
+    r"""A frame for the ambient matrix space, and the pulse's generators.
 
     Wraps a rank-3 tensor of Hermitian basis matrices together with
     associated labels, interaction metadata, and convenience utilities
     for building and manipulating Lie-algebraic decompositions.
+
+    **Two roles, one class.** A `Basis` is a real-orthogonal frame for the
+    Hermitian matrices in the ambient space $\mathbb C^{d\times d}$ — the Paulis
+    span that space over $\mathbb C$, the Hermitian matrices in it over
+    $\mathbb R$, and, multiplied by $i$, the algebra $\mathfrak u(d)$ over
+    $\mathbb R$. The pipeline uses that in two different places and at two
+    different sizes:
+
+    * as the **chart's generators** — ``params.proj_drift_basis``, the
+      controllable sub-frame the pulse is a product of exponentials in
+      (`geope.geometry.chart`);
+    * as the **ambient coefficient frame** — ``params.basis``, what
+      `geope.geometry.manifold.Manifold.coefficients` resolves a tangent vector
+      against, stored on `geope.geometry.TangentBundle.frame`. The single factor
+      of $i$ that turns a skew-Hermitian algebra element into something this
+      frame can resolve is the one in
+      `geope.geometry.lie.groups.MatrixLieGroup.coefficients`.
+
+    Completeness is not required in either role: an incomplete frame simply
+    projects onto a subspace, which the spin-boson bases rely on. Nor is a
+    manifold obliged to coordinatise through a frame at all — both Stiefel
+    manifolds use a real/imaginary split of the ambient array instead.
 
     Attributes:
         basis: Array of shape ``(K, d, d)`` containing the basis matrices.
