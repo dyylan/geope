@@ -27,8 +27,8 @@ class GeometricContext:
     | tier | quantities | cost |
     |---|---|---|
     | **0** base point | `point`, `jacobian`, `A`, `A_norm2`, `F0`, `gammas`, `omegas`, `infidelity`, `fidelity` | one propagator, one Jacobian, one logarithm |
-    | **1** direction | `V`, `Omega`, `omega_norm2`, `s`, `xi_rel` | free: one contraction of tier 0's Jacobian |
-    | **2** curvature | `W`, `accel`, `chi`, `q`, `q_exact`, `rho` | one directional HVP plus the manifold's Riemannian Hessian |
+    | **1** direction | `V`, `Omega`, `omega_norm2`, `velocity`, `xi_rel` | free: one contraction of tier 0's Jacobian |
+    | **2** curvature | `W`, `acceleration`, `chi`, `q`, `q_exact`, `rho` | one directional HVP plus the manifold's Riemannian Hessian |
     | **3** ray | `point_at`, `infidelity_at`, `fidelity_at`, `distance_at` | one propagator per trial point |
 
     Only tier 0 is direction-free. Tiers 1–3 need the search direction, tier 3
@@ -129,7 +129,7 @@ class GeometricContext:
         r"""The geodesic tangent $A = -\mathrm{Log}_U(V)$. **The only logarithm.**
 
         The minimal-geodesic tangent **at the base point**, negated so that it
-        points *away* from the target: the slope `s` is then positive at a descent
+        points *away* from the target: the slope `velocity` is then positive at a descent
         direction and the line-search bracket is $[-t_{\max}, 0]$.
 
         Taking it at $U$ rather than at the target is what makes it comparable
@@ -211,32 +211,20 @@ class GeometricContext:
         return self.manifold.norm2(self.point, self.Omega)
 
     @cached_property
-    def s(self) -> Array:
-        r"""The slope $\psi'(0) = \langle A, \Omega\rangle_F$ of `distance_at`.
-
-        Exact for an arbitrary $\Omega$ — it makes no tangent-matching
-        assumption — and positive on a descent direction, where the accepted step
-        is negative.
-        """
+    def velocity(self) -> Array:
+        r"""The slope $\psi'(0) = \langle A, \Omega\rangle_F$ of `distance_at`"""
         return self.manifold.inner(self.point, self.A, self.Omega)
 
     @cached_property
     def xi_rel(self) -> Array:
-        r"""The relative tangent-matching error: $\sin\angle(\Omega, A)$.
-
-        The fraction of the geodesic direction the controls cannot reproduce —
-        the least-squares residual made dimensionless — and ``0`` exactly when
-        the geodesic direction is reachable. Deliberately *scale-invariant*:
-        ``coeffs`` is renormalised to a fixed norm, so $\lVert\Omega\rVert_F$
-        carries an arbitrary factor that a plain
-        $\lVert\Omega - A\rVert_F/\lVert A\rVert_F$ would misreport as error,
-        whereas ``q_exact == q`` holds for any scale multiple of $A$.
-        """
+        r"""The relative tangent-matching error: $\sin\angle(\Omega, A)$."""
         denom = self.A_norm2 * self.omega_norm2
         positive = denom > 0
         # At a converged iterate both norms vanish, so define the directions as
         # aligned there (xi_rel = 0) rather than 0/0.
-        cos2 = jnp.where(positive, self.s**2 / jnp.where(positive, denom, 1.0), 1.0)
+        cos2 = jnp.where(
+            positive, self.velocity**2 / jnp.where(positive, denom, 1.0), 1.0
+        )
         return jnp.sqrt(jnp.clip(1.0 - cos2, 0.0, 1.0))
 
     # --- tier 2: the curvature ----------------------------------------------
@@ -251,10 +239,10 @@ class GeometricContext:
         return self.tangent.hvp(jnp.real(self.free_params), self.coeffs)[2]
 
     @cached_property
-    def accel(self) -> Array:
+    def acceleration(self) -> Array:
         r"""The extrinsic term $\langle A, V^\dagger V + U^\dagger W\rangle_F$.
 
-        The part of the curvature that comes from the *chart* bending, as opposed
+        The part of the curvature that comes from the chart bending, as opposed
         to the manifold's own curvature.
         """
         bend = self.manifold.tangent_acceleration(self.point, self.V, self.W)
@@ -264,7 +252,7 @@ class GeometricContext:
     def chi(self) -> Array:
         r"""The dimensionless radial bending coefficient
         $\chi_\phi = \mathrm{accel}/\lVert\Omega\rVert_F^2$."""
-        return self.accel / self.omega_norm2
+        return self.acceleration / self.omega_norm2
 
     @cached_property
     def q(self) -> Array:
@@ -274,7 +262,7 @@ class GeometricContext:
         Exact only when $\Omega\parallel A$, i.e. when the geodesic direction is
         exactly reachable (`xi_rel` ``== 0``). See `q_exact`.
         """
-        return self.omega_norm2 + self.accel
+        return self.omega_norm2 + self.acceleration
 
     @cached_property
     def _hessian_form(self) -> tuple[Array, Array]:
@@ -294,7 +282,7 @@ class GeometricContext:
         Since $\mathcal K_A\preceq I$, ``q_exact <= q`` always, with equality iff
         `xi_rel` vanishes.
         """
-        return self._hessian_form[0] + self.accel
+        return self._hessian_form[0] + self.acceleration
 
     @cached_property
     def rho(self) -> Array:
