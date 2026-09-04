@@ -8,7 +8,7 @@ from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
-from .geometry.lie import Basis
+from .geometry.basis import Basis
 from .utils import (
     prepare_random_parameters,
     merge_constraints,
@@ -372,7 +372,7 @@ class Geope:
         Args:
             max_steps: Maximum number of optimisation steps. Defaults to 1000.
             line_search: The :class:`~geope.line_searches.LineSearch` object
-                tuning the geodesic step size each step (e.g. ``Adam(1e-2)``).
+                tuning the geodesic step size each step (e.g. ``Armijo()``).
                 Defaults to :class:`~geope.line_searches.GoldenSection`.
             precision: Target fidelity threshold. Defaults to 0.9999999.
                 Host-side only (loop control) — zero compile impact.
@@ -391,7 +391,7 @@ class Geope:
                 optimiser.
 
         A step is kept when it reduced the line search's own objective by more
-        than ``PROGRESS_RTOL`` relatively (`GoldenSection` and `Adam` minimise
+        than ``PROGRESS_RTOL`` relatively (`GoldenSection` minimises
         the infidelity, the Armijo family the squared geodesic distance);
         otherwise the Gram-Schmidt fallback replaces it. Convergence is always
         tested on the fidelity.
@@ -418,9 +418,8 @@ class Geope:
 
         # Reset the per-run line-search state. Doing this here — not inside
         # _configure_line_search — decouples fresh run state from compile reuse:
-        # the memo can reuse the compiled update_step while Adam's warm-start
-        # still restarts on every optimize() call. For stateless GoldenSection
-        # this is a no-op (init() returns {}).
+        # the memo can reuse the compiled update_step while any state a search
+        # carries across steps still restarts on every optimize() call.
         self.line_search_state = self.line_search.init()
 
         # Build pulse-constrained update step if needed

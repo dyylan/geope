@@ -504,11 +504,85 @@ class TestHookContracts:
             np.asarray(m.compute_point(space.free)), expected, atol=1e-13
         )
 
-    def test_hessian_is_available(self, space):
+    # --- the objective's derivatives, from the propagators -----------------
+    #
+    # The autodiff references are evaluated on the *real* pulse: differentiating
+    # holomorphically w.r.t. a complex128 array whose imaginary part is
+    # identically zero gives a gradient with a spurious imaginary part, which the
+    # analytic path (correctly) does not have. See `value_and_grad_autodiff`.
+
+    def test_value_and_grad_matches_autodiff(self, space):
         m = space.manifold
-        h = m.hessian(space.free)
-        n = space.free.size
-        assert jnp.asarray(h).reshape(n, n).shape == (n, n)
+        free = jnp.real(space.free).astype(jnp.float64)
+        value, grad = m.value_and_grad(free)
+        ref_value, ref_grad = m.value_and_grad_autodiff(free)
+        assert grad.shape == free.shape
+        assert jnp.allclose(value, ref_value, atol=1e-12)
+        assert jnp.allclose(grad, ref_grad, atol=1e-9)
+
+    def test_value_and_grad_matches_finite_differences(self, space):
+        """The check that does not share a code path with either implementation."""
+        m = space.manifold
+        free = np.real(np.asarray(space.free))
+        _, grad = m.value_and_grad(jnp.asarray(free))
+        h = 1e-6
+        for idx in ((0, 0), (0, 1), (1, 2)):
+            step = np.zeros_like(free)
+            step[idx] = h
+            central = (
+                float(m.infidelity_at(jnp.asarray(free + step)))
+                - float(m.infidelity_at(jnp.asarray(free - step)))
+            ) / (2 * h)
+            assert np.isclose(float(np.real(grad[idx])), central, atol=1e-7)
+
+    def test_gradient_is_real_in_the_parameter_dtype(self, space):
+        """The pulse is real, so its gradient is — whatever dtype it arrives in."""
+        m = space.manifold
+        _, grad = m.value_and_grad(space.free)
+        assert grad.dtype == space.free.dtype
+        assert jnp.allclose(jnp.imag(grad), 0.0, atol=1e-14)
+
+    def test_hessian_matches_autodiff(self, space):
+        m = space.manifold
+        free = jnp.real(space.free).astype(jnp.float64)
+        n = free.size
+        h = m.hessian(free)
+        assert h.shape == (n, n)
+        assert jnp.allclose(h, m.hessian_autodiff(free), atol=1e-8)
+
+    def test_hessian_is_symmetric(self, space):
+        m = space.manifold
+        h = m.hessian(jnp.real(space.free).astype(jnp.float64))
+        assert jnp.allclose(h, h.T, atol=1e-9)
+
+    def test_hessian_matches_finite_differences_of_the_gradient(self, space):
+        m = space.manifold
+        free = np.real(np.asarray(space.free))
+        hess = np.asarray(m.hessian(jnp.asarray(free)))
+        h = 1e-5
+        for i in (0, 3):
+            step = np.zeros(free.size)
+            step[i] = h
+            step = step.reshape(free.shape)
+            row = (
+                np.real(m.value_and_grad(jnp.asarray(free + step))[1]).ravel()
+                - np.real(m.value_and_grad(jnp.asarray(free - step))[1]).ravel()
+            ) / (2 * h)
+            np.testing.assert_allclose(hess[i], row, atol=1e-6)
+
+    def test_the_analytic_path_is_the_one_taken(self, space):
+        """Every manifold GEOPE ships supplies both cost-derivative hooks.
+
+        A manifold may decline them — that is what makes them declinable — but
+        then it silently falls back to autodiff, which is exactly the regression
+        this pins.
+        """
+        m = space.manifold
+        assert m.has_cost_gradient
+        assert m.has_cost_hessian_form
+        assert m.tangent.hessian is not None
+        assert m.value_and_grad is not m.value_and_grad_autodiff
+        assert m.hessian is not m.hessian_autodiff
 
 
 # ===================================================================

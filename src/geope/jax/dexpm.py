@@ -304,6 +304,71 @@ def dexpm_eig_batched(
     )
 
 
+def adj_expm_eig(x: Array, b: Array, basis: Array, hermitian: bool = True) -> Array:
+    r"""Adjoint of the exponential-map derivative: all ``K`` overlaps, no ``(d, d, K)``.
+
+    Returns the vector of Frobenius overlaps of a single covector ``b`` with every
+    partial derivative of `Ui`,
+
+    $$t_k = \mathrm{Tr}\bigl(b^\dagger\,\partial_k \exp(i\textstyle\sum_j x_j B_j)\bigr),$$
+
+    which is what a chain rule through the exponential actually needs — the
+    ``(d, d, K)`` tensor `dexpm_eig` builds is contracted away immediately, and
+    building it first costs $O(d^3 K)$ where this costs $O(d^3 + d^2 K)$.
+
+    Writing $M = i\sum_j x_j B_j = V\,\mathrm{diag}(\mu)\,V^{-1}$ and $\Delta$ for
+    the divided differences of $\exp$, `dexpm_eig` gives
+    $\partial_k e^M = V(\Delta \circ V^{-1}(iB_k)V)V^{-1}$, so
+
+    $$t_k = \mathrm{Tr}\bigl(\bar A\,(iB_k)\bigr),\qquad
+      \bar A = V S^\intercal V^{-1},\quad
+      S_{pq} = \Delta_{pq}\,\bigl(V^{-1} b^\dagger V\bigr)_{qp}.$$
+
+    The ``K`` directions therefore cost one $(K, d, d)$ tensordot against a single
+    $d \times d$ matrix, and the two rotations that build $\bar A$ are paid once.
+
+    Args:
+        x: Coefficient vector of shape ``(K,)``.
+        b: The covector to contract against, of shape ``(d, d)``. Paired with
+            $\partial_k e^M$ through $\mathrm{Tr}(b^\dagger \cdot)$, i.e. ``b`` is
+            *conjugated*.
+        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        hermitian: Assume real coefficients (skew-Hermitian ``M``) and diagonalise
+            via ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+
+    Returns:
+        A complex ``Array`` of shape ``(K,)``. Real-valued cost gradients take
+        ``2 * jnp.real(...)`` of it; the raw complex value is what a projective
+        (absolute-value) cost needs.
+    """
+    V, Vinv, delta = _spectral_factors(x, basis, hermitian=hermitian)
+
+    # S[p, q] = delta[p, q] * (Vinv b^dagger V)[q, p]
+    S = delta * (Vinv @ jnp.conj(b).T @ V).T
+    A_bar = V @ S.T @ Vinv
+    # t_k = Tr(A_bar (i B_k)) = i sum_ij A_bar[i, j] B_k[j, i]
+    return 1j * jnp.einsum("ij,kji->k", A_bar, basis)
+
+
+def adj_expm(x: Array, b: Array, basis: Array) -> Array:
+    r"""`adj_expm_eig` by the block-exponential route — the slow, general path.
+
+    The auxiliary-matrix method has no spectral structure to exploit, so this
+    genuinely does build `dexpm`'s ``(d, d, K)`` tensor and contract it. It exists
+    for parity with ``method="block"`` elsewhere in this module, and because the
+    block method tolerates non-Hermitian generators; prefer `adj_expm_eig`.
+
+    Args:
+        x: Coefficient vector of shape ``(K,)``.
+        b: The covector to contract against, of shape ``(d, d)``.
+        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+
+    Returns:
+        A complex ``Array`` of shape ``(K,)``.
+    """
+    return jnp.einsum("ij,ijk->k", jnp.conj(b), dexpm(x, basis))
+
+
 def _expm_block13(A: Array, x_a: Array, x_b: Array) -> Array:
     r"""Top-right ``(1, 3)`` block of the ``3d x 3d`` auxiliary exponential.
 
@@ -629,6 +694,42 @@ def get_dexpm_eig(
                 hermitian=hermitian,
             )
         )
+
+
+def get_adj_expm_eig(
+    basis: Array, hermitian: bool = True
+) -> Callable[[Array, Array], Array]:
+    """Create a JIT-compiled spectral exponential-map adjoint.
+
+    Wraps `adj_expm_eig` with a fixed basis. This is the per-gate step
+    `geope.jax.get_vjp_propagator` is built from.
+
+    Args:
+        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        hermitian: Assume real coefficients (skew-Hermitian ``M``) and use
+            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+
+    Returns:
+        A callable accepting a coefficient vector ``(K,)`` and a covector
+        ``(d, d)``, returning the complex overlaps of shape ``(K,)``.
+    """
+    return jax.jit(partial(adj_expm_eig, basis=basis, hermitian=hermitian))
+
+
+def get_adj_expm(basis: Array) -> Callable[[Array, Array], Array]:
+    """Create a JIT-compiled block-method exponential-map adjoint.
+
+    Wraps `adj_expm` with a fixed basis — the slow path, kept for parity with
+    ``method="block"``.
+
+    Args:
+        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+
+    Returns:
+        A callable accepting a coefficient vector ``(K,)`` and a covector
+        ``(d, d)``, returning the complex overlaps of shape ``(K,)``.
+    """
+    return jax.jit(partial(adj_expm, basis=basis))
 
 
 def get_d2expm(basis: Array, batch_size: int | None = None) -> Callable[[Array], Array]:

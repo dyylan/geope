@@ -34,17 +34,18 @@ jax.config.update("jax_enable_x64", True)
 from ..jax.hessian import get_hessian_fn
 from .chart import (
     get_chart_fn,
+    get_chart_hessian_fn,
     get_chart_hvp_fn,
-    get_jacobian_fn,
+    get_chart_jacobian_fn,
+    get_chart_vjp_fn,
     get_split_jacobian_fn,
+    get_split_vjp_fn,
 )
 from .context import GeometricContext
 from .tangent import TangentBundle
 
 if TYPE_CHECKING:
-    # Annotation only: a real import would pull in `lie/__init__`, which imports
-    # `.groups`, which imports this module.
-    from .lie.basis import Basis
+    from .basis import Basis
 
 
 @dataclass(frozen=True, eq=False)
@@ -201,6 +202,88 @@ class Manifold(ABC):
         relation that only happens to hold for the trace fidelities.
         """
 
+    # --- the declinable cost-derivative hooks -------------------------------
+
+    def cost_gradient(self, x: Array, y: Array) -> Array:
+        r"""$\partial C/\partial\bar x$: the ambient gradient of `infidelity` at ``x``.
+
+        The Wirtinger derivative with respect to the *conjugate* point, so that
+        the chain rule out of the ambient space reads
+
+        $$\frac{\partial\,C(\Phi(\phi))}{\partial\phi_a}
+          = 2\,\mathrm{Re}\bigl\langle \hat G,\ \mathrm D\Phi_a \bigr\rangle,
+          \qquad \hat G = \texttt{cost\_gradient}(x, y),$$
+
+        which is what makes this — rather than the full Jacobian — the object a
+        gradient is built from: contracted through
+        `geope.geometry.tangent.TangentBundle.vjp` it costs one pullback, and no
+        $(*\text{ambient}, G, K)$ tensor is ever formed.
+
+        **Declinable.** The base implementation raises `NotImplementedError`,
+        which withdraws the analytic `value_and_grad` in favour of autodiff — the
+        same way `hessian_quadratic_form` may withdraw `GeometricContext.q_exact`.
+        A manifold that declines still optimises; it just differentiates the slow
+        way. Every manifold GEOPE ships implements it, in two lines, by
+        delegating to `geope.geometry.cost.trace_cost_gradient`.
+
+        Args:
+            x: The current point, of shape ``ambient_shape``.
+            y: The target, of shape ``ambient_shape``.
+
+        Returns:
+            An ``Array`` of shape ``ambient_shape``.
+
+        Raises:
+            NotImplementedError: If this manifold declines to supply one.
+        """
+        raise NotImplementedError(
+            f"{self.name} does not supply an ambient cost gradient; "
+            "`value_and_grad` falls back to autodiff."
+        )
+
+    def cost_hessian_form(self, x: Array, y: Array, u: Array) -> Array:
+        r"""The cost's **own** second-derivative form, $\mathrm{Hess}_C[u_a, u_b]$.
+
+        Only the term that comes from the curvature of $C$ in the ambient space.
+        The other term — the *chart's* bending, $2\,\mathrm{Re}\langle\hat G,
+        \mathrm D^2\Phi_{ab}\rangle$ — is the chain rule applied to `cost_gradient`
+        and is assembled generically by `hessian`, so an implementation here must
+        **not** include it. A cost that is affine in the point (any phase-sensitive
+        trace fidelity) returns zeros.
+
+        Args:
+            x: The current point, of shape ``ambient_shape``.
+            y: The target, of shape ``ambient_shape``.
+            u: The chart's Jacobian columns, of shape ``(P, *ambient_shape)``
+                with ``P = G * K``.
+
+        Returns:
+            A real ``Array`` of shape ``(P, P)``.
+
+        Raises:
+            NotImplementedError: If this manifold declines to supply one, which
+                withdraws the analytic `hessian` in favour of `hessian_autodiff`.
+        """
+        raise NotImplementedError(
+            f"{self.name} does not supply an ambient cost Hessian form; "
+            "`hessian` falls back to autodiff."
+        )
+
+    @property
+    def has_cost_gradient(self) -> bool:
+        """Whether this manifold overrides `cost_gradient`.
+
+        A host-side capability probe — an identity check on the bound method's
+        function, so nothing is traced and no exception has to be caught inside a
+        `jax.jit`. `value_and_grad` reads it to pick its path.
+        """
+        return type(self).cost_gradient is not Manifold.cost_gradient
+
+    @property
+    def has_cost_hessian_form(self) -> bool:
+        """Whether this manifold overrides `cost_hessian_form`. See `has_cost_gradient`."""
+        return type(self).cost_hessian_form is not Manifold.cost_hessian_form
+
     # --- derived from the hooks --------------------------------------------
 
     @property
@@ -285,9 +368,10 @@ class Manifold(ABC):
                 those the geodesic solve may move. ``None`` means every column.
             wrap_chart: An opaque **reparametrisation of the chart's input**, or
                 ``None``. Its presence is the single ``param_transform`` signal:
-                it disables the analytic HVP (and with it the curvature tier and
-                the manual propagator Hessian) and frees every column. The
-                manifold never inspects it, which is what keeps
+                it drops both second differentials (the HVP, and with it the
+                curvature tier, and the dense chart Hessian), turns the first one
+                into its autodiff form in both directions, and frees every
+                column. The manifold never inspects it, which is what keeps
                 `geope.parameters.Parameters` out of this layer.
 
                 That it reparametrises the *input* is what lets it wrap the
@@ -318,16 +402,22 @@ class Manifold(ABC):
 
         compute_point = get_chart_fn(generators.basis, self.base_point)
         if wrap_chart is None:
+            # The whole jet from the propagator recursions: no autodiff anywhere
+            # on this path.
+            jacobian = get_chart_jacobian_fn(generators.basis, self.base_point)
+            vjp = get_chart_vjp_fn(generators.basis, self.base_point)
             hvp = get_chart_hvp_fn(generators.basis, self.base_point)
-            jacobian_fn = get_jacobian_fn
+            hessian = get_chart_hessian_fn(generators.basis, self.base_point)
         else:
             compute_point = wrap_chart(compute_point)
             # Holomorphic autodiff through a real-valued user transform would
             # drop the imaginary part of the intermediates; and there is no
-            # exponential-product structure left to exploit, so no analytic HVP,
-            # no manual propagator Hessian, and every column is free.
-            jacobian_fn = get_split_jacobian_fn
-            generators = hvp = columns = None
+            # exponential-product structure left to exploit, so the first
+            # differential falls back to autodiff in both directions, there is no
+            # second differential at all, and every column is free.
+            jacobian = get_split_jacobian_fn(compute_point)
+            vjp = get_split_vjp_fn(compute_point)
+            generators = hvp = hessian = columns = None
 
         return replace(
             self,
@@ -335,8 +425,10 @@ class Manifold(ABC):
             compute_point=compute_point,
             tangent=TangentBundle(
                 frame=frame,
-                jacobian=jacobian_fn(compute_point),
+                jacobian=jacobian,
+                vjp=vjp,
                 hvp=hvp,
+                hessian=hessian,
                 generators=generators,
                 columns=columns,
             ),
@@ -408,31 +500,132 @@ class Manifold(ABC):
             lambda phi: self.infidelity(self.compute_point(phi), self.target)
         )
 
-    # TODO: For GRAPE we will need to use the Jacobian propagators for efficient
-    # calculation of Grad F
     @cached_property
-    def value_and_grad(self) -> Callable[[Array], tuple[Array, Array]]:
-        """``phi -> (infidelity, dinfidelity/dphi)`` (used by GRAPE)."""
-        self._require_bound("value_and_grad")
+    def value_and_grad_autodiff(self) -> Callable[[Array], tuple[Array, Array]]:
+        """``phi -> (infidelity, dinfidelity/dphi)`` by reverse-mode autodiff.
+
+        The reference the analytic path is checked against, and the fallback for a
+        manifold that declines `cost_gradient`.
+
+        Note that differentiating `infidelity_at` holomorphically with respect to
+        a ``complex128`` array whose imaginary part is identically zero gives a
+        gradient with a spurious imaginary part. `value_and_grad` does not.
+        """
+        self._require_bound("value_and_grad_autodiff")
         return jax.value_and_grad(self.infidelity_at)
 
-    # TODO: For GRAPE we will need to use the Hessian propagators for efficient
-    # calculation of Grad F. Use autodiff only to check in tests.
+    @cached_property
+    def value_and_grad(self) -> Callable[[Array], tuple[Array, Array]]:
+        r"""``phi -> (infidelity, dinfidelity/dphi)`` (used by GRAPE).
+
+        Analytic when this manifold supplies `cost_gradient`: **one** pass over
+        the pulse through `geope.geometry.tangent.TangentBundle.vjp`, which
+        returns the point and a pullback sharing the gate exponentials and their
+        partial products, then one ambient cost gradient through it,
+
+        $$\frac{\partial C}{\partial\phi_{g,k}}
+          = 2\,\mathrm{Re}\,\mathrm{Tr}\bigl(\hat G^\dagger\,\partial_{g,k}\Phi\bigr),$$
+
+        which never forms the Jacobian. That the value comes back *with* the
+        pullback is what keeps it to one pass: the covector $\hat G$ is a function
+        of the point, so a separate `compute_point` call would re-exponentiate
+        every gate. Falls back to `value_and_grad_autodiff` otherwise.
+
+        The gradient is **real by construction** and returned in the parameter's
+        own dtype, so it stays a drop-in for optax on the ``complex128`` pulse
+        arrays `geope.parameters.Parameters.free` hands out.
+        """
+        self._require_bound("value_and_grad")
+        if not self.has_cost_gradient:
+            return self.value_and_grad_autodiff
+
+        target = self.target
+        vjp = self.tangent.vjp
+
+        @jax.jit
+        def value_and_grad_fn(phi: Array) -> tuple[Array, Array]:
+            point, pullback = vjp(phi)
+            grad = 2.0 * jnp.real(pullback(self.cost_gradient(point, target)))
+            return self.infidelity(point, target), grad.astype(phi.dtype)
+
+        return value_and_grad_fn
+
     @cached_property
     def hessian_autodiff(self) -> Callable[[Array], Array]:
-        """The infidelity Hessian by forward-over-reverse HVPs."""
+        """The infidelity Hessian ``(P, P)`` by forward-over-reverse HVPs.
+
+        The reference the analytic path is checked against, and the fallback
+        wherever the analytic one is unavailable — a manifold that declines
+        `cost_hessian_form`, or the ``param_transform`` chart, which has no
+        second differential to build one from.
+
+        Carries the same spurious imaginary part as `value_and_grad_autodiff` on
+        a ``complex128`` pulse whose imaginary part is identically zero — it
+        differentiates the same holomorphic gradient. Its **real part** is right
+        in every case, and it is exact on the ``float64`` pulses of the
+        ``param_transform`` path where it is actually used. Compare against it on
+        real input.
+        """
         self._require_bound("hessian_autodiff")
-        return get_hessian_fn(self.infidelity_at)
+        raw = get_hessian_fn(self.infidelity_at)
+        # `get_hessian_fn` returns (P, *phi.shape); flatten so both paths share
+        # the one (P, P) contract their callers rely on.
+        return lambda phi: jnp.reshape(raw(phi), (phi.size, phi.size))
 
     @cached_property
     def hessian(self) -> Callable[[Array], Array]:
-        """The infidelity Hessian (used by GRAPE's Newton methods).
+        r"""The infidelity Hessian ``(P, P)`` (used by GRAPE's Newton methods).
 
-        Autodiff by default; a manifold whose chart has exploitable structure may
-        override with an analytic one (see
-        `geope.geometry.lie.groups.MatrixLieGroup`).
+        Analytic when this manifold supplies `cost_hessian_form` *and* the chart
+        has a second differential to offer
+        (`geope.geometry.tangent.TangentBundle.hessian`). The assembly is the
+        chain rule in two terms — the cost's own curvature and the chart's
+        bending —
+
+        $$\partial_a\partial_b\,C(\Phi(\phi))
+          = \mathrm{Hess}_C[\mathrm D\Phi_a, \mathrm D\Phi_b]
+          + 2\,\mathrm{Re}\bigl\langle \hat G,\ \mathrm D^2\Phi_{ab}\bigr\rangle,$$
+
+        the first from the hook and the second generic, since $\hat G$ is just
+        `cost_gradient`. Falls back to `hessian_autodiff` otherwise.
+
+        Dense: $O(G^2 d^2 K^2)$, which is what a Newton step costs on this chart
+        by either route.
         """
-        return self.hessian_autodiff
+        self._require_bound("hessian")
+        if not (self.has_cost_hessian_form and self.tangent.hessian is not None):
+            return self.hessian_autodiff
+
+        target = self.target
+        compute_point = self.compute_point
+        jacobian_fn = self.tangent.jacobian
+        hessian_fn = self.tangent.hessian
+
+        @jax.jit
+        def hessian_fn_of_phi(phi: Array) -> Array:
+            p = phi.size
+            point = compute_point(phi)
+
+            # (*ambient, G, K) -> (P, *ambient): one Jacobian column per parameter.
+            columns = jnp.moveaxis(jacobian_fn(phi), (-2, -1), (0, 1))
+            columns = columns.reshape((p, *self.ambient_shape))
+
+            # Contract the ambient axes of D^2 Phi first, in its native
+            # (G, G, *ambient, K, K) layout, so only a (G, G, K, K) block is
+            # ever transposed; then reorder to the row-major (gate, coeff)
+            # flattening that `phi.flatten()` and the gradient both use.
+            grad = self.cost_gradient(point, target)
+            grad_axes = tuple(range(2, 2 + self.ambient_ndim))
+            chart = 2.0 * jnp.real(
+                jnp.sum(
+                    jnp.conj(jnp.expand_dims(grad, (0, 1, -2, -1))) * hessian_fn(phi),
+                    axis=grad_axes,
+                )
+            )
+            chart = jnp.transpose(chart, (0, 2, 1, 3)).reshape(p, p)
+            return self.cost_hessian_form(point, target, columns) + chart
+
+        return hessian_fn_of_phi
 
     # --- the per-step geometry ---------------------------------------------
 

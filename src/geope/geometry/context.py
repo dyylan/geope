@@ -108,8 +108,8 @@ class GeometricContext:
                 f"`{what}` needs the chart's second differential, which is "
                 "unavailable under `param_transform` (the manual propagator "
                 "derivatives assume a plain product of exponentials). Use a "
-                "line search that does not read the curvature — GoldenSection, "
-                "Adam or Armijo."
+                "line search that does not read the curvature — GoldenSection "
+                "or Armijo."
             )
 
     # --- tier 0: the base point ---------------------------------------------

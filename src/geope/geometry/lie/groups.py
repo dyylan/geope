@@ -26,22 +26,11 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from ...jax.dexpm import (
-    get_Ui_fn,
-    get_d2expm,
-    get_d2expm_eig,
-    get_dexpm,
-    get_dexpm_eig,
-)
-from ...jax.hessian import (
-    hessian_propagator,
-    su_hessian_quadratic_form,
-)
-from ...jax.jacobian import jacobian_propagator
+from ...jax.hessian import su_hessian_quadratic_form
 from ...jax.logm import logm_unitary
-from ..chart import get_compute_matrices_params_list_fn
+from ..cost import trace_cost_gradient, trace_cost_hessian_form
 from ..manifold import Manifold
-from .basis import Basis, get_project_omegas_fn, get_project_omegas_fn_otf
+from ..basis import Basis, get_project_omegas_fn, get_project_omegas_fn_otf
 
 # Loose enough for a target assembled in float32 or from a few matrix products,
 # tight enough to catch a genuinely non-unitary matrix.
@@ -316,118 +305,25 @@ class MatrixLieGroup(Manifold):
         """
         return su_hessian_quadratic_form(a, omega)
 
-    @cached_property
-    def hessian(self) -> Callable[[Array], Array]:
-        """The infidelity Hessian, analytically when the chart allows it.
+    def cost_gradient(self, x: Array, y: Array) -> Array:
+        r"""$\partial C/\partial\bar x$ for the two unitary trace fidelities.
 
-        The manual Goodwin–Kuprov propagator Hessian when the chart is a plain
-        product of exponentials (``tangent.generators`` is set), falling back to
-        `Manifold.hessian_autodiff` when it is not — i.e. under
-        ``param_transform``, where the manual propagator derivatives do not apply.
+        $-y/(2d)$ phase-sensitively, $-zy/(2d\lvert z\rvert)$ projectively, with
+        $z = \mathrm{Tr}(y^\dagger x)$. See
+        `geope.geometry.cost.trace_cost_gradient`.
         """
-        self._require_bound("hessian")
-        if self.tangent.generators is None:
-            return self.hessian_autodiff
-        return get_hessian_propagator_fn(
-            self.tangent.generators.basis, self.target, projective=self.projective
-        )
+        return trace_cost_gradient(x, y, 2, self.dim, self.projective)
 
+    def cost_hessian_form(self, x: Array, y: Array, u: Array) -> Array:
+        r"""The cost's own curvature — zero on $\mathrm U(d)$, rank-structured on $\mathrm{SU}(d)$.
 
-def get_hessian_propagator_fn(
-    basis: np.ndarray,
-    target: Array,
-    projective: bool = True,
-    method: str = "eig",
-    hermitian: bool = True,
-) -> Callable[[Array], Array]:
-    r"""Build the infidelity Hessian manually (Goodwin–Kuprov NR-GRAPE).
-
-    Analytic drop-in for `geope.jax.hessian.get_hessian_fn`: returns
-    ``hess(y) -> (P, P)`` with ``P = y.size``, the Hessian of the same infidelity
-    that `get_hessian_fn` differentiates by autodiff, but built from the manual
-    propagator derivatives (`geope.jax.jacobian.jacobian_propagator`,
-    `geope.jax.hessian.hessian_propagator`) rather than from forward-over-reverse
-    HVPs. It is a *group* construction: it needs the generator basis the chart is
-    a product of exponentials in, and it hard-codes the two unitary fidelities.
-
-    Let $z = \mathrm{Tr}(U_T^\dagger U)$, $\partial_a z$, $\partial_a\partial_b z$
-    be obtained by contracting $U$, $\partial U$, $\partial^2 U$ against
-    $U_T^\dagger$. For the phase-sensitive cost $C = 1 - \mathrm{Re}(z)/d$ the
-    Hessian is the linear contraction $-\mathrm{Re}(\partial_a\partial_b z)/d$;
-    for the projective cost $C = 1 - |z|/d$,
-
-    $$\partial_a\partial_b|z| =
-        \frac{\mathrm{Re}(\overline{\partial_a z}\,\partial_b z)
-              + \mathrm{Re}(\bar z\,\partial_a\partial_b z)}{|z|}
-        - \frac{\mathrm{Re}(\bar z\,\partial_a z)\,
-                \mathrm{Re}(\bar z\,\partial_b z)}{|z|^3}.$$
-
-    Like the projective fidelity itself, this is singular as $|z| \to 0$ (the
-    near-identity / traceless-target gotcha) — the autodiff Hessian shares that.
-
-    Memory note: this materialises the dense propagator Hessian
-    (`geope.jax.hessian.hessian_propagator`, $O(G^2 d^2 K^2)$); intended for the
-    small systems where NR-GRAPE is used.
-
-    Args:
-        basis: Proj+drift basis ``(K, d, d)`` — the same basis the bound
-            ``compute_point`` uses.
-        target: Target unitary ``(d, d)``.
-        projective: Match the projective (``True``) or phase-sensitive
-            (``False``) infidelity.
-        method: ``"eig"`` (spectral, default) or ``"block"`` (auxiliary-matrix)
-            per-step derivatives.
-        hermitian: For ``method="eig"``, assume real parameters (skew-Hermitian
-            generators) and use the faster ``eigh``-based spectral derivatives.
-            Set ``False`` for complex-valued parameters.
-
-    Returns:
-        A ``Callable[[Array], Array]`` ``hess(y)`` returning the ``(P, P)``
-        infidelity Hessian. Left un-jitted so it fuses into the enclosing
-        ``@jax.jit`` update step.
-    """
-    Ui_fn = get_Ui_fn(basis)
-    if method == "eig":
-        jac_step = get_dexpm_eig(basis, hermitian=hermitian)
-        hess_step = get_d2expm_eig(basis, hermitian=hermitian)
-    elif method == "block":
-        jac_step = get_dexpm(basis)
-        hess_step = get_d2expm(basis)
-    else:
-        raise ValueError(f"Unknown method {method!r}; expected 'eig' or 'block'.")
-
-    compute_point = get_compute_matrices_params_list_fn(basis)
-    t_conj = jnp.asarray(target).conj()
-    d = jnp.asarray(target).shape[0]
-
-    def hess(y: Array) -> Array:
-        U = compute_point(y)
-        dU = jacobian_propagator(y, Ui_fn, jac_step)  # (G, d, d, K)
-        H = hessian_propagator(y, Ui_fn, jac_step, hess_step)  # (G, G, d, d, K, K)
-
-        # Contract the propagator and its derivatives with U_T^dagger.
-        z = jnp.einsum("ab,ab->", t_conj, U)
-        dz = jnp.einsum("ab,iabk->ik", t_conj, dU)  # (G, K)
-        d2z = jnp.einsum("ab,ijabkl->ijkl", t_conj, H)  # (G, G, K, K)
-
-        n_g, n_k = y.shape
-        P = n_g * n_k
-        dz_f = dz.reshape(P)
-        d2z_f = jnp.transpose(d2z, (0, 2, 1, 3)).reshape(P, P)
-
-        if not projective:
-            return -jnp.real(d2z_f) / d
-
-        r = jnp.abs(z)
-        z_bar = jnp.conj(z)
-        re_zdz = jnp.real(z_bar * dz_f)  # (P,)
-        term1 = (
-            jnp.real(jnp.outer(jnp.conj(dz_f), dz_f)) + jnp.real(z_bar * d2z_f)
-        ) / r
-        term2 = jnp.outer(re_zdz, re_zdz) / r**3
-        return -(term1 - term2) / d
-
-    return hess
+        $\mathrm{Re}\,\mathrm{Tr}(y^\dagger x)$ is affine in $x$, so the
+        phase-sensitive form vanishes and the whole Hessian is the chart's
+        bending; $\lvert\mathrm{Tr}(y^\dagger x)\rvert$ is not, and contributes the
+        two rank-structured terms of
+        `geope.geometry.cost.trace_cost_hessian_form`.
+        """
+        return trace_cost_hessian_form(x, y, u, 2, self.dim, self.projective)
 
 
 @dataclass(frozen=True, eq=False)

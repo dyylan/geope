@@ -4,7 +4,6 @@ Tests for geope/line_searches.py.
 Tested items:
   Functions:
     - _golden_section_search
-    - _adam_line_search
     - _quadratic_armijo_line_search
     - _armijo_line_search
 """
@@ -19,7 +18,6 @@ jax.config.update("jax_enable_x64", True)
 
 from geope.line_searches import (
     _golden_section_search,
-    _adam_line_search,
     _quadratic_armijo_line_search,
     _armijo_line_search,
 )
@@ -47,84 +45,6 @@ class TestGoldenSectionSearch:
         f = lambda x: (x + 1.0) ** 2
         x, fx, n = _golden_section_search(f, -3.0, 1.0, tol=1e-6)
         assert jnp.isclose(fx, f(x), atol=1e-8)
-
-
-# ===================================================================
-# Tests — _adam_line_search
-# ===================================================================
-
-
-@pytest.mark.parametrize("fd", [True, False], ids=["adam_fd", "adam_grad"])
-class TestAdamLineSearch:
-    def test_returns_triple(self, fd):
-        f = lambda x: (x - 2.0) ** 2
-        result = _adam_line_search(f, 0.0, 5.0, finite_difference=fd)
-        assert len(result) == 3
-
-    def test_x_within_bounds(self, fd):
-        f = lambda x: (x - 2.0) ** 2
-        x, fx, n = _adam_line_search(f, 0.0, 5.0, num_steps=30, finite_difference=fd)
-        assert 0.0 <= float(x) <= 5.0
-        # Fixed schedule: num_steps body evals + f(t0) + final f(t).
-        assert int(n) == 30 + 2
-
-    def test_minimises_quadratic(self, fd):
-        # interior minimum at x = 2, reachable from t_init=0
-        f = lambda x: (x - 2.0) ** 2
-        x, fx, n = _adam_line_search(
-            f, 0.0, 5.0, lr=0.05, num_steps=500, finite_difference=fd
-        )
-        assert jnp.isclose(x, 2.0, atol=0.1)
-        assert float(fx) < 1e-2
-        assert jnp.isclose(fx, f(x), atol=1e-8)
-
-    def test_clips_to_boundary_when_min_outside(self, fd):
-        # unconstrained min at x=2, but the interval caps at 0 -> best is x=0
-        f = lambda x: (x - 2.0) ** 2
-        x, fx, n = _adam_line_search(
-            f, -0.9, 0.0, lr=0.1, num_steps=100, finite_difference=fd
-        )
-        assert -0.9 <= float(x) <= 0.0
-        assert float(fx) <= f(0.0) + 1e-6
-
-    def test_returns_best_not_worse_than_start(self, fd):
-        # a large lr can overshoot; best-so-far must never exceed f(t_init)
-        f = lambda x: (x - 2.0) ** 2
-        x, fx, n = _adam_line_search(
-            f, 0.0, 5.0, lr=0.9, num_steps=50, finite_difference=fd
-        )
-        assert jnp.isclose(fx, f(x), atol=1e-8)
-        assert float(fx) <= f(0.0) + 1e-9
-
-    def test_jittable(self, fd):
-        f = lambda x: (x - 2.0) ** 2
-        x, fx, n = jax.jit(
-            lambda: _adam_line_search(f, 0.0, 5.0, finite_difference=fd)
-        )()
-        assert bool(jnp.isfinite(x)) and bool(jnp.isfinite(fx))
-
-
-def test_adam_fd_and_grad_agree():
-    # both gradient modes should converge to the same interior minimum
-    x_fd, _, _ = _adam_line_search(
-        lambda x: (x - 2.0) ** 2,
-        0.0,
-        5.0,
-        lr=0.05,
-        num_steps=500,
-        finite_difference=True,
-    )
-    x_grad, _, _ = _adam_line_search(
-        lambda x: (x - 2.0) ** 2,
-        0.0,
-        5.0,
-        lr=0.05,
-        num_steps=500,
-        finite_difference=False,
-    )
-    assert jnp.isclose(x_fd, 2.0, atol=0.1)
-    assert jnp.isclose(x_grad, 2.0, atol=0.1)
-    assert jnp.abs(x_fd - x_grad) < 0.1
 
 
 # ===================================================================

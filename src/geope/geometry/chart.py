@@ -45,7 +45,8 @@ from jax import Array
 from functools import partial
 from typing import Callable
 
-from ..jax.hessian import get_hvp_propagator
+from ..jax.hessian import get_hessian_propagator, get_hvp_propagator
+from ..jax.jacobian import get_jacobian_propagator, get_vjp_propagator
 
 
 def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
@@ -156,17 +157,149 @@ def get_chart_hvp_fn(
     return chart_hvp
 
 
+def get_chart_jacobian_fn(
+    generators: np.ndarray, base_point: Array | None = None
+) -> Callable[[Array], Array]:
+    r"""Build the chart's first differential $\mathrm D\Phi$, from the propagator.
+
+    The manual `geope.jax.get_jacobian_propagator` — two ``jax.lax.scan`` partial
+    products and one per-gate spectral derivative — landed on ``base_point`` and
+    transposed into the layout `geope.geometry.tangent.TangentBundle` declares.
+
+    This is the live Jacobian path. `get_jacobian_fn` is the autodiff equivalent,
+    kept as the reference the tests and benchmarks compare against, and still
+    used through `get_split_jacobian_fn` on the ``param_transform`` path where no
+    exponential-product structure survives.
+
+    Args:
+        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        base_point: As `get_chart_fn` — ``None`` means the propagator *is* the
+            point, and only the transpose is applied.
+
+    Returns:
+        A ``Callable[[Array], Array]`` mapping ``(G, K)`` parameters to the
+        Jacobian of shape ``(*ambient_shape, G, K)``.
+
+    Note:
+        Built with ``hermitian=True``: the per-gate derivative diagonalises with
+        ``eigh``, which assumes the pulse coefficients are real. That holds
+        throughout the pipeline — `geope.parameters.Parameters.free` promotes to
+        ``complex128`` with an exactly-zero imaginary part — but it is an
+        assumption the holomorphic autodiff path did not make.
+    """
+    jac = get_jacobian_propagator(jnp.asarray(generators))
+    if base_point is None:
+        # (G, d, d, K) -> (d, d, G, K).
+        return lambda params_list: jnp.moveaxis(jac(params_list), 0, -2)
+    base = jnp.asarray(base_point, dtype=jnp.complex128)
+
+    def chart_jacobian(params_list: Array) -> Array:
+        # (G, d, d, K) -> (G, d, K, *base_trailing) -> (G, *ambient, K).
+        landed = jnp.moveaxis(
+            jnp.tensordot(jac(params_list), base, axes=[[2], [0]]), 2, -1
+        )
+        return jnp.moveaxis(landed, 0, -2)
+
+    return chart_jacobian
+
+
+def get_chart_vjp_fn(
+    generators: np.ndarray, base_point: Array | None = None
+) -> Callable[[Array], tuple[Array, Callable[[Array], Array]]]:
+    r"""Build the chart's value and **pullback** $(\Phi,\ \mathrm D\Phi^\intercal)$.
+
+    Returns ``phi -> (point, pullback)``, in the shape of `jax.vjp`. The pullback
+    contracts an ambient covector against every column of $\mathrm D\Phi$ without
+    forming it — see `geope.jax.vjp_propagator` for why that is
+    $O(G(d^3 + d^2K))$ rather than $O(G d^3 K)$, and why the value comes back
+    with it rather than from a second `get_chart_fn` call that would recompute
+    every gate exponential.
+
+    This is what an objective's gradient in parameter space is made of, and the
+    reason `geope.geometry.manifold.Manifold.value_and_grad` needs no autodiff.
+
+    The base point lands on the *covector* rather than on the differential, using
+
+    $$\langle \hat G,\ \mathrm dU\,x_0\rangle = \langle \hat G\,x_0^\dagger,\ \mathrm dU\rangle,$$
+
+    which is the same "right multiplication is linear" fact that lets
+    `get_chart_hvp_fn` land termwise — just read in the opposite direction.
+
+    Args:
+        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        base_point: As `get_chart_fn`.
+
+    Returns:
+        A ``Callable[[Array], tuple[Array, Callable]]`` taking ``(G, K)``
+        parameters to the point of shape ``ambient_shape`` and a callable
+        mapping an ambient covector of that shape to the complex overlaps of
+        shape ``(G, K)``. See `geope.jax.vjp_propagator` for why those are
+        complex rather than already realified.
+    """
+    vjp = get_vjp_propagator(jnp.asarray(generators))
+    if base_point is None:
+        return vjp
+    base = jnp.asarray(base_point, dtype=jnp.complex128)
+    # Reshape a state (d,) to the (d, 1) frame it is, so one expression serves both.
+    base_2d = base.reshape(base.shape[0], -1)
+
+    def chart_vjp(params_list: Array) -> tuple[Array, Callable[[Array], Array]]:
+        propagator, pullback = vjp(params_list)
+
+        def landed_pullback(cotangent: Array) -> Array:
+            return pullback(cotangent.reshape(base_2d.shape) @ jnp.conj(base_2d).T)
+
+        return propagator @ base, landed_pullback
+
+    return chart_vjp
+
+
+def get_chart_hessian_fn(
+    generators: np.ndarray, base_point: Array | None = None
+) -> Callable[[Array], Array]:
+    r"""Build the chart's dense second differential $\mathrm D^2\Phi$, from the propagator.
+
+    `geope.jax.get_hessian_propagator` landed on ``base_point``. Unlike
+    `get_chart_hvp_fn`, which takes one direction in $O(G)$, this materialises
+    every pair — $O(G^2 d^2 K^2)$ in both flops and memory — so it is for the
+    small systems where a Newton step is worth taking.
+
+    Args:
+        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        base_point: As `get_chart_fn`.
+
+    Returns:
+        A ``Callable[[Array], Array]`` mapping ``(G, K)`` parameters to the
+        Hessian of shape ``(G, G, *ambient_shape, K, K)``.
+
+    Note:
+        `geope.jax.hessian_propagator` builds its off-diagonal blocks *using
+        unitarity*, so this is valid only for real pulse coefficients — which is
+        what the pipeline always has, but see the note on
+        `get_chart_jacobian_fn`.
+    """
+    hess = get_hessian_propagator(jnp.asarray(generators))
+    if base_point is None:
+        return hess
+    base = jnp.asarray(base_point, dtype=jnp.complex128)
+
+    def chart_hessian(params_list: Array) -> Array:
+        # (G, G, d, d, K, K) -> (G, G, d, K, K, *trail) -> (G, G, *ambient, K, K).
+        landed = jnp.tensordot(hess(params_list), base, axes=[[3], [0]])
+        return jnp.moveaxis(landed, (3, 4), (-2, -1))
+
+    return chart_hessian
+
+
 def get_jacobian_fn(
     compute_point_fn: Callable[[Array], Array]
 ) -> Callable[[Array], Array]:
     """Build the autodiff Jacobian of the chart w.r.t. parameters.
 
-    Returns the holomorphic ``jax.jacobian`` of ``compute_point_fn``. This is the
-    live Jacobian path for *all* system sizes: the manual Jacobian
-    (`geope.jax.jacobian.get_jacobian_propagator`) exists and is independently
-    tested, but is not currently wired into the optimisation pipeline (the
-    autodiff path historically overwrote it for the >5-qubit branch — see
-    issue #4).
+    Returns the holomorphic ``jax.jacobian`` of ``compute_point_fn``. The live
+    path is now the manual `get_chart_jacobian_fn`; this is kept as the reference
+    the tests and benchmarks check it against, and as the basis of
+    `get_split_jacobian_fn`, which the ``param_transform`` path still needs.
 
     Args:
         compute_point_fn: Callable mapping a parameter list to the chart's point.
@@ -205,3 +338,47 @@ def get_split_jacobian_fn(
         return jac_split[0] + 1j * jac_split[1]
 
     return _jac_fn
+
+
+def get_split_vjp_fn(
+    compute_point_fn: Callable[[Array], Array],
+) -> Callable[[Array], tuple[Array, Callable[[Array], Array]]]:
+    r"""Build a real/imag-split value-and-pullback of ``compute_point_fn``.
+
+    The autodiff counterpart of `get_chart_vjp_fn`, and the ``param_transform``
+    path's only option: there is no exponential-product structure left to pull
+    back through, and the user's transform must be differentiated as it stands.
+    `jax.vjp` already has the ``(value, pullback)`` shape, and for the same
+    reason — so the value is shared rather than recomputed.
+
+    Split for the same reason `get_split_jacobian_fn` is — real intermediates in
+    the transform would drop the imaginary part under a holomorphic pullback —
+    and returning the same complex $\mathrm{Tr}(C^\dagger \partial\Phi)$ so that
+    `geope.geometry.manifold.Manifold.value_and_grad` is one expression on both
+    paths.
+
+    Args:
+        compute_point_fn: The (wrapped) experimental-space chart.
+
+    Returns:
+        A ``Callable[[Array], tuple[Array, Callable]]``, as `get_chart_vjp_fn`.
+    """
+
+    def _split_U(x):
+        U = compute_point_fn(x)
+        return jnp.stack([jnp.real(U), jnp.imag(U)])
+
+    def _vjp_fn(x: Array) -> tuple[Array, Callable[[Array], Array]]:
+        split, pullback = jax.vjp(_split_U, x)
+
+        def _pull(cotangent: Array) -> Array:
+            # <C, dPhi> = <Re C, dRe Phi> + <Im C, dIm Phi>
+            #             + i(<Re C, dIm Phi> - <Im C, dRe Phi>)
+            re_c, im_c = jnp.real(cotangent), jnp.imag(cotangent)
+            real_part = pullback(jnp.stack([re_c, im_c]))[0]
+            imag_part = pullback(jnp.stack([-im_c, re_c]))[0]
+            return real_part + 1j * imag_part
+
+        return split[0] + 1j * split[1], _pull
+
+    return _vjp_fn

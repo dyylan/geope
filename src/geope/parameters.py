@@ -10,7 +10,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from .geometry.lie import Basis
+from .geometry.basis import Basis
 
 from .geometry import (
     Manifold,

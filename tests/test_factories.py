@@ -28,7 +28,7 @@ from geope.geometry.chart import (
 )
 from geope.geometry import StateSphere
 from geope.geometry.lie import groups
-from geope.geometry.lie.basis import get_project_omegas_fn
+from geope.geometry.basis import get_project_omegas_fn
 from geope.geometry.lie.groups import infidelity
 from geope.jax.hessian import get_hessian_fn
 from geope.geope import linear_comb_projected_coeffs_multigate
@@ -609,7 +609,7 @@ class TestParametersMetadata:
         assert not np.any(p.drift_indices_projdrift_basis)
 
     def test_with_drift_masks(self):
-        from geope.geometry.lie import Basis
+        from geope.geometry.basis import Basis
 
         fb = construct_full_pauli_basis(2)
         pb = construct_Heisenberg_pauli_basis(2)
@@ -641,7 +641,7 @@ class TestParametersMetadata:
 
 def _overlapping_drift_basis():
     """Drift basis on ZI/IZ — both inside the Heisenberg projected basis."""
-    from geope.geometry.lie import Basis
+    from geope.geometry.basis import Basis
 
     Z = np.array([[1, 0], [0, -1]], dtype=complex)
     I = np.eye(2, dtype=complex)
@@ -650,7 +650,7 @@ def _overlapping_drift_basis():
 
 def _disjoint_drift_basis():
     """Drift basis on XZ/ZX — outside the Heisenberg projected basis."""
-    from geope.geometry.lie import Basis
+    from geope.geometry.basis import Basis
 
     X = np.array([[0, 1], [1, 0]], dtype=complex)
     Z = np.array([[1, 0], [0, -1]], dtype=complex)

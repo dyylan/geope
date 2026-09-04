@@ -18,6 +18,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
+from ..cost import trace_cost_gradient, trace_cost_hessian_form
 from ..manifold import Manifold
 
 # Below this the geodesic quantities are taken at their (finite) limits: the
@@ -243,8 +244,15 @@ class StateSphere(Manifold):
         r"""$1 - \lvert\langle x, y\rangle\rvert \in [0, 1]$."""
         return 1.0 - jnp.abs(self._braket(x, y))
 
-    # No chart code. `geope.geometry.chart` lands the pulse propagator on
-    # `base_point`, giving $\Phi(\phi) = U(\phi)\lvert\psi_0\rangle$, and
-    # `Manifold.bind` composes it — which is what makes a homogeneous space
-    # reuse the group's chart machinery wholesale, and this a state-preparation
-    # problem rather than a gate-synthesis one.
+    def cost_gradient(self, x: Array, y: Array) -> Array:
+        r"""$\partial C/\partial\bar x = -z\,y / (2\lvert z\rvert)$, with $z = \langle y, x\rangle$.
+
+        The same trace cost as everywhere else in the library, with $\kappa = 1$:
+        the state fidelity is already normalised. See
+        `geope.geometry.cost.trace_cost_gradient`.
+        """
+        return trace_cost_gradient(x, y, 1, 1.0, self.projective)
+
+    def cost_hessian_form(self, x: Array, y: Array, u: Array) -> Array:
+        r"""The cost's own curvature — the projective pair, with $\kappa = 1$."""
+        return trace_cost_hessian_form(x, y, u, 1, 1.0, self.projective)

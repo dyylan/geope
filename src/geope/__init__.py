@@ -13,7 +13,6 @@ from . import line_searches
 from .line_searches import (
     LineSearch,
     LineSearchResult,
-    Adam,
     ApproximateQuadraticArmijo,
     Armijo,
     GoldenSection,
@@ -47,7 +46,7 @@ from .utils import (
     History,
 )
 
-from .geometry.lie import (
+from .geometry.basis import (
     Basis,
 )
 

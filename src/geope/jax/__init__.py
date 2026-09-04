@@ -8,6 +8,10 @@ from .dexpm import (
     dexpm_eig,
     dexpm_eig_batched,
     get_dexpm_eig,
+    adj_expm,
+    adj_expm_eig,
+    get_adj_expm,
+    get_adj_expm_eig,
     d2expm_block,
     d2expm,
     d2expm_eig,
@@ -23,6 +27,8 @@ from .logm import logm, logm_unitary
 from .jacobian import (
     jacobian_propagator,
     get_jacobian_propagator,
+    vjp_propagator,
+    get_vjp_propagator,
     jvp_propagator,
     get_jvp_propagator,
 )

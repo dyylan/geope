@@ -23,11 +23,13 @@ Tested items:
     - expm_jvp / expm_hvp (+ _eig) 
     - hessian_propagator / get_hessian_propagator (propagator Hessian)
     - hvp_propagator / get_hvp_propagator
-    - get_hessian_propagator_fn (cost propagator Hessian)
+    - vjp_propagator / get_vjp_propagator (the chart pullback)
+    - adj_expm / adj_expm_eig (per-step adjoint)
 """
 
 import dataclasses
 from dataclasses import FrozenInstanceError
+from functools import partial
 
 import pytest
 import numpy as np
@@ -48,7 +50,6 @@ from geope.geope import (
     PROGRESS_RTOL,
 )
 from geope.line_searches import (
-    Adam,
     ApproximateQuadraticArmijo,
     Armijo,
     GoldenSection,
@@ -61,7 +62,6 @@ from geope.geometry.chart import (
     get_jacobian_fn,
 )
 from geope.geometry.lie.groups import (
-    get_hessian_propagator_fn,
     infidelity,
     infidelity_full,
 )
@@ -69,7 +69,7 @@ from geope.jax.hessian import get_hessian_fn, hvp_forward_over_reverse
 from geope.gecko import Gecko
 from geope.parameters import Parameters
 from geope.utils.history import History
-from geope.geometry.lie import Basis
+from geope.geometry.basis import Basis
 from geope.geometry.lie.groups import fidelity
 from geope.utils import (
     construct_full_pauli_basis,
@@ -120,13 +120,14 @@ def _params_2q(
 
 
 from geope.jax.jacobian import (
-    Ui,
-    get_Ui_fn,
     jacobian_propagator,
     get_jacobian_propagator,
+    vjp_propagator,
+    get_vjp_propagator,
     jvp_propagator,
     get_jvp_propagator,
 )
+from geope.jax.dexpm import Ui, get_Ui_fn, adj_expm, adj_expm_eig
 from geope.jax.dexpm import get_dexpm, dexpm, dexpm_eig, dexpm_eig_batched
 from geope.jax.dexpm import d2expm, d2expm_eig, d2expm_eig_batched
 from geope.jax.dexpm import expm_jvp, expm_jvp_eig, expm_hvp, expm_hvp_eig
@@ -732,39 +733,99 @@ class TestHvpPropagator:
 
 
 # ---------------------------------------------------------------------------
-# Tests — cost propagator Hessian (Goodwin–Kuprov NR-GRAPE)
+# Tests — the chart pullback (VJP) propagator
 # ---------------------------------------------------------------------------
 
 
-class TestCostHessianPropagator:
-    """Infidelity Hessian propatator must match the autodiff get_hessian_fn."""
+class TestVjpPropagator:
+    """The pullback must equal contracting the Jacobian it never builds."""
 
-    @pytest.mark.parametrize("projective", [True, False])
     @pytest.mark.parametrize("method", ["eig", "block"])
     @pytest.mark.parametrize("n,G", [(1, 2), (2, 3)])
-    def test_matches_autodiff(self, projective, method, n, G):
+    def test_matches_jacobian_contraction(self, method, n, G):
         basis = jnp.asarray(construct_full_pauli_basis(n).basis)
-        K = basis.shape[0]
-        target = jnp.asarray(qft_unitary(n))
-        compute_point = get_compute_matrices_params_list_fn(basis)
-        # GRAPE parameters are real-valued.
-        y = jax.random.normal(jax.random.key(17), (G, K)) * 0.3
+        K, d = basis.shape[0], basis.shape[1]
+        key_p, key_c = jax.random.split(jax.random.key(31))
+        params = jax.random.normal(key_p, (G, K)) * 0.3
+        cot = jax.random.normal(key_c, (2, d, d))
+        cot = cot[0] + 1j * cot[1]
 
-        infid_U = infidelity if projective else infidelity_full
-        infid = lambda x: infid_U(compute_point(x), target)
-        H_auto = get_hessian_fn(infid)(y).reshape(G * K, G * K)
-        H_man = get_hessian_propagator_fn(
-            basis, target, projective=projective, method=method
-        )(y)
-        assert H_man.shape == (G * K, G * K)
-        assert jnp.allclose(H_man, H_auto, atol=1e-7)
+        jac = get_jacobian_propagator(basis, method=method)(
+            params.astype(jnp.complex128)
+        )  # (G, d, d, K)
+        expected = jnp.einsum("ab,gabk->gk", jnp.conj(cot), jac)
+        _, pullback = get_vjp_propagator(basis, method=method)(params)
+        got = pullback(cot)
 
-    def test_hessian_is_symmetric(self):
+        assert got.shape == (G, K)
+        assert jnp.allclose(got, expected, atol=1e-10)
+
+    @pytest.mark.parametrize("n,G", [(1, 2), (2, 3)])
+    def test_returns_the_propagator_for_free(self, n, G):
+        """The value comes back with the pullback — that is what keeps it one pass."""
+        basis = jnp.asarray(construct_full_pauli_basis(n).basis)
+        params = jax.random.normal(jax.random.key(34), (G, basis.shape[0])) * 0.3
+
+        point, _ = get_vjp_propagator(basis)(params)
+        expected = get_compute_matrices_params_list_fn(basis)(params)
+        assert jnp.allclose(point, expected, atol=1e-12)
+
+    def test_the_gates_are_exponentiated_once(self):
+        """The pullback must reuse the partial products, not rebuild them.
+
+        Counting `Ui_fn` calls at trace time is the only way to see this: both
+        routes give the same numbers, and the whole point of returning the value
+        alongside the pullback is that the second pass does not happen.
+        """
+        basis = jnp.asarray(construct_full_pauli_basis(1).basis)
+        params = jax.random.normal(jax.random.key(35), (3, basis.shape[0])) * 0.3
+        calls = []
+
+        Ui_fn = get_Ui_fn(basis)
+
+        def counting_Ui(x):
+            calls.append(1)
+            return Ui_fn(x)
+
+        adj_fn = partial(adj_expm_eig, basis=basis)
+        point, pullback = vjp_propagator(params, counting_Ui, adj_fn)
+        _ = pullback(jnp.eye(2, dtype=jnp.complex128))
+        _ = pullback(jnp.eye(2, dtype=jnp.complex128) * 1j)
+        assert len(calls) == 1  # one vmapped trace, however many pullbacks
+
+    def test_per_gate_adjoint_matches_dexpm(self):
+        """`adj_expm_eig` is `dexpm_eig` contracted, without the (d, d, K) tensor."""
         basis = jnp.asarray(construct_full_pauli_basis(2).basis)
-        target = jnp.asarray(qft_unitary(2))
-        y = jax.random.normal(jax.random.key(18), (3, basis.shape[0])) * 0.3
-        H = get_hessian_propagator_fn(basis, target, projective=True)(y)
-        assert jnp.allclose(H, H.T, atol=1e-9)
+        K, d = basis.shape[0], basis.shape[1]
+        key_x, key_b = jax.random.split(jax.random.key(32))
+        x = jax.random.normal(key_x, (K,)) * 0.4
+        b = jax.random.normal(key_b, (2, d, d))
+        b = b[0] + 1j * b[1]
+
+        expected = jnp.einsum("ij,ijk->k", jnp.conj(b), dexpm_eig(x, basis))
+        assert jnp.allclose(adj_expm_eig(x, b, basis), expected, atol=1e-10)
+        assert jnp.allclose(adj_expm(x, b, basis), expected, atol=1e-8)
+
+    def test_gradient_of_a_real_cost_is_two_re(self):
+        """The documented use: 2 Re of the pullback is the real parameter gradient."""
+        basis = jnp.asarray(construct_full_pauli_basis(1).basis)
+        K = basis.shape[0]
+        target = jnp.asarray(qft_unitary(1))
+        compute_point = get_compute_matrices_params_list_fn(basis)
+        params = jax.random.normal(jax.random.key(33), (2, K)) * 0.3
+
+        # C = 1 - Re Tr(target^dagger U)/d is affine, so its ambient Wirtinger
+        # gradient is the constant -target/(2d).
+        d = target.shape[0]
+        _, pullback = get_vjp_propagator(basis)(params)
+        grad = 2.0 * jnp.real(pullback(-target / (2.0 * d)))
+        expected = jax.grad(lambda x: infidelity_full(compute_point(x), target))(params)
+        assert jnp.allclose(grad, expected, atol=1e-9)
+
+    def test_unknown_method_raises(self):
+        basis = jnp.asarray(construct_full_pauli_basis(1).basis)
+        with pytest.raises(ValueError, match="Unknown method"):
+            get_vjp_propagator(basis, method="nope")
 
 
 # The geodesic tangent itself is a manifold primitive now
@@ -1131,6 +1192,28 @@ class TestParametersPulseConstraintsValidation:
 # ---------------------------------------------------------------------------
 
 
+@dataclasses.dataclass(frozen=True)
+class _CountingLineSearch(GoldenSection):
+    """A stateful line search, for the state-threading tests only.
+
+    Every shipped line search carries just the per-step ``{"n_eval"}``, which is
+    rewritten from scratch each step and so cannot show that the state pytree
+    *threads* through the jitted update. This one adds ``n_step``, a counter
+    that accumulates across steps — the property the contract actually promises.
+    """
+
+    name = "counting"
+
+    def init(self):
+        return {"n_step": jnp.asarray(0, jnp.int32), **super().init()}
+
+    def __call__(self, ctx, a, b, state):
+        res = super().__call__(ctx, a, b, state)
+        return LineSearchResult(
+            res.dt, res.value, {"n_step": state["n_step"] + 1, **res.state}
+        )
+
+
 class TestGeope:
     # --- initialisation ---------------------------------------------------
 
@@ -1196,51 +1279,27 @@ class TestGeope:
         assert g.line_search is None
         assert g.line_search_state is None
 
-    def test_optimize_with_adam_runs(self, params_2q):
-        # Primary acceptance criterion: the Adam line-search object runs end to end.
-        g = Geope(params_2q)
-        g.optimize(max_steps=5, line_search=Adam(1e-2))
-        assert isinstance(g.line_search, Adam)
-
-    def test_adam_valid_fidelities(self, cnot, full_basis_2q, projected_basis_2q):
-        # both gradient modes must run inside the real loop and stay valid
-        for ls in (Adam(1e-2), Adam(1e-2, finite_difference=False)):
-            p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
-            g = Geope(p, history=History())
-            g.optimize(max_steps=5, line_search=ls)
-            for f in g.history.fidelities:
-                assert 0 <= f <= 1
-
-    def test_adam_improves_fidelity(self, cnot, full_basis_2q, projected_basis_2q):
-        for ls in (Adam(1e-2), Adam(1e-2, finite_difference=False)):
-            p = _params_2q(cnot, full_basis_2q, projected_basis_2q)
-            g = Geope(p, history=History())
-            f0 = float(g.params.fidelity)
-            g.optimize(max_steps=60, line_search=ls)
-            assert g.history.best_fidelity > f0
-
     def test_line_search_state_threads_and_updates(self, params_2q):
-        # gram_schmidt_step_size=0 (falsy) skips the fallback, so g.step_size is
-        # exactly the line-search dt. With warm_start the threaded state carries
-        # the last step's dt — proving the pytree threads and updates within a
-        # run (not reset every step).
+        # The state pytree threads through the jitted update and accumulates
+        # within a run (it is not re-init()ed every step): the counting search's
+        # n_step must equal the number of steps taken.
         g = Geope(params_2q)
         g.optimize(
             max_steps=5,
-            line_search=Adam(1e-2, warm_start=True),
+            line_search=_CountingLineSearch(),
             gram_schmidt_step_size=0,
         )
-        assert jnp.allclose(g.line_search_state["t_prev"], g.step_size)
+        assert int(g.line_search_state["n_step"]) == 5
 
     def test_optimize_resets_state_between_calls(self, params_2q):
         # Issue #1: the per-run init() reset is decoupled from compile reuse.
         g = Geope(params_2q)
-        g.optimize(max_steps=3, line_search=Adam(1e-2, warm_start=True))
+        g.optimize(max_steps=3, line_search=_CountingLineSearch())
         # Poison the state, then a 0-step run: only the per-run init() reset can
-        # have cleared the sentinel — without it this reads 999.0.
-        g.line_search_state = {"t_prev": jnp.asarray(999.0)}
-        g.optimize(max_steps=0, line_search=Adam(1e-2, warm_start=True))
-        assert g.line_search_state["t_prev"] == 0.0
+        # have cleared the sentinel — without it this reads 999.
+        g.line_search_state = {**g.line_search_state, "n_step": jnp.asarray(999)}
+        g.optimize(max_steps=0, line_search=_CountingLineSearch())
+        assert int(g.line_search_state["n_step"]) == 0
 
     def test_goldensection_state_has_n_eval(self, params_2q):
         # The zeroth-order search threads only the base {"n_eval"} pytree (the
@@ -1264,16 +1323,16 @@ class TestGeope:
     def test_line_search_eq_and_hash(self):
         # Frozen-dataclass value semantics drive the compile memo and keep
         # hyperparameter sweeps correct (issue #2).
-        assert Adam(1e-2) == Adam(1e-2)
-        assert hash(Adam(1e-2)) == hash(Adam(1e-2))
-        assert Adam(1e-2) != Adam(2e-2)
-        assert dataclasses.replace(Adam(1e-2), lr=2e-2) == Adam(2e-2)
+        assert Armijo(1e-3) == Armijo(1e-3)
+        assert hash(Armijo(1e-3)) == hash(Armijo(1e-3))
+        assert Armijo(1e-3) != Armijo(2e-3)
+        assert dataclasses.replace(Armijo(1e-3), c1=2e-3) == Armijo(2e-3)
         # usable as a set member / dict key
-        assert len({Adam(1e-2), Adam(1e-2), GoldenSection()}) == 2
+        assert len({Armijo(1e-3), Armijo(1e-3), GoldenSection()}) == 2
         # immutable
-        ls = Adam(1e-2)
+        ls = Armijo(1e-3)
         with pytest.raises(FrozenInstanceError):
-            ls.lr = 0.5
+            ls.c1 = 0.5
 
     def test_optimize_pulse_constrained_threads_state(
         self, cnot, full_basis_2q, projected_basis_2q
@@ -1291,10 +1350,10 @@ class TestGeope:
         g = Geope(p)
         g.optimize(
             max_steps=4,
-            line_search=Adam(1e-2, warm_start=True),
+            line_search=_CountingLineSearch(),
             gram_schmidt_step_size=0,
         )
-        assert jnp.allclose(g.line_search_state["t_prev"], g.step_size)
+        assert int(g.line_search_state["n_step"]) == 4
 
     def test_line_search_history_records_attrs(self, params_2q):
         # History integration: a logging_fn reads line_search attributes, with no
@@ -1305,13 +1364,13 @@ class TestGeope:
             history=History(
                 logging_fn=lambda gg: {
                     "name": gg.line_search.name if gg.line_search else None,
-                    "lr": getattr(gg.line_search, "lr", None),
+                    "c1": getattr(gg.line_search, "c1", None),
                 }
             ),
         )
-        g.optimize(max_steps=3, line_search=Adam(1e-2))
-        assert g.history["name"][-1] == "adam"
-        assert g.history["lr"][-1] == 1e-2
+        g.optimize(max_steps=3, line_search=Armijo(1e-3))
+        assert g.history["name"][-1] == "armijo"
+        assert g.history["c1"][-1] == 1e-3
 
     # --- quadratic-seeded Armijo (geometry-aware line search) ------------
 

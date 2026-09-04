@@ -21,7 +21,6 @@ Tested items:
     - merge_constraints
   Raw 1-D minimisers (private, defined in geope.line_searches, exercised here):
     - _golden_section_search
-    - _adam_line_search
     - _quadratic_armijo_line_search
 """
 
@@ -53,7 +52,7 @@ from geope.utils import (
     merge_constraints,
 )
 
-from geope.geometry.lie import Basis
+from geope.geometry.basis import Basis
 
 # ===================================================================
 # Tests — trace_dot_jit

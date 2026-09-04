@@ -50,7 +50,7 @@ def hessian_propagator(
 
     Memory note: the returned tensor is dense with shape ``(G, G, d, d, K, K)``,
     i.e. $O(G^2 d^2 K^2)$. For the infidelity-cost Hessian, prefer
-    `geope.geometry.lie.groups.get_hessian_propagator_fn`, which contracts on the fly and never
+    `geope.geometry.manifold.Manifold.hessian`, which contracts on the fly and never
     materialises this object.
 
     Args:

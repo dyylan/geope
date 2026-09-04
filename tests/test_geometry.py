@@ -33,7 +33,7 @@ from geope.geometry import (
     UnitaryGroup,
 )
 from geope.geope import linear_comb_projected_coeffs_multigate
-from geope.geometry.lie.basis import get_project_omegas_fn
+from geope.geometry.basis import get_project_omegas_fn
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -689,3 +689,81 @@ class TestTangentBundleFrame:
         second = coeffs_of(jnp.eye(4, dtype=jnp.complex128) * 1j)
         assert bound.__dict__["_project"] is projector  # not rebuilt
         assert first.shape == second.shape == (15,)
+
+
+# ===================================================================
+# Tests — the pipeline takes no autodiff transform
+# ===================================================================
+
+
+# Every JAX differentiation entry point the pipeline could reach for. Patched on
+# the `jax` module itself, which is where every call site resolves them at call
+# time (`jax.jacobian(...)`, `jax.value_and_grad(...)`, ...).
+_AUTODIFF_TRANSFORMS = (
+    "grad",
+    "value_and_grad",
+    "jacobian",
+    "jacfwd",
+    "jacrev",
+    "jvp",
+    "vjp",
+    "hessian",
+    "linearize",
+)
+
+
+class _AutodiffTaken(AssertionError):
+    """Raised in place of a JAX differentiation transform."""
+
+
+@pytest.fixture
+def no_autodiff(monkeypatch):
+    """Make any JAX differentiation transform an immediate failure."""
+
+    def forbidden(name):
+        def _raise(*args, **kwargs):
+            raise _AutodiffTaken(f"jax.{name} was traced")
+
+        return _raise
+
+    for name in _AUTODIFF_TRANSFORMS:
+        monkeypatch.setattr(jax, name, forbidden(name))
+    return None
+
+
+class TestNoAutodiffInThePipeline:
+    """The propagator recursions supply the whole jet — nothing differentiates.
+
+    The sibling of ``test_omegas_never_traces_the_logarithm``: a laziness/routing
+    invariant that no value assertion can see, because both paths agree. Here the
+    statement is stronger than "which function was chosen" — it is that tracing
+    the chosen one reaches no JAX derivative at all.
+    """
+
+    def test_the_guard_catches_the_autodiff_path(self, problem, no_autodiff):
+        """The fixture is only meaningful if it would fire. Prove it does."""
+        p, free, _ = problem
+        with pytest.raises(_AutodiffTaken):
+            p.manifold.value_and_grad_autodiff(free)
+
+    def test_chart_jacobian_takes_none(self, problem, no_autodiff):
+        p, free, _ = problem
+        jac = p.manifold.tangent.jacobian(free)
+        assert jac.shape[:2] == tuple(p.manifold.ambient_shape)
+
+    def test_gradient_takes_none(self, problem, no_autodiff):
+        p, free, _ = problem
+        _, grad = p.manifold.value_and_grad(free)
+        assert grad.shape == free.shape
+
+    def test_hessian_takes_none(self, problem, no_autodiff):
+        p, free, _ = problem
+        assert p.manifold.hessian(free).shape == (free.size, free.size)
+
+    def test_a_whole_geodesic_step_takes_none(self, problem, no_autodiff):
+        """The geodesic update's tiers 0-3, end to end."""
+        p, free, coeffs = problem
+        ctx = p.manifold.context(free)
+        _ = ctx.gammas, ctx.omegas, ctx.fidelity
+        ctx.set_direction(coeffs)
+        _ = ctx.velocity, ctx.q, ctx.q_exact, ctx.infidelity_at(-0.1)

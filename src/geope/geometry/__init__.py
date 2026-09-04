@@ -34,8 +34,18 @@ Manifold  --owns-->  base_point     (x_0 = Phi(0): where the orbit starts)
    |
    '-----owns-->  TangentBundle --owns-->  frame      (the ambient coefficient frame)
                                           jacobian   (the pushforward D Phi)
-                                          hvp        (the second differential D^2 Phi)
+                                          vjp        (the pullback D Phi^T)
+                                          hvp        (D^2 Phi along one direction)
+                                          hessian    (the dense D^2 Phi)
 ```
+
+The whole jet comes from the propagator recursions in `geope.jax`, not from
+autodiff: `geope.geometry.chart` builds them and lands them on the base point,
+and the `Manifold` assembles the *objective's* gradient and Hessian from them
+plus its own `Manifold.cost_gradient` and `Manifold.cost_hessian_form`. Autodiff
+survives in exactly two places — the ``param_transform`` chart, whose
+user-supplied transform must be differentiated as it stands, and the references
+the manual paths are tested against.
 
 A `Manifold` is usable in two states: constructed with only its dimension
 (``SpecialUnitaryGroup(4)``) it is the pure space, and its geometric primitives
@@ -59,20 +69,24 @@ Modules:
 * `tangent` — the `TangentBundle`: the ambient coefficient frame and the chart's
   differentials.
 * `context` — the `GeometricContext`: every per-step quantity, in cost tiers.
-* `lie` — matrix Lie groups: the `Basis` of Hermitian generators, and the
-  `MatrixLieGroup` middle layer with its `UnitaryGroup` / `SpecialUnitaryGroup`.
+* `basis` — the `Basis` of Hermitian generators and the coefficient projector.
+  It is the **ambient** frame, not a Lie-specific one — both Stiefel manifolds
+  take one too — which is why it sits here rather than under `lie`.
+* `lie` — matrix Lie groups: the `MatrixLieGroup` middle layer with its
+  `UnitaryGroup` / `SpecialUnitaryGroup`.
 * `stiefel` — the Stiefel family: `Stiefel` (orthonormal $m$-frames under the
   canonical metric, with the iterative Zimmermann–Hüper logarithm) and
   `StateSphere` (state preparation, and
   the proof that this interface needs no group structure), frames later.
 
 **Import invariant: nothing in this package may import `geope.utils` at module
-level.** `geope.utils` imports `geometry.lie.basis` for its basis constructors,
+level.** `geope.utils` imports `geometry.basis` for its basis constructors,
 so a module-level import back would close the cycle. Defer it into the function
 body if it is ever unavoidable — the idiom `lie/hamiltonian.py` uses for its own
 deferred imports.
 """
 
+from .basis import Basis, traces, get_project_omegas_fn, get_project_omegas_fn_otf
 from .context import GeometricContext
 from .manifold import Manifold
 from .tangent import TangentBundle

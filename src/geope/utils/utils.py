@@ -7,7 +7,7 @@ from jax import Array
 import itertools as it
 from typing import Callable
 
-from ..geometry.lie.basis import Basis, traces
+from ..geometry.basis import Basis, traces
 
 
 @jax.jit

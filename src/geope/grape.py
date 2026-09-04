@@ -386,7 +386,6 @@ def get_update_step_trm(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
         # Get Hessian and gradients
         infidelity_new_phi, grads = grad_fn(free_params)
         hessian = hess_fn(free_params)
-        hessian = jnp.reshape(hessian, (hessian.shape[0], hessian.shape[0]))
         # Perform newton step to get update
         grads_nr = newton_trm_step(hessian, grads.flatten(), delta).reshape(
             free_params.shape
@@ -432,7 +431,6 @@ def get_update_step_rfo(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
         # Get Hessian and gradients
         infidelity_new_phi, grads = grad_fn(free_params)
         hessian = hess_fn(free_params)
-        hessian = jnp.reshape(hessian, (hessian.shape[0], hessian.shape[0]))
         # Perform newton step to get update
         grads_nr = newton_rfo_step(hessian, grads.flatten(), kappa)
         grads_nr = grads_nr.reshape(free_params.shape)

@@ -46,6 +46,7 @@ from jax import Array
 
 from ...jax.hessian import stiefel_hessian_quadratic_form
 from ...jax.logm import logm_unitary
+from ..cost import trace_cost_gradient, trace_cost_hessian_form
 from ..manifold import Manifold
 
 # Membership tolerance on Q^dag Q = 1, matching the group's unitarity tolerance.
@@ -398,7 +399,7 @@ class Stiefel(Manifold):
         difference of `distance2`, the total-space form is off by up to a few
         percent there. Rather than let `ApproximateQuadraticArmijo` quietly stop
         being exact, this fails — the same way a missing `TangentBundle.hvp` does
-        under ``param_transform``. The other four line searches run in both
+        under ``param_transform``. The other three line searches run in both
         modes, and `geope.line_searches.QuadraticArmijo` builds its curvature
         from ``ctx.q``, which uses the radial surrogate $\lVert\Omega\rVert^2$
         and never calls this.
@@ -408,8 +409,8 @@ class Stiefel(Manifold):
                 f"{self.name} with projective=True measures distance on the U(1) "
                 "quotient, whose Riemannian Hessian this does not implement, so "
                 "`ctx.q_exact` and `ctx.rho` are unavailable here. Pass "
-                "projective=False for the exact form, or use GoldenSection, Adam, "
-                "Armijo or QuadraticArmijo — all four run in either mode; only "
+                "projective=False for the exact form, or use GoldenSection, "
+                "Armijo or QuadraticArmijo — all three run in either mode; only "
                 "ApproximateQuadraticArmijo reads `q_exact`."
             )
         return stiefel_hessian_quadratic_form(point, -a, omega)
@@ -428,3 +429,22 @@ class Stiefel(Manifold):
     def infidelity(self, x: Array, y: Array) -> Array:
         r"""$1 - F(x, y)$."""
         return 1.0 - self.fidelity(x, y)
+
+    def cost_gradient(self, x: Array, y: Array) -> Array:
+        r"""$\partial C/\partial\bar x$ for the subspace fidelity, $\kappa = m$.
+
+        Note this is the *ambient* gradient of the cost, not a Riemannian one —
+        the canonical metric enters through `coefficients`, not here, because the
+        chain rule out of the chart is metric-free. See
+        `geope.geometry.cost.trace_cost_gradient`.
+        """
+        return trace_cost_gradient(x, y, 2, self.frame, self.projective)
+
+    def cost_hessian_form(self, x: Array, y: Array, u: Array) -> Array:
+        r"""The cost's own curvature: zero when phase-sensitive, the projective pair otherwise.
+
+        Unlike `hessian_quadratic_form`, this is available in **both** modes: it
+        is a derivative of the *fidelity*, which is defined either way, not of the
+        geodesic distance on the $\mathrm U(1)$ quotient.
+        """
+        return trace_cost_hessian_form(x, y, u, 2, self.frame, self.projective)

@@ -9,7 +9,10 @@ Tested items:
   Functions:
     - compute_matrices_params_list_fn
     - get_compute_matrices_params_list_fn
+    - get_chart_jacobian_fn / get_chart_vjp_fn / get_chart_hessian_fn
 """
+
+from types import SimpleNamespace
 
 import pytest
 import numpy as np
@@ -21,9 +24,14 @@ jax.config.update("jax_enable_x64", True)
 
 from geope.geometry.chart import (
     compute_matrices_params_list_fn,
+    get_chart_fn,
+    get_chart_hessian_fn,
+    get_chart_jacobian_fn,
+    get_chart_vjp_fn,
     get_compute_matrices_params_list_fn,
+    get_jacobian_fn,
 )
-from geope.geometry.lie import Basis
+from geope.geometry.basis import Basis
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
@@ -138,3 +146,95 @@ class TestGetComputeMatricesParamsListFn:
         U_fn = fn(params)
         U_direct = compute_matrices_params_list_fn(params, basis)
         assert jnp.allclose(U_fn, U_direct, atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Tests — the landed jet: DPhi, DPhi^T and D^2Phi from the propagators
+# ---------------------------------------------------------------------------
+#
+# These are the live paths, and each is checked against the autodiff equivalent
+# it replaced. The parametrisation over ``base_point`` is the point: the manual
+# propagator is shaped ``(G, d, d, K)`` while the ``TangentBundle`` contract is
+# ``(*ambient_shape, G, K)``, and the landing has to survive a base point that is
+# absent (a group), a vector (a state) or a matrix (a frame).
+
+
+BASE_POINT_CASES = ["None", "(d,)", "(d, m)"]
+
+
+def _base_point(case, d, key):
+    if case == "None":
+        return None
+    shape = (d,) if case == "(d,)" else (d, 2)
+    parts = jax.random.normal(key, (2, *shape))
+    return parts[0] + 1j * parts[1]
+
+
+@pytest.fixture(params=BASE_POINT_CASES)
+def jet(request):
+    """A 2-qubit, 3-step chart landed on each kind of base point."""
+    basis = np.asarray(construct_full_pauli_basis(2).basis)
+    d, K = basis.shape[1], basis.shape[0]
+    key_p, key_b = jax.random.split(jax.random.key(11))
+    params = (jax.random.normal(key_p, (3, K)) * 0.3).astype(jnp.complex128)
+    base = _base_point(request.param, d, key_b)
+    chart = get_chart_fn(basis, base)
+    return SimpleNamespace(
+        case=request.param,
+        basis=basis,
+        base=base,
+        params=params,
+        chart=chart,
+        ambient=chart(params).shape,
+    )
+
+
+class TestChartJacobian:
+    def test_matches_autodiff(self, jet):
+        manual = get_chart_jacobian_fn(jet.basis, jet.base)(jet.params)
+        auto = get_jacobian_fn(jet.chart)(jet.params)
+        assert jnp.allclose(manual, auto, atol=1e-9)
+
+    def test_layout_is_ambient_then_parameters(self, jet):
+        """The contract `GeometricContext` slices with ``moveaxis((-2,-1),(0,1))``."""
+        manual = get_chart_jacobian_fn(jet.basis, jet.base)(jet.params)
+        assert manual.shape == (*jet.ambient, *jet.params.shape)
+
+
+class TestChartVjp:
+    def test_matches_contracting_the_jacobian(self, jet):
+        cot_parts = jax.random.normal(jax.random.key(12), (2, *jet.ambient))
+        cot = cot_parts[0] + 1j * cot_parts[1]
+        jac = get_jacobian_fn(jet.chart)(jet.params)
+        expected = jnp.einsum("...,...gk->gk", jnp.conj(cot), jac)
+        _, pullback = get_chart_vjp_fn(jet.basis, jet.base)(jet.params)
+        got = pullback(cot)
+        assert got.shape == jet.params.shape
+        assert jnp.allclose(got, expected, atol=1e-9)
+
+    def test_returns_the_landed_point_with_the_pullback(self, jet):
+        """The value is shared with the pullback, so a gradient is one pass."""
+        point, _ = get_chart_vjp_fn(jet.basis, jet.base)(jet.params)
+        assert point.shape == jet.ambient
+        assert jnp.allclose(point, jet.chart(jet.params), atol=1e-12)
+
+    def test_is_conjugate_linear_in_the_covector(self, jet):
+        """It pairs through ``Tr(C^dagger .)``, so ``i C`` scales it by ``-i``."""
+        _, pullback = get_chart_vjp_fn(jet.basis, jet.base)(jet.params)
+        cot = jnp.ones(jet.ambient, dtype=jnp.complex128)
+        assert jnp.allclose(pullback(1j * cot), -1j * pullback(cot))
+
+
+class TestChartHessian:
+    def test_matches_autodiff(self, jet):
+        manual = get_chart_hessian_fn(jet.basis, jet.base)(jet.params)
+        auto = jax.jacfwd(jax.jacrev(jet.chart, holomorphic=True), holomorphic=True)(
+            jet.params
+        )
+        # (G, G, *ambient, K, K) -> (*ambient, G, K, G, K)
+        assert jnp.allclose(jnp.einsum("ij...kl->...ikjl", manual), auto, atol=1e-8)
+
+    def test_layout_is_gates_ambient_coefficients(self, jet):
+        manual = get_chart_hessian_fn(jet.basis, jet.base)(jet.params)
+        n_gates, n_coeffs = jet.params.shape
+        assert manual.shape == (n_gates, n_gates, *jet.ambient, n_coeffs, n_coeffs)

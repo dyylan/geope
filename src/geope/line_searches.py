@@ -8,7 +8,7 @@ is the separate :class:`Grape` class). The active object is passed to
 
 Each line search is a ``@dataclass(frozen=True)`` — immutable config that gets
 value-based ``__eq__``/``__hash__``/``__repr__`` for free. The value ``__eq__``
-drives GEOPE's compile memo (``Adam(1e-2) == Adam(1e-2)`` ⇒ no recompile) and the
+drives GEOPE's compile memo (``Armijo() == Armijo()`` ⇒ no recompile) and the
 immutability keeps hyperparameter sweeps correct (a config cannot be mutated in
 place and silently reuse a stale compiled function).
 
@@ -31,7 +31,7 @@ minimiser already computes it — and ``Geope.optimize`` decides whether the ste
 made progress by comparing it against the same objective at ``t = 0``.
 
 The three orders of information cost different things per GEOPE step:
-:class:`GoldenSection` and :class:`Adam` are zeroth-order and evaluate only the
+:class:`GoldenSection` is zeroth-order and evaluates only the
 cheap ``ctx.infidelity_at``; :class:`Armijo` is first-order and evaluates the
 ``logm``-bearing ``ctx.distance_at`` a few times but forms no derivative;
 :class:`QuadraticArmijo` is second-order and additionally pays one directional
@@ -43,8 +43,7 @@ Cross-step state is a JAX pytree threaded through the jitted update (mirroring
 ``Grape.optimizer_state``): a jitted closure traces once, so persistent state
 must enter/leave as an argument/result rather than as a mutated attribute. The
 state is line-search-owned and opaque to GEOPE — every search carries
-``{"n_eval"}`` (the per-step count of 1-D-objective evaluations it spent), and
-:class:`Adam` additionally carries ``{"t_prev"}`` (warm-start).
+``{"n_eval"}`` (the per-step count of 1-D-objective evaluations it spent).
 ``Geope.optimize`` re-``init()``s the state at the start of every run.
 """
 
@@ -79,7 +78,7 @@ class LineSearch:
     Subclasses are frozen dataclasses (immutable config) that own an opaque
     JAX-pytree state. The base state carries only ``{"n_eval"}`` — the per-step
     count of 1-D-objective evaluations the search spent — which every line
-    search reports; stateful searches (e.g. :class:`Adam`) extend it.
+    search reports; stateful searches extend it.
 
     Attributes:
         objective: Which scalar of the context this search minimises,
@@ -131,59 +130,6 @@ class GoldenSection(LineSearch):
             ctx.infidelity_at, a, b, tol=self.tol
         )
         return LineSearchResult(dt, value, {"n_eval": n_eval})
-
-
-@dataclass(frozen=True)
-class Adam(LineSearch):
-    """1-D Adam line search — zeroth-order (minimises ``ctx.infidelity_at``).
-
-    Args:
-        lr: Adam learning rate. Defaults to 0.05.
-        num_steps: Number of Adam iterations. Defaults to 30.
-        finite_difference: If ``True`` (default), estimate the gradient with a
-            finite-difference secant; otherwise use ``jax.value_and_grad``.
-        warm_start: If ``True``, seed each step's search from the previous
-            step's ``t`` (carried across GEOPE steps via the threaded state).
-            Defaults to ``False``.
-        fd_step: Probe size for the finite-difference bootstrap. Defaults to 1e-3.
-        beta1: First-moment decay. Defaults to 0.9.
-        beta2: Second-moment decay. Defaults to 0.999.
-        eps: Numerical-stability term. Defaults to 1e-8.
-    """
-
-    name = "adam"
-    lr: float = 0.05
-    num_steps: int = 30
-    finite_difference: bool = True
-    warm_start: bool = False
-    fd_step: float = 1e-3
-    beta1: float = 0.9
-    beta2: float = 0.999
-    eps: float = 1e-8
-
-    def init(self):
-        # t_prev seeds the warm-start within a run; reset fresh each run.
-        return {
-            "t_prev": jnp.asarray(0.0, jnp.float64),
-            "n_eval": jnp.asarray(0, jnp.int32),
-        }
-
-    def __call__(self, ctx, a, b, state):
-        t0 = state["t_prev"] if self.warm_start else 0.0
-        dt, value, n_eval = _adam_line_search(
-            ctx.infidelity_at,
-            a,
-            b,
-            lr=self.lr,
-            num_steps=self.num_steps,
-            finite_difference=self.finite_difference,
-            t_init=t0,
-            fd_step=self.fd_step,
-            beta1=self.beta1,
-            beta2=self.beta2,
-            eps=self.eps,
-        )
-        return LineSearchResult(dt, value, {"t_prev": dt, "n_eval": n_eval})
 
 
 @dataclass(frozen=True)
@@ -437,141 +383,6 @@ def _golden_section_search(
     return t_best, f_best, n_eval
 
 
-# TODO can we remove the finite differences here?
-def _adam_line_search(
-    f: Callable[[Array], Array],
-    a_init: float | Array,
-    b_init: float | Array,
-    lr: float = 0.05,
-    num_steps: int = 30,
-    finite_difference: bool = True,
-    fd_step: float = 1e-3,
-    beta1: float = 0.9,
-    beta2: float = 0.999,
-    eps: float = 1e-8,
-    t_init: float | Array = 0.0,
-) -> tuple[Array, Array, Array]:
-    """JIT-compatible 1-D Adam line search using JAX.
-
-    Minimises a scalar function `f` on the interval $[a, b]$ by running
-    a fixed number of Adam steps on the scalar variable ``t``, clipping
-    ``t`` back into the interval after every step. Uses
-    ``jax.lax.fori_loop`` (fixed step count), making it compatible with
-    JIT compilation.
-
-    The gradient ``df/dt`` is obtained either by a finite-difference
-    secant from successive evaluations (``finite_difference=True``;
-    derivative-free, one ``f`` evaluation per step) or by
-    ``jax.value_and_grad`` (``finite_difference=False``; exact, but
-    differentiates through ``f``). ``f`` must map a real scalar to a
-    real scalar.
-
-    Adam is not monotone, so the best iterate visited is tracked and
-    returned — the result is never worse than ``f(t_init)``.
-
-    Args:
-        f: Scalar-valued callable (real -> real).
-        a_init: Left endpoint of the search interval.
-        b_init: Right endpoint of the search interval.
-        lr: Adam learning rate. Defaults to 0.05.
-        num_steps: Number of Adam iterations. Defaults to 30.
-        finite_difference: If ``True`` (default), estimate the gradient
-            with a finite-difference secant; otherwise use
-            ``jax.value_and_grad``.
-        fd_step: Probe size for the finite-difference bootstrap.
-            Defaults to 1e-3.
-        beta1: First-moment decay. Defaults to 0.9.
-        beta2: Second-moment decay. Defaults to 0.999.
-        eps: Numerical-stability term. Defaults to 1e-8.
-        t_init: Starting point for ``t``. Defaults to 0.0.
-
-    Returns:
-        A tuple ``(t_best, f_best, n_eval)`` of the best minimiser found, its
-        function value, and the number of ``f`` evaluations spent (the fixed
-        ``num_steps + 2``), matching the ``(x_min, f_min, n_eval)`` contract of
-        :func:`_golden_section_search`.
-
-    Example:
-        ```python
-        f = lambda x: (x - 2.0) ** 2
-        x_min, f_min, n_eval = _adam_line_search(f, 0.0, 5.0, lr=0.1, num_steps=200)
-        ```
-
-    References:
-        [Adam](https://arxiv.org/abs/1412.6980)
-    """
-    lo = jnp.minimum(a_init, b_init)
-    hi = jnp.maximum(a_init, b_init)
-    f64 = lambda x: jnp.asarray(x, dtype=jnp.float64)
-
-    def adam_update(i, t, m, v, g):
-        # Shared Adam moment update + bias correction + interval clip.
-        m = beta1 * m + (1.0 - beta1) * g
-        v = beta2 * v + (1.0 - beta2) * (g * g)
-        step = f64(i) + 1.0
-        m_hat = m / (1.0 - beta1**step)
-        v_hat = v / (1.0 - beta2**step)
-        t_new = jnp.clip(t - lr * m_hat / (jnp.sqrt(v_hat) + eps), lo, hi)
-        return t_new, m, v
-
-    t0 = jnp.clip(f64(t_init), lo, hi)
-    f0 = f64(f(t0))
-
-    if finite_difference:
-        # Bootstrap: one inward probe to seed (t_prev, f_prev).
-        direction = jnp.sign((lo + hi) / 2.0 - t0)
-        direction = jnp.where(direction == 0, -1.0, direction)
-        t_start = jnp.clip(t0 + direction * fd_step, lo, hi)
-        # state: (t, m, v, t_prev, f_prev, t_best, f_best)
-        state0 = (t_start, f64(0.0), f64(0.0), t0, f0, t0, f0)
-
-        def body_fun(i, state):
-            t, m, v, t_prev, f_prev, t_best, f_best = state
-            ft = f64(f(t))
-            improved = ft < f_best
-            t_best = jnp.where(improved, t, t_best)
-            f_best = jnp.where(improved, ft, f_best)
-            dt_ = t - t_prev
-            dt_safe = jnp.where(dt_ == 0, fd_step, dt_)  # guard exact-zero
-            g = (ft - f_prev) / dt_safe  # secant slope
-            t_new, m, v = adam_update(i, t, m, v, g)
-            return (t_new, m, v, t, ft, t_best, f_best)
-
-        t, m, v, t_prev, f_prev, t_best, f_best = jax.lax.fori_loop(
-            0, num_steps, body_fun, state0
-        )
-    else:
-        # When ``f`` maps the real ``t`` through complex intermediates (e.g.
-        # unitaries), JAX may emit a benign ComplexWarning while forming the
-        # real cotangent of ``t``; the gradient is correct (verified against
-        # finite differences).
-        value_and_grad = jax.value_and_grad(f)
-        # state: (t, m, v, t_best, f_best)
-        state0 = (t0, f64(0.0), f64(0.0), t0, f0)
-
-        def body_fun(i, state):
-            t, m, v, t_best, f_best = state
-            ft, g = value_and_grad(t)
-            ft = f64(ft)
-            improved = ft < f_best
-            t_best = jnp.where(improved, t, t_best)
-            f_best = jnp.where(improved, ft, f_best)
-            t_new, m, v = adam_update(i, t, m, v, g)
-            return (t_new, m, v, t_best, f_best)
-
-        t, m, v, t_best, f_best = jax.lax.fori_loop(0, num_steps, body_fun, state0)
-
-    # Also consider the final iterate (evaluated once after the loop).
-    f_last = f64(f(t))
-    take_last = f_last < f_best
-    t_best = jnp.where(take_last, t, t_best)
-    f_best = jnp.where(take_last, f_last, f_best)
-    # Fixed schedule: ``f(t0)`` + ``num_steps`` body evals + one final ``f(t)``
-    # (the grad path counts each ``value_and_grad`` as one evaluation).
-    n_eval = jnp.asarray(num_steps + 2, dtype=jnp.int32)
-    return t_best, f_best, n_eval
-
-
 def _quadratic_armijo_line_search(
     fF: Callable[[Array], Array],
     a: float | Array,
@@ -591,7 +402,7 @@ def _quadratic_armijo_line_search(
     step at the minimiser of the local quadratic model and then enforces
     sufficient decrease with Armijo backtracking.
 
-    Unlike :func:`_golden_section_search` / :func:`_adam_line_search`, which see
+    Unlike :func:`_golden_section_search`, which sees
     only the scalar objective, this routine consumes the second-order
     information ``(s, q)`` directly. The bracket is one-sided: the descent side
     ``[a, 0]`` with ``a`` the maximum-magnitude step (``a < 0`` in GEOPE, where a

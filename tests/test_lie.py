@@ -18,7 +18,7 @@ import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
-from geope.geometry.lie import Basis
+from geope.geometry.basis import Basis
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
