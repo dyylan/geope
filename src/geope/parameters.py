@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import cached_property
+from functools import cached_property, partial
 from typing import Callable
 
 import inspect
@@ -10,15 +10,11 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from .geometry.chart import get_jacobian_fn, get_split_jacobian_fn
-
-from .geometry.lie import Basis, get_project_omegas_fn, get_project_omegas_fn_otf
+from .geometry.lie import Basis
 
 from .geometry import (
     Manifold,
-    TangentBundle,
     SpecialUnitaryGroup,
-    UnitaryGroup,
 )
 from .utils import (
     construct_restricted_pauli_basis,
@@ -30,11 +26,11 @@ from .utils import (
 
 
 class Parameters:
-    """Central state object for the Basis -> Parameters -> Optimizer pipeline.
+    """Central state object for the parameters of the system.
 
     Holds the system description (basis, control/drift Hamiltonians, target),
     optimisation config (constraints, bounds, ``param_transform``), and the
-    *live* optimisation state (``parameters``, ``fidelity``) that an optimiser
+    live optimisation state (``parameters``, ``fidelity``) that an optimiser
     such as `Geope` updates in place.
 
     Attributes:
@@ -49,12 +45,9 @@ class Parameters:
         pulse_constraints: Optional pulse-shape constraint config.
         param_transform: Optional callable mapping experimental params
             to basis coefficients.
-        manifold_spec: The unbound `geope.geometry.Manifold` this problem
-            lives on — the single place the SU-vs-U choice is recorded.
-        manifold: The same manifold, bound to the pulse chart (lazy, cached);
-            every optimisation function hangs off it.
+        manifold: The `geope.geometry.Manifold` this problem lives on.
         projective: Whether the geometry is the projective (SU) one.
-            Read-only; delegates to ``manifold_spec``.
+            Read-only; delegates to ``manifold``.
         n_experimental_params: Length of the experimental-parameter
             vector when ``param_transform`` is set.
         constraint_arrays: List of linear-equality constraint vectors,
@@ -90,8 +83,7 @@ class Parameters:
         seed: int | jax.Array | None = None,
         param_transform: Callable | None = None,
         n_experimental_params: int | None = None,
-        projective: bool | None = None,
-        manifold: Manifold | type[Manifold] | None = None,
+        manifold: Manifold | None = None,
     ) -> None:
         """Initialise a Parameters bundle.
 
@@ -142,20 +134,20 @@ class Parameters:
             n_experimental_params: Number of experimental parameters
                 when ``param_transform`` is set. Defaults to
                 ``projected_basis.lie_algebra_dim``.
-            projective: If ``True`` (the default), use the projective
-                (SU) fidelity. If ``False``, use the phase-sensitive
-                (U) fidelity. A shorthand for ``manifold``; passing both
-                is an error unless they agree.
-            manifold: The `geope.geometry.Manifold` to synthesise on, as an
-                instance (``SpecialUnitaryGroup(4)``) or a class (the
-                dimension is then taken from ``basis``). Defaults to
-                `geope.geometry.SpecialUnitaryGroup` or
-                `geope.geometry.UnitaryGroup` per ``projective``.
+            manifold: The `geope.geometry.Manifold` to synthesise on, as a
+                constructed instance: `geope.geometry.SpecialUnitaryGroup`
+                (the default, ``dim`` taken from ``basis``) for the
+                projective fidelity, `geope.geometry.UnitaryGroup` for the
+                phase-sensitive one, or a `geope.geometry.StateSphere` /
+                `geope.geometry.Stiefel` for state and subspace problems.
+                The manifold carries the fidelity, the tangent projection
+                and the geodesic with it, so it is the only place that
+                choice is made.
 
         Raises:
             ValueError: If ``control`` and ``projected_basis`` (or ``drift``
-                and ``drift_basis``) are both given, if the control and drift
-                bases overlap, or if ``manifold`` and ``projective`` disagree.
+                and ``drift_basis``) are both given, or if the control and
+                drift bases overlap.
         """
         # --- Basis ---
         if basis is None:
@@ -235,15 +227,12 @@ class Parameters:
         self.seed = seed
         self.init_spread = init_spread
         self.param_transform = param_transform
-        self.manifold_spec = _resolve_manifold(manifold, projective, self.basis)
-        # Membership check at configuration time, on the *unbound* manifold: a
-        # target off the manifold (a non-unitary matrix, a non-normalised state)
-        # otherwise produces plausible-looking fidelities instead of an error.
-        # It lives here rather than in `Manifold.bind` because `bind` is reached
-        # lazily through `self.manifold`, which may first be touched inside a
-        # jit trace — where a host-side check cannot run.
+        # Default manifold is SU(N)
+        if manifold is None:
+            manifold = SpecialUnitaryGroup(basis.dim)
+        # Validate target
         if self.target is not None:
-            self.manifold_spec.validate_point(self.target, "target")
+            manifold.validate_point(self.target, "target")
         self.n_experimental_params = (
             n_experimental_params
             if n_experimental_params is not None
@@ -326,7 +315,32 @@ class Parameters:
             self.drift_parameters = None
 
         # --- Live state: current fidelity (set once a run computes it) ---
+        # TODO: Turn this into a settable property.
         self.fidelity = None
+
+        # --- The bound manifold: the one handle every optimiser reads -------
+        # Last, because everything `bind` reads is settled by now: the index
+        # masks, the drift values and the transform. What a `Parameters` alone
+        # knows is exactly the four arguments below — which frame the
+        # coefficients resolve against, which generators the pulse drives, which
+        # columns the solve may move, and the reparametrisation. The chart and
+        # both its differentials are the geometry layer's, so no mathematics
+        # crosses this line.
+        #
+        # Eager rather than a `cached_property`: binding traces nothing (every
+        # factory is a partial or a closure), and doing it here means no
+        # `jax.jit` can ever be the first thing to touch it.
+        self.manifold = manifold.bind(
+            target=self.target,
+            generators=self.proj_drift_basis,
+            frame=self.basis,
+            columns=self.proj_indices_projdrift_basis,
+            wrap_chart=(
+                None
+                if param_transform is None
+                else partial(wrap_compute_point_param_transform, self)
+            ),
+        )
 
     @property
     def infidelity(self) -> float | None:
@@ -339,25 +353,7 @@ class Parameters:
 
         Delegates to the manifold, which is the single place the choice lives.
         """
-        return self.manifold_spec.projective
-
-    @cached_property
-    def manifold(self) -> Manifold:
-        """The `geope.geometry.Manifold`, bound to the chart this object describes.
-
-        Built lazily on first access and cached, so a `Geope` and a `Gecko`
-        sharing one `Parameters` share the bound chart and JAX reuses the
-        compiled traces rather than recompiling. Assembled by
-        `geope.geometry.bind_manifold`; every optimisation function the
-        optimisers need hangs off it — ``manifold.compute_point``,
-        ``manifold.fidelity_at``, ``manifold.value_and_grad``,
-        ``manifold.hessian``, ``manifold.tangent.jacobian`` and
-        ``manifold.context(phi)``.
-
-        The configuration it closes over is fixed after construction; mutating
-        ``basis``/``target``/``param_transform`` afterwards will not rebuild it.
-        """
-        return _bind_manifold(self)
+        return self.manifold.projective
 
     def free(self, parameters: np.ndarray | Array | None = None) -> Array:
         """The free (proj+drift) parameter columns, in the pipeline's dtype.
@@ -399,10 +395,7 @@ class Parameters:
 
     # --- Derived algebraic metadata -------------------------------------
     # These index masks and the combined projected+drift basis are pure
-    # functions of ``basis`` / ``projected_basis`` / ``drift_basis`` (none of
-    # which change during a run), so they are cached on first access. They are
-    # the single source of truth previously computed in ``Engine.__init__``;
-    # the optimisers read them off the shared ``Parameters`` object.
+    # functions of ``basis`` / ``projected_basis`` / ``drift_basis`` and stay fixed throughout.
 
     @cached_property
     def projected_indices(self) -> np.ndarray:
@@ -470,100 +463,6 @@ class Parameters:
                 result[key] = {}
             result[key][new_label] = float(np.real(value))
         return result
-
-
-def _resolve_manifold(
-    manifold: Manifold | type[Manifold] | None,
-    projective: bool | None,
-    basis: Basis,
-) -> Manifold:
-    """Resolve the ``manifold`` / ``projective`` arguments to one manifold.
-
-    ``projective`` is the historical shorthand and stays supported; ``manifold``
-    is the general form. Exactly one of them decides, and they may not disagree.
-
-    Args:
-        manifold: A `geope.geometry.Manifold` instance, a `Manifold` subclass (a
-            dimension is then taken from ``basis``), or ``None``.
-        projective: ``True``/``False`` to select the default SU/U manifold, or
-            ``None`` to leave the choice to ``manifold``.
-        basis: The full basis, whose dimension the default manifold takes.
-
-    Returns:
-        The unbound `geope.geometry.Manifold`.
-
-    Raises:
-        ValueError: If ``manifold`` and ``projective`` disagree.
-    """
-    if manifold is None:
-        default = UnitaryGroup if projective is False else SpecialUnitaryGroup
-        return default(basis.dim)
-    if isinstance(manifold, type):
-        manifold = manifold(basis.dim)
-    if projective is not None and manifold.projective != projective:
-        raise ValueError(
-            f"`manifold={manifold.name}` has projective={manifold.projective}, "
-            f"which contradicts `projective={projective}`. Pass one or the "
-            "other: `projective` selects the default SU/U manifold, and a "
-            "`manifold` carries the choice itself."
-        )
-    return manifold
-
-
-def _bind_manifold(params: "Parameters") -> Manifold:
-    """Bind ``params``'s manifold to the pulse chart ``params`` describes.
-
-    Assembles the chart $\\Phi$ (built by the manifold from the proj+drift
-    generators, and wrapped when ``params.param_transform`` is set), its
-    Jacobian, the coefficient-space projector and the mask of solvable columns —
-    then hands them to `Manifold.bind`.
-
-    This is the one place that knows both `Parameters` and the geometry layer;
-    it is reached through the memoised `Parameters.manifold`, so a `Geope` and a
-    `Gecko` sharing one `Parameters` share the callables and JAX reuses their
-    compiled traces.
-
-    Args:
-        params: The `Parameters` describing the system.
-
-    Returns:
-        The bound `Manifold`.
-    """
-    compute_point = params.manifold_spec.chart(params.proj_drift_basis)
-    if params.param_transform is None:
-        jacobian = get_jacobian_fn(compute_point)
-        # The chart is a plain product of exponentials in these generators, so
-        # the manual propagator HVP and Hessian apply.
-        generators = params.proj_drift_basis
-        # Only the projected columns are solvable; the drift is held fixed.
-        columns = params.proj_indices_projdrift_basis
-    else:
-        compute_point = wrap_compute_point_param_transform(params, compute_point)
-        # Holomorphic autodiff through the real-valued user transform would drop
-        # the imaginary part of the intermediates.
-        jacobian = get_split_jacobian_fn(compute_point)
-        # Experimental space: no exponential-product structure to exploit, and
-        # every column is free.
-        generators = None
-        columns = None
-
-    if params.basis.n > 5:
-        # Materialising the full projector is too memory-heavy up here.
-        project = get_project_omegas_fn_otf(params.basis, batch_size=None)
-    else:
-        project = get_project_omegas_fn(params.basis)
-
-    tangent = TangentBundle(
-        basis=params.basis,
-        project=project,
-        jacobian=jacobian,
-        hvp=None if generators is None else params.manifold_spec.chart_hvp(generators),
-        generators=generators,
-        columns=columns,
-    )
-    return params.manifold_spec.bind(
-        target=params.target, compute_point=compute_point, tangent=tangent
-    )
 
 
 def wrap_compute_point_param_transform(
