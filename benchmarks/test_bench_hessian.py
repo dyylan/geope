@@ -1,11 +1,14 @@
-"""Full-sequence Hessian benchmarks: manual vs. autodiff.
+"""Full-sequence **propagator** Hessian benchmarks: manual vs. autodiff.
 
-Two objects are benchmarked:
+Benchmarks ``d^2U/dphi^2`` itself — `get_hessian_propagator` (spectral,
+prefix/suffix products) against autodiff
+``jax.jacfwd(jax.jacrev(compute_point))``.
 
-* the **propagator** Hessian ``d^2U/dphi^2`` — `get_hessian_propagator` (spectral,
-  prefix/suffix products) vs autodiff ``jax.jacfwd(jax.jacrev(compute_point))``;
-* the **infidelity-cost** Hessian ``(P, P)`` — `get_hessian_propagator_fn`
-  (Goodwin-Kuprov) vs the autodiff `get_hessian_fn` over the same infidelity.
+The *cost* Hessian that used to sit here moved to
+``benchmarks/test_bench_objectives.py``: it is now assembled at the manifold
+level from this tensor plus the manifold's own cost derivatives, rather than by a
+group-specific function, so it belongs with the gradient it shares that assembly
+with.
 
 ``*_exec`` benchmarks are warmed up and timed with ``block_until_ready``.
 
@@ -20,10 +23,7 @@ import jax.numpy as jnp
 import pytest
 
 from geope.geometry.chart import get_compute_matrices_params_list_fn
-from geope.geometry.lie.groups import get_hessian_propagator_fn, infidelity
-from geope.jax.hessian import get_hessian_fn
 from geope.jax import get_hessian_propagator
-from geope.utils import qft_unitary
 
 from conftest import make_basis
 
@@ -65,24 +65,16 @@ def test_propagator_hessian_autodiff_exec(benchmark, size):
     )
 
 
-@pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
-def test_cost_hessian_propagator_exec(benchmark, size):
-    n, basis, params = _setup(size, real=True)
-    target = jnp.asarray(qft_unitary(n))
-    fn = jax.jit(get_hessian_propagator_fn(basis, target, projective=True))
-    jax.block_until_ready(fn(params))
-    benchmark.pedantic(
-        lambda: jax.block_until_ready(fn(params)), rounds=10, warmup_rounds=1
-    )
-
-
-@pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
-def test_cost_hessian_autodiff_exec(benchmark, size):
-    n, basis, params = _setup(size, real=True)
-    target = jnp.asarray(qft_unitary(n))
+def test_manual_matches_autodiff():
+    """Guard: the two paths must compute the same Hessian (else the execution
+    benchmarks are not comparing equivalent work)."""
+    _, basis, params = _setup((2, 2))
     compute_point = get_compute_matrices_params_list_fn(basis)
-    fn = jax.jit(get_hessian_fn(lambda x: infidelity(compute_point(x), target)))
-    jax.block_until_ready(fn(params))
-    benchmark.pedantic(
-        lambda: jax.block_until_ready(fn(params)), rounds=10, warmup_rounds=1
-    )
+
+    manual = get_hessian_propagator(basis)(params)  # (G, G, d, d, K, K)
+    auto = jax.jacfwd(jax.jacrev(compute_point, holomorphic=True), holomorphic=True)(
+        params
+    )  # (d, d, G, K, G, K)
+    auto = jnp.einsum("...ikjl->ij...kl", auto)  # -> (G, G, d, d, K, K)
+
+    assert jnp.allclose(manual, auto, atol=1e-8)

@@ -1,10 +1,17 @@
 """Full-sequence Jacobian benchmarks: manual stitch vs. naive autodiff.
 
 Compares :func:`geope.jax.get_jacobian_propagator` (the hand-written
-``(G, K) -> (G, d, d, K)`` stitch) against the production autodiff path
-``jax.jacobian(compute_point_fn, holomorphic=True)`` built by
+``(G, K) -> (G, d, d, K)`` stitch) against
+``jax.jacobian(compute_point_fn, holomorphic=True)``, built by
 :func:`geope.geometry.chart.get_jacobian_fn` over the ``jax.lax.scan`` product
-unitary.
+unitary. The manual stitch is now the live path, landed and transposed by
+:func:`geope.geometry.chart.get_chart_jacobian_fn`; the autodiff one remains the
+reference the tests check it against.
+
+The *gradient* of the infidelity is a separate object and is benchmarked in
+``benchmarks/test_bench_objectives.py`` — it never builds a Jacobian at all
+(see :func:`geope.jax.vjp_propagator`), so timing it here would compare the wrong
+things.
 
 Two benchmark families per size:
 
@@ -21,8 +28,6 @@ Run with, e.g.::
 
 which places the manual and autodiff bars for each ``(n, G)`` side by side.
 """
-
-# TODO: add benchmark for gradient of fidelity here. Compare with autodiff version.
 
 import jax
 import jax.numpy as jnp

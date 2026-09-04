@@ -1,7 +1,7 @@
 """Line-search comparison: fevals / steps / walltime across a difficulty ladder.
 
 Runs the full GEOPE geodesic optimiser end-to-end with each pluggable line
-search (:class:`geope.GoldenSection`, :class:`geope.Adam`,
+search (:class:`geope.GoldenSection`, :class:`geope.Armijo`,
 :class:`geope.QuadraticArmijo`) on a ladder of gate-synthesis problems from easy
 (single-qubit rotation) to hard (3-qubit Toffoli), and reports for each:
 
@@ -25,7 +25,7 @@ Run with, e.g.::
         --benchmark-group-by=param:problem \
         --benchmark-columns=mean,median,rounds
 
-which places the three line searches side by side for each problem.
+which places the four line searches side by side for each problem.
 """
 
 import numpy as np
@@ -33,7 +33,6 @@ import jax
 import pytest
 
 from geope import (
-    Adam,
     ApproximateQuadraticArmijo,
     Armijo,
     Geope,
@@ -145,7 +144,6 @@ PROBLEM_IDS = list(PROBLEMS)
 
 METHODS = {
     "golden": GoldenSection(),
-    "adam": Adam(),
     "armijo": Armijo(),
     "quad_armijo": QuadraticArmijo(),
     "approx_quad_armijo": ApproximateQuadraticArmijo(),
