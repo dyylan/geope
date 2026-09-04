@@ -103,7 +103,7 @@ def get_jacobian_propagator(
     """Create a JIT-compiled manual Jacobian function for a given gate basis.
 
     The returned function is wrapped in ``jax.jit`` so it is compiled once and
-    reused across calls (rather than retracing on every invocation).
+    reused across calls.
 
     Args:
         gate_basis: ``Array`` of Hermitian basis matrices of shape ``(K, d, d)``.
