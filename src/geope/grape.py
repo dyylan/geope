@@ -4,35 +4,45 @@ import numpy as np
 
 import jax
 import jax.numpy as jnp
-import optax
 
 from .parameters import Parameters
 
 jax.config.update("jax_enable_x64", True)
 
+from .optimizers import NewtonTRM, Optimizer
 from .utils import prepare_random_parameters
 from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
-from functools import partial
 from typing import Callable
 
 
 class Grape:
     """Gradient/Hessian-based GRAPE optimiser for quantum gate synthesis.
 
-    Mirrors the `Geope` usage pattern: it is constructed from a `Parameters`
-    object (the single source of truth for all configuration and the live
-    optimisation state), while the optimiser ``method``, its hyperparameters
-    and ``max_steps`` are arguments of :meth:`optimize`.
+    Mirrors the `Geope` usage pattern in every respect: it is constructed from a
+    `Parameters` object (the single source of truth for all configuration and the
+    live optimisation state), while the update rule and ``max_steps`` are
+    arguments of :meth:`optimize`; and it builds **one** `GeometricContext` per
+    step inside a single jitted ``update_step``.
+
+    Where `Geope` walks the geodesic toward the target, `Grape` walks the
+    infidelity's own gradient. The step is therefore assembled from the context's
+    *cost* tier — ``value_and_grad``, and ``cost_hessian`` for the Newton rules —
+    and never from ``point``, ``jacobian`` or ``A``. Because every context
+    quantity is lazy, that is the whole reason **a GRAPE run traces no matrix
+    logarithm and never builds the Jacobian**; see `geope.optimizers` for the rule
+    an update rule has to obey to keep it that way.
 
     Attributes:
         params: The bound `Parameters` object (also the source of the
             lazily-built/cached optimisation functions).
         precision: Target fidelity threshold.
-        method: Optimiser method from the most recent :meth:`optimize` call
-            (``'gd'``, ``'adam'``, ``'nr-trm'`` or ``'nr-rfo'``); ``None``
-            until :meth:`optimize` is first called.
-        step_size: Transient last step size (always 0 for GRAPE).
+        optimizer: The active `geope.optimizers.Optimizer` from the most recent
+            :meth:`optimize` call; ``None`` until :meth:`optimize` is first called.
+        optimizer_state: The current optimiser state pytree (re-``init()``d per
+            run); ``None`` until :meth:`optimize` is first called.
+        method: The active rule's ``name`` (e.g. ``'newton_trm'``), or ``None``.
+        step_size: Transient last accepted step, ``dt``.
         history: Optional `History` logger (``None`` unless supplied).
     """
 
@@ -96,20 +106,24 @@ class Grape:
         self.precision = precision
         self.init_parameters_spread = params.init_spread
 
-        # The optimiser method and its hyperparameters are arguments of
-        # optimize(), not the constructor. The JIT-compiled update_step bakes
-        # the method and hyperparameters into its closure, so it is built
-        # lazily by optimize() (via _configure_optimizer) and rebuilt only
-        # when that configuration changes. They stay unset until then.
-        self.method = None
-        self._optimizer_config = None
-        self.update_step = None
+        # The update rule is an argument of optimize(), not the constructor. The
+        # JIT-compiled update_step bakes it into its closure, so it is built
+        # lazily by optimize() (via _configure_optimizer) and rebuilt only when
+        # the rule changes — which the frozen dataclass's value __eq__ decides,
+        # exactly as Geope's line search does. They stay unset until then.
         self.optimizer = None
         self.optimizer_state = None
+        self._optimizer_config = None
+        self.update_step = None
 
         self.verbose = verbose
         # Initialize parameters
         self.init(init_parameters, drift_parameters, params.seed)
+
+    @property
+    def method(self) -> str | None:
+        """The active update rule's ``name``, or ``None`` before the first run."""
+        return None if self.optimizer is None else self.optimizer.name
 
     def _split_key(self) -> jax.Array:
         self._key, subkey = jax.random.split(self._key)
@@ -213,84 +227,89 @@ class Grape:
         self.params.parameters = np.array(self.init_parameters)
         self.params.fidelity = self.params.manifold.fidelity_at(self.params.free())
         self.step_size = 0
-        # A change of parameters invalidates any optax state built for the
-        # previous parameter values; force a rebuild on the next optimize().
+        # A change of parameters invalidates any optimiser state (Adam's moments
+        # are shaped like them); optimize() re-init()s it per run regardless, but
+        # clear it here so the object is never left holding a stale one.
         self.optimizer_state = None
-        self._optimizer_config = None
         if self.history is not None:
             self.history.reset()
             self.history.record(self)  # step 0
 
-    def _configure_optimizer(self, method: str, optimizer_kwargs: dict) -> None:
-        """Select the optimiser method and (re)build its update function.
+    def _configure_optimizer(self, optimizer: Optimizer) -> None:
+        """Select the update rule and (re)build its jitted update function.
 
-        The JIT-compiled ``update_step`` closes over the method and its
-        hyperparameters, so it is recreated (and the optax state re-initialised
-        from the current parameters) whenever the configuration changes. The
-        current configuration is memoised in ``_optimizer_config`` so repeated
-        ``optimize()`` calls with unchanged settings reuse the compiled
-        function and continue the optimiser state.
+        The JIT-compiled ``update_step`` closes over the rule, so it is rebuilt
+        whenever the rule changes — which the frozen dataclass's value ``__eq__``
+        decides, so two equal rules reuse the compiled function. This is exactly
+        `geope.Geope._configure_line_search`, with `geope.optimizers.Optimizer` in
+        place of the line search.
 
         Args:
-            method: ``'gd'``, ``'adam'``, ``'nr-trm'`` or ``'nr-rfo'``.
-            optimizer_kwargs: Method hyperparameters (``learning_rate`` for
-                ``'gd'``/``'adam'``, ``delta`` for ``'nr-trm'``, ``kappa`` for
-                ``'nr-rfo'``).
-        """
-        config = (method, tuple(sorted(optimizer_kwargs.items())))
-        if self._optimizer_config == config and self.optimizer_state is not None:
-            return
-        proj_drift_mask = self._proj_drift_mask()
-        manifold = self.params.manifold
-        # TODO: cut out optax.
-        if method in ["gd", "adam"]:
-            learning_rate = optimizer_kwargs.get("learning_rate")
-            if method == "gd":
-                optimizer = optax.sgd(learning_rate=learning_rate)
-            else:
-                optimizer = optax.adam(learning_rate=learning_rate)
-            self.update_step = get_update_step_gd(
-                proj_drift_mask, manifold.value_and_grad, optimizer
-            )
-        elif method in ["nr-trm", "nr-rfo"]:
-            # Use backtracking for second order optimization
-            optimizer = optax.scale_by_backtracking_linesearch(
-                max_backtracking_steps=100
-            )
-            if method == "nr-trm":
-                delta = optimizer_kwargs.get("delta")
-                self.update_step = get_update_step_trm(
-                    proj_drift_mask,
-                    manifold.infidelity_at,
-                    manifold.value_and_grad,
-                    manifold.hessian,
-                    optimizer,
-                    delta,
-                )
-            else:
-                kappa = optimizer_kwargs.get("kappa", 100)
-                self.update_step = get_update_step_rfo(
-                    proj_drift_mask,
-                    manifold.infidelity_at,
-                    manifold.value_and_grad,
-                    manifold.hessian,
-                    optimizer,
-                    kappa,
-                )
-        else:
-            raise NotImplementedError(f"Method {method} not implemented")
+            optimizer: The `geope.optimizers.Optimizer` to run.
 
+        Raises:
+            TypeError: If ``optimizer`` is not an `geope.optimizers.Optimizer`.
+        """
+        if not isinstance(optimizer, Optimizer):
+            raise TypeError(
+                "Grape.optimize(optimizer=...) takes a geope.optimizers.Optimizer "
+                "— GradientDescent, Adam, NewtonTRM or NewtonRFO — not "
+                f"{type(optimizer).__name__}. The `method='nr-trm'` strings were "
+                "replaced by these config objects; pass NewtonTRM(delta=...)."
+            )
+        # Set the attribute before the memo check so self.optimizer always tracks
+        # the latest value — safe because an equal rule means identical trace-time
+        # behaviour.
         self.optimizer = optimizer
-        self.optimizer_state = {"optimizer": optimizer.init(self.params.free())}
-        self.method = method
-        self._optimizer_config = config
+        if self._optimizer_config == optimizer:
+            return
+        self.update_step = self.get_update_step()
+        self._optimizer_config = optimizer
+
+    def get_update_step(self) -> Callable[..., tuple]:
+        """Build the JIT-compiled GRAPE update step.
+
+        One jitted function per update rule, and one
+        `geope.geometry.GeometricContext` per call of it. The step is: open the
+        context, let the rule read the cost tier off it and choose an uphill
+        direction and a (negative) step, then move.
+
+        The context is built *inside* this function and never leaves it — it is a
+        trace-time object, not a pytree. Everything the rule needs it reads off
+        that one context, and everything it does *not* read costs nothing, which
+        is why no matrix logarithm and no Jacobian is traced here.
+
+        Returns:
+            A JIT-compiled callable ``update_step(free_params, opt_state)``
+            returning ``(new_parameters, infidelity, dt, new_opt_state)``, where
+            ``infidelity`` is measured **at** ``new_parameters``.
+        """
+        manifold = self.params.manifold
+        optimizer = self.optimizer
+        proj_drift_mask = self._proj_drift_mask()
+        lie_algebra_dim = len(proj_drift_mask)
+
+        @jax.jit
+        def update_step(free_params, opt_state):
+            ctx = manifold.context(free_params)
+            result = optimizer(ctx, opt_state)
+            new_free = free_params + result.dt * result.coeffs
+
+            # Scatter the moved columns back over the full basis.
+            new_parameters = jnp.zeros(
+                (free_params.shape[0], lie_algebra_dim),
+                dtype=free_params.real.dtype,
+            )
+            new_parameters = new_parameters.at[:, proj_drift_mask].set(new_free.real)
+            return new_parameters, result.value, result.dt, result.state
+
+        return update_step
 
     def optimize(
         self,
         max_steps: int = 100,
-        method: str = "nr-trm",
+        optimizer: Optimizer | None = None,
         callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
-        **optimizer_kwargs: float,
     ) -> Parameters:
         """Run the GRAPE optimisation loop.
 
@@ -299,8 +318,10 @@ class Grape:
 
         Args:
             max_steps: Maximum number of optimisation steps. Defaults to 100.
-            method: ``'gd'``, ``'adam'``, ``'nr-trm'`` (default) or
-                ``'nr-rfo'``.
+            optimizer: The `geope.optimizers.Optimizer` to run — `GradientDescent`,
+                `Adam`, `NewtonTRM` or `NewtonRFO`, each a frozen dataclass
+                carrying its own hyperparameters. Defaults to
+                `geope.optimizers.NewtonTRM`.
             callbacks: Optional callback, or list/tuple of callbacks, invoked at
                 the end of every step with the signature
                 ``callback(step, history, grape) -> bool``. All callbacks run
@@ -309,26 +330,36 @@ class Grape:
                 the 1-based index of the step just completed, ``history`` is
                 ``grape.history`` (may be ``None``), and ``grape`` is this
                 optimiser.
-            **optimizer_kwargs: Method hyperparameters — ``learning_rate`` for
-                ``'gd'``/``'adam'``, ``delta`` for ``'nr-trm'``, ``kappa`` for
-                ``'nr-rfo'``.
 
         Returns:
             The bound `Parameters` instance, carrying the final
-            ``parameters`` (current array) and ``fidelity`` (scalar). The full
-            trajectory and ``best_*`` live on ``grape.history`` when a
-            `History` was supplied.
+            ``parameters`` (current array) and ``fidelity`` (scalar) — which
+            describe the **same** pulse, since the reported infidelity is measured
+            at the step just taken. The full trajectory and ``best_*`` live on
+            ``grape.history`` when a `History` was supplied.
+
+        Raises:
+            TypeError: If ``optimizer`` is not an `geope.optimizers.Optimizer`.
         """
-        self._configure_optimizer(method, optimizer_kwargs)
+        optimizer = optimizer or NewtonTRM()
+        self._configure_optimizer(optimizer)
+
+        # Reset the per-run state, decoupled from compile reuse exactly as in
+        # Geope.optimize: the memo can reuse the compiled update_step while Adam's
+        # moments and the Newton warm start still restart on every call.
+        self.optimizer_state = self.optimizer.init(self.params.free())
 
         cbs = normalize_callbacks(callbacks)
 
         step = 0
         while (self.params.fidelity < self.precision) and (step < max_steps):
             step += 1
-            new_parameters, infidelity, self.optimizer_state = self.update_step(
-                self.params.free(), self.optimizer_state
-            )
+            (
+                new_parameters,
+                infidelity,
+                step_size,
+                self.optimizer_state,
+            ) = self.update_step(self.params.free(), self.optimizer_state)
             if self.verbose:
                 if infidelity < 1 - self.precision:
                     print(
@@ -342,7 +373,7 @@ class Grape:
                     )
             self.params.parameters = np.array(new_parameters)
             self.params.fidelity = 1 - infidelity
-            self.step_size = 0
+            self.step_size = float(step_size)
             if self.history is not None:
                 self.history.record(self)
 
@@ -353,147 +384,3 @@ class Grape:
         if self.verbose:
             print("")
         return self.params
-
-
-def get_update_step_gd(proj_drift_indices, grad_fn, optimizer):
-    lie_algebra_dim = len(proj_drift_indices)
-
-    @jax.jit
-    def update_step(free_params, optimizer_state):
-        # Get Hessian and gradients
-        infidelity_new_phi, grads = grad_fn(free_params)
-        # use the linesearch backtracking, make sure we pass a function that needs to get minimized.
-        updates, optimizer_state["optimizer"] = optimizer.update(
-            grads, optimizer_state["optimizer"], free_params
-        )
-        # Updates the parameters.
-        free_params = optax.apply_updates(free_params, updates)
-        # Expand the coefficients to the larger space
-        new_parameters = jnp.zeros(
-            (free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype
-        )
-        new_parameters = new_parameters.at[:, proj_drift_indices].set(free_params.real)
-        return new_parameters, infidelity_new_phi, optimizer_state
-
-    return update_step
-
-
-def get_update_step_trm(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer, delta):
-    lie_algebra_dim = len(proj_drift_indices)
-
-    @jax.jit
-    def update_step(free_params, optimizer_state):
-        # Get Hessian and gradients
-        infidelity_new_phi, grads = grad_fn(free_params)
-        hessian = hess_fn(free_params)
-        # Perform newton step to get update
-        grads_nr = newton_trm_step(hessian, grads.flatten(), delta).reshape(
-            free_params.shape
-        )
-        # use the linesearch backtracking, make sure we pass a function that needs to get minimized.
-        updates, optimizer_state["optimizer"] = optimizer.update(
-            -grads_nr,
-            optimizer_state["optimizer"],
-            free_params,
-            value=infidelity_new_phi,
-            grad=-grads_nr,
-            value_fn=fid_fn,
-        )
-        # Updates the parameters.
-        free_params = optax.apply_updates(free_params, updates)
-        # Expand the coefficients to the larger space
-        new_parameters = jnp.zeros(
-            (free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype
-        )
-        new_parameters = new_parameters.at[:, proj_drift_indices].set(free_params.real)
-        return new_parameters, infidelity_new_phi, optimizer_state
-
-    return update_step
-
-
-@partial(jax.jit, static_argnums=(2,))
-def newton_trm_step(hessian, gradient, delta):
-    Σ, U = jnp.linalg.eigh(hessian)
-    # Shift spectrum by a delta
-    sigma = jnp.max(jnp.array([0.0, delta - jnp.min(Σ)]))
-    Σreg = Σ + sigma
-    # Solve system
-    cfac_reg = jax.scipy.linalg.cho_factor(U @ (jnp.diag(Σreg) @ U.conj().T))
-    return jax.scipy.linalg.cho_solve(cfac_reg, gradient)
-    # return gradient
-
-
-def get_update_step_rfo(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer, kappa):
-    lie_algebra_dim = len(proj_drift_indices)
-
-    @jax.jit
-    def update_step(free_params, optimizer_state):
-        # Get Hessian and gradients
-        infidelity_new_phi, grads = grad_fn(free_params)
-        hessian = hess_fn(free_params)
-        # Perform newton step to get update
-        grads_nr = newton_rfo_step(hessian, grads.flatten(), kappa)
-        grads_nr = grads_nr.reshape(free_params.shape)
-        # use the linesearch backtracking, make sure we pass a function that needs to get minimized.
-        updates, optimizer_state["optimizer"] = optimizer.update(
-            -grads_nr,
-            optimizer_state["optimizer"],
-            free_params,
-            value=infidelity_new_phi,
-            grad=-grads_nr,
-            value_fn=fid_fn,
-        )
-        # Updates the parameters.
-        free_params = optax.apply_updates(free_params, updates)
-        # Expand the coefficients to the larger space
-        new_parameters = jnp.zeros(
-            (free_params.shape[0], lie_algebra_dim), dtype=free_params.real.dtype
-        )
-        new_parameters = new_parameters.at[:, proj_drift_indices].set(free_params.real)
-        return new_parameters, infidelity_new_phi, optimizer_state
-
-    return update_step
-
-
-@partial(jax.jit, static_argnums=(2,))
-def condition_loop(hessian, g, kappa):
-    nparams = hessian.shape[0]
-    phi = 0.9  # 0.9 seems to work well
-    max_cond = kappa  # 1e4 is from Spinach Settings
-    max_iter = 300  # 0.9**300 = 1e-14
-    g = jnp.expand_dims(g, axis=1)
-
-    def body_fn(val):
-        k, i, a, H = val
-        # jax.debug.print("alpha {}", a)
-        # jax.debug.print("i {} - kappa: {}", i, kappa)
-        # jax.debug.print("max_cond {}", max_cond)
-        H_aug = jnp.block([[H * a**2, g * a], [g.T * a, 0.0]])
-        # Regularize
-        sigma = jnp.min(jnp.array([0.0, jnp.min(jnp.linalg.eigvalsh(H_aug))]))
-        H_aug = H_aug - jnp.eye(H_aug.shape[0]) * sigma
-        # Grab original Hamiltonian
-        H = H_aug[:nparams, :nparams] / a**2
-        return jnp.linalg.cond(H), i + 1, a * phi, H
-
-    def cond_fn(val):
-        # If kappa is larger than our target condition number, stop
-        cond1 = val[0] > max_cond
-        # Stop at max iterations
-        cond2 = val[1] < max_iter
-        return jax.lax.bitwise_and(cond1, cond2)
-
-    # set initial alpha
-    alpha_0 = 1.0  # Other choices are possible but this seems to work well.
-    return jax.lax.while_loop(cond_fn, body_fn, (jnp.inf, 0, alpha_0, hessian))
-
-
-@partial(jax.jit, static_argnums=(2,))
-def newton_rfo_step(hessian, gradient, phi):
-    # Regularize in loop
-    _, _, _, hessian = condition_loop(hessian, gradient, phi)
-    # Symmetrize
-    hessian = jnp.real(hessian + hessian.T) / 2
-    # Cholesky solve
-    cfac_reg = jax.scipy.linalg.cho_factor(hessian)
-    return jax.scipy.linalg.cho_solve(cfac_reg, gradient)

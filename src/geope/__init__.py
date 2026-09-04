@@ -19,6 +19,16 @@ from .line_searches import (
     QuadraticArmijo,
 )
 
+from . import optimizers
+from .optimizers import (
+    Optimizer,
+    OptimizerResult,
+    Adam,
+    GradientDescent,
+    NewtonRFO,
+    NewtonTRM,
+)
+
 from .geometry import (
     GeometricContext,
     Manifold,

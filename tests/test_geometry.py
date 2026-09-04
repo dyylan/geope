@@ -341,7 +341,7 @@ class TestBind:
 
 
 def _spy_manifold(params):
-    """A copy of ``params.manifold`` that counts its chart / Jacobian / log calls.
+    """A copy of ``params.manifold`` counting chart / Jacobian / vjp / Hessian / log calls.
 
     The counts are of *trace-time* calls, which is what matters: the context is
     built inside a jitted update, so one Python call is one evaluation in the
@@ -367,8 +367,18 @@ def _spy_manifold(params):
     # `frame` and `projective` that a hard-coded `dim=`/`target=` would drop.
     fields = {f.name: getattr(m, f.name) for f in dataclasses.fields(m)}
     fields["compute_point"] = wrap("compute_point", m.compute_point)
+    # `vjp` and `hessian` are wrapped too, or the cost tier's tests would be
+    # vacuous: a `value_and_grad` step touches neither `compute_point` nor
+    # `jacobian`, so without these it would register as costing nothing at all.
     fields["tangent"] = dataclasses.replace(
-        m.tangent, jacobian=wrap("jacobian", m.tangent.jacobian)
+        m.tangent,
+        jacobian=wrap("jacobian", m.tangent.jacobian),
+        vjp=wrap("vjp", m.tangent.vjp),
+        hessian=(
+            None
+            if m.tangent.hessian is None
+            else wrap("chart_hessian", m.tangent.hessian)
+        ),
     )
     return _Spy(**fields), counts
 
@@ -441,6 +451,59 @@ class TestContextCost:
         assert counts["jacobian"] == 0
         assert dict(counts) == {"compute_point": 1, "log": 1}
 
+    def test_gradient_step_traces_no_logarithm_and_no_jacobian(self, problem):
+        # What makes GRAPE cheap, and the cost tier's headline invariant: a whole
+        # first-order step reads only the pullback and the ray, so neither the
+        # matrix logarithm nor the Jacobian is ever traced into it.
+        p, free, coeffs = problem
+        spy, counts = _spy_manifold(p)
+        ctx = spy.context(free)
+
+        _value, _grad = ctx.value_and_grad
+        ctx.set_direction(coeffs)
+        _ = ctx.slope
+        _ = ctx.infidelity_at(-0.1)
+
+        assert counts["log"] == 0
+        assert counts["jacobian"] == 0
+        # One pullback pass for the value and gradient, one propagator for the ray.
+        assert dict(counts) == {"vjp": 1, "compute_point": 1}
+
+    def test_slope_is_free_once_the_gradient_exists(self, problem):
+        p, free, coeffs = problem
+        spy, counts = _spy_manifold(p)
+        ctx = spy.context(free)
+        ctx.set_direction(coeffs)
+        _ = ctx.gradient
+        base = dict(counts)
+        _ = ctx.slope
+        assert dict(counts) == base  # a contraction, nothing more
+
+    def test_value_and_grad_does_not_memoise_the_point(self, problem):
+        # The documented trap, pinned so nobody "optimises" it away by aliasing
+        # `point` onto the vjp: the two routes to the base-point infidelity cost
+        # a pass each, and a consumer is expected to pick one.
+        p, free, _ = problem
+        spy, counts = _spy_manifold(p)
+        ctx = spy.context(free)
+        _ = ctx.value_and_grad
+        assert dict(counts) == {"vjp": 1}
+        _ = ctx.infidelity
+        assert dict(counts) == {"vjp": 1, "compute_point": 1}
+
+    def test_the_two_routes_to_the_infidelity_agree(self, problem):
+        p, free, _ = problem
+        ctx = p.manifold.context(free)
+        assert jnp.allclose(ctx.value_and_grad[0], ctx.infidelity)
+
+    def test_cost_hessian_costs_one_chart_hessian(self, problem):
+        p, free, _ = problem
+        spy, counts = _spy_manifold(p)
+        h = spy.context(free).cost_hessian
+        assert h.shape == (free.size, free.size)
+        assert counts["log"] == 0
+        assert counts["chart_hessian"] == 1
+
     def test_jittable_end_to_end(self, problem):
         # The context is a trace-time object: it must compose inside jit, and
         # only arrays may cross the boundary.
@@ -467,6 +530,7 @@ class TestContextDirection:
             "omega_norm2",
             "velocity",
             "xi_rel",
+            "slope",
             "W",
             "q",
             "q_exact",

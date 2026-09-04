@@ -342,7 +342,21 @@ class Geope:
             line_search: The :class:`~geope.line_searches.LineSearch` object.
             max_step_size: Maximum line-search step; baked into the jitted
                 closure, so it is part of the compile memo key.
+
+        Raises:
+            TypeError: If ``line_search`` is not a
+                :class:`~geope.line_searches.LineSearch`. Worth checking because
+                `geope.optimizers` is a second family of frozen dataclasses
+                passed to an ``optimize`` keyword, and one of them is called
+                ``Adam`` — as a line search of that name once was.
         """
+        if not isinstance(line_search, LineSearch):
+            raise TypeError(
+                "Geope.optimize(line_search=...) takes a "
+                "geope.line_searches.LineSearch — GoldenSection, Armijo, "
+                "QuadraticArmijo or ApproximateQuadraticArmijo — not "
+                f"{type(line_search).__name__}."
+            )
         config = (line_search, max_step_size)
         # Set the instance attributes before the memo check so self.<attr>
         # always tracks the latest values — safe because an equal config means

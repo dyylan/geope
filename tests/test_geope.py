@@ -1320,6 +1320,16 @@ class TestGeope:
         g.optimize(max_steps=0)
         assert g.update_step is first
 
+    def test_non_line_search_raises(self, params_2q):
+        # `geope.optimizers` is a second family of frozen dataclasses passed to an
+        # `optimize` keyword — and one of them is called `Adam`, as a line search
+        # of that name once was. The mistake must fail loudly, not strangely.
+        from geope.optimizers import Adam as GrapeAdam
+
+        g = Geope(params_2q)
+        with pytest.raises(TypeError, match="geope.line_searches.LineSearch"):
+            g.optimize(max_steps=1, line_search=GrapeAdam(1e-2))
+
     def test_line_search_eq_and_hash(self):
         # Frozen-dataclass value semantics drive the compile memo and keep
         # hyperparameter sweeps correct (issue #2).

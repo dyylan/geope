@@ -532,8 +532,8 @@ class Manifold(ABC):
         every gate. Falls back to `value_and_grad_autodiff` otherwise.
 
         The gradient is **real by construction** and returned in the parameter's
-        own dtype, so it stays a drop-in for optax on the ``complex128`` pulse
-        arrays `geope.parameters.Parameters.free` hands out.
+        own dtype, so it drops straight into `geope.optimizers` on the
+        ``complex128`` pulse arrays `geope.parameters.Parameters.free` hands out.
         """
         self._require_bound("value_and_grad")
         if not self.has_cost_gradient:

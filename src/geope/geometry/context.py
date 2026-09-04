@@ -27,12 +27,13 @@ class GeometricContext:
     | tier | quantities | cost |
     |---|---|---|
     | **0** base point | `point`, `jacobian`, `A`, `A_norm2`, `F0`, `gammas`, `omegas`, `infidelity`, `fidelity` | one propagator, one Jacobian, one logarithm |
-    | **1** direction | `V`, `Omega`, `omega_norm2`, `velocity`, `xi_rel` | free: one contraction of tier 0's Jacobian |
-    | **2** curvature | `W`, `acceleration`, `chi`, `q`, `q_exact`, `rho` | one directional HVP plus the manifold's Riemannian Hessian |
+    | **0′** the cost | `value_and_grad`, `gradient` | one pullback pass |
+    | **1** direction | `V`, `Omega`, `omega_norm2`, `velocity`, `xi_rel`, `slope` | free: one contraction of tier 0's Jacobian |
+    | **2** curvature | `W`, `acceleration`, `chi`, `q`, `q_exact`, `rho`, `cost_hessian` | one directional HVP plus the manifold's Riemannian Hessian |
     | **3** ray | `point_at`, `infidelity_at`, `fidelity_at`, `distance_at` | one propagator per trial point |
 
-    Only tier 0 is direction-free. Tiers 1–3 need the search direction, tier 3
-    because the ray *is* ``free_params + t * coeffs``; it arrives through
+    Only tiers 0 and 0′ are direction-free. Tiers 1–3 need the search direction,
+    tier 3 because the ray *is* ``free_params + t * coeffs``; it arrives through
     `set_direction` after the least-squares solve (which needs this context's own
     `gammas` and `omegas`), and may be set **once**. That single rule replaces any
     list of what to invalidate: every direction-dependent property raises while
@@ -40,7 +41,19 @@ class GeometricContext:
     value computed for one direction can survive into another.
 
     Tier 2 additionally needs `TangentBundle.hvp`, which is ``None`` under
-    ``param_transform``; tiers 0, 1 and 3 work there.
+    ``param_transform``; tiers 0, 0′, 1 and 3 work there, and so does
+    `cost_hessian`, which falls back to autodiff.
+
+    **Tier 0′ is a second route to the same base point, not an extension of tier
+    0.** `geope.Grape` walks the infidelity's own gradient rather than a geodesic,
+    so it reads `value_and_grad` — one `TangentBundle.vjp` pass that returns the
+    point and a pullback sharing the gate exponentials — and must read *nothing*
+    from tier 0: `point`, `infidelity` and `fidelity` would each re-exponentiate
+    the whole pulse, and `A` would drag in the matrix logarithm it has no use for.
+    Conversely `infidelity` is deliberately **not** re-expressed through
+    `value_and_grad`, which would make a `Geope` step compute a gradient it never
+    reads. The two tiers are alternatives; a consumer picks one. This is the same
+    laziness discipline `Gecko` relies on by reading only `omegas`.
 
     **The context is trace-time only.** Never register it as a pytree, return it
     from a jitted function, or put it in a ``scan``/``while_loop`` carry: its memo
@@ -187,6 +200,32 @@ class GeometricContext:
         """The fidelity at the base point. Free, given `point`."""
         return self.manifold.fidelity(self.point, self.target)
 
+    # --- tier 0': the cost ---------------------------------------------------
+
+    @cached_property
+    def value_and_grad(self) -> tuple[Array, Array]:
+        r"""``(infidelity, \partial C/\partial\phi)`` at the base point.
+
+        One `Manifold.value_and_grad` call: a single `TangentBundle.vjp` pass that
+        returns the point together with a pullback sharing the gate exponentials,
+        then one ambient cost gradient through it — the Jacobian is never formed.
+
+        The first element equals `infidelity`, by a different route. **Read one or
+        the other, never both**: `infidelity` goes through `point`, so asking for
+        it as well re-exponentiates the whole pulse. See the class docstring.
+        """
+        return self.manifold.value_and_grad(self.free_params)
+
+    @cached_property
+    def gradient(self) -> Array:
+        r"""$\partial C/\partial\phi$, shape ``(G, K_free)``. Free, given `value_and_grad`.
+
+        Real by construction on the analytic path, though carried in the pulse's
+        own dtype — `geope.optimizers` takes its real part before accumulating any
+        moments, because the autodiff fallback is *not* real.
+        """
+        return self.value_and_grad[1]
+
     # --- tier 1: the direction ----------------------------------------------
 
     @cached_property
@@ -226,6 +265,32 @@ class GeometricContext:
             positive, self.velocity**2 / jnp.where(positive, denom, 1.0), 1.0
         )
         return jnp.sqrt(jnp.clip(1.0 - cos2, 0.0, 1.0))
+
+    @cached_property
+    def slope(self) -> Array:
+        r"""The slope $\langle\nabla C, p\rangle$ of `infidelity_at` at $t = 0$.
+
+        The infidelity's counterpart to `velocity`, which is the slope of
+        `distance_at` — the two objectives have different derivatives and a
+        consumer must not substitute one for the other. Free once `gradient`
+        exists: one contraction, no propagator. Tier 1 for exactly the reason
+        `velocity` is, and with the same consequence: it survives under
+        ``param_transform``, where the curvature does not.
+
+        The flat parameter-space pairing, **not** `Manifold.inner` — `gradient` is
+        a covector in the same coordinates as `coeffs`, not a tangent vector.
+
+        **Positive at a descent direction**, matching `velocity`: `geope.Grape`
+        speaks GEOPE's convention, so `coeffs` points *uphill* and the accepted
+        step is negative. That is what an Armijo test needs ($t\,s < 0$), and it is
+        why `geope.line_searches._armijo_line_search` serves both objectives
+        unchanged.
+
+        Both operands are real-valued but carried in the pulse's dtype, so the real
+        parts are taken explicitly rather than relying on a complex inner product.
+        """
+        self._require_direction("slope")
+        return jnp.sum(jnp.real(self.gradient) * jnp.real(self.coeffs))
 
     # --- tier 2: the curvature ----------------------------------------------
 
@@ -292,6 +357,22 @@ class GeometricContext:
         locus, where the minimal geodesic stops being unique.
         """
         return self._hessian_form[1]
+
+    @cached_property
+    def cost_hessian(self) -> Array:
+        r"""The dense infidelity Hessian $\partial^2 C/\partial\phi^2$, shape ``(P, P)``.
+
+        ``P = free_params.size``, flattened row-major over ``(gate, coefficient)``
+        so it pairs with ``gradient.flatten()`` — which is what `geope.Grape`'s
+        Newton methods solve against.
+
+        Named apart from `TangentBundle.hessian`, which is the *chart's*
+        $\mathrm D^2\Phi$; this is the objective's. Unlike `W` it needs no
+        direction and no `_require_curvature` guard: `Manifold.hessian` falls back
+        to autodiff when the chart has no second differential, so it works under
+        ``param_transform`` too. Dense, $O(G^2 d^2 K^2)$.
+        """
+        return self.manifold.hessian(self.free_params)
 
     # --- tier 3: the ray ----------------------------------------------------
 

@@ -21,6 +21,7 @@ jax.config.update("jax_enable_x64", True)
 from geope.geope import Geope
 from geope.grape import Grape
 from geope.gecko import Gecko
+from geope.optimizers import Adam, NewtonTRM
 from geope.parameters import Parameters
 from geope.utils.history import History
 from geope.utils.callbacks import normalize_callbacks, run_callbacks
@@ -207,7 +208,7 @@ class TestGrapeCallbacks:
             calls.append((step, history, optimizer))
             return True
 
-        g.optimize(max_steps=5, method="nr-trm", delta=0.1, callbacks=cb)
+        g.optimize(max_steps=5, optimizer=NewtonTRM(delta=0.1), callbacks=cb)
         assert [c[0] for c in calls] == [1, 2, 3, 4, 5]
         assert all(c[1] is g.history for c in calls)
         assert all(c[2] is g for c in calls)
@@ -221,21 +222,20 @@ class TestGrapeCallbacks:
             seen.append(step)
             return step != 3
 
-        g.optimize(max_steps=100, method="nr-trm", delta=0.1, callbacks=cb)
+        g.optimize(max_steps=100, optimizer=NewtonTRM(delta=0.1), callbacks=cb)
         assert seen == [1, 2, 3]
 
     def test_callbacks_not_swallowed_by_kwargs(
         self, cnot, full_basis_2q, projected_basis_2q
     ):
-        # callbacks must be a named parameter, not captured into **optimizer_kwargs
+        # callbacks must be a named parameter, not swallowed by the optimizer slot
         p = _params(cnot, full_basis_2q, projected_basis_2q)
         g = Grape(p, precision=1.0)
         seen = []
 
         g.optimize(
             max_steps=4,
-            method="adam",
-            learning_rate=0.1,
+            optimizer=Adam(0.1),
             callbacks=lambda s, h, o: seen.append(s) or True,
         )
         assert seen == [1, 2, 3, 4]
