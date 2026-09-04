@@ -17,6 +17,8 @@ Tested items:
 
 from types import SimpleNamespace
 
+import dataclasses
+
 import pytest
 import numpy as np
 import scipy.linalg as spla
@@ -33,6 +35,7 @@ from geope.geometry import (
     Stiefel,
     UnitaryGroup,
 )
+from geope.geometry.chart import get_compute_matrices_params_list_fn
 from geope.geometry.lie.groups import (
     fidelity,
     fidelity_full,
@@ -89,7 +92,7 @@ def _su_problem(target_scale=1.0):
 
 def _u_problem(target_scale=1.0):
     """U(4): the phase-sensitive geometry."""
-    return _params(target=target_scale * CNOT, projective=False)
+    return _params(target=target_scale * CNOT, manifold=UnitaryGroup(4))
 
 
 def _sphere_problem(target_scale=1.0):
@@ -301,6 +304,41 @@ class TestHookContracts:
             atol=1e-12,
         )
 
+    def test_coefficients_need_a_frame_only_if_the_manifold_says_so(self, space):
+        """Which manifolds coordinatise through the ambient frame, stated as a test.
+
+        The groups resolve tangents against a Hermitian matrix frame; both
+        Stiefel manifolds use a real/imaginary split of the ambient array and
+        need none — which is also the *cheap* option, $2Nm$ coefficients against
+        a matrix frame's $d^2$. Rebinding the same space with ``frame=None`` is
+        the honest way to ask which of the two a manifold is: it must either keep
+        working or fail loudly, never quietly fall back to a frame it was not
+        given.
+        """
+        m = space.manifold
+        bare = type(m)(
+            **{
+                f.name: getattr(m, f.name)
+                for f in dataclasses.fields(m)
+                if f.name not in ("target", "compute_point", "tangent")
+            }
+        ).bind(
+            target=m.target,
+            generators=space.params.proj_drift_basis,
+            frame=None,
+        )
+        assert bare.tangent.frame is None
+
+        if isinstance(m, MatrixLieGroup):
+            with pytest.raises(ValueError, match="ambient Hermitian frame"):
+                bare.coefficients(space.point, space.u)
+        else:
+            np.testing.assert_allclose(
+                np.asarray(bare.coefficients(space.point, space.u)),
+                np.asarray(m.coefficients(space.point, space.u)),
+                atol=1e-14,
+            )
+
     # --- log and distance --------------------------------------------------
 
     def test_log_of_a_point_with_itself_vanishes(self, space):
@@ -433,6 +471,39 @@ class TestHookContracts:
         m = space.manifold
         assert m.compute_point(space.free).shape == tuple(m.ambient_shape)
 
+    def test_the_chart_starts_at_the_base_point(self, space):
+        r"""$\Phi(0) = \Phi(0)$ — which is what ``base_point`` *is*.
+
+        The pulse model seeds its scan at the identity, so a zero pulse leaves
+        the manifold's base point untouched. ``None`` means the propagator is the
+        point, and the chart starts at the identity.
+        """
+        m = space.manifold
+        start = np.asarray(m.compute_point(jnp.zeros_like(space.free)))
+        expected = (
+            np.eye(m.ambient_shape[0])
+            if m.base_point is None
+            else np.asarray(m.base_point)
+        )
+        np.testing.assert_allclose(start, expected, atol=1e-13)
+        m.validate_point(start, "base_point")
+
+    def test_the_chart_lands_the_propagator_on_the_base_point(self, space):
+        r"""$\Phi(\phi) = U(\phi)\,\Phi(0)$ — the composition `Manifold.bind` performs.
+
+        Built here from the outside, so the test does not depend on how `bind`
+        spells it.
+        """
+        m = space.manifold
+        propagator = get_compute_matrices_params_list_fn(
+            space.params.proj_drift_basis.basis
+        )
+        u = np.asarray(propagator(space.free))
+        expected = u if m.base_point is None else u @ np.asarray(m.base_point)
+        np.testing.assert_allclose(
+            np.asarray(m.compute_point(space.free)), expected, atol=1e-13
+        )
+
     def test_hessian_is_available(self, space):
         m = space.manifold
         h = m.hessian(space.free)
@@ -452,17 +523,17 @@ class TestContextOnEveryManifold:
         sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
         ctx.set_direction(m.tangent.embed(sol))
         exact = (ctx.q_exact, ctx.rho) if space.has_curvature else ()
-        for value in (ctx.F0, ctx.s, ctx.q, ctx.xi_rel, *exact):
+        for value in (ctx.F0, ctx.velocity, ctx.q, ctx.xi_rel, *exact):
             assert np.isfinite(float(value)), value
         for t in (0.0, -0.1):
             assert np.isfinite(float(ctx.distance_at(t)))
             assert np.isfinite(float(ctx.infidelity_at(t)))
 
     def test_s_and_q_exact_are_the_derivatives_they_claim_to_be(self, space):
-        """``s`` and ``q_exact`` against a finite difference of ``distance_at``.
+        """``velocity`` and ``q_exact`` against a finite difference of ``distance_at``.
 
         The one test that ties the whole of tier 2 to the objective it describes
-        — the manifold's intrinsic Hessian *and* the chart's `accel` together,
+        — the manifold's intrinsic Hessian *and* the chart's `acceleration` together,
         along the real parameter ray rather than along a geodesic. Nothing else
         in the suite compares a curvature to an actual second derivative, which
         is exactly how a wrong closed form survives every algebraic contract.
@@ -477,9 +548,9 @@ class TestContextOnEveryManifold:
         f = [float(ctx.distance_at(t)) for t in (-2 * h, -h, 0.0, h, 2 * h)]
         slope = (f[0] - 8 * f[1] + 8 * f[3] - f[4]) / (12 * h)
         curvature = (-f[0] + 16 * f[1] - 30 * f[2] + 16 * f[3] - f[4]) / (12 * h * h)
-        # `s` *is* psi'(0), positive on a descent direction — which is why the
+        # `velocity` *is* psi'(0), positive on a descent direction — which is why the
         # bracket is [-t_max, 0] and the accepted step comes out negative.
-        assert float(ctx.s) == pytest.approx(slope, rel=1e-6, abs=1e-9)
+        assert float(ctx.velocity) == pytest.approx(slope, rel=1e-6, abs=1e-9)
         assert float(ctx.q_exact) == pytest.approx(curvature, rel=1e-5, abs=1e-8)
 
     def test_the_solved_direction_descends(self, space):
@@ -490,7 +561,7 @@ class TestContextOnEveryManifold:
         ctx = m.context(space.free)
         sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
         ctx.set_direction(m.tangent.embed(sol))
-        assert float(ctx.s) > 0
+        assert float(ctx.velocity) > 0
         assert float(ctx.distance_at(-1e-3)) < float(ctx.F0)
 
     def test_omegas_and_gammas_share_their_units(self, space):
@@ -651,10 +722,10 @@ class TestStiefel:
     def test_rejects_a_bad_shape_or_frame(self):
         with pytest.raises(ValueError, match="1 <= frame <= dim"):
             Stiefel(3, 5)
-        with pytest.raises(ValueError, match="base_frame"):
-            Stiefel(4, 2, jnp.eye(4, 3, dtype=complex))
+        with pytest.raises(ValueError, match="base_point"):
+            Stiefel(4, 2, base_point=jnp.eye(4, 3, dtype=complex))
         with pytest.raises(ValueError, match="orthonormal"):
-            Stiefel(4, 2, 2.0 * jnp.eye(4, 2, dtype=complex))
+            Stiefel(4, 2, base_point=2.0 * jnp.eye(4, 2, dtype=complex))
 
     def test_exp_lands_on_the_manifold(self):
         rng = np.random.default_rng(0)
@@ -971,7 +1042,7 @@ class TestStiefelSpinBoson:
             target=e @ cz,  # pi(U_CZ (x) |0><0| + arbitrary)
             piecewise_steps=pieces,
             seed=3,
-            manifold=Stiefel(dim=cls.N, frame=cls.M, base_frame=e),
+            manifold=Stiefel(dim=cls.N, frame=cls.M, base_point=e),
         )
 
     def test_geope_synthesises_cz_on_the_vacuum_subspace(self):

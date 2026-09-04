@@ -51,9 +51,9 @@ def _params_2q(
     seed=42,
     init_spread=0.1,
     pulse_constraints=None,
-    projective=True,
     param_transform=None,
     n_experimental_params=None,
+    manifold=None,
 ):
     """Build a Parameters bundle from the raw test fixtures.
 
@@ -73,7 +73,7 @@ def _params_2q(
         pulse_constraints=pulse_constraints,
         init_spread=init_spread,
         seed=seed,
-        projective=projective,
+        manifold=manifold,
         param_transform=param_transform,
         n_experimental_params=n_experimental_params,
     )

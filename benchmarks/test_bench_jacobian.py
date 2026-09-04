@@ -22,6 +22,8 @@ Run with, e.g.::
 which places the manual and autodiff bars for each ``(n, G)`` side by side.
 """
 
+# TODO: add benchmark for gradient of fidelity here. Compare with autodiff version.
+
 import jax
 import jax.numpy as jnp
 import pytest

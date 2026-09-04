@@ -26,6 +26,9 @@ from geope.geometry.chart import (
     get_compute_matrices_params_list_fn,
     get_jacobian_fn,
 )
+from geope.geometry import StateSphere
+from geope.geometry.lie import groups
+from geope.geometry.lie.basis import get_project_omegas_fn
 from geope.geometry.lie.groups import infidelity
 from geope.jax.hessian import get_hessian_fn
 from geope.geope import linear_comb_projected_coeffs_multigate
@@ -529,7 +532,9 @@ class TestLeftTrivialisation:
         _, A, J = self._left_trivialised(p, pidx, free)
         ctx = p.manifold.context(free)
         d = p.proj_drift_basis.dim
-        project = p.manifold.tangent.project
+        # Built here rather than read off the bundle, so the test pins the
+        # coefficient map and not where the projector happens to live.
+        project = get_project_omegas_fn(p.basis)
 
         # gammas and omegas go through the same coefficient map, with no extra
         # normalisation on either side.
@@ -652,6 +657,24 @@ def _disjoint_drift_basis():
     return Basis(np.stack([np.kron(X, Z), np.kron(Z, X)]), labels=["XZ", "ZX"])
 
 
+class TestTargetlessParameters:
+    """`target=None` is a supported signature: the chart binds, the target does not."""
+
+    def test_a_targetless_parameters_still_constructs(self):
+        p = Parameters(
+            basis=construct_full_pauli_basis(2),
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            piecewise_steps=2,
+        )
+        assert not p.manifold.is_bound
+        # the chart and its differentials are still there and still work
+        assert p.manifold.compute_point(p.free()).shape == (4, 4)
+        assert p.manifold.tangent.jacobian(p.free()) is not None
+        # ... but nothing that needs a target is
+        with pytest.raises(ValueError, match="needs a bound manifold"):
+            p.manifold.fidelity_at(p.free())
+
+
 class TestControlDriftOverlapGuard:
     def test_overlapping_bases_raise(self):
         fb = construct_full_pauli_basis(2)
@@ -702,11 +725,11 @@ class TestControlDriftOverlapGuard:
 
 
 # ---------------------------------------------------------------------------
-# Lazy build / caching: functions are not built until accessed, then memoised
+# The binding is built once, in __init__, and shared by everything downstream
 # ---------------------------------------------------------------------------
 
 
-class TestLazyCaching:
+class TestBindingIsBuiltOnce:
     def test_functions_cached_on_params(self):
         p = Parameters(
             basis=construct_full_pauli_basis(2),
@@ -725,3 +748,59 @@ class TestLazyCaching:
         )
         m = p.manifold
         assert np.allclose(np.array(m.log(m.target, jnp.array(CNOT))), 0, atol=1e-10)
+
+
+class TestNoProjectorForFrameFreeManifolds:
+    """A manifold that coordinatises without an ambient frame builds no projector.
+
+    Before the frame became `TangentBundle` data, `Parameters` built a Pauli
+    projector for *every* manifold and handed it over, including to the two
+    Stiefel manifolds whose `coefficients` is a real/imaginary split and never
+    reads it. Above 5 qubits that was not free: `get_project_omegas_fn_otf`
+    eagerly materialises all $4^n-1$ Pauli index rows, ~40 MB at $n = 10$.
+    """
+
+    @staticmethod
+    def _spy(monkeypatch):
+        calls = []
+        for name in ("get_project_omegas_fn", "get_project_omegas_fn_otf"):
+            real = getattr(groups, name)
+
+            def spy(basis, *args, _real=real, _name=name, **kwargs):
+                calls.append(_name)
+                return _real(basis, *args, **kwargs)
+
+            monkeypatch.setattr(groups, name, spy)
+        return calls
+
+    def _sphere(self):
+        psi = np.zeros(4, dtype=complex)
+        psi[0] = 1.0
+        return Parameters(
+            basis=construct_full_pauli_basis(2),
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=np.asarray(CNOT) @ psi,
+            manifold=StateSphere(dim=4, base_point=psi),
+        )
+
+    def test_the_sphere_builds_none(self, monkeypatch):
+        calls = self._spy(monkeypatch)
+        p = self._sphere()
+        # A full step's worth of coefficient work: gammas and omegas both.
+        ctx = p.manifold.context(p.free())
+        _ = ctx.gammas, ctx.omegas
+        assert calls == []
+        assert p.manifold.tangent.frame is p.basis  # carried as data, unused
+
+    def test_the_group_still_builds_one(self, monkeypatch):
+        """The control: the same spy fires on a manifold that does need a frame."""
+        calls = self._spy(monkeypatch)
+        p = Parameters(
+            basis=construct_full_pauli_basis(2),
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+        )
+        assert calls == []  # not at construction either
+        ctx = p.manifold.context(p.free())
+        _ = ctx.gammas
+        assert calls == ["get_project_omegas_fn"]

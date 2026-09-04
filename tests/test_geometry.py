@@ -61,7 +61,17 @@ def basis_2q():
 
 @pytest.fixture
 def tangent_2q(basis_2q):
-    return TangentBundle(basis=basis_2q, project=get_project_omegas_fn(basis_2q))
+    return TangentBundle(frame=basis_2q)
+
+
+@pytest.fixture
+def bind_kwargs(basis_2q):
+    """What `bind` needs: the chart's generators and the ambient frame.
+
+    It builds the chart, its Jacobian and its HVP from the generators — there is
+    no chart to hand it — and stores the frame as data.
+    """
+    return dict(generators=basis_2q, frame=basis_2q)
 
 
 @pytest.fixture
@@ -91,11 +101,7 @@ class TestTangentBundleColumns:
     @pytest.fixture
     def masked(self, basis_2q):
         columns = np.array([True, False, True, False])
-        return TangentBundle(
-            basis=basis_2q,
-            project=get_project_omegas_fn(basis_2q),
-            columns=columns,
-        )
+        return TangentBundle(frame=basis_2q, columns=columns)
 
     def test_restrict_selects_the_masked_columns(self, masked):
         coeffs = jnp.asarray(np.arange(2 * 4 * 15, dtype=float).reshape(2, 4, 15))
@@ -287,23 +293,40 @@ class TestManifoldHessianQuadraticForm:
 
 
 class TestBind:
-    def test_binds_the_chart_target_and_tangent_space(self, su4, tangent_2q):
-        bound = su4.bind(target=CNOT, compute_point=lambda phi: phi, tangent=tangent_2q)
+    def test_builds_the_chart_and_attaches_the_target(self, su4, bind_kwargs):
+        bound = su4.bind(target=CNOT, **bind_kwargs)
         assert bound.is_bound
         assert isinstance(bound, SpecialUnitaryGroup)
-        assert bound.tangent is tangent_2q
         np.testing.assert_allclose(np.asarray(bound.target), CNOT)
+        # the chart and both differentials come out of the one call
+        assert bound.tangent.jacobian is not None
+        assert bound.tangent.hvp is not None
+        assert bound.tangent.generators is bind_kwargs["generators"]
+        assert bound.compute_point(jnp.zeros((2, 15), jnp.complex128)).shape == (4, 4)
 
-    def test_leaves_the_unbound_manifold_alone(self, su4, tangent_2q):
-        su4.bind(target=CNOT, compute_point=lambda phi: phi, tangent=tangent_2q)
+    def test_leaves_the_unbound_manifold_alone(self, su4, bind_kwargs):
+        su4.bind(target=CNOT, **bind_kwargs)
         assert not su4.is_bound
 
-    def test_rejects_a_mis_shaped_target(self, su4, tangent_2q):
+    def test_rejects_a_mis_shaped_target(self, su4, bind_kwargs):
         with pytest.raises(ValueError, match=r"\(4, 4\) target"):
-            su4.bind(target=HADAMARD, compute_point=lambda phi: phi, tangent=tangent_2q)
+            su4.bind(target=HADAMARD, **bind_kwargs)
 
-    def test_bound_manifold_keeps_the_pure_maths(self, su4, tangent_2q):
-        bound = su4.bind(target=CNOT, compute_point=lambda phi: phi, tangent=tangent_2q)
+    def test_rejects_an_already_bound_manifold(self, su4, bind_kwargs):
+        bound = su4.bind(target=CNOT, **bind_kwargs)
+        with pytest.raises(ValueError, match="already bound"):
+            bound.bind(target=CNOT, **bind_kwargs)
+
+    def test_a_none_target_still_binds_the_chart(self, su4, bind_kwargs):
+        """A target-less problem gets a working chart, but nothing that needs a target."""
+        bound = su4.bind(target=None, **bind_kwargs)
+        assert not bound.is_bound
+        assert bound.compute_point(jnp.zeros((2, 15), jnp.complex128)).shape == (4, 4)
+        with pytest.raises(ValueError, match="needs a bound manifold"):
+            bound.context(jnp.zeros((2, 15), jnp.complex128))
+
+    def test_bound_manifold_keeps_the_pure_maths(self, su4, bind_kwargs):
+        bound = su4.bind(target=CNOT, **bind_kwargs)
         x = jnp.asarray(_random_unitary(4, 30))
         np.testing.assert_allclose(
             np.asarray(bound.log(x, jnp.asarray(CNOT))),
@@ -339,15 +362,15 @@ def _spy_manifold(params):
             counts["log"] += 1
             return super().log(x, y, key)
 
-    spy = _Spy(
-        dim=m.dim,
-        target=m.target,
-        compute_point=wrap("compute_point", m.compute_point),
-        tangent=dataclasses.replace(
-            m.tangent, jacobian=wrap("jacobian", m.tangent.jacobian)
-        ),
+    # Copy every field the manifold declares rather than naming the group's, so
+    # this works on the sphere and Stiefel too — they carry `base_point`,
+    # `frame` and `projective` that a hard-coded `dim=`/`target=` would drop.
+    fields = {f.name: getattr(m, f.name) for f in dataclasses.fields(m)}
+    fields["compute_point"] = wrap("compute_point", m.compute_point)
+    fields["tangent"] = dataclasses.replace(
+        m.tangent, jacobian=wrap("jacobian", m.tangent.jacobian)
     )
-    return spy, counts
+    return _Spy(**fields), counts
 
 
 def _params(**kwargs):
@@ -385,7 +408,7 @@ class TestContextCost:
         _ = ctx.gammas
         _ = ctx.omegas
         ctx.set_direction(coeffs)
-        _ = ctx.F0, ctx.s, ctx.q, ctx.q_exact, ctx.xi_rel
+        _ = ctx.F0, ctx.velocity, ctx.q, ctx.q_exact, ctx.xi_rel
 
         assert dict(counts) == {"compute_point": 1, "jacobian": 1, "log": 1}
 
@@ -427,7 +450,7 @@ class TestContextCost:
         def step(fp, c):
             ctx = p.manifold.context(fp)
             ctx.set_direction(c)
-            return ctx.gammas, ctx.omegas, ctx.s, ctx.q, ctx.distance_at(-0.1)
+            return ctx.gammas, ctx.omegas, ctx.velocity, ctx.q, ctx.distance_at(-0.1)
 
         gammas, omegas, s, q, d = step(free, coeffs)
         assert gammas.shape == (p.basis.lie_algebra_dim,)
@@ -438,7 +461,16 @@ class TestContextDirection:
     def test_direction_dependent_properties_raise_without_one(self, problem):
         p, free, _ = problem
         ctx = p.manifold.context(free)
-        for name in ("V", "Omega", "omega_norm2", "s", "xi_rel", "W", "q", "q_exact"):
+        for name in (
+            "V",
+            "Omega",
+            "omega_norm2",
+            "velocity",
+            "xi_rel",
+            "W",
+            "q",
+            "q_exact",
+        ):
             with pytest.raises(ValueError, match="direction-dependent"):
                 getattr(ctx, name)
         for method in ("point_at", "infidelity_at", "distance_at"):
@@ -464,9 +496,9 @@ class TestContextDirection:
         p, free, coeffs = problem
         ctx = p.manifold.context(free)
         with pytest.raises(ValueError):
-            ctx.s
+            ctx.velocity
         ctx.set_direction(coeffs)
-        assert bool(jnp.isfinite(ctx.s))
+        assert bool(jnp.isfinite(ctx.velocity))
 
 
 class TestContextValues:
@@ -521,7 +553,7 @@ class TestContextValues:
         ctx = p.manifold.context(free)
         sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
         ctx.set_direction(p.manifold.tangent.embed(sol))
-        assert float(ctx.s) > 0
+        assert float(ctx.velocity) > 0
 
     def test_q_exact_never_exceeds_q(self, problem):
         p, free, coeffs = problem
@@ -552,7 +584,7 @@ class TestContextUnderParamTransform:
         ctx = p.manifold.context(free)
         ctx.set_direction(coeffs)
         assert p.manifold.tangent.hvp is None
-        for value in (ctx.F0, ctx.s, ctx.xi_rel, ctx.infidelity):
+        for value in (ctx.F0, ctx.velocity, ctx.xi_rel, ctx.infidelity):
             assert bool(jnp.isfinite(value))
 
     def test_curvature_raises(self, transformed):
@@ -597,5 +629,63 @@ class TestTangentBundleHvp:
         assert x.shape == v.shape == w.shape == (4, 4)
 
     def test_absent_without_generators(self, basis_2q):
-        tangent = TangentBundle(basis=basis_2q, project=get_project_omegas_fn(basis_2q))
+        tangent = TangentBundle(frame=basis_2q)
         assert tangent.hvp is None
+
+    def test_generators_without_an_hvp_is_rejected(self, basis_2q):
+        """The analytic HVP *is* the recursion in those generators: both or neither."""
+        with pytest.raises(ValueError, match="must be given together"):
+            TangentBundle(frame=basis_2q, generators=basis_2q)
+
+    def test_an_hvp_without_generators_is_rejected(self, basis_2q):
+        with pytest.raises(ValueError, match="must be given together"):
+            TangentBundle(frame=basis_2q, hvp=lambda phi, p: None)
+
+
+class TestTangentBundleFrame:
+    """The frame is *data*, and it is optional for a real reason.
+
+    A manifold whose fibre coordinates are a real/imaginary split of the ambient
+    array needs no matrix frame — and is cheaper for it, $2Nm$ coefficients
+    against a matrix frame's $d^2$. `bind` must therefore accept ``None`` and
+    build no projector at all, not fall back to one.
+    """
+
+    def test_bind_stores_the_frame_verbatim(self, su4, basis_2q, bind_kwargs):
+        bound = su4.bind(target=CNOT, **bind_kwargs)
+        assert bound.tangent.frame is basis_2q
+
+    def test_binds_without_a_frame(self, su4, basis_2q):
+        """The chart and its differentials do not depend on the frame."""
+        bound = su4.bind(target=CNOT, generators=basis_2q, frame=None)
+        assert bound.is_bound
+        assert bound.tangent.frame is None
+        assert bound.compute_point(jnp.zeros((2, 15), jnp.complex128)).shape == (4, 4)
+        assert bound.tangent.jacobian is not None
+
+    def test_a_group_without_a_frame_says_so(self, su4, basis_2q):
+        """The group *does* coordinatise through a frame, so it must not guess one."""
+        bound = su4.bind(target=CNOT, generators=basis_2q, frame=None)
+        with pytest.raises(ValueError, match="ambient Hermitian frame"):
+            bound.coefficients(jnp.asarray(CNOT), jnp.zeros((4, 4), jnp.complex128))
+
+    def test_the_projector_is_built_once_and_inside_a_trace(self, su4, bind_kwargs):
+        """`_project` is memoised and first read from inside the jitted update.
+
+        Safe because the `Basis` it closes over is numpy and ``frame.n`` is an
+        ``int``, so nothing it captures can be a tracer — but that is exactly the
+        kind of thing that breaks silently, so pin it.
+        """
+        bound = su4.bind(target=CNOT, **bind_kwargs)
+        point = jnp.asarray(CNOT)
+
+        @jax.jit
+        def coeffs_of(tangent):
+            return bound.coefficients(point, tangent)
+
+        first = coeffs_of(jnp.zeros((4, 4), jnp.complex128))
+        assert "_project" in bound.__dict__  # memoised by the trace
+        projector = bound.__dict__["_project"]
+        second = coeffs_of(jnp.eye(4, dtype=jnp.complex128) * 1j)
+        assert bound.__dict__["_project"] is projector  # not rebuilt
+        assert first.shape == second.shape == (15,)
