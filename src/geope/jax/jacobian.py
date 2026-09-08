@@ -21,7 +21,7 @@ def Ui(x: Array, basis: Array) -> Array:
         A unitary matrix of shape ``(d, d)``.
     """
     A = jnp.tensordot(x, basis, axes=[[-1], [0]])
-    return jax.scipy.linalg.expm(1j * A)
+    return jax.scipy.linalg.expm(-1j * A)
 
 
 def get_Ui_fn(basis: Array) -> Callable[[Array], Array]:
@@ -46,7 +46,7 @@ def jacobian_propagator(
     :func:`geope.engine.compute_matrices_params_list_fn`, where each gate is
     left-multiplied onto the accumulator,
 
-    $$U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(i \sum_k x_{i,k} G_k\Big).$$
+    $$U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(-i \sum_k x_{i,k} G_k\Big).$$
 
     The derivative with respect to a parameter of gate $i$ leaves every other
     gate untouched, so it is a product with a single factor replaced by the
@@ -149,8 +149,8 @@ def jvp_propagator(
 
     $$X_g = U_g X_{g-1}, \qquad V_g = U_g V_{g-1} + E_g X_{g-1},$$
 
-    with $X_{-1} = I$, $V_{-1} = 0$, where $U_g = \exp(iA_g)$ and
-    $E_g = D\exp(iA_g)[iB_g]$ are the per-gate value and directional derivative
+    with $X_{-1} = I$, $V_{-1} = 0$, where $U_g = \exp(-iA_g)$ and
+    $E_g = D\exp(-iA_g)[-iB_g]$ are the per-gate value and directional derivative
     (`step_fn`). After all $G$ gates, $X_{G-1} = \phi(\theta)$ and
     $V_{G-1} = D\phi_\theta[p]$. The recursion is a single ``jax.lax.scan``; this
     is the forward-mode (JVP) analogue of `jacobian_propagator`, and the

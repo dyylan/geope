@@ -143,17 +143,28 @@ def get_infidelity_full_fn(target_unitary: Array) -> Callable[[Array], Array]:
     return partial(infidelity_full, target_unitary=target_unitary)
 
 
-def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
+def compute_matrices_params_list_fn(
+    params_list: Array, basis: Array, delta_t: float = 1.0
+) -> Array:
     """Compute the product unitary from a list of parameter vectors.
 
     For each parameter vector in `params_list`, constructs a Hamiltonian
     as a linear combination of the `basis` elements, exponentiates it,
     and accumulates the product unitary via `jax.lax.scan`.
 
+    Each segment is $U_g = \\exp(-i\\,\\Delta T\\sum_k \\phi_{g,k} G_k)$: the
+    coefficients are Hamiltonian amplitudes and ``delta_t`` is the segment
+    duration. At the default ``delta_t=1.0`` the duration is absorbed into the
+    coefficients, which is how every pre-``delta_t`` parameter set reads.
+
     Args:
         params_list: ``Array`` of shape ``(piecewise_steps, K)`` where each row
             contains the Lie-algebra coefficients for one gate segment.
         basis: ``Array`` of shape ``(K, d, d)`` of Hermitian basis matrices.
+        delta_t: Scalar segment duration, shared by every segment. Defaults to
+            1.0. Passed as an argument rather than baked into the closure so
+            that changing it never invalidates a compiled trace — see
+            `Parameters.delta_t`.
 
     Returns:
         The product unitary ``Array`` of shape ``(d, d)``.
@@ -161,7 +172,7 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
 
     def step(U, params):
         A = jnp.tensordot(params, basis, axes=[[-1], [0]])
-        Ui = jax.scipy.linalg.expm(1j * A)
+        Ui = jax.scipy.linalg.expm(-1j * delta_t * A)
         U_new = jnp.matmul(Ui, U)
         return U_new, None
 
@@ -170,17 +181,25 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
     return U_final
 
 
-def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], Array]:
-    """Create a partial unitary-computation function with a fixed basis.
+def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[..., Array]:
+    """Create a unitary-computation function with a fixed basis.
+
+    A closure rather than ``partial(..., basis=basis)`` so that ``delta_t``
+    can be passed positionally: binding ``basis`` as a keyword would make
+    ``compute_U(params, dt)`` collide with it.
 
     Args:
         basis: Array of shape ``(K, d, d)`` of Hermitian basis matrices.
 
     Returns:
-        A ``Callable[[Array], Array]`` that accepts a parameter list
-        and returns the product unitary.
+        A ``Callable[..., Array]`` ``compute_U(params_list, delta_t=1.0)``
+        returning the product unitary.
     """
-    return partial(compute_matrices_params_list_fn, basis=basis)
+
+    def compute_U(params_list: Array, delta_t: float = 1.0) -> Array:
+        return compute_matrices_params_list_fn(params_list, basis, delta_t)
+
+    return compute_U
 
 
 def geodesic_hamiltonian(
@@ -191,7 +210,7 @@ def geodesic_hamiltonian(
 ) -> Array:
     """Compute the geodesic Hamiltonian between a unitary and a target.
 
-    Computes the generator $g = -i\\log(U^\\dagger U_T) \\in \\mathfrak{u}(d)$
+    Computes the generator $g = i\\log(U^\\dagger U_T) \\in \\mathfrak{u}(d)$
     and returns $U g'$ where $g' = g - \\frac{\\mathrm{Tr}(g)}{d}\\mathbb{1}$
     (the SU part) when ``projective=True``, or $g' = g$ (full U) when
     ``projective=False``.
@@ -212,7 +231,7 @@ def geodesic_hamiltonian(
     """
     # $U^\dagger U_T$ is a product of unitaries, so the unitary-specialised
     # log applies; ``key`` is inert there.
-    g = -1.0j * logm_unitary(
+    g = 1.0j * logm_unitary(
         jnp.einsum("ji,jk->ik", unitary.conj(), target_unitary), key=key
     )
     if projective:
@@ -306,8 +325,8 @@ def get_gammas_fn(
         A ``Callable[[Array, Array], Array]`` ``gammas(free_params, key)``.
     """
 
-    def gammas(free_params: Array, key: Array) -> Array:
-        unitary = compute_U_fn(free_params)
+    def gammas(free_params: Array, key: Array, delta_t: float = 1.0) -> Array:
+        unitary = compute_U_fn(free_params, delta_t)
         gammaU = unitary.conj().T @ geo_fn(
             unitary, key=key
         )  # key inert, kept for parity
@@ -348,12 +367,12 @@ def get_omegas_fn(
         A ``Callable[[Array], Array]`` ``omegas(free_params)``.
     """
 
-    def omegas(free_params: Array) -> Array:
-        u_dag = compute_U_fn(free_params).conj().T
-        dUs = jnp.array(jac_fn(free_params))
+    def omegas(free_params: Array, delta_t: float = 1.0) -> Array:
+        u_dag = compute_U_fn(free_params, delta_t).conj().T
+        dUs = jnp.array(jac_fn(free_params, delta_t))
         dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
         omegas_steps_phis = jnp.array(
-            [project_omegas_fn(1.0j * (u_dag @ omegaUs)) for omegaUs in dUs_t]
+            [project_omegas_fn(-1.0j * (u_dag @ omegaUs)) for omegaUs in dUs_t]
         )
         if has_proj_drift:
             omegas_steps_phis = omegas_steps_phis.at[:, proj_indices, :].get()
@@ -418,11 +437,14 @@ def get_gammas_and_omegas_fn(
 
     Returns:
         A ``Callable[[Array, Array], tuple[Array, Array]]``
-        ``gammas_and_omegas(free_params, key) -> (gammaU_params, omegas)``.
+        ``gammas_and_omegas(free_params, key, delta_t)
+        -> (gammaU_params, omegas)``.
     """
 
-    def gammas_and_omegas(free_params: Array, key: Array) -> tuple[Array, Array]:
-        unitary = compute_U_fn(free_params)
+    def gammas_and_omegas(
+        free_params: Array, key: Array, delta_t: float = 1.0
+    ) -> tuple[Array, Array]:
+        unitary = compute_U_fn(free_params, delta_t)
         # Left-trivialise before projecting -- see the note on the factory above.
         u_dag = unitary.conj().T
         gammaU = u_dag @ geo_fn(unitary, key=key)  # key inert, kept for parity
@@ -430,10 +452,10 @@ def get_gammas_and_omegas_fn(
             axis=0
         ) / (gammaU.shape[0])
 
-        dUs = jnp.array(jac_fn(free_params))
+        dUs = jnp.array(jac_fn(free_params, delta_t))
         dUs_t = jnp.transpose(dUs, [2, 3, 0, 1])
         omegas_steps_phis = jnp.array(
-            [project_omegas_fn(1.0j * (u_dag @ omegaUs)) for omegaUs in dUs_t]
+            [project_omegas_fn(-1.0j * (u_dag @ omegaUs)) for omegaUs in dUs_t]
         )
 
         if has_proj_drift:
@@ -452,14 +474,22 @@ def get_hessian_fn(infid_fn: Callable[[Array], Array]) -> Callable[[Array], Arra
     into the enclosing ``@jax.jit`` update step.
 
     Args:
-        infid_fn: Scalar-valued infidelity callable of the free parameters.
+        infid_fn: Scalar-valued infidelity callable ``(free_params, delta_t)``.
+            Both arguments are positional, matching
+            ``Parameters.infid_fn``; the signature mirrors
+            `get_hessian_propagator_fn` so the two remain drop-in equivalents.
 
     Returns:
-        A ``Callable[[Array], Array]`` ``hess(y)`` returning the Hessian.
+        A ``Callable[[Array], Array]`` ``hess(y, delta_t)`` returning the
+        Hessian with respect to ``y`` alone — ``delta_t`` is a duration, not an
+        optimisation variable.
     """
 
-    def hess(y: Array) -> Array:
-        return jax.vmap(lambda x: hvp_forward_over_reverse(infid_fn, y, x))(
+    def hess(y: Array, delta_t: float = 1.0) -> Array:
+        # Bound once per call, not per basis vector: ``vmap`` traces its body a
+        # single time, so this closure costs nothing at runtime.
+        infid_at_dt = lambda v: infid_fn(v, delta_t)
+        return jax.vmap(lambda x: hvp_forward_over_reverse(infid_at_dt, y, x))(
             jnp.eye(y.size, dtype=y.dtype)
         )
 
@@ -513,9 +543,9 @@ def get_hessian_propagator_fn(
             Set ``False`` for complex-valued parameters.
 
     Returns:
-        A ``Callable[[Array], Array]`` ``hess(y)`` returning the ``(P, P)``
-        infidelity Hessian. Left un-jitted so it fuses into the enclosing
-        ``@jax.jit`` update step.
+        A ``Callable[[Array], Array]`` ``hess(y, delta_t)`` returning the
+        ``(P, P)`` infidelity Hessian. Left un-jitted so it fuses into the
+        enclosing ``@jax.jit`` update step.
     """
     Ui_fn = get_Ui_fn(basis)
     if method == "eig":
@@ -531,10 +561,13 @@ def get_hessian_propagator_fn(
     t_conj = jnp.asarray(target).conj()
     d = jnp.asarray(target).shape[0]
 
-    def hess(y: Array) -> Array:
-        U = compute_U(y)
-        dU = jacobian_propagator(y, Ui_fn, jac_step)  # (G, d, d, K)
-        H = hessian_propagator(y, Ui_fn, jac_step, hess_step)  # (G, G, d, d, K, K)
+    def hess(y: Array, delta_t: float = 1.0) -> Array:
+        ys = delta_t * y
+        U = compute_U(ys)
+        dU = delta_t * jacobian_propagator(ys, Ui_fn, jac_step)  # (G, d, d, K)
+        H = delta_t**2 * hessian_propagator(
+            ys, Ui_fn, jac_step, hess_step
+        )  # (G, G, d, d, K, K)
 
         # Contract the propagator and its derivatives with U_T^dagger.
         z = jnp.einsum("ab,ab->", t_conj, U)
@@ -611,6 +644,7 @@ def wrap_compute_U_param_transform(
 
     def _wrapped_compute_U(
         exp_params,
+        delta_t=1.0,
         _raw=raw_compute_U,
         _tf=params.param_transform,
         _pi=proj_idx_pd,
@@ -637,7 +671,7 @@ def wrap_compute_U_param_transform(
                     _dr.astype(_dtype), (exp_params.shape[0], _dr.shape[0])
                 )
             )
-        return _raw(full)
+        return _raw(full, delta_t=delta_t)
 
     return _wrapped_compute_U
 
@@ -661,14 +695,14 @@ def get_split_jacobian_fn(
         A ``Callable[[Array], Array]`` returning the complex Jacobian.
     """
 
-    def _split_U(x):
-        U = compute_U_fn(x)
+    def _split_U(x, delta_t=1.0):
+        U = compute_U_fn(x, delta_t)
         return jnp.stack([jnp.real(U), jnp.imag(U)])
 
     _raw_jac_split = jax.jacobian(_split_U, argnums=0)
 
-    def _jac_fn(x):
-        jac_split = _raw_jac_split(x)
+    def _jac_fn(x, delta_t=1.0):
+        jac_split = _raw_jac_split(x, delta_t)
         return jac_split[0] + 1j * jac_split[1]
 
     return _jac_fn

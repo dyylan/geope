@@ -76,7 +76,7 @@ class Unitary:
             Hamiltonian,
         )  # deferred — avoids circular import at module load
 
-        g = -1.0j * spla.logm(self.matrix.conj().T @ target_unitary)
+        g = 1.0j * spla.logm(self.matrix.conj().T @ target_unitary)
         params = Hamiltonian.parameters_from_hamiltonian(g, basis)
         return Hamiltonian(basis, params)
 
@@ -140,5 +140,5 @@ class Unitary:
         )  # deferred — avoids circular import at module load
 
         return Hamiltonian.parameters_from_hamiltonian(
-            -1.0j * spla.logm(unitary_matrix), basis
+            1.0j * spla.logm(unitary_matrix), basis
         )

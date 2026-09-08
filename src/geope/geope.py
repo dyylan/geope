@@ -321,7 +321,7 @@ class Geope:
         _dtype = np.float64 if self._real_params else np.complex128
         free_params = jnp.array(self._free(self.params.parameters)).astype(_dtype)
         self.params.fidelity = self.params.fid_U_fn(
-            self.params.compute_U_fn(free_params)
+            self.params.compute_U_fn(free_params, self.params.delta_t)
         )
         self.step_size = 0
         # line search diagnostics
@@ -465,6 +465,7 @@ class Geope:
                 self.params.piecewise_steps,
                 self._split_key(),
                 self.line_search_state,
+                self.params.delta_t,
             )
             # Pull the diagnostics to the host
             self.ls_diagnostics = {
@@ -580,7 +581,9 @@ class Geope:
         if fidelity is None:
             _dtype = jnp.float64 if self._real_params else jnp.complex128
             free_params = self._free(new_params).astype(_dtype)
-            fidelity = self.params.fid_U_fn(self.params.compute_U_fn(free_params))
+            fidelity = self.params.fid_U_fn(
+                self.params.compute_U_fn(free_params, self.params.delta_t)
+            )
         if step_size is None:
             step_size = self.max_step_size
         self.params.parameters = new_params
@@ -674,7 +677,9 @@ class Geope:
             for sign in [1, -1]:
                 new_exp = current_params + sign * scaled_gs_step * coeffs
                 fids[sign] = self.params.fid_U_fn(
-                    self.params.compute_U_fn(jnp.array(new_exp, dtype=_dtype))
+                    self.params.compute_U_fn(
+                        jnp.array(new_exp, dtype=_dtype), self.params.delta_t
+                    )
                 )
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
@@ -696,7 +701,7 @@ class Geope:
             for sign in [1, -1]:
                 trial = current_params + sign * scaled_gs_step * direction
                 fids[sign] = self.params.fid_U_fn(
-                    self.params.compute_U_fn(jnp.array(trial))
+                    self.params.compute_U_fn(jnp.array(trial), self.params.delta_t)
                 )
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
@@ -768,7 +773,11 @@ class Geope:
         # Recompute fidelity after enforcement
         _dtype = jnp.float64 if getattr(self, "_real_params", False) else jnp.complex128
         free_params = self._free(params).astype(_dtype)
-        fid = float(self.params.fid_U_fn(self.params.compute_U_fn(free_params)))
+        fid = float(
+            self.params.fid_U_fn(
+                self.params.compute_U_fn(free_params, self.params.delta_t)
+            )
+        )
         self.params.fidelity = fid
         if self.history is not None:
             if "parameters" in self.history.logs:
@@ -793,7 +802,8 @@ class Geope:
 
         Returns:
             A callable
-            ``update_linesearch(params, coeffs, piecewise_steps, ls_state)``
+            ``update_linesearch(params, coeffs, piecewise_steps, ls_state,
+            delta_t)``
             that returns ``(new_parameters, fidelity, dt, new_ls_state)``.
         """
 
@@ -805,13 +815,15 @@ class Geope:
         hvp_fn = get_hvp_propagator(jnp.asarray(self.params.proj_drift_basis.basis))
         real_params = self._real_params
 
-        def infidelity_t(t, params, coeffs):
-            return infid_fn(compute_U_fn(params + t * coeffs))
+        def infidelity_t(t, params, coeffs, delta_t):
+            return infid_fn(compute_U_fn(params + t * coeffs, delta_t))
 
         @jax.jit
-        def update_linesearch(params, coeffs, piecewise_steps, key, ls_state):
+        def update_linesearch(params, coeffs, piecewise_steps, key, ls_state, delta_t):
             sliced_params = self._free(params)
-            f = partial(infidelity_t, params=sliced_params, coeffs=coeffs)
+            f = partial(
+                infidelity_t, params=sliced_params, coeffs=coeffs, delta_t=delta_t
+            )
             max_step_size = self.max_step_size / piecewise_steps
 
             # TODO: I think we can reuse the Log from project-Gamma and omega
@@ -829,7 +841,7 @@ class Geope:
 
             def distance_f(t):
                 # Squared-geodesic-distance objective along the ray, F = 1/2 ||A||^2.
-                A = traceless_log(compute_U_fn(sliced_params + t * coeffs))
+                A = traceless_log(compute_U_fn(sliced_params + t * coeffs, delta_t))
                 return 0.5 * jnp.real(jnp.trace(A.conj().T @ A))
 
             geom_cache = {}
@@ -845,11 +857,14 @@ class Geope:
                         "not supported under param_transform; use GoldenSection "
                         "or Adam."
                     )
-                x = compute_U_fn(sliced_params)
+                x = compute_U_fn(sliced_params, delta_t)
                 A = traceless_log(x)
                 A_norm2 = jnp.real(jnp.trace(A.conj().T @ A))
                 # Directional first/second derivatives of the product unitary.
-                _, V, W = hvp_fn(jnp.real(sliced_params), coeffs)
+                # U(y + t c) = U_base(dt*y + t*(dt*c)); scaling the point
+                # and the direction makes V and W the derivatives in t of
+                # the true segment map, with no post-hoc factors.
+                _, V, W = hvp_fn(delta_t * jnp.real(sliced_params), delta_t * coeffs)
                 Omega = x.conj().T @ V
                 K_acc = V.conj().T @ V + x.conj().T @ W
                 # s is the exact first derivative of F(theta + t coeffs) for any
@@ -900,7 +915,7 @@ class Geope:
             dt, new_ls_state = self.line_search(ctx)
             new_parameters = sliced_params + dt * coeffs
             # Objective-agnostic
-            fidelity = fid_fn(compute_U_fn(new_parameters))
+            fidelity = fid_fn(compute_U_fn(new_parameters, delta_t))
 
             return new_parameters, fidelity, dt, new_ls_state
 
@@ -935,10 +950,10 @@ class Geope:
         """
 
         @jax.jit
-        def update_step(free_params, params, piecewise_steps, key, ls_state):
+        def update_step(free_params, params, piecewise_steps, key, ls_state, delta_t):
 
             gammaU_params, omegas_steps_phis = self.params.gammas_and_omegas(
-                free_params, key
+                free_params, key, delta_t
             )
 
             if expander_override is not None:
@@ -973,7 +988,9 @@ class Geope:
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
 
             new_params, fidelity_new_phi, step_size, new_ls_state = (
-                self.update_linesearch(params, coeffs, piecewise_steps, key, ls_state)
+                self.update_linesearch(
+                    params, coeffs, piecewise_steps, key, ls_state, delta_t
+                )
             )
 
             return (

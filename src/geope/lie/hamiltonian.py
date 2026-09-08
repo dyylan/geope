@@ -38,7 +38,7 @@ class Hamiltonian:
         self.basis = basis
         self.parameters = parameters
         self.matrix = self._matrix()
-        self.unitary = Unitary(spla.expm(1.0j * self.matrix))
+        self.unitary = Unitary(spla.expm(-1.0j * self.matrix))
 
     def geodesic_hamiltonian(self, target_unitary: np.ndarray) -> Hamiltonian:
         """Compute the geodesic Hamiltonian towards a target unitary.
@@ -50,7 +50,7 @@ class Hamiltonian:
             A ``Hamiltonian`` whose exponentiation yields the geodesic
             rotation from ``self.unitary`` to ``target_unitary``.
         """
-        g = -1.0j * spla.logm(self.unitary.matrix.conj().T @ target_unitary)
+        g = 1.0j * spla.logm(self.unitary.matrix.conj().T @ target_unitary)
         g_params = Hamiltonian.parameters_from_hamiltonian(g, self.basis)
         return Hamiltonian(self.basis, g_params)
 

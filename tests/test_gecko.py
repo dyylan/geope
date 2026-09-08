@@ -375,3 +375,218 @@ class TestGecko:
         # labels are not allowed under param_transform
         with pytest.raises(ValueError):
             gk.speed(parameter_labels=["XX"], max_optimization_steps=5)
+
+
+# ---------------------------------------------------------------------------
+# Tests — delta_t (issue #25): subdivision under a nonlinear param_transform
+# ---------------------------------------------------------------------------
+
+
+def _rabi(phi):
+    """Nonlinear transform: tau(phi/m) != tau(phi)/m, which is the whole bug."""
+    return jnp.array([phi[0] * jnp.cos(phi[1]), phi[0] * jnp.sin(phi[1]), 0.0])
+
+
+def _affine(phi):
+    """Affine transform — also breaks naive parameter division."""
+    return jnp.array([phi[0] + 0.3, phi[1], 0.0])
+
+
+def _rx(theta):
+    return np.array(
+        [
+            [np.cos(theta / 2), -1j * np.sin(theta / 2)],
+            [-1j * np.sin(theta / 2), np.cos(theta / 2)],
+        ],
+        dtype=complex,
+    )
+
+
+def _fidelity_now(p):
+    """Fidelity recomputed from live state, independent of stored bookkeeping."""
+    free = jnp.array(p.parameters, dtype=jnp.float64)
+    return float(p.fid_U_fn(p.compute_U_fn(free, p.delta_t)))
+
+
+def _solved_1q(transform, *, drift=False, steps=4):
+    """A converged single-qubit solution in experimental space."""
+    from geope import Parameters, construct_full_pauli_basis
+
+    kwargs = (
+        {
+            "control": {1: ["x", "y"]},
+            "drift": {1: ["z"]},
+            "drift_values": {1: {"z": 0.3}},
+        }
+        if drift
+        else {"control": {1: ["x", "y", "z"]}}
+    )
+    params = Parameters(
+        basis=construct_full_pauli_basis(1),
+        target=_rx(np.pi / 3),
+        piecewise_steps=steps,
+        param_transform=transform,
+        n_experimental_params=2,
+        init_spread=0.3,
+        seed=0,
+        **kwargs,
+    )
+    g = Geope(params)
+    g.optimize(max_steps=400, precision=1 - 1e-9)
+    return params
+
+
+class TestDeltaTSubdivision:
+    """Subdivision must preserve fidelity exactly, whatever the transform."""
+
+    @pytest.mark.parametrize("multiplier", [2, 3])
+    @pytest.mark.parametrize("transform", [_rabi, _affine])
+    def test_subdivision_is_exact_under_nonlinear_transform(
+        self, transform, multiplier
+    ):
+        p = _solved_1q(transform)
+        before = _fidelity_now(p)
+        Gecko(p).smooth(piecewise_steps_multiplier=multiplier, max_smoothing_steps=0)
+        # Exact to the floating-point floor, not merely "close": the m-th root
+        # identity is algebraic once the duration carries the 1/m.
+        assert abs(_fidelity_now(p) - before) < 1e-12
+
+    def test_subdivision_is_exact_with_drift(self):
+        """The drift block must be rescaled too, not just the control block."""
+        p = _solved_1q(_rabi, drift=True)
+        before = _fidelity_now(p)
+        Gecko(p).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        assert abs(_fidelity_now(p) - before) < 1e-12
+
+    def test_chained_subdivisions_stay_exact(self):
+        p = _solved_1q(_rabi)
+        before = _fidelity_now(p)
+        Gecko(p).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        Gecko(p).smooth(piecewise_steps_multiplier=3, max_smoothing_steps=0)
+        assert p.piecewise_steps == 4 * 6
+        assert abs(_fidelity_now(p) - before) < 1e-12
+
+    def test_parameters_are_replicated_not_divided(self):
+        """phi is untouched; the duration absorbs the 1/m."""
+        p = _solved_1q(_rabi)
+        phi_before = np.array(p.parameters)
+        Gecko(p).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        np.testing.assert_allclose(p.parameters[0], phi_before[0], atol=0)
+        np.testing.assert_allclose(p.parameters[1], phi_before[0], atol=0)
+        assert p.delta_t == pytest.approx(0.5)
+
+    def test_total_time_invariant_under_subdivision(self):
+        p = _solved_1q(_rabi)
+        t_before = p.total_time
+        Gecko(p).smooth(piecewise_steps_multiplier=3, max_smoothing_steps=0)
+        assert p.delta_t == pytest.approx(1 / 3)
+        assert p.total_time == pytest.approx(t_before)
+
+    def test_smoothing_still_works_after_subdivision(self):
+        p = _solved_1q(_rabi)
+        Gecko(p).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        before = _fidelity_now(p)
+        Gecko(p).smooth(max_smoothing_steps=20, smoothing_rate=0.01)
+        assert abs(_fidelity_now(p) - before) < 5e-3
+
+    def test_zero_step_pass_reports_true_fidelity(self):
+        """A subdivide-only pass used to report 0.0 (fid was seeded to zero)."""
+        p = _solved_1q(_rabi)
+        before = _fidelity_now(p)
+        Gecko(p).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        assert float(p.fidelity) == pytest.approx(before, abs=1e-12)
+
+
+class TestDeltaTState:
+    """delta_t is plain threaded state: no staleness, no invalidation."""
+
+    def test_delta_t_must_be_positive(self, cnot, full_basis_2q, projected_basis_2q):
+        from geope import Parameters
+
+        with pytest.raises(ValueError):
+            Parameters(
+                basis=full_basis_2q,
+                projected_basis=projected_basis_2q,
+                target=cnot,
+                delta_t=0.0,
+            )
+
+    def test_changing_delta_t_takes_effect_immediately(self):
+        """No cached closure to invalidate — the value flows in as an argument."""
+        p = _solved_1q(_rabi)
+        free = jnp.array(p.parameters, dtype=jnp.float64)
+        u_one = np.array(p.compute_U_fn(free, 1.0))
+        u_half = np.array(p.compute_U_fn(free, 0.5))
+        assert not np.allclose(u_one, u_half)
+        p.delta_t = 0.5
+        np.testing.assert_allclose(
+            np.array(p.compute_U_fn(free, p.delta_t)), u_half, atol=1e-14
+        )
+
+    def test_geope_sees_a_changed_delta_t(self):
+        """Geope must not reuse a step compiled at the old duration."""
+        p = _solved_1q(_rabi)
+        Geope(p).optimize(max_steps=5)
+        p.delta_t = 0.5
+        Geope(p).optimize(max_steps=1)
+        assert float(p.fidelity) == pytest.approx(_fidelity_now(p), abs=1e-9)
+
+    def test_grape_sees_a_changed_delta_t(self):
+        """Grape must not reuse an update step compiled at the old duration.
+
+        Grape reports ``infidelity_new_phi`` from ``grad_fn`` evaluated at the
+        parameters *before* the update, then stores it next to the updated
+        parameters — so ``params.fidelity`` trails ``params.parameters`` by one
+        step. That is pre-existing bookkeeping, so the assertion here compares
+        the reported value against the fidelity of the *starting* parameters at
+        each duration, which is what actually exposes a stale closure.
+        """
+        from geope.grape import Grape
+
+        p = _solved_1q(_rabi)
+        start = np.array(p.parameters)
+        free = jnp.array(start, dtype=jnp.float64)
+        f_unit = float(p.fid_U_fn(p.compute_U_fn(free, 1.0)))
+        f_half = float(p.fid_U_fn(p.compute_U_fn(free, 0.5)))
+        assert abs(f_unit - f_half) > 1e-6  # the durations must be discernible
+
+        Grape(p).optimize(max_steps=1, method="adam", learning_rate=0.01)
+        assert float(p.fidelity) == pytest.approx(f_unit, abs=1e-9)
+
+        p.parameters = start  # rewind, change only the duration
+        p.delta_t = 0.5
+        Grape(p).optimize(max_steps=1, method="adam", learning_rate=0.01)
+        assert float(p.fidelity) == pytest.approx(f_half, abs=1e-9)
+
+
+class TestBoundUnderParamTransform:
+    """``bound`` was the one Gecko method with no experimental-space path."""
+
+    def test_index_keyed_bounds_hold(self):
+        p = _solved_1q(_rabi)
+        Gecko(p).bound(
+            {0: (-0.4, 0.4)},
+            max_bounding_steps=200,
+            bounding_rate=0.02,
+            diff_tol=1e-3,
+        )
+        assert np.max(np.abs(np.array(p.parameters)[:, 0])) <= 0.4 + 1e-3
+
+    def test_unlisted_indices_are_unbounded(self):
+        p = _solved_1q(_rabi)
+        before = np.array(p.parameters)[:, 1].copy()
+        gk = Gecko(p)
+        gk.bound({0: (-0.4, 0.4)}, max_bounding_steps=5)
+        assert np.isneginf(np.array(gk.lower_bounds)[:, 1]).all()
+        assert np.isposinf(np.array(gk.upper_bounds)[:, 1]).all()
+        assert before.shape == np.array(p.parameters)[:, 1].shape
+
+    def test_label_keyed_bounds_raise(self):
+        p = _solved_1q(_rabi)
+        with pytest.raises(ValueError, match="integer parameter index"):
+            Gecko(p).bound({"X": (-1.0, 1.0)}, max_bounding_steps=1)
+
+    def test_out_of_range_index_raises(self):
+        p = _solved_1q(_rabi)
+        with pytest.raises(ValueError, match="out of range"):
+            Gecko(p).bound({7: (-1.0, 1.0)}, max_bounding_steps=1)

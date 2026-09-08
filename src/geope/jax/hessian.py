@@ -27,7 +27,7 @@ def hessian_propagator(
     r"""Compute the full Hessian propagator of the product unitary.
 
     Second-derivative analogue of `geope.jax.jacobian_propagator`. With the product
-    convention $U = U_{G-1} \cdots U_1 U_0$, $U_i = \exp(i\sum_k x_{i,k} B_k)$
+    convention $U = U_{G-1} \cdots U_1 U_0$, $U_i = \exp(-i\sum_k x_{i,k} B_k)$
     (each gate left-multiplied), the mixed derivative with respect to gates
     $i$ and $j$ leaves all other gates untouched:
 
@@ -165,8 +165,8 @@ def hvp_propagator(
       V_g = U_g V_{g-1} + E_g X_{g-1},$$
     $$W_g = U_g W_{g-1} + 2\,E_g V_{g-1} + G_g X_{g-1},$$
 
-    with $X_{-1} = I$, $V_{-1} = W_{-1} = 0$, where $U_g = \exp(iA_g)$,
-    $E_g = D\exp(iA_g)[iB_g]$, and $G_g = D^2\exp(iA_g)[iB_g, iB_g]$ are the
+    with $X_{-1} = I$, $V_{-1} = W_{-1} = 0$, where $U_g = \exp(-iA_g)$,
+    $E_g = D\exp(-iA_g)[-iB_g]$, and $G_g = D^2\exp(-iA_g)[-iB_g, -iB_g]$ are the
     per-gate value and directional derivatives (`step_fn`). After all $G$ gates,
     $X_{G-1} = \phi(\theta)$, $V_{G-1} = D\phi_\theta[p]$, and
     $W_{G-1} = D^2\phi_\theta[p, p]$. The cross term $2\,E_g V_{g-1}$ collects

@@ -5,10 +5,12 @@
 `geope` finds piecewise-constant control pulses that implement a target quantum gate on an $n$-qubit system. Given a target unitary $U_T$, a set of available control generators (the projected basis), and optionally fixed drift generators, the optimiser searches for real-valued parameters $\phi$ such that
 
 $$
-U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
+U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i\,\Delta T \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
 $$
 
-where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$.
+where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$, and $\Delta T$ (see `delta_t`) is the segment duration, defaulting to 1.
+
+> **Convention change.** `geope` previously defined the map with $+i$ in the exponent. Because $A(\phi)$ is linear in $\phi$, the two are related by $U_{-}(\phi) = U_{+}(-\phi)$: **a parameter set stored under the old convention describes the mirror-image Hamiltonian under the new one, and must be negated to mean the same physics.** That applies to `init_values` *and* to `drift_values` — a drift coefficient of $+1$ previously meant a physical $-1\cdot G$ field. Negating only some of them silently changes the problem rather than raising, so convert a whole parameter set at once.
 
 The core algorithm is the **geodesic method**: at each step it computes the shortest path on $U(d)$ from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.
 
@@ -80,7 +82,7 @@ Key methods:
 
 ### `Hamiltonian`
 
-Represents $H = \sum_i \phi_i G_i$ and its unitary $U = e^{iH}$.
+Represents $H = \sum_i \phi_i G_i$ and its unitary $U = e^{-iH}$.
 
 ```python
 Hamiltonian(basis, parameters)
@@ -204,7 +206,7 @@ Other utilities:
 ```python
 Parameters(basis=None, control=None, drift=None,
            init_values=None, drift_values=None,
-           target=None, piecewise_steps=1, fixed_drift=True,
+           target=None, piecewise_steps=1, delta_t=1.0, fixed_drift=True,
            constraints=None, pulse_constraints=None, bounds=None,
            init_spread=0.1, seed=None,
            param_transform=None, n_experimental_params=None,
@@ -220,6 +222,7 @@ Parameters(basis=None, control=None, drift=None,
 | `drift_values` | dict, `ndarray`, or `None` (ones) |
 | `target` | target unitary as `ndarray` |
 | `piecewise_steps` | number of gate segments $N_g$ |
+| `delta_t` | duration $\Delta T$ of each segment, so $U_g = \exp(-i\,\Delta T\,H_g)$; defaults to 1.0, where the duration is absorbed into the coefficients |
 | `fixed_drift` | whether drift is held fixed during optimisation |
 | `constraints` | list of constraint vectors / dicts |
 | `pulse_constraints` | control-format dict `{site: [ops]}` (same format as `control`) of projected terms whose time-shape is fixed |
@@ -594,6 +597,9 @@ print(g.history.best_fidelity)         # best fidelity over the trajectory
 
 - `Gecko`'s null-space methods (`speed`, `length`, `robust`) must use `parameter_indices`, not `parameter_labels`, when `param_transform` is set — labels no longer correspond to optimised parameters. `Gecko` raises `ValueError` otherwise. (`Gecko` supports experimental parameters in every construction mode: when reusing a `Geope` the engine is already wrapped; when built from `params` it re-wraps a fresh engine.)
 - Internally `param_transform` mode uses `float64`; basis-coefficient mode uses `complex128`. Tolerances and bounds you supply should match.
+- `Gecko.bound(...)` takes bounds keyed by integer parameter index here, not by interaction label.
+- Every `Gecko` cost acts on $\phi$ — the experimental knobs — not on the induced coefficients $\tau(\phi)$. Smoothing therefore produces a smooth *knob* trajectory, which is what hardware plays, but not necessarily a smooth field.
+- Subdivision is what `delta_t` exists for. Because $\tau$ need not be linear, the coefficients cannot be rescaled by rescaling $\phi$, so `Gecko` divides the segment duration instead and leaves $\phi$ untouched. This is exact for any $\tau$; see the `Gecko` section above.
 
 ## Phase-sensitive vs projective
 
@@ -622,7 +628,7 @@ These passes live on a separate optimiser, **`Gecko`**, which post-processes a s
 
 **The solution does not have to come from `Geope`.** `Gecko` operates on the current `params.parameters` — that array can be a `Geope` result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a `Parameters` object describing the same system (`basis`, `projected_basis`/`drift_basis`, `target`, `piecewise_steps`, and any `param_transform`) and call `Gecko(p)`; it refines the imported solution while preserving its fidelity. (When `params` has never been evaluated, `Gecko` computes the baseline fidelity itself on construction.)
 
-When you pass a `Geope`'s `params`, the `Parameters` object is shared with that `Geope`, so a pass with `piecewise_steps_multiplier > 1` advances the shared state forward (`params.parameters` and `params.piecewise_steps` move to the new count together).
+When you pass a `Geope`'s `params`, the `Parameters` object is shared with that `Geope`, so a pass with `piecewise_steps_multiplier > 1` advances the shared state forward (`params.parameters`, `params.piecewise_steps` and `params.delta_t` move together).
 
 ### Available objectives (methods on `Gecko`)
 
@@ -636,7 +642,17 @@ When you pass a `Geope`'s `params`, the `Parameters` object is shared with that 
 | `robust(parameter_*, delta, num_samples, ...)` | $1 - \min_{\delta \in [-\Delta,+\Delta]^{|P|}} F$ | maximise worst-case fidelity under uniform δ perturbations |
 | `bound(bounds, method, ...)` | $\max(\phi - u_b, l_b - \phi)$ | enforce a box constraint via `'projected_gradient'` / `'pg'` or `'mid_point'` / `'mp'` |
 
-Each returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.
+Each returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass, giving more null-space degrees of freedom.
+
+Subdivision splits each segment into $m$ **identical copies** and divides `params.delta_t` by $m$. That leaves the unitary exactly unchanged — $\exp(-i\,\Delta T A) = [\exp(-i\,(\Delta T/m) A)]^m$ — and keeps `params.total_time` invariant. It deliberately does *not* divide the parameters: that is only equivalent when the generator is linear in them, which fails for any nonlinear `param_transform`, where $\tau(\phi/m) \ne \tau(\phi)/m$ and the fidelity `Gecko` is meant to preserve is silently destroyed.
+
+Because the duration is part of the state, anything that rebuilds the unitary by hand must pass it:
+
+```python
+U = params.compute_U_fn(free_params, params.delta_t)   # not compute_U_fn(free_params)
+```
+
+`bound(...)` takes label-keyed bounds in projected space; under `param_transform` labels do not name optimised quantities, so pass a dict keyed by integer parameter index instead (`{0: (-1.0, 1.0)}`), matching `pulse_constraints` and `parameter_indices`. Unlisted indices are unbounded.
 
 ### Null-space algorithm: `Gecko._null_space_optimisation()`
 

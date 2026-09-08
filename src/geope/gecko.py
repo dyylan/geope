@@ -49,8 +49,9 @@ class Gecko:
         The `Parameters` object is **shared** with the source `Geope`. A
         null-space pass with ``piecewise_steps_multiplier > 1`` subdivides the
         pulse and advances ``params.parameters`` / ``params.piecewise_steps``
-        in place — so the shared `Geope`'s state moves forward too, and a later
-        ``geope.optimize()`` continues from the subdivided pulse.
+        / ``params.delta_t`` in place — so the shared `Geope`'s state moves
+        forward too, and a later ``geope.optimize()`` continues from the
+        subdivided pulse.
     """
 
     def __init__(
@@ -87,7 +88,7 @@ class Gecko:
                 jnp.real(free_params) if self._real_params else free_params
             ).astype(_dtype)
             self.params.fidelity = self.params.fid_U_fn(
-                self.params.compute_U_fn(free_params)
+                self.params.compute_U_fn(free_params, self.params.delta_t)
             )
 
         self.history = history
@@ -370,10 +371,7 @@ class Gecko:
             and self.params.drift_basis is not None
             and getattr(self, "drift_parameters", None) is not None
         ):
-            drift_per_gate = (
-                np.array(self.drift_parameters) / piecewise_steps_multiplier
-            )
-            drift_sq_norm = float(np.sum(drift_per_gate**2))
+            drift_sq_norm = float(np.sum(np.array(self.drift_parameters) ** 2))
         length_fn = get_length_null_space_fn(
             n_proj, parameter_indices, drift_sq_norm=drift_sq_norm
         )
@@ -447,6 +445,7 @@ class Gecko:
         robustness_fn = get_robustness_null_space_fn(
             self.params.fid_U_fn,
             self.params.compute_U_fn,
+            self.params.delta_t,
             proj_idx_pd,
             drift_idx_pd,
             drift_params,
@@ -482,8 +481,12 @@ class Gecko:
         `parameter_bounds` while staying in the Jacobian null space.
 
         Args:
-            parameter_bounds: Dictionary mapping interaction labels to
-                ``(min, max)`` tuples.
+            parameter_bounds: In projected space, a dict mapping interaction
+                labels to ``(min, max)`` tuples. Under ``param_transform``,
+                labels no longer name optimised quantities, so pass a dict
+                keyed by **integer parameter index** instead — the same
+                convention ``pulse_constraints`` and ``parameter_indices``
+                already use there. Unlisted parameters are unbounded.
             method: Bounding strategy — ``'projected_gradient'`` /
                 ``'pg'`` or ``'mid_point'`` / ``'mp'``.
                 Defaults to ``'projected_gradient'``.
@@ -499,14 +502,24 @@ class Gecko:
             `diff_tol` was reached.
 
         Raises:
-            ValueError: If an unsupported `method` is provided.
+            ValueError: If an unsupported `method` is provided, or if
+                label-keyed bounds are passed under ``param_transform``.
         """
         self.parameter_bounds = parameter_bounds
-        bounds = self.params.proj_drift_basis.generate_bounds(
-            self.parameter_bounds, self.params.piecewise_steps
-        )
-        self.lower_bounds = jnp.array(bounds[0], dtype=jnp.float64)
-        self.upper_bounds = jnp.array(bounds[1], dtype=jnp.float64)
+        if self._real_params:
+            lower, upper = self._experimental_bounds(parameter_bounds)
+        else:
+            bounds = self.params.proj_drift_basis.generate_bounds(
+                self.parameter_bounds, self.params.piecewise_steps
+            )
+            lower = jnp.array(bounds[0], dtype=jnp.float64)[
+                :, self.params.proj_indices_projdrift_basis
+            ]
+            upper = jnp.array(bounds[1], dtype=jnp.float64)[
+                :, self.params.proj_indices_projdrift_basis
+            ]
+        self.lower_bounds = lower
+        self.upper_bounds = upper
 
         if method == "projected_gradient" or method == "pg":
             piecewise_bounding = piecewise_bounding_pg
@@ -522,10 +535,41 @@ class Gecko:
             diff_tol=diff_tol,
             label="Bounding",
             callbacks=callbacks,
-            lower_bounds=self.lower_bounds[:, self.params.proj_indices_projdrift_basis],
-            upper_bounds=self.upper_bounds[:, self.params.proj_indices_projdrift_basis],
+            lower_bounds=self.lower_bounds,
+            upper_bounds=self.upper_bounds,
         )
         return success, iters
+
+    def _experimental_bounds(self, parameter_bounds) -> tuple[Array, Array]:
+        """Build ``(N_g, n_exp)`` bound arrays from index-keyed bounds.
+
+        ``generate_bounds`` is keyed on basis labels and sized to the basis,
+        which is meaningless for experimental knobs — it produced a shape
+        mismatch rather than an error. Unlisted indices are left unbounded.
+        """
+        n_exp = self.params.n_experimental_params
+        if not isinstance(parameter_bounds, dict) or any(
+            not isinstance(k, (int, np.integer)) for k in parameter_bounds
+        ):
+            raise ValueError(
+                "Under param_transform, parameter_bounds must be keyed by "
+                "integer parameter index, e.g. {0: (-1.0, 1.0)}; interaction "
+                "labels do not name optimised parameters there."
+            )
+        lower = np.full((self.params.piecewise_steps, n_exp), -np.inf)
+        upper = np.full((self.params.piecewise_steps, n_exp), np.inf)
+        for k, (lo, hi) in parameter_bounds.items():
+            if not 0 <= k < n_exp:
+                raise ValueError(
+                    f"Bound index {k} is out of range for "
+                    f"n_experimental_params={n_exp}."
+                )
+            lower[:, k] = lo
+            upper[:, k] = hi
+        return (
+            jnp.array(lower, dtype=jnp.float64),
+            jnp.array(upper, dtype=jnp.float64),
+        )
 
     def get_free_params_update_smoothing(self) -> Callable[[Array, np.ndarray], Array]:
         """Build a JIT-compiled function to reconstruct free parameters.
@@ -621,10 +665,10 @@ class Gecko:
             list(np.copy(self.params.parameters))
             for _ in range(piecewise_steps_multiplier)
         ]
-        self.params.parameters = (
-            np.array([x for group in zip(*new_parameters) for x in group])
-            / piecewise_steps_multiplier
+        self.params.parameters = np.array(
+            [x for group in zip(*new_parameters) for x in group]
         )
+        self.params.delta_t = self.params.delta_t / piecewise_steps_multiplier
 
         _dtype = jnp.float64 if self._real_params else jnp.complex128
         if self._real_params:
@@ -673,7 +717,7 @@ class Gecko:
             )
         else:
             expander = None
-        fid = 0
+        fid = self.params.fidelity
         # The engine functions (``gammas_and_omegas``, ``compute_U_fn``,
         # ``fid_U_fn``) are returned un-jitted by design: they are built to fuse
         # into an enclosing ``@jax.jit``, the way ``Geope.optimize``'s update
@@ -683,11 +727,13 @@ class Gecko:
         # traces are reused across all iterations.
         gammas_and_omegas = jax.jit(self.params.gammas_and_omegas)
         fid_of_params = jax.jit(
-            lambda fp: self.params.fid_U_fn(self.params.compute_U_fn(fp))
+            lambda fp, dt: self.params.fid_U_fn(self.params.compute_U_fn(fp, dt))
         )
         while (diff > diff_tol) and (c < max_steps):
             # TODO: Can we create a function that just returns `omegas_steps_phis`?
-            _, omegas_steps_phis = gammas_and_omegas(free_params, jax.random.key(0))
+            _, omegas_steps_phis = gammas_and_omegas(
+                free_params, jax.random.key(0), self.params.delta_t
+            )
             vh, num = find_null_space(omegas_steps_phis, expander)
 
             assert num > 0, "Nullspace is empty!"
@@ -705,7 +751,7 @@ class Gecko:
 
             free_params = params_update(proj_params, self.params.parameters)
 
-            fid = fid_of_params(free_params)
+            fid = fid_of_params(free_params, self.params.delta_t)
 
             c += 1
             print(
@@ -939,6 +985,7 @@ def get_length_null_space_fn(
 def get_robustness_null_space_fn(
     fid_U_fn: Callable,
     compute_U_fn: Callable,
+    delta_t: float,
     proj_indices: np.ndarray,
     drift_indices: np.ndarray,
     drift_params: np.ndarray | None,
@@ -959,6 +1006,8 @@ def get_robustness_null_space_fn(
         fid_U_fn: JIT-compiled fidelity function taking a unitary.
         compute_U_fn: JIT-compiled function computing the unitary
             from free parameters.
+        delta_t: Segment duration to evaluate ``compute_U_fn`` at; bound
+            here because the cost is built once per pass.
         proj_indices: Boolean mask of projected positions within the
             proj+drift basis.
         drift_indices: Boolean mask of drift positions within the
@@ -1003,7 +1052,7 @@ def get_robustness_null_space_fn(
                 gate_idxs = jnp.arange(n_steps) * n_proj + pidx
                 perturbation = perturbation.at[gate_idxs].set(delta_vec[k])
             return fid_U_fn(
-                compute_U_fn(_make_free_params(proj_flat_real + perturbation))
+                compute_U_fn(_make_free_params(proj_flat_real + perturbation), delta_t)
             )
 
         fidelities = jax.vmap(fid_at_deltas)(delta_combinations)
