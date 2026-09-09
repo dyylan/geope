@@ -310,11 +310,11 @@ class TestDexpmEig:
         assert not jnp.allclose(dexpm_eig(x, basis), ref, atol=1e-3)
 
     def test_zero_params_gives_generators(self):
-        """At x=0 the derivative of expm(iA) w.r.t. x_k is i*B_k."""
+        """At x=0 the derivative of expm(-iA) w.r.t. x_k is -i*B_k."""
         basis = _pauli_basis_1q()
         x = jnp.zeros(3, dtype=complex)
         out = dexpm_eig(x, basis)  # (2, 2, 3)
-        expected = jnp.moveaxis(1j * basis, 0, -1)
+        expected = jnp.moveaxis(-1j * basis, 0, -1)
         assert jnp.allclose(out, expected, atol=1e-9)
 
     def test_batched_matches_full(self):
@@ -353,7 +353,7 @@ class TestJacobianPropagator:
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.0, 0.0, 0.0]])
         result = jacobian_propagator(params, Ui_fn, jac_fn)
-        # Should not be all zeros — derivative of expm(i*0) w.r.t. params gives i*basis
+        # Should not be all zeros — derivative of expm(-i*0) w.r.t. params gives -i*basis
         assert not jnp.allclose(result, 0, atol=1e-10)
 
 
@@ -399,7 +399,7 @@ class TestGetJacobianPropagator:
         # jax.jacobian over full compute
         def compute_U(p):
             A = jnp.tensordot(p[0], basis, axes=[[-1], [0]])
-            return jax.scipy.linalg.expm(1j * A)
+            return jax.scipy.linalg.expm(-1j * A)
 
         jac_auto = jax.jacobian(compute_U, holomorphic=True)(params)  # (2,2,1,3)
         # manual shape is (1,2,2,3), auto shape is (2,2,1,3) — rearrange
@@ -713,10 +713,17 @@ class TestHvpPropagator:
 class TestCostHessianPropagator:
     """Infidelity Hessian propatator must match the autodiff get_hessian_fn."""
 
+    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
     @pytest.mark.parametrize("projective", [True, False])
     @pytest.mark.parametrize("method", ["eig", "block"])
     @pytest.mark.parametrize("n,G", [(1, 2), (2, 3)])
-    def test_matches_autodiff(self, projective, method, n, G):
+    def test_matches_autodiff(self, projective, method, n, G, delta_t):
+        """Both Hessians must agree, and at a non-unit duration too.
+
+        The manual path evaluates the propagator machinery at ``delta_t * y``
+        and applies one chain-rule factor of ``delta_t`` per derivative; the
+        ``delta_t != 1`` case is what pins those factors.
+        """
         basis = jnp.asarray(construct_full_pauli_basis(n).basis)
         K = basis.shape[0]
         target = jnp.asarray(qft_unitary(n))
@@ -727,11 +734,11 @@ class TestCostHessianPropagator:
         infid_U = (
             get_infidelity_fn(target) if projective else get_infidelity_full_fn(target)
         )
-        infid = lambda x: infid_U(compute_U(x))
-        H_auto = get_hessian_fn(infid)(y).reshape(G * K, G * K)
+        infid = lambda x, dt=1.0: infid_U(compute_U(x, dt))
+        H_auto = get_hessian_fn(infid)(y, delta_t).reshape(G * K, G * K)
         H_man = get_hessian_propagator_fn(
             basis, target, projective=projective, method=method
-        )(y)
+        )(y, delta_t)
         assert H_man.shape == (G * K, G * K)
         assert jnp.allclose(H_man, H_auto, atol=1e-7)
 

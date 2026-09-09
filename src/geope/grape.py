@@ -224,7 +224,7 @@ class Grape:
         _dtype = np.float64 if self._real_params else np.complex128
         free_params = self._free(self.params.parameters).astype(_dtype)
         self.params.fidelity = self.params.fid_U_fn(
-            self.params.compute_U_fn(free_params)
+            self.params.compute_U_fn(free_params, self.params.delta_t)
         )
         self.step_size = 0
         # A change of parameters invalidates any optax state built for the
@@ -343,7 +343,7 @@ class Grape:
             step += 1
             free_params = self._free(self.params.parameters).astype(_dtype)
             new_parameters, infidelity, self.optimizer_state = self.update_step(
-                free_params, self.optimizer_state
+                free_params, self.optimizer_state, self.params.delta_t
             )
             if self.verbose:
                 if infidelity < 1 - self.precision:
@@ -375,9 +375,9 @@ def get_update_step_gd(proj_drift_indices, grad_fn, optimizer):
     lie_algebra_dim = len(proj_drift_indices)
 
     @jax.jit
-    def update_step(free_params, optimizer_state):
+    def update_step(free_params, optimizer_state, delta_t=1.0):
         # Get Hessian and gradients
-        infidelity_new_phi, grads = grad_fn(free_params)
+        infidelity_new_phi, grads = grad_fn(free_params, delta_t)
         # use the linesearch backtracking, make sure we pass a function that needs to get minimized.
         updates, optimizer_state["optimizer"] = optimizer.update(
             grads, optimizer_state["optimizer"], free_params
@@ -398,10 +398,10 @@ def get_update_step_trm(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
     lie_algebra_dim = len(proj_drift_indices)
 
     @jax.jit
-    def update_step(free_params, optimizer_state):
+    def update_step(free_params, optimizer_state, delta_t=1.0):
         # Get Hessian and gradients
-        infidelity_new_phi, grads = grad_fn(free_params)
-        hessian = hess_fn(free_params)
+        infidelity_new_phi, grads = grad_fn(free_params, delta_t)
+        hessian = hess_fn(free_params, delta_t)
         hessian = jnp.reshape(hessian, (hessian.shape[0], hessian.shape[0]))
         # Perform newton step to get update
         grads_nr = newton_trm_step(hessian, grads.flatten(), delta).reshape(
@@ -414,7 +414,7 @@ def get_update_step_trm(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
             free_params,
             value=infidelity_new_phi,
             grad=-grads_nr,
-            value_fn=fid_fn,
+            value_fn=lambda v: fid_fn(v, delta_t),
         )
         # Updates the parameters.
         free_params = optax.apply_updates(free_params, updates)
@@ -444,10 +444,10 @@ def get_update_step_rfo(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
     lie_algebra_dim = len(proj_drift_indices)
 
     @jax.jit
-    def update_step(free_params, optimizer_state):
+    def update_step(free_params, optimizer_state, delta_t=1.0):
         # Get Hessian and gradients
-        infidelity_new_phi, grads = grad_fn(free_params)
-        hessian = hess_fn(free_params)
+        infidelity_new_phi, grads = grad_fn(free_params, delta_t)
+        hessian = hess_fn(free_params, delta_t)
         hessian = jnp.reshape(hessian, (hessian.shape[0], hessian.shape[0]))
         # Perform newton step to get update
         grads_nr = newton_rfo_step(hessian, grads.flatten(), kappa)
@@ -459,7 +459,7 @@ def get_update_step_rfo(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
             free_params,
             value=infidelity_new_phi,
             grad=-grads_nr,
-            value_fn=fid_fn,
+            value_fn=lambda v: fid_fn(v, delta_t),
         )
         # Updates the parameters.
         free_params = optax.apply_updates(free_params, updates)

@@ -17,7 +17,7 @@ Designing multi-qubit quantum logic gates under experimental hardware constraint
 
 $$U_G(\mathbf{\Phi}) = U(\phi_L)\, U(\phi_{L-1})\, \cdots \, U(\phi_1) \approx V,$$
 
-where each $U(\phi_l) = e^{i H(\phi_l)}$ and $H(\phi_l) = \sum_k \phi_{l,k}\, G_k$ is a Hamiltonian restricted to the available interactions $G_k \in \mathcal{H}$.
+where each $U(\phi_l) = e^{-i H(\phi_l)}$ and $H(\phi_l) = \sum_k \phi_{l,k}\, G_k$ is a Hamiltonian restricted to the available interactions $G_k \in \mathcal{H}$.
 
 The standard approach is GRAPE (Gradient Ascent Pulse Engineering), which performs gradient ascent on the fidelity
 

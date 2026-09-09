@@ -45,6 +45,12 @@ class Parameters:
         drift_basis: The drift sub-``Basis``, or ``None``.
         target: Target unitary as ``np.ndarray``.
         piecewise_steps: Number of piecewise-constant gate segments.
+        delta_t: Duration of each segment. Plain mutable state: it is threaded
+            into the optimisation functions as an argument, not baked into
+            them, so reassigning it takes effect immediately and never
+            invalidates a compiled trace. `Gecko` subdivision divides it by the
+            multiplier instead of rescaling ``parameters``.
+        total_time: ``piecewise_steps * delta_t`` — invariant under subdivision.
         fixed_drift: Whether the drift contribution is held fixed.
         control: The control dict used to build ``projected_basis``.
         drift_config: The dict used to build ``drift_basis``.
@@ -80,6 +86,7 @@ class Parameters:
         drift_values: dict | np.ndarray | None = None,
         target: np.ndarray | None = None,
         piecewise_steps: int = 1,
+        delta_t: float = 1.0,
         fixed_drift: bool = True,
         constraints: list | None = None,
         pulse_constraints: dict | list | None = None,
@@ -112,6 +119,12 @@ class Parameters:
             target: Target unitary.
             piecewise_steps: Number of piecewise-constant gate segments.
                 Defaults to 1.
+            delta_t: Duration $\\Delta T$ of each segment, so that
+                $U_g = \\exp(-i\\,\\Delta T\\sum_k \\phi_{g,k}G_k)$. Defaults to
+                1.0, where the duration is absorbed into the coefficients and
+                the parameters alone determine the unitary. Must be positive.
+                `Gecko` subdivision rescales it rather than the parameters —
+                see :attr:`delta_t`.
             fixed_drift: Whether the drift contribution is held fixed.
                 Defaults to ``True``.
             constraints: Optional list of linear-equality constraints,
@@ -204,9 +217,12 @@ class Parameters:
                     "for a worked example."
                 )
 
-        # --- Immutable config ---
+        # --- Config, immutable after construction except for the time grid ---
         self.target = np.array(target) if target is not None else None
         self.piecewise_steps = piecewise_steps
+        if not delta_t > 0:
+            raise ValueError(f"delta_t must be positive, got {delta_t}.")
+        self.delta_t = float(delta_t)
         self.fixed_drift = fixed_drift
         self.control = control
         self.drift_config = drift
@@ -312,12 +328,23 @@ class Parameters:
         return None if self.fidelity is None else 1 - self.fidelity
 
     @property
-    def basis_coefficients(self) -> np.ndarray | None:
-        """Current parameters mapped through ``param_transform`` if set.
+    def total_time(self) -> float:
+        """Total gate duration ``piecewise_steps * delta_t``.
 
-        Returns the induced basis coefficients corresponding to the
-        current ``self.parameters``. If ``param_transform`` is ``None``
-        this is just the current parameters.
+        Invariant under `Gecko` subdivision, which splits each segment into
+        ``m`` copies and divides ``delta_t`` by ``m``.
+        """
+        return self.piecewise_steps * self.delta_t
+
+    @property
+    def basis_coefficients(self) -> np.ndarray | None:
+        """Hamiltonian amplitudes $c$ in $H_g = \\sum_k c_{g,k} G_k$.
+
+        The current parameters mapped through ``param_transform`` when one is
+        set, and the parameters themselves otherwise. These are amplitudes, not
+        rotation angles: the segment is $\\exp(-i\\,\\Delta T\\,H_g)$, so the
+        duration :attr:`delta_t` is a separate quantity and is deliberately
+        *not* folded in here.
         """
         if self.param_transform is not None:
             import jax
@@ -405,15 +432,19 @@ class Parameters:
 
     @cached_property
     def infid_fn(self) -> Callable:
-        """Infidelity as a function of the free parameters."""
+        """Infidelity as a function of the free parameters and ``delta_t``."""
         compute_U = self.compute_U_fn
         infid_U = self.infid_U_fn
-        return lambda x: infid_U(compute_U(x))
+        return lambda x, delta_t=1.0: infid_U(compute_U(x, delta_t))
 
     @cached_property
     def grad_fn(self) -> Callable:
-        """Value-and-gradient of the infidelity (used by GRAPE)."""
-        return jax.value_and_grad(self.infid_fn)
+        """Value-and-gradient of the infidelity (used by GRAPE).
+
+        Differentiates with respect to the free parameters only; ``delta_t``
+        is a duration, not an optimisation variable.
+        """
+        return jax.value_and_grad(self.infid_fn, argnums=0)
 
     @cached_property
     def hess_fn_autodiff(self) -> Callable:

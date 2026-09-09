@@ -82,7 +82,7 @@ class TestHessianFactory:
     def test_matches_jax_hessian_quadratic(self):
         # f(y) = 0.5 yᵀ A y  ->  Hessian = A (symmetrised)
         A = jnp.array([[2.0, 0.5], [0.5, 3.0]])
-        f = lambda y: 0.5 * jnp.vdot(y.reshape(-1), (A @ y.reshape(-1))).real
+        f = lambda y, _dt=1.0: 0.5 * jnp.vdot(y.reshape(-1), (A @ y.reshape(-1))).real
         hess = get_hessian_fn(f)
         y = jnp.array([0.7, -0.3])
         H = np.array(hess(y)).reshape(2, 2)
@@ -93,12 +93,15 @@ class TestHessianFactory:
         compute_U = get_compute_matrices_params_list_fn(basis)
         target = jnp.array([[0, 1], [1, 0]], dtype=complex)  # X gate
         infid_U = get_infidelity_fn(target)
-        infid = lambda x: infid_U(compute_U(x))
+        infid = lambda x, dt=1.0: infid_U(compute_U(x, dt))
         hess = get_hessian_fn(infid)
         y = jnp.array([[0.2, -0.1, 0.4]])
-        H = np.array(hess(y)).reshape(y.size, y.size)
-        H_ref = np.array(jax.hessian(infid)(y)).reshape(y.size, y.size)
-        np.testing.assert_allclose(H, H_ref, atol=1e-8)
+        for dt in (1.0, 0.7):
+            H = np.array(hess(y, dt)).reshape(y.size, y.size)
+            H_ref = np.array(jax.hessian(lambda x: infid(x, dt))(y)).reshape(
+                y.size, y.size
+            )
+            np.testing.assert_allclose(H, H_ref, atol=1e-8)
 
 
 # ---------------------------------------------------------------------------
@@ -328,15 +331,15 @@ class TestLeftTrivialisation:
 
     @staticmethod
     def _left_trivialised(p, pidx, free, key):
-        """The matrices the projection *should* be handed: A and i U^dag dU."""
+        """The matrices the projection *should* be handed: A and -i U^dag dU."""
         U = np.asarray(p.compute_U_fn(free))
         A = U.conj().T @ np.asarray(p.geo_fn(U, key=key))
         dU = np.transpose(np.asarray(p.jac_fn(free)), [2, 3, 0, 1])
-        J = 1j * np.einsum("ab,gkbc->gkac", U.conj().T, dU)[:, pidx]
+        J = -1j * np.einsum("ab,gkbc->gkac", U.conj().T, dU)[:, pidx]
         return U, A, J
 
     def test_projections_are_of_the_left_trivialised_matrices(self, deficient):
-        """gammas and omegas must be the projections of A and i U^dag dU.
+        """gammas and omegas must be the projections of A and -i U^dag dU.
 
         Not a Hermiticity check on the rebuilt matrices: ``project_omegas``
         returns *real* coefficients against a Hermitian basis, so any rebuild is
