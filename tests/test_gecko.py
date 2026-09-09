@@ -333,6 +333,19 @@ class TestGecko:
         assert g.params.piecewise_steps == new_steps
         assert g.params.parameters.shape[0] == new_steps
 
+    def test_smooth_respects_verbose(self, params_2q, capsys):
+        g = Geope(params_2q)
+        g.optimize(max_steps=400, precision=0.9999)
+
+        # Quiet by default: `verbose` gates every progress line.
+        Gecko(g.params).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=5)
+        assert capsys.readouterr().out == ""
+
+        Gecko(g.params, verbose=True).smooth(
+            piecewise_steps_multiplier=1, max_smoothing_steps=5
+        )
+        assert "Smoothing" in capsys.readouterr().out
+
     def test_params_mode_from_subdivided_params(self, params_2q):
         g = Geope(params_2q)
         g.optimize(max_steps=400, precision=0.9999)

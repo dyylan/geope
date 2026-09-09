@@ -754,18 +754,20 @@ class Gecko:
             fid = fid_of_params(free_params, self.params.delta_t)
 
             c += 1
-            print(
-                f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                      ",
-                end="\r",
-            )
+            if self.verbose:
+                print(
+                    f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                      ",
+                    end="\r",
+                )
 
             # Run user callbacks at the end of the iteration; stop early if any
             # requests it.
             if not run_callbacks(cbs, c, self.history, self):
                 break
-        print(
-            f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        "
-        )
+        if self.verbose:
+            print(
+                f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        "
+            )
         success = diff_tol >= diff
         if self._real_params:
             new_params = np.array([np.real(p) for p in free_params])
