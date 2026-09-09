@@ -1444,7 +1444,10 @@ Hilbert-Schmidt inner product between the two matrices.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Create a partial unitary-computation function with a fixed basis.</p>
+        <p>Create a unitary-computation function with a fixed basis.</p>
+<p>A closure rather than <code>partial(..., basis=basis)</code> so that <code>delta_t</code>
+can be passed positionally: binding <code>basis</code> as a keyword would make
+<code>compute_U(params, dt)</code> collide with it.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1489,21 +1492,21 @@ Hilbert-Schmidt inner product between the two matrices.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> that accepts a parameter list</p>
+                <p>A <code>Callable[..., Array]</code> <code>compute_U(params_list, delta_t=1.0)</code></p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>and returns the product unitary.</p>
+                <p>returning the product unitary.</p>
               </div>
             </td>
           </tr>
@@ -2134,7 +2137,17 @@ rank-deficient Jacobian that makes the ambient-projection failure visible.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>gammas_and_omegas(free_params, key) -&gt; (gammaU_params, omegas)</code>.</p>
+                <p>``gammas_and_omegas(free_params, key, delta_t)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>-&gt; (gammaU_params, omegas)``.</p>
               </div>
             </td>
           </tr>
@@ -2183,7 +2196,10 @@ into the enclosing <code>@jax.jit</code> update step.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Scalar-valued infidelity callable of the free parameters.</p>
+                <p>Scalar-valued infidelity callable <code>(free_params, delta_t)</code>.
+Both arguments are positional, matching
+<code>Parameters.infid_fn</code>; the signature mirrors
+<code>get_hessian_propagator_fn</code> so the two remain drop-in equivalents.</p>
               </div>
             </td>
             <td>
@@ -2209,7 +2225,27 @@ into the enclosing <code>@jax.jit</code> update step.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> <code>hess(y)</code> returning the Hessian.</p>
+                <p>A <code>Callable[[Array], Array]</code> <code>hess(y, delta_t)</code> returning the</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hessian with respect to <code>y</code> alone — <code>delta_t</code> is a duration, not an</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>optimisation variable.</p>
               </div>
             </td>
           </tr>

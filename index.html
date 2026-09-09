@@ -1127,7 +1127,7 @@
 <h2 id="the-problem">The problem<a class="headerlink" href="#the-problem" title="Permanent link">¤</a></h2>
 <p>Designing multi-qubit quantum logic gates under experimental hardware constraints is a central challenge in quantum computing. Given a target unitary <span class="arithmatex">\(V\)</span> and a set of experimentally accessible Hamiltonian terms <span class="arithmatex">\(\mathcal{H}\)</span>, the goal is to find piecewise-constant control parameters <span class="arithmatex">\(\mathbf{\Phi} = (\phi_1, \dots, \phi_L)\)</span> such that</p>
 <div class="arithmatex">\[U_G(\mathbf{\Phi}) = U(\phi_L)\, U(\phi_{L-1})\, \cdots \, U(\phi_1) \approx V,\]</div>
-<p>where each <span class="arithmatex">\(U(\phi_l) = e^{i H(\phi_l)}\)</span> and <span class="arithmatex">\(H(\phi_l) = \sum_k \phi_{l,k}\, G_k\)</span> is a Hamiltonian restricted to the available interactions <span class="arithmatex">\(G_k \in \mathcal{H}\)</span>.</p>
+<p>where each <span class="arithmatex">\(U(\phi_l) = e^{-i H(\phi_l)}\)</span> and <span class="arithmatex">\(H(\phi_l) = \sum_k \phi_{l,k}\, G_k\)</span> is a Hamiltonian restricted to the available interactions <span class="arithmatex">\(G_k \in \mathcal{H}\)</span>.</p>
 <p>The standard approach is GRAPE (Gradient Ascent Pulse Engineering), which performs gradient ascent on the fidelity</p>
 <div class="arithmatex">\[F(\mathbf{\Phi}, V) = \frac{1}{N} \left| \mathrm{Tr}\left\{ U_G^\dagger(\mathbf{\Phi})\, V \right\} \right|.\]</div>
 <h2 id="the-geope-algorithm">The GEOPE algorithm<a class="headerlink" href="#the-geope-algorithm" title="Permanent link">¤</a></h2>

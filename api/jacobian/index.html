@@ -1288,7 +1288,7 @@
 <p>The product unitary follows the convention of
 :func:<code>geope.engine.compute_matrices_params_list_fn</code>, where each gate is
 left-multiplied onto the accumulator,</p>
-<div class="arithmatex">\[U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(i \sum_k x_{i,k} G_k\Big).\]</div>
+<div class="arithmatex">\[U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(-i \sum_k x_{i,k} G_k\Big).\]</div>
 <p>The derivative with respect to a parameter of gate <span class="arithmatex">\(i\)</span> leaves every other
 gate untouched, so it is a product with a single factor replaced by the
 per-gate derivative:</p>

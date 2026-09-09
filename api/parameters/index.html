@@ -1168,6 +1168,34 @@ such as <code>Geope</code> updates in place.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="geope.parameters.Parameters.delta_t">delta_t</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Duration of each segment. Plain mutable state: it is threaded
+into the optimisation functions as an argument, not baked into
+them, so reassigning it takes effect immediately and never
+invalidates a compiled trace. <code>Gecko</code> subdivision divides it by the
+multiplier instead of rescaling <code>parameters</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            total_time
+
+  
+      property
+   (geope.parameters.Parameters.total_time)" href="#geope.parameters.Parameters.total_time">total_time</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>piecewise_steps * delta_t</code> — invariant under subdivision.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="geope.parameters.Parameters.fixed_drift">fixed_drift</span></code></td>
             <td>
             </td>
@@ -1583,7 +1611,7 @@ the initial guess and updated in place by an optimiser.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Infidelity as a function of the free parameters.</p>
+        <p>Infidelity as a function of the free parameters and <code>delta_t</code>.</p>
 
     </div>
 
@@ -1607,6 +1635,8 @@ the initial guess and updated in place by an optimiser.</p>
     <div class="doc doc-contents ">
 
         <p>Value-and-gradient of the infidelity (used by GRAPE).</p>
+<p>Differentiates with respect to the free parameters only; <code>delta_t</code>
+is a duration, not an optimisation variable.</p>
 
     </div>
 
@@ -1878,10 +1908,12 @@ errors defaults to 'strict'.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Current parameters mapped through <code>param_transform</code> if set.</p>
-<p>Returns the induced basis coefficients corresponding to the
-current <code>self.parameters</code>. If <code>param_transform</code> is <code>None</code>
-this is just the current parameters.</p>
+        <p>Hamiltonian amplitudes <span class="arithmatex">\(c\)</span> in <span class="arithmatex">\(H_g = \sum_k c_{g,k} G_k\)</span>.</p>
+<p>The current parameters mapped through <code>param_transform</code> when one is
+set, and the parameters themselves otherwise. These are amplitudes, not
+rotation angles: the segment is <span class="arithmatex">\(\exp(-i\,\Delta T\,H_g)\)</span>, so the
+duration :attr:<code>delta_t</code> is a separate quantity and is deliberately
+<em>not</em> folded in here.</p>
 
     </div>
 
@@ -1909,6 +1941,30 @@ this is just the current parameters.</p>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.parameters.Parameters.total_time" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">total_time</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.parameters.Parameters.total_time" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Total gate duration <code>piecewise_steps * delta_t</code>.</p>
+<p>Invariant under <code>Gecko</code> subdivision, which splits each segment into
+<code>m</code> copies and divides <code>delta_t</code> by <code>m</code>.</p>
+
+    </div>
+
+</div>
+
 
 
 
@@ -1916,7 +1972,7 @@ this is just the current parameters.</p>
 
 
 <h5 id="geope.parameters.Parameters.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projected_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projected_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#geope.parameters.Parameters.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -2089,6 +2145,27 @@ Defaults to 1.</p>
             </td>
             <td>
                   <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta_t</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Duration <span class="arithmatex">\(\Delta T\)</span> of each segment, so that
+<span class="arithmatex">\(U_g = \exp(-i\,\Delta T\sum_k \phi_{g,k}G_k)\)</span>. Defaults to
+1.0, where the duration is absorbed into the coefficients and
+the parameters alone determine the unitary. Must be positive.
+<code>Gecko</code> subdivision rescales it rather than the parameters —
+see :attr:<code>delta_t</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
             </td>
           </tr>
           <tr class="doc-section-item">

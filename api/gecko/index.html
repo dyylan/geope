@@ -1157,8 +1157,9 @@ experimental / <code>param_transform</code> mode).</p>
     The <code>Parameters</code> object is <strong>shared</strong> with the source <code>Geope</code>. A
     null-space pass with <code>piecewise_steps_multiplier &gt; 1</code> subdivides the
     pulse and advances <code>params.parameters</code> / <code>params.piecewise_steps</code>
-    in place — so the shared <code>Geope</code>'s state moves forward too, and a later
-    <code>geope.optimize()</code> continues from the subdivided pulse.</p>
+    / <code>params.delta_t</code> in place — so the shared <code>Geope</code>'s state moves
+    forward too, and a later <code>geope.optimize()</code> continues from the
+    subdivided pulse.</p>
 
 
 
@@ -2426,8 +2427,12 @@ loop. See :meth:<code>_null_space_optimisation</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Dictionary mapping interaction labels to
-<code>(min, max)</code> tuples.</p>
+                <p>In projected space, a dict mapping interaction
+labels to <code>(min, max)</code> tuples. Under <code>param_transform</code>,
+labels no longer name optimised quantities, so pass a dict
+keyed by <strong>integer parameter index</strong> instead — the same
+convention <code>pulse_constraints</code> and <code>parameter_indices</code>
+already use there. Unlisted parameters are unbounded.</p>
               </div>
             </td>
             <td>
@@ -2570,7 +2575,8 @@ loop. See :meth:<code>_null_space_optimisation</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If an unsupported <code>method</code> is provided.</p>
+                <p>If an unsupported <code>method</code> is provided, or if
+label-keyed bounds are passed under <code>param_transform</code>.</p>
               </div>
             </td>
           </tr>

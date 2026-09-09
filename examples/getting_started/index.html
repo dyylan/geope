@@ -1212,6 +1212,10 @@
 <span class="nb">print</span><span class="p">(</span><span class="s2">"Target unitary (Hadamard):"</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
 </code></pre></div>
+<div class="highlight"><pre><span></span><code>Target unitary (Hadamard):
+[[ 0.70710678+0.j  0.70710678+0.j]
+ [ 0.70710678+0.j -0.70710678+0.j]]
+</code></pre></div>
 <h2 id="2-build-the-pauli-bases">2. Build the Pauli bases<a class="headerlink" href="#2-build-the-pauli-bases" title="Permanent link">¤</a></h2>
 <p>For a single qubit the full Pauli basis is <span class="arithmatex">\(\{\sigma_x, \sigma_y, \sigma_z\}\)</span> (excluding identity). GEOPE uses this as the Lie algebra generators from which unitaries are constructed via the matrix exponential, a single time step expression of the unitary is:</p>
 <div class="arithmatex">\[U(\boldsymbol{\phi}) = \exp\!\bigl(i \sum_k \phi_k \sigma_k\bigr)\]</div>
@@ -1226,7 +1230,7 @@
 <span class="n">projected_basis</span> <span class="o">=</span> <span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">]})</span>
 <span class="n">drift_basis</span> <span class="o">=</span> <span class="n">construct_restricted_pauli_basis</span><span class="p">(</span><span class="n">nqubits</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s1">'z'</span><span class="p">]})</span>
 <span class="n">init_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">]</span>
-<span class="n">drift_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.</span><span class="p">]</span>
+<span class="n">drift_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.</span><span class="p">]</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Number of qubits:       </span><span class="si">{</span><span class="n">nqubits</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Hilbert space dim:      </span><span class="si">{</span><span class="n">basis</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
@@ -1234,6 +1238,13 @@
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Basis labels:           </span><span class="si">{</span><span class="n">basis</span><span class="o">.</span><span class="n">labels</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Projected basis labels: </span><span class="si">{</span><span class="n">projected_basis</span><span class="o">.</span><span class="n">labels</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Drift basis labels:     </span><span class="si">{</span><span class="n">drift_basis</span><span class="o">.</span><span class="n">labels</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Number of qubits:       1
+Hilbert space dim:      2
+Lie algebra dim:        3
+Basis labels:           ['X', 'Y', 'Z']
+Projected basis labels: ['X', 'Y']
+Drift basis labels:     ['Z']
 </code></pre></div>
 <h2 id="3-create-the-parameters-and-optimiser">3. Create the parameters and optimiser<a class="headerlink" href="#3-create-the-parameters-and-optimiser" title="Permanent link">¤</a></h2>
 <p><code>Parameters</code> bundles the problem definition — the bases, target, initial/drift values, number of piecewise steps and seed. Pass it to <code>Geope</code>, which builds the JAX functions (cached on <code>Parameters</code>, compiled lazily on first <code>optimize()</code>) (unitary computation, Jacobian, geodesic Hamiltonian, fidelity) and wraps them in an optimisation loop.</p>
@@ -1271,6 +1282,15 @@
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Fidelity:         </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fidelity</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Final parameters: </span><span class="si">{</span><span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">parameters</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
+<div class="highlight"><pre><span></span><code>[4/200] [Fidelity = 0.9999999413456144] A solution!                                                                     
+
+Converged:        True
+Steps:            4
+Fidelity:         0.9999999413456144
+Final parameters: [[ 0.07238152 -0.13262057 -1.        ]
+ [ 1.22092526 -0.59819863 -1.        ]
+ [-0.23763756 -0.85131977 -1.        ]]
+</code></pre></div>
 <h2 id="5-check-the-result">5. Check the result<a class="headerlink" href="#5-check-the-result" title="Permanent link">¤</a></h2>
 <h3 id="convergence-plot">Convergence plot<a class="headerlink" href="#convergence-plot" title="Permanent link">¤</a></h3>
 <p>The fidelity should climb rapidly towards 1.</p>
@@ -1284,6 +1304,7 @@
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
+<p><img alt="img" src="../_data/d7d7a85d14f349d58b0a1669ec910d03.png" /></p>
 <h3 id="recovered-parameters">Recovered parameters<a class="headerlink" href="#recovered-parameters" title="Permanent link">¤</a></h3>
 <p>The optimised Lie-algebra coefficients <span class="arithmatex">\(\boldsymbol{\phi}\)</span> define the Hamiltonian whose exponential gives the target gate.</p>
 <div class="highlight"><pre><span></span><code><span class="n">final_params</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">parameters</span>
@@ -1292,6 +1313,23 @@
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--</span><span class="se">\n</span><span class="s2">Time step </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">phi</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">param_step</span><span class="p">):</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">phi</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Optimised parameters:
+--
+Time step 0
+    X: 0.072382
+    Y: -0.132621
+    Z: -1.000000
+--
+Time step 1
+    X: 1.220925
+    Y: -0.598199
+    Z: -1.000000
+--
+Time step 2
+    X: -0.237638
+    Y: -0.851320
+    Z: -1.000000
 </code></pre></div>
 <h3 id="verify-the-synthesised-unitary">Verify the synthesised unitary<a class="headerlink" href="#verify-the-synthesised-unitary" title="Permanent link">¤</a></h3>
 <p>Reconstruct the unitary from the optimised parameters and compare it to the target. We find the target unitary up to global phase.</p>
@@ -1306,6 +1344,16 @@
 
 <span class="n">fid</span> <span class="o">=</span> <span class="n">fidelity</span><span class="p">(</span><span class="n">unitary_matrix</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Fidelity: </span><span class="si">{</span><span class="n">fid</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Synthesised unitary:
+[[-0.00013828-0.70724115j -0.0002491 -0.70697233j]
+ [ 0.0002491 -0.70697233j -0.00013828+0.70724115j]]
+
+Target unitary:
+[[ 0.70710678+0.j  0.70710678+0.j]
+ [ 0.70710678+0.j -0.70710678+0.j]]
+
+Fidelity: 0.9999999413456144
 </code></pre></div>
 
 

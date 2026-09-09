@@ -1776,9 +1776,9 @@
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h2>
 <p><code>geope</code> finds piecewise-constant control pulses that implement a target quantum gate on an <span class="arithmatex">\(n\)</span>-qubit system. Given a target unitary <span class="arithmatex">\(U_T\)</span>, a set of available control generators (the projected basis), and optionally fixed drift generators, the optimiser searches for real-valued parameters <span class="arithmatex">\(\phi\)</span> such that</p>
 <div class="arithmatex">\[
-U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
+U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i\,\Delta T \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
 \]</div>
-<p>where each <span class="arithmatex">\(H_g = \sum_k \phi_{g,k}\,G_k\)</span> is a linear combination of basis generators on segment <span class="arithmatex">\(g\)</span>.</p>
+<p>where each <span class="arithmatex">\(H_g = \sum_k \phi_{g,k}\,G_k\)</span> is a linear combination of basis generators on segment <span class="arithmatex">\(g\)</span>, and <span class="arithmatex">\(\Delta T\)</span> (see <code>delta_t</code>) is the segment duration, defaulting to 1.</p>
 <p>The core algorithm is the <strong>geodesic method</strong>: at each step it computes the shortest path on <span class="arithmatex">\(U(d)\)</span> from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.</p>
 <p>The entry point is <code>Parameters</code> — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, <code>param_transform</code>, bounds, init values, seed, projective flag). Pass it to <code>Geope</code> and call <code>.optimize(max_steps=...)</code>. The returned <code>Parameters</code> carries the live/final <code>parameters</code> and <code>fidelity</code> (and <code>to_dict()</code>); the full run trajectory and <code>best_*</code> helpers live on an opt-in <code>History</code> logger (<code>geope.history</code>).</p>
 <p>The optimisation functions themselves (unitary computation, fidelity, Jacobian,
@@ -1892,7 +1892,7 @@ Parameters                       (parameters.py)
 <li><code>apply_interaction_graph(graph)</code> / <code>apply_interaction_map(map)</code> — prune to hardware connectivity.</li>
 </ul>
 <h3 id="hamiltonian"><code>Hamiltonian</code><a class="headerlink" href="#hamiltonian" title="Permanent link">¤</a></h3>
-<p>Represents <span class="arithmatex">\(H = \sum_i \phi_i G_i\)</span> and its unitary <span class="arithmatex">\(U = e^{iH}\)</span>.</p>
+<p>Represents <span class="arithmatex">\(H = \sum_i \phi_i G_i\)</span> and its unitary <span class="arithmatex">\(U = e^{-iH}\)</span>.</p>
 <div class="highlight"><pre><span></span><code><span class="n">Hamiltonian</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
 </code></pre></div>
 <table>
@@ -2046,7 +2046,7 @@ Parameters                       (parameters.py)
 <p><code>Parameters</code> is the recommended entry point.</p>
 <div class="highlight"><pre><span></span><code><span class="n">Parameters</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-           <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+           <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
            <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -2087,6 +2087,10 @@ Parameters                       (parameters.py)
 <tr>
 <td><code>piecewise_steps</code></td>
 <td>number of gate segments <span class="arithmatex">\(N_g\)</span></td>
+</tr>
+<tr>
+<td><code>delta_t</code></td>
+<td>duration <span class="arithmatex">\(\Delta T\)</span> of each segment, so <span class="arithmatex">\(U_g = \exp(-i\,\Delta T\,H_g)\)</span>; defaults to 1.0, where the duration is absorbed into the coefficients</td>
 </tr>
 <tr>
 <td><code>fixed_drift</code></td>
@@ -2567,6 +2571,9 @@ the compiled traces instead of recompiling.</p>
 <ul>
 <li><code>Gecko</code>'s null-space methods (<code>speed</code>, <code>length</code>, <code>robust</code>) must use <code>parameter_indices</code>, not <code>parameter_labels</code>, when <code>param_transform</code> is set — labels no longer correspond to optimised parameters. <code>Gecko</code> raises <code>ValueError</code> otherwise. (<code>Gecko</code> supports experimental parameters in every construction mode: when reusing a <code>Geope</code> the engine is already wrapped; when built from <code>params</code> it re-wraps a fresh engine.)</li>
 <li>Internally <code>param_transform</code> mode uses <code>float64</code>; basis-coefficient mode uses <code>complex128</code>. Tolerances and bounds you supply should match.</li>
+<li><code>Gecko.bound(...)</code> takes bounds keyed by integer parameter index here, not by interaction label.</li>
+<li>Every <code>Gecko</code> cost acts on <span class="arithmatex">\(\phi\)</span> — the experimental knobs — not on the induced coefficients <span class="arithmatex">\(\tau(\phi)\)</span>. Smoothing therefore produces a smooth <em>knob</em> trajectory, which is what hardware plays, but not necessarily a smooth field.</li>
+<li>Subdivision is what <code>delta_t</code> exists for. Because <span class="arithmatex">\(\tau\)</span> need not be linear, the coefficients cannot be rescaled by rescaling <span class="arithmatex">\(\phi\)</span>, so <code>Gecko</code> divides the segment duration instead and leaves <span class="arithmatex">\(\phi\)</span> untouched. This is exact for any <span class="arithmatex">\(\tau\)</span>; see the <code>Gecko</code> section above.</li>
 </ul>
 <h2 id="phase-sensitive-vs-projective">Phase-sensitive vs projective<a class="headerlink" href="#phase-sensitive-vs-projective" title="Permanent link">¤</a></h2>
 <p>The two fidelities differ in how the trace is taken:</p>
@@ -2588,7 +2595,7 @@ F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 <li><code>Gecko(g.params)</code> — post-process a <code>Geope</code> result straight after <code>g.optimize(...)</code>. Because the optimisation functions are cached on <code>params</code>, this reuses <code>Geope</code>'s already-compiled functions rather than recompiling.</li>
 </ul>
 <p><strong>The solution does not have to come from <code>Geope</code>.</strong> <code>Gecko</code> operates on the current <code>params.parameters</code> — that array can be a <code>Geope</code> result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a <code>Parameters</code> object describing the same system (<code>basis</code>, <code>projected_basis</code>/<code>drift_basis</code>, <code>target</code>, <code>piecewise_steps</code>, and any <code>param_transform</code>) and call <code>Gecko(p)</code>; it refines the imported solution while preserving its fidelity. (When <code>params</code> has never been evaluated, <code>Gecko</code> computes the baseline fidelity itself on construction.)</p>
-<p>When you pass a <code>Geope</code>'s <code>params</code>, the <code>Parameters</code> object is shared with that <code>Geope</code>, so a pass with <code>piecewise_steps_multiplier &gt; 1</code> advances the shared state forward (<code>params.parameters</code> and <code>params.piecewise_steps</code> move to the new count together).</p>
+<p>When you pass a <code>Geope</code>'s <code>params</code>, the <code>Parameters</code> object is shared with that <code>Geope</code>, so a pass with <code>piecewise_steps_multiplier &gt; 1</code> advances the shared state forward (<code>params.parameters</code>, <code>params.piecewise_steps</code> and <code>params.delta_t</code> move together).</p>
 <h3 id="available-objectives-methods-on-gecko">Available objectives (methods on <code>Gecko</code>)<a class="headerlink" href="#available-objectives-methods-on-gecko" title="Permanent link">¤</a></h3>
 <table>
 <thead>
@@ -2636,7 +2643,12 @@ F_{\text{full}}(U, U_T) = \frac{\mathrm{Re}\,\mathrm{Tr}(U_T^\dagger U)}{d}.
 </tr>
 </tbody>
 </table>
-<p>Each returns <code>(success, iters)</code>. Pass <code>piecewise_steps_multiplier &gt; 1</code> to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.</p>
+<p>Each returns <code>(success, iters)</code>. Pass <code>piecewise_steps_multiplier &gt; 1</code> to subdivide existing segments before the pass, giving more null-space degrees of freedom.</p>
+<p>Subdivision splits each segment into <span class="arithmatex">\(m\)</span> <strong>identical copies</strong> and divides <code>params.delta_t</code> by <span class="arithmatex">\(m\)</span>. That leaves the unitary exactly unchanged — <span class="arithmatex">\(\exp(-i\,\Delta T A) = [\exp(-i\,(\Delta T/m) A)]^m\)</span> — and keeps <code>params.total_time</code> invariant. It deliberately does <em>not</em> divide the parameters: that is only equivalent when the generator is linear in them, which fails for any nonlinear <code>param_transform</code>, where <span class="arithmatex">\(\tau(\phi/m) \ne \tau(\phi)/m\)</span> and the fidelity <code>Gecko</code> is meant to preserve is silently destroyed.</p>
+<p>Because the duration is part of the state, anything that rebuilds the unitary by hand must pass it:</p>
+<div class="highlight"><pre><span></span><code><span class="n">U</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">compute_U_fn</span><span class="p">(</span><span class="n">free_params</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">delta_t</span><span class="p">)</span>   <span class="c1"># not compute_U_fn(free_params)</span>
+</code></pre></div>
+<p><code>bound(...)</code> takes label-keyed bounds in projected space; under <code>param_transform</code> labels do not name optimised quantities, so pass a dict keyed by integer parameter index instead (<code>{0: (-1.0, 1.0)}</code>), matching <code>pulse_constraints</code> and <code>parameter_indices</code>. Unlisted indices are unbounded.</p>
 <h3 id="null-space-algorithm-gecko_null_space_optimisation">Null-space algorithm: <code>Gecko._null_space_optimisation()</code><a class="headerlink" href="#null-space-algorithm-gecko_null_space_optimisation" title="Permanent link">¤</a></h3>
 <div class="highlight"><pre><span></span><code>1. Optionally subdivide piecewise steps (piecewise_steps_multiplier)
 2. Build the combined expander (pulse × linear-equality)
