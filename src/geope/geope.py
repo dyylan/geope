@@ -861,9 +861,6 @@ class Geope:
                 A = traceless_log(x)
                 A_norm2 = jnp.real(jnp.trace(A.conj().T @ A))
                 # Directional first/second derivatives of the product unitary.
-                # U(y + t c) = U_base(dt*y + t*(dt*c)); scaling the point
-                # and the direction makes V and W the derivatives in t of
-                # the true segment map, with no post-hoc factors.
                 _, V, W = hvp_fn(delta_t * jnp.real(sliced_params), delta_t * coeffs)
                 Omega = x.conj().T @ V
                 K_acc = V.conj().T @ V + x.conj().T @ W

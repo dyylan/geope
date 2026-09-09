@@ -96,8 +96,6 @@ class TestHessianFactory:
         infid = lambda x, dt=1.0: infid_U(compute_U(x, dt))
         hess = get_hessian_fn(infid)
         y = jnp.array([[0.2, -0.1, 0.4]])
-        # Also at a non-unit duration: delta_t enters the exponent, so the
-        # Hessian must track it rather than silently evaluate at dt = 1.
         for dt in (1.0, 0.7):
             H = np.array(hess(y, dt)).reshape(y.size, y.size)
             H_ref = np.array(jax.hessian(lambda x: infid(x, dt))(y)).reshape(

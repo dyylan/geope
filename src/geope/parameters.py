@@ -410,13 +410,7 @@ class Parameters:
 
     @cached_property
     def compute_U_fn(self) -> Callable:
-        """Unitary-from-parameters function (wrapped when ``param_transform`` set).
-
-        Signature ``compute_U_fn(free_params, delta_t=1.0)``. ``delta_t`` is an
-        argument rather than a closure constant so that changing
-        :attr:`delta_t` never invalidates a compiled trace — callers must pass
-        ``params.delta_t`` or they silently compute at unit duration.
-        """
+        """Unitary-from-parameters function (wrapped when ``param_transform`` set)."""
         base = get_compute_matrices_params_list_fn(self.proj_drift_basis.basis)
         if self.param_transform is None:
             return base

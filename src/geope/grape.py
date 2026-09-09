@@ -414,9 +414,6 @@ def get_update_step_trm(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
             free_params,
             value=infidelity_new_phi,
             grad=-grads_nr,
-            # Bind the live duration: optax calls value_fn(params) with a
-            # single argument, so an unbound fid_fn would silently evaluate at
-            # unit duration.
             value_fn=lambda v: fid_fn(v, delta_t),
         )
         # Updates the parameters.
@@ -462,9 +459,6 @@ def get_update_step_rfo(proj_drift_indices, fid_fn, grad_fn, hess_fn, optimizer,
             free_params,
             value=infidelity_new_phi,
             grad=-grads_nr,
-            # Bind the live duration: optax calls value_fn(params) with a
-            # single argument, so an unbound fid_fn would silently evaluate at
-            # unit duration.
             value_fn=lambda v: fid_fn(v, delta_t),
         )
         # Updates the parameters.

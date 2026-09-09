@@ -10,8 +10,6 @@ $$
 
 where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$, and $\Delta T$ (see `delta_t`) is the segment duration, defaulting to 1.
 
-> **Convention change.** `geope` previously defined the map with $+i$ in the exponent. Because $A(\phi)$ is linear in $\phi$, the two are related by $U_{-}(\phi) = U_{+}(-\phi)$: **a parameter set stored under the old convention describes the mirror-image Hamiltonian under the new one, and must be negated to mean the same physics.** That applies to `init_values` *and* to `drift_values` — a drift coefficient of $+1$ previously meant a physical $-1\cdot G$ field. Negating only some of them silently changes the problem rather than raising, so convert a whole parameter set at once.
-
 The core algorithm is the **geodesic method**: at each step it computes the shortest path on $U(d)$ from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.
 
 The entry point is `Parameters` — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, `param_transform`, bounds, init values, seed, projective flag). Pass it to `Geope` and call `.optimize(max_steps=...)`. The returned `Parameters` carries the live/final `parameters` and `fidelity` (and `to_dict()`); the full run trajectory and `best_*` helpers live on an opt-in `History` logger (`geope.history`).
