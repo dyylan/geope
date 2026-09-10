@@ -17,6 +17,7 @@ from .dexpm import (
     expm_hvp,
     expm_hvp_eig,
 )
+from .jacobian import _prefix_suffix
 
 
 def hessian_propagator(
@@ -49,9 +50,12 @@ def hessian_propagator(
     of vectorised einsums (no Python loop over gates).
 
     Memory note: the returned tensor is dense with shape ``(G, G, d, d, K, K)``,
-    i.e. $O(G^2 d^2 K^2)$. For the infidelity-cost Hessian, prefer
-    `geope.geometry.manifold.Manifold.hessian`, which contracts on the fly and never
-    materialises this object.
+    i.e. $O(G^2 d^2 K^2)$, and the assembly costs $O(G^2 K^2 d^3)$. **This is the
+    reference, not the live path.** A cost Hessian contracts every one of those
+    blocks against one ambient covector immediately, and `hessian_vjp_propagator`
+    does that without building any of them — which is what
+    `geope.geometry.manifold.Manifold.hessian` calls. Reach for this one when you
+    genuinely want the matrix-valued $\mathrm D^2\Phi$ itself.
 
     Args:
         params: Parameter ``Array`` of shape ``(G, K)``.
@@ -68,17 +72,7 @@ def hessian_propagator(
     dU = jax.vmap(jac_fn)(params)  # (G, d, d, K)
     d2 = jax.vmap(hess_step_fn)(params)  # (G, d, d, K, K)
 
-    eye = jnp.eye(gates.shape[1], dtype=gates.dtype)
-
-    def step_right(R, g):
-        return g @ R, R
-
-    Rs = jax.lax.scan(step_right, eye, gates)[1]  # exclusive prefix R_i
-
-    def step_left(L, g):
-        return L @ g, L
-
-    Ls = jax.lax.scan(step_left, eye, gates, reverse=True)[1]  # exclusive suffix L_i
+    Ls, Rs = _prefix_suffix(gates)  # exclusive suffix L_i / prefix R_i
 
     # Inclusive prefix P_incl[j] = U_j R_j; middle product M[i, j] = R_i P_incl[j]^†.
     Pincl = jnp.einsum("iab,ibc->iac", gates, Rs)
@@ -141,6 +135,177 @@ def get_hessian_propagator(
         partial(
             hessian_propagator, Ui_fn=Ui_fn, jac_fn=jac_fn, hess_step_fn=hess_step_fn
         )
+    )
+
+
+def hessian_vjp_propagator(
+    params: Array,
+    Ui_fn: Callable[[Array], Array],
+    jac_fn: Callable[[Array], Array],
+    hess_step_fn: Callable[[Array], Array],
+    right: Array | None = None,
+) -> tuple[Array, Callable[[Array], Array]]:
+    r"""Pullback of the propagator Hessian — every pair, no $(G, G, d, d, K, K)$.
+
+    Returns ``(U, pullback)`` in the shape of `jax.vjp`, and for the same reason
+    `vjp_propagator` does: the covector a cost hands back is a function of the
+    *value*, so the two cannot be asked for in one call, and returning them
+    together is what lets them share the gate exponentials, their two partial
+    products and the per-gate derivatives.
+
+    ``pullback`` contracts a single ambient covector $C$ against **all**
+    $(GK)^2$ blocks of the propagator Hessian at once,
+
+    $$T_{(i,k),(j,l)} = \mathrm{Tr}\Bigl(C^\dagger\,
+      \frac{\partial^2 (U x_0)}{\partial x_{i,k}\,\partial x_{j,l}}\Bigr),$$
+
+    which is what the chain rule for a cost's Hessian actually needs.
+
+    **The trick, and why it is $O(G)$ propagations.** With the middle product
+    $M_{ij} = R_i(U_jR_j)^\dagger$ of `hessian_propagator`, the off-diagonal block
+    depends on $i$ *and* $j$ through that middle, which is what makes the dense
+    route quadratic in propagations. Splitting it and using $U = L_jU_jR_j$ sends
+    each half back to the base point, where it depends on one index only:
+
+    $$T_{(i,k),(j,l)} = \mathrm{Tr}\bigl[
+        \underbrace{(C^\dagger J_{i,k})}_{A_{i,k}}\;
+        \underbrace{(U^\dagger J_{j,l}\,x_0)}_{B_{j,l}}\bigr],
+      \qquad i > j,$$
+
+    with $J_{i,k} = L_i(\partial_kU_i)R_i$ the propagator Jacobian
+    (`jacobian_propagator`). $A$ and $B$ are Goodwin & Vinding's *adjoint* and
+    *forward derivative trajectories*: two stacks of $GK$ blocks, each built in
+    $O(GKmd^2)$ from partial products that already cost $O(G)$, after which the
+    whole pair table is one Gram matrix — a single ``gemm`` of $O(G^2K^2md)$.
+    Nothing quadratic is ever propagated, and the dense tensor is never formed:
+    $O(GKmd + (GK)^2)$ of memory against $O(G^2K^2d^2)$.
+
+    The diagonal ($i = j$) blocks are a different object — the same gate's second
+    derivative — and go through the covector $B_i = L_i^\dagger(Cx_0^\dagger)
+    R_i^\dagger$ of `vjp_propagator`, contracted against ``hess_step_fn``'s
+    per-gate $(d, d, K, K)$ tensor. That term is $O(GK^2d^3)$ and is the one piece
+    left un-accelerated; it only dominates the Gram when $d > G$. A second-order
+    sibling of `geope.jax.adj_expm_eig` — all $K^2$ overlaps of one covector from
+    one eigendecomposition — would bring it to $O(G(Kd^3 + K^2d^2))$.
+
+    Args:
+        params: Parameter ``Array`` of shape ``(G, K)``.
+        Ui_fn: Callable mapping a coefficient ``Array`` to a unitary ``Array``.
+        jac_fn: Per-gate first derivative, ``(K,) -> (d, d, K)`` (e.g. `dexpm_eig`).
+        hess_step_fn: Per-gate second derivative, ``(K,) -> (d, d, K, K)``
+            (e.g. `d2expm_eig`). Only the diagonal blocks need it.
+        right: The constant block every derivative is right-multiplied by — the
+            chart's base point $x_0$, of shape ``(d, m)``. ``None`` means the
+            identity, i.e. the propagator *is* the point, and no multiplication is
+            introduced. The branch is on a Python value, resolved at trace time.
+
+    Returns:
+        Tuple ``(U, pullback)``: the product unitary of shape ``(d, d)``, and a
+        callable taking an ambient covector of shape ``(d, m)`` — paired through
+        $\mathrm{Tr}(C^\dagger\,\cdot)$, i.e. *conjugated* — to the complex
+        overlaps of shape ``(G, K, G, K)``. As `vjp_propagator`, the result is
+        **not** halved or realified: a real cost's Hessian takes
+        ``2 * jnp.real(...)``.
+
+    Note:
+        The ``(G, K, G, K)`` layout *is* the row-major ``(gate, coefficient)``
+        flattening that ``phi.flatten()`` and the gradient use, so a caller
+        reshapes to ``(P, P)`` with no transpose.
+    """
+    gates = jax.vmap(Ui_fn)(params)  # (G, d, d)
+    dU = jax.vmap(jac_fn)(params)  # (G, d, d, K)
+    d2 = jax.vmap(hess_step_fn)(params)  # (G, d, d, K, K)
+
+    Ls, Rs = _prefix_suffix(gates)  # exclusive suffix L_i / prefix R_i
+    # The prefix products already contain the whole propagator, as in
+    # `vjp_propagator`: R is exclusive, so gates[-1] @ Rs[-1] = U_{G-1} ... U_0.
+    point = gates[-1] @ Rs[-1]
+    jacobian = jnp.einsum("iab,ibek,iec->iack", Ls, dU, Rs)  # (G, d, d, K)
+
+    n_gates = gates.shape[0]
+    base = None if right is None else jnp.asarray(right, dtype=gates.dtype)
+
+    def pullback(cotangent: Array) -> Array:
+        # A[i, k] = C^dag J_{i,k}, the adjoint trajectory:      (G, K, m, d).
+        A = jnp.einsum("am,gabk->gkmb", jnp.conj(cotangent), jacobian)
+        if base is None:
+            # B[j, l] = U^dag J_{j,l}, the forward trajectory:  (G, K, d, d).
+            B = jnp.einsum("ab,gbck->gkac", jnp.conj(point).T, jacobian)
+            landed = cotangent
+        else:
+            B = jnp.einsum("ab,gbck,cm->gkam", jnp.conj(point).T, jacobian, base)
+            landed = cotangent @ jnp.conj(base).T
+
+        # One gemm over the flattened (gate, coefficient) index. Half of it is
+        # discarded below — a triangular gather costs more in XLA than the half
+        # it saves, so compute the whole Gram and mask.
+        off = jnp.einsum("ikmb,jlbm->ikjl", A, B)  # valid where i > j
+
+        # Diagonal blocks: Tr(B_i^dag d2_{i,kl}) with B_i the covector gate i's
+        # own second derivative sees — `vjp_propagator`'s, landed.
+        covectors = jax.vmap(lambda L, R: jnp.conj(L).T @ landed @ jnp.conj(R).T)(
+            Ls, Rs
+        )
+        diag = jnp.einsum("gac,gackl->gkl", jnp.conj(covectors), d2)  # (G, K, K)
+
+        i_idx = jnp.arange(n_gates)[:, None, None, None]
+        j_idx = jnp.arange(n_gates)[None, None, :, None]
+        # i < j by symmetry: T[(i,k),(j,l)] = T[(j,l),(i,k)].
+        out = jnp.where(i_idx > j_idx, off, 0.0)
+        out = out + jnp.where(i_idx < j_idx, jnp.transpose(off, (2, 3, 0, 1)), 0.0)
+        return out + jnp.where(i_idx == j_idx, diag[:, :, None, :], 0.0)
+
+    return point, pullback
+
+
+def get_hessian_vjp_propagator(
+    gate_basis: Array,
+    right: Array | None = None,
+    method: str = "eig",
+    hermitian: bool = True,
+) -> Callable[[Array], tuple[Array, Callable[[Array], Array]]]:
+    """Create a pullback propagator-Hessian for a given gate basis.
+
+    Wraps `hessian_vjp_propagator` with per-gate derivatives built from
+    ``gate_basis``.
+
+    Unlike `get_hessian_propagator` the result is **not** ``jax.jit``-wrapped — it
+    returns a closure, which a jitted function cannot, and the same reasoning as
+    `geope.jax.get_vjp_propagator` applies: it fuses into the enclosing
+    ``@jax.jit`` that wants the Hessian, which is where the value and the pullback
+    get to share their partial products.
+
+    Args:
+        gate_basis: ``Array`` of Hermitian basis matrices of shape ``(K, d, d)``.
+        right: The chart's base point $x_0$, of shape ``(d, m)``, or ``None`` for
+            the identity. See `hessian_vjp_propagator`.
+        method: Per-gate derivative method. ``"eig"`` (default) uses the spectral
+            `dexpm_eig` / `d2expm_eig`; ``"block"`` uses the block-exponential
+            `dexpm` / `d2expm`, which handle non-Hermitian generators and ignore
+            ``hermitian``.
+        hermitian: Assume real parameters (skew-Hermitian generators) and use the
+            faster ``eigh``-based per-gate derivatives. Set ``False`` for
+            complex-valued parameters. Only affects ``method="eig"``.
+
+    Returns:
+        A ``Callable[[Array], tuple[Array, Callable]]`` taking parameters of shape
+        ``(G, K)`` to the pair `hessian_vjp_propagator` returns.
+    """
+    Ui_fn = get_Ui_fn(gate_basis)
+    if method == "eig":
+        jac_fn = get_dexpm_eig(gate_basis, hermitian=hermitian)
+        hess_step_fn = get_d2expm_eig(gate_basis, hermitian=hermitian)
+    elif method == "block":
+        jac_fn = get_dexpm(gate_basis)
+        hess_step_fn = get_d2expm(gate_basis)
+    else:
+        raise ValueError(f"Unknown method {method!r}; expected 'eig' or 'block'.")
+    return partial(
+        hessian_vjp_propagator,
+        Ui_fn=Ui_fn,
+        jac_fn=jac_fn,
+        hess_step_fn=hess_step_fn,
+        right=right,
     )
 
 

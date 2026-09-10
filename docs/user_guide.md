@@ -39,7 +39,8 @@ inlines.
 
 ```
 jax/       — differentiable primitives (logm, dexpm, the propagator
-             Jacobian/pullback/Hessian, the autodiff Hessian)
+             Jacobian/pullback, the propagator Hessian and its pullback,
+             the autodiff Hessian)
                 ↓ used by
 geometry/chart.py — the ambient layer: the orbit map Phi(phi) = U(phi)·x_0 and
              its whole jet (Phi, DPhi, D^2Phi). Everything valued in the ambient
@@ -616,7 +617,7 @@ The output is a 1-D array whose length is either:
 - `projected_basis.lie_algebra_dim` — taken as projected-basis coefficients;
 - `basis.lie_algebra_dim` — relevant projected entries extracted automatically via `projected_basis.overlap(basis)`.
 
-`Parameters.n_experimental_params` sets the input dimension. When `param_transform` is set, the manifold's chart is wrapped to apply `vmap(τ)` over the gate axis, embed the result into the proj+drift slots, broadcast drift coefficients, and delegate to the unitary-product code. The Jacobian and its pullback are replaced by split-real-imaginary versions (real intermediates in `τ` would otherwise drop the imaginary part under holomorphic autodiff), and the chart loses its exponential-product structure — so `tangent.generators` is `None`, which is the single signal that drops both second differentials: `tangent.hvp` (and with it the curvature tier and the second-order line searches) and `tangent.hessian` (so `Manifold.hessian` falls back to autodiff). The gradient stays exact, because the pullback is still available — just autodiff-flavoured.
+`Parameters.n_experimental_params` sets the input dimension. When `param_transform` is set, the manifold's chart is wrapped to apply `vmap(τ)` over the gate axis, embed the result into the proj+drift slots, broadcast drift coefficients, and delegate to the unitary-product code. The Jacobian and its pullback are replaced by split-real-imaginary versions (real intermediates in `τ` would otherwise drop the imaginary part under holomorphic autodiff), and the chart loses its exponential-product structure — so `tangent.generators` is `None`, which is the single signal that drops both second differentials: `tangent.hvp` (and with it the curvature tier and the second-order line searches) and `tangent.hessian_vjp` (so `Manifold.hessian` falls back to autodiff). The gradient stays exact, because the pullback is still available — just autodiff-flavoured.
 
 ### Helper: `make_per_element_transform`
 

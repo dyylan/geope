@@ -35,6 +35,8 @@ from .jacobian import (
 from .hessian import (
     hessian_propagator,
     get_hessian_propagator,
+    hessian_vjp_propagator,
+    get_hessian_vjp_propagator,
     hvp_propagator,
     get_hvp_propagator,
     su_hessian_quadratic_form,

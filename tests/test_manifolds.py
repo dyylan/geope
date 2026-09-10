@@ -580,7 +580,7 @@ class TestHookContracts:
         m = space.manifold
         assert m.has_cost_gradient
         assert m.has_cost_hessian_form
-        assert m.tangent.hessian is not None
+        assert m.tangent.hessian_vjp is not None
         assert m.value_and_grad is not m.value_and_grad_autodiff
         assert m.hessian is not m.hessian_autodiff
 

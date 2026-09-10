@@ -367,17 +367,17 @@ def _spy_manifold(params):
     # `frame` and `projective` that a hard-coded `dim=`/`target=` would drop.
     fields = {f.name: getattr(m, f.name) for f in dataclasses.fields(m)}
     fields["compute_point"] = wrap("compute_point", m.compute_point)
-    # `vjp` and `hessian` are wrapped too, or the cost tier's tests would be
+    # `vjp` and `hessian_vjp` are wrapped too, or the cost tier's tests would be
     # vacuous: a `value_and_grad` step touches neither `compute_point` nor
     # `jacobian`, so without these it would register as costing nothing at all.
     fields["tangent"] = dataclasses.replace(
         m.tangent,
         jacobian=wrap("jacobian", m.tangent.jacobian),
         vjp=wrap("vjp", m.tangent.vjp),
-        hessian=(
+        hessian_vjp=(
             None
-            if m.tangent.hessian is None
-            else wrap("chart_hessian", m.tangent.hessian)
+            if m.tangent.hessian_vjp is None
+            else wrap("chart_hessian", m.tangent.hessian_vjp)
         ),
     )
     return _Spy(**fields), counts
@@ -497,12 +497,19 @@ class TestContextCost:
         assert jnp.allclose(ctx.value_and_grad[0], ctx.infidelity)
 
     def test_cost_hessian_costs_one_chart_hessian(self, problem):
+        """One pullback pass, and *no* separate propagator.
+
+        The point comes back with the pullback, as it does for the gradient — a
+        second `compute_point` would re-exponentiate every gate. The one
+        ``jacobian`` call is the projective cost's $\\zeta$ term.
+        """
         p, free, _ = problem
         spy, counts = _spy_manifold(p)
         h = spy.context(free).cost_hessian
         assert h.shape == (free.size, free.size)
         assert counts["log"] == 0
         assert counts["chart_hessian"] == 1
+        assert counts["compute_point"] == 0
 
     def test_jittable_end_to_end(self, problem):
         # The context is a trace-time object: it must compose inside jit, and

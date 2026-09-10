@@ -34,7 +34,7 @@ jax.config.update("jax_enable_x64", True)
 from ..jax.hessian import get_hessian_fn
 from .chart import (
     get_chart_fn,
-    get_chart_hessian_fn,
+    get_chart_hessian_vjp_fn,
     get_chart_hvp_fn,
     get_chart_jacobian_fn,
     get_chart_vjp_fn,
@@ -407,7 +407,7 @@ class Manifold(ABC):
             jacobian = get_chart_jacobian_fn(generators.basis, self.base_point)
             vjp = get_chart_vjp_fn(generators.basis, self.base_point)
             hvp = get_chart_hvp_fn(generators.basis, self.base_point)
-            hessian = get_chart_hessian_fn(generators.basis, self.base_point)
+            hessian_vjp = get_chart_hessian_vjp_fn(generators.basis, self.base_point)
         else:
             compute_point = wrap_chart(compute_point)
             # Holomorphic autodiff through a real-valued user transform would
@@ -417,7 +417,7 @@ class Manifold(ABC):
             # second differential at all, and every column is free.
             jacobian = get_split_jacobian_fn(compute_point)
             vjp = get_split_vjp_fn(compute_point)
-            generators = hvp = hessian = columns = None
+            generators = hvp = hessian_vjp = columns = None
 
         return replace(
             self,
@@ -428,7 +428,7 @@ class Manifold(ABC):
                 jacobian=jacobian,
                 vjp=vjp,
                 hvp=hvp,
-                hessian=hessian,
+                hessian_vjp=hessian_vjp,
                 generators=generators,
                 columns=columns,
             ),
@@ -578,7 +578,7 @@ class Manifold(ABC):
 
         Analytic when this manifold supplies `cost_hessian_form` *and* the chart
         has a second differential to offer
-        (`geope.geometry.tangent.TangentBundle.hessian`). The assembly is the
+        (`geope.geometry.tangent.TangentBundle.hessian_vjp`). The assembly is the
         chain rule in two terms — the cost's own curvature and the chart's
         bending —
 
@@ -589,41 +589,40 @@ class Manifold(ABC):
         the first from the hook and the second generic, since $\hat G$ is just
         `cost_gradient`. Falls back to `hessian_autodiff` otherwise.
 
-        Dense: $O(G^2 d^2 K^2)$, which is what a Newton step costs on this chart
-        by either route.
+        **The second term never forms $\mathrm D^2\Phi$**: the pullback splits the
+        pair table into a Gram matrix of two $O(G)$-propagated derivative
+        trajectories — see `geope.jax.hessian_vjp_propagator` — so a Newton step
+        costs $O(GKd^3 + G^2K^2md)$ in flops and $O(GKmd + (GK)^2)$ in memory
+        rather than the dense route's $O(G^2K^2d^3)$ and $O(G^2K^2d^2)$. That the
+        point comes back *with* the pullback keeps it to one pass over the pulse,
+        exactly as in `value_and_grad`.
+
+        The Jacobian is built only for the projective $\zeta$ term; a
+        phase-sensitive cost's `cost_hessian_form` ignores its columns, and XLA
+        eliminates the whole computation.
         """
         self._require_bound("hessian")
-        if not (self.has_cost_hessian_form and self.tangent.hessian is not None):
+        if not (self.has_cost_hessian_form and self.tangent.hessian_vjp is not None):
             return self.hessian_autodiff
 
         target = self.target
-        compute_point = self.compute_point
         jacobian_fn = self.tangent.jacobian
-        hessian_fn = self.tangent.hessian
+        hessian_vjp = self.tangent.hessian_vjp
 
         @jax.jit
         def hessian_fn_of_phi(phi: Array) -> Array:
             p = phi.size
-            point = compute_point(phi)
+            point, pullback = hessian_vjp(phi)
 
             # (*ambient, G, K) -> (P, *ambient): one Jacobian column per parameter.
             columns = jnp.moveaxis(jacobian_fn(phi), (-2, -1), (0, 1))
             columns = columns.reshape((p, *self.ambient_shape))
 
-            # Contract the ambient axes of D^2 Phi first, in its native
-            # (G, G, *ambient, K, K) layout, so only a (G, G, K, K) block is
-            # ever transposed; then reorder to the row-major (gate, coeff)
-            # flattening that `phi.flatten()` and the gradient both use.
-            grad = self.cost_gradient(point, target)
-            grad_axes = tuple(range(2, 2 + self.ambient_ndim))
-            chart = 2.0 * jnp.real(
-                jnp.sum(
-                    jnp.conj(jnp.expand_dims(grad, (0, 1, -2, -1))) * hessian_fn(phi),
-                    axis=grad_axes,
-                )
-            )
-            chart = jnp.transpose(chart, (0, 2, 1, 3)).reshape(p, p)
-            return self.cost_hessian_form(point, target, columns) + chart
+            # The pullback's (G, K, G, K) already *is* the row-major (gate, coeff)
+            # flattening that `phi.flatten()` and the gradient both use, so this
+            # reshape needs no transpose.
+            chart = 2.0 * jnp.real(pullback(self.cost_gradient(point, target)))
+            return self.cost_hessian_form(point, target, columns) + chart.reshape(p, p)
 
         return hessian_fn_of_phi
 

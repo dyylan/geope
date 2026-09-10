@@ -366,11 +366,12 @@ class GeometricContext:
         so it pairs with ``gradient.flatten()`` — which is what `geope.Grape`'s
         Newton methods solve against.
 
-        Named apart from `TangentBundle.hessian`, which is the *chart's*
+        Named apart from `TangentBundle.hessian_vjp`, which is the *chart's*
         $\mathrm D^2\Phi$; this is the objective's. Unlike `W` it needs no
         direction and no `_require_curvature` guard: `Manifold.hessian` falls back
         to autodiff when the chart has no second differential, so it works under
-        ``param_transform`` too. Dense, $O(G^2 d^2 K^2)$.
+        ``param_transform`` too. Dense in the parameters — $(P, P)$ — but assembled
+        without ever forming $\mathrm D^2\Phi$; see `Manifold.hessian`.
         """
         return self.manifold.hessian(self.free_params)
 

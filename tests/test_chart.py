@@ -9,7 +9,8 @@ Tested items:
   Functions:
     - compute_matrices_params_list_fn
     - get_compute_matrices_params_list_fn
-    - get_chart_jacobian_fn / get_chart_vjp_fn / get_chart_hessian_fn
+    - get_chart_jacobian_fn / get_chart_vjp_fn
+    - get_chart_hessian_fn / get_chart_hessian_vjp_fn
 """
 
 from types import SimpleNamespace
@@ -26,6 +27,7 @@ from geope.geometry.chart import (
     compute_matrices_params_list_fn,
     get_chart_fn,
     get_chart_hessian_fn,
+    get_chart_hessian_vjp_fn,
     get_chart_jacobian_fn,
     get_chart_vjp_fn,
     get_compute_matrices_params_list_fn,
@@ -238,3 +240,59 @@ class TestChartHessian:
         manual = get_chart_hessian_fn(jet.basis, jet.base)(jet.params)
         n_gates, n_coeffs = jet.params.shape
         assert manual.shape == (n_gates, n_gates, *jet.ambient, n_coeffs, n_coeffs)
+
+
+class TestChartHessianVjp:
+    """The live second differential: every pair, contracted, never materialised."""
+
+    @staticmethod
+    def _covector(jet, seed=13):
+        parts = jax.random.normal(jax.random.key(seed), (2, *jet.ambient))
+        return parts[0] + 1j * parts[1]
+
+    @staticmethod
+    def _contract_the_dense_one(jet, cot):
+        """What `Manifold.hessian` used to do: build $D^2\\Phi$, then contract.
+
+        The reference for the whole acceleration, so it is written the long way
+        on purpose — ambient axes summed in the dense ``(G, G, *ambient, K, K)``
+        layout, then reordered to ``(G, K, G, K)``.
+        """
+        dense = get_chart_hessian_fn(jet.basis, jet.base)(jet.params)
+        axes = tuple(range(2, 2 + len(jet.ambient)))
+        contracted = jnp.sum(
+            jnp.conj(jnp.expand_dims(cot, (0, 1, -2, -1))) * dense, axis=axes
+        )
+        return jnp.transpose(contracted, (0, 2, 1, 3))
+
+    def test_matches_contracting_the_dense_hessian(self, jet):
+        """The identity the acceleration rests on."""
+        cot = self._covector(jet)
+        _, pullback = get_chart_hessian_vjp_fn(jet.basis, jet.base)(jet.params)
+        got = pullback(cot)
+        assert jnp.allclose(got, self._contract_the_dense_one(jet, cot), atol=1e-9)
+
+    def test_layout_is_gate_coefficient_pairs(self, jet):
+        """``(G, K, G, K)`` — the row-major flattening, so no transpose is needed."""
+        _, pullback = get_chart_hessian_vjp_fn(jet.basis, jet.base)(jet.params)
+        n_gates, n_coeffs = jet.params.shape
+        got = pullback(self._covector(jet))
+        assert got.shape == (n_gates, n_coeffs, n_gates, n_coeffs)
+
+    def test_is_symmetric_in_the_pair(self, jet):
+        """A second derivative does not care which parameter came first."""
+        _, pullback = get_chart_hessian_vjp_fn(jet.basis, jet.base)(jet.params)
+        got = pullback(self._covector(jet))
+        assert jnp.allclose(got, jnp.transpose(got, (2, 3, 0, 1)), atol=1e-12)
+
+    def test_returns_the_landed_point_with_the_pullback(self, jet):
+        """The value is shared with the pullback, so a Hessian is one pass."""
+        point, _ = get_chart_hessian_vjp_fn(jet.basis, jet.base)(jet.params)
+        assert point.shape == jet.ambient
+        assert jnp.allclose(point, jet.chart(jet.params), atol=1e-12)
+
+    def test_is_conjugate_linear_in_the_covector(self, jet):
+        """It pairs through ``Tr(C^dagger .)``, so ``i C`` scales it by ``-i``."""
+        _, pullback = get_chart_hessian_vjp_fn(jet.basis, jet.base)(jet.params)
+        cot = jnp.ones(jet.ambient, dtype=jnp.complex128)
+        assert jnp.allclose(pullback(1j * cot), -1j * pullback(cot))

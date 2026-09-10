@@ -45,7 +45,11 @@ from jax import Array
 from functools import partial
 from typing import Callable
 
-from ..jax.hessian import get_hessian_propagator, get_hvp_propagator
+from ..jax.hessian import (
+    get_hessian_propagator,
+    get_hessian_vjp_propagator,
+    get_hvp_propagator,
+)
 from ..jax.jacobian import get_jacobian_propagator, get_vjp_propagator
 
 
@@ -254,6 +258,66 @@ def get_chart_vjp_fn(
     return chart_vjp
 
 
+def get_chart_hessian_vjp_fn(
+    generators: np.ndarray, base_point: Array | None = None
+) -> Callable[[Array], tuple[Array, Callable[[Array], Array]]]:
+    r"""Build the chart's value and second-differential **pullback** $(\Phi,\ \mathrm D^2\Phi^\intercal)$.
+
+    Returns ``phi -> (point, pullback)``, in the shape of `jax.vjp`, exactly as
+    `get_chart_vjp_fn` does one order down and for the same reason. The pullback
+    contracts an ambient covector against **every pair** of $\mathrm D^2\Phi$'s
+    blocks without forming any of them — see `geope.jax.hessian_vjp_propagator`
+    for the splitting that makes the pair table one Gram matrix of two
+    $O(G)$-propagated derivative trajectories, rather than the
+    $O(G^2K^2d^3)$-and-$O(G^2K^2d^2)$ dense tensor `get_chart_hessian_fn` builds.
+
+    This is what an objective's Hessian in parameter space is made of, and the
+    reason `geope.geometry.manifold.Manifold.hessian` needs neither autodiff nor
+    the dense $\mathrm D^2\Phi$.
+
+    The base point reaches the primitive as its ``right`` factor rather than
+    landing on the covector, which is what keeps the contraction $O(m d)$ per pair
+    instead of $O(d^2)$ — a factor $d$ on a state, where $m = 1$.
+
+    Args:
+        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        base_point: As `get_chart_fn`.
+
+    Returns:
+        A ``Callable[[Array], tuple[Array, Callable]]`` taking ``(G, K)``
+        parameters to the point of shape ``ambient_shape`` and a callable mapping
+        an ambient covector of that shape to the complex overlaps of shape
+        ``(G, K, G, K)`` — the row-major ``(gate, coefficient)`` layout a caller
+        reshapes to ``(P, P)`` with no transpose. See
+        `geope.jax.hessian_vjp_propagator` for why those are complex rather than
+        already realified.
+
+    Note:
+        `geope.jax.hessian_vjp_propagator` splits the middle product *using
+        unitarity*, so this is valid only for real pulse coefficients — which is
+        what the pipeline always has, but see the note on
+        `get_chart_jacobian_fn`.
+    """
+    if base_point is None:
+        return get_hessian_vjp_propagator(jnp.asarray(generators))
+    base = jnp.asarray(base_point, dtype=jnp.complex128)
+    # Reshape a state (d,) to the (d, 1) frame it is, so one expression serves both.
+    base_2d = base.reshape(base.shape[0], -1)
+    vjp_hess = get_hessian_vjp_propagator(jnp.asarray(generators), right=base_2d)
+
+    def chart_hessian_vjp(
+        params_list: Array,
+    ) -> tuple[Array, Callable[[Array], Array]]:
+        propagator, pullback = vjp_hess(params_list)
+
+        def landed_pullback(cotangent: Array) -> Array:
+            return pullback(cotangent.reshape(base_2d.shape))
+
+        return propagator @ base, landed_pullback
+
+    return chart_hessian_vjp
+
+
 def get_chart_hessian_fn(
     generators: np.ndarray, base_point: Array | None = None
 ) -> Callable[[Array], Array]:
@@ -261,8 +325,11 @@ def get_chart_hessian_fn(
 
     `geope.jax.get_hessian_propagator` landed on ``base_point``. Unlike
     `get_chart_hvp_fn`, which takes one direction in $O(G)$, this materialises
-    every pair — $O(G^2 d^2 K^2)$ in both flops and memory — so it is for the
-    small systems where a Newton step is worth taking.
+    every pair — $O(G^2K^2d^3)$ in flops and $O(G^2K^2d^2)$ in memory.
+
+    **This is the reference, not the live path**, in the same way
+    `get_jacobian_fn` is: an objective contracts every block against one covector
+    immediately, which `get_chart_hessian_vjp_fn` does without building them.
 
     Args:
         generators: The chart's generator basis ``(K, d, d)``, Hermitian.

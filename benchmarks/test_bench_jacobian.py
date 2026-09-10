@@ -9,7 +9,7 @@ unitary. The manual stitch is now the live path, landed and transposed by
 reference the tests check it against.
 
 The *gradient* of the infidelity is a separate object and is benchmarked in
-``benchmarks/test_bench_objectives.py`` — it never builds a Jacobian at all
+``benchmarks/test_bench_objective_grad.py`` — it never builds a Jacobian at all
 (see :func:`geope.jax.vjp_propagator`), so timing it here would compare the wrong
 things.
 

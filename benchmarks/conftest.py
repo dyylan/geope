@@ -41,6 +41,39 @@ def warm(fn, *args):
     return jax.block_until_ready(fn(*args))
 
 
+def make_su_manifold(size):
+    """A bound `SpecialUnitaryGroup` and a real pulse of the right shape.
+
+    ``size`` is ``(n_qubits, n_steps)``, so $d = 2^n$ and $K = 4^n - 1$. Shared by
+    the two objective-derivative modules (``test_bench_objective_grad.py`` and
+    ``test_bench_objective_hessian.py``), which time the same problem through
+    `Manifold.value_and_grad` and `Manifold.hessian`.
+
+    The pulse is real ``float64``: that is the regime GRAPE runs in, and it is
+    the one where the autodiff reference is exact (differentiating holomorphically
+    w.r.t. a ``complex128`` array with a zero imaginary part gives a gradient with
+    a spurious imaginary part — see `Manifold.value_and_grad_autodiff`).
+    """
+    # Imported here rather than at module scope: every benchmark module imports
+    # this conftest, and only these two need the whole pipeline.
+    from geope.geometry import SpecialUnitaryGroup
+    from geope.parameters import Parameters
+    from geope.utils import qft_unitary
+
+    n, n_steps = size
+    basis = construct_full_pauli_basis(n)
+    params = Parameters(
+        basis=basis,
+        projected_basis=basis,
+        target=qft_unitary(n),
+        piecewise_steps=n_steps,
+        seed=0,
+        manifold=SpecialUnitaryGroup(2**n),
+    )
+    free = jnp.real(params.free()).astype(jnp.float64)
+    return params.manifold, free
+
+
 # ---------------------------------------------------------------------------
 # Non-timing metric registry for the line-search benchmark.
 #

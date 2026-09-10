@@ -72,11 +72,16 @@ class TangentBundle:
             $V = \\mathrm D\\Phi_\\phi[p]$ and $W = \\mathrm D^2\\Phi_\\phi[p, p]$, built by
             `Manifold.bind`. ``None`` disables the curvature tier of a
             `GeometricContext` and nothing else.
-        hessian: The chart's *dense* second differential,
-            ``phi -> (G, G, *ambient_shape, K_free, K_free)`` — every pair, where
-            ``hvp`` takes one direction. $O(G^2d^2K^2)$, so it is only built for
-            the small systems a Newton step is worth taking on. ``None`` disables
-            the analytic objective Hessian and nothing else.
+        hessian_vjp: The chart's second differential *pulled back*,
+            ``phi -> (point, pullback)`` with
+            ``pullback(C) -> (G, K_free, G, K_free)`` the complex
+            $\\mathrm{Tr}(C^\\dagger\\,\\partial^2\\Phi)$ for an ambient covector
+            ``C`` — every pair, where ``hvp`` takes one direction. The same
+            `jax.vjp` shape as ``vjp``, for the same reason. It never forms the
+            dense $\\mathrm D^2\\Phi$: two $O(G)$-propagated derivative
+            trajectories and one Gram matrix, $O(GKmd + (GK)^2)$ of memory against
+            the dense route's $O(G^2K^2d^2)$. ``None`` disables the analytic
+            objective Hessian and nothing else.
         generators: The chart's generator sub-basis, present exactly when the
             chart is a plain product of exponentials in it. ``None`` under
             ``param_transform``, which is the single signal that disables both
@@ -92,7 +97,7 @@ class TangentBundle:
     jacobian: Callable[[Array], Array] | None = None
     vjp: Callable[[Array, Array], Array] | None = None
     hvp: Callable[[Array, Array], tuple[Array, Array, Array]] | None = None
-    hessian: Callable[[Array], Array] | None = None
+    hessian_vjp: Callable[[Array], tuple[Array, Callable[[Array], Array]]] | None = None
     generators: Basis | None = None
     columns: np.ndarray | None = None
 
@@ -107,10 +112,12 @@ class TangentBundle:
         tests build bundles directly — so it keeps a hand-built one honest.
         """
         analytic = self.generators is not None
-        if (self.hvp is not None) != analytic or (self.hessian is not None) != analytic:
+        if (self.hvp is not None) != analytic or (
+            self.hessian_vjp is not None
+        ) != analytic:
             raise ValueError(
-                "`generators`, `hvp` and `hessian` must be given together: both "
-                "second differentials are propagator recursions in those "
+                "`generators`, `hvp` and `hessian_vjp` must be given together: "
+                "both second differentials are propagator recursions in those "
                 "generators, so a chart with them has all three and a "
                 "`param_transform` chart has none."
             )

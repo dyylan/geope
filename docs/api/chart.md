@@ -47,6 +47,8 @@ machinery wholesale and no manifold writes chart code of its own.
 
 ::: geope.geometry.chart.get_chart_hvp_fn
 
+::: geope.geometry.chart.get_chart_hessian_vjp_fn
+
 ::: geope.geometry.chart.get_chart_hessian_fn
 
 ## The autodiff Jacobians

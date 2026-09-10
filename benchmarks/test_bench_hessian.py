@@ -5,10 +5,11 @@ prefix/suffix products) against autodiff
 ``jax.jacfwd(jax.jacrev(compute_point))``.
 
 The *cost* Hessian that used to sit here moved to
-``benchmarks/test_bench_objectives.py``: it is now assembled at the manifold
-level from this tensor plus the manifold's own cost derivatives, rather than by a
-group-specific function, so it belongs with the gradient it shares that assembly
-with.
+``benchmarks/test_bench_objective_hessian.py``: it is assembled at the manifold
+level rather than by a group-specific function, and no longer from this tensor at
+all — `geope.jax.hessian_vjp_propagator` contracts every pair against the cost's
+covector without materialising it, which is why what is timed here is now the
+reference rather than the live path.
 
 ``*_exec`` benchmarks are warmed up and timed with ``block_until_ready``.
 
