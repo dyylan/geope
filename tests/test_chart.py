@@ -15,11 +15,10 @@ Tested items:
 
 from types import SimpleNamespace
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -33,7 +32,6 @@ from geope.geometry.chart import (
     get_compute_matrices_params_list_fn,
     get_jacobian_fn,
 )
-from geope.geometry.basis import Basis
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,

@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
+from collections.abc import Callable
 from functools import partial
-from typing import Callable
 
 from .geope import build_pulse_expander
 from .parameters import Parameters
-from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
+from .utils.history import History
 
 
 class Gecko:
@@ -516,7 +515,6 @@ class Gecko:
             A JIT-compiled callable
             ``update_free_params_smoothing(proj_params, params)``.
         """
-
         _dtype = jnp.float64 if self._real_params else jnp.complex128
 
         if self._real_params:

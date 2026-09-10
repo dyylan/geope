@@ -22,11 +22,10 @@ Run with, e.g.::
 import jax
 import jax.numpy as jnp
 import pytest
+from conftest import make_basis
 
 from geope.geometry.chart import get_compute_matrices_params_list_fn
 from geope.jax import get_hessian_propagator
-
-from conftest import make_basis
 
 # (n_qubits, n_steps). Kept small: the propagator Hessian is O(G^2 d^2 K^2).
 SIZES = [(1, 2), (2, 2), (2, 3)]

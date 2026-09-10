@@ -17,12 +17,11 @@ import collections
 import dataclasses
 from dataclasses import FrozenInstanceError
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jsla
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -33,7 +32,6 @@ from geope.geometry import (
     UnitaryGroup,
 )
 from geope.geope import linear_comb_projected_coeffs_multigate
-from geope.geometry.basis import get_project_omegas_fn
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -71,7 +69,7 @@ def bind_kwargs(basis_2q):
     It builds the chart, its Jacobian and its HVP from the generators — there is
     no chart to hand it — and stores the frame as data.
     """
-    return dict(generators=basis_2q, frame=basis_2q)
+    return {"generators": basis_2q, "frame": basis_2q}
 
 
 @pytest.fixture
@@ -522,7 +520,7 @@ class TestContextCost:
             ctx.set_direction(c)
             return ctx.gammas, ctx.omegas, ctx.velocity, ctx.q, ctx.distance_at(-0.1)
 
-        gammas, omegas, s, q, d = step(free, coeffs)
+        gammas, _, s, q, d = step(free, coeffs)
         assert gammas.shape == (p.basis.lie_algebra_dim,)
         assert all(bool(jnp.isfinite(x)) for x in (s, q, d))
 
@@ -567,7 +565,7 @@ class TestContextDirection:
         p, free, coeffs = problem
         ctx = p.manifold.context(free)
         with pytest.raises(ValueError):
-            ctx.velocity
+            ctx.velocity  # noqa: B018
         ctx.set_direction(coeffs)
         assert bool(jnp.isfinite(ctx.velocity))
 
@@ -675,7 +673,7 @@ class TestContextUnderParamTransform:
     def test_every_column_is_solvable(self, transformed):
         # columns=None: the omega restriction and the coefficient scatter are
         # both no-ops in experimental space.
-        p, free, coeffs = transformed
+        p, free, _ = transformed
         assert p.manifold.tangent.columns is None
         assert p.manifold.context(free).omegas.shape == (2, 3, 15)
 
@@ -799,7 +797,6 @@ def no_autodiff(monkeypatch):
 
     for name in _AUTODIFF_TRANSFORMS:
         monkeypatch.setattr(jax, name, forbidden(name))
-    return None
 
 
 class TestNoAutodiffInThePipeline:

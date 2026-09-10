@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-import numpy as np
-import jax.numpy as jnp
-import jax
-from jax import Array
 import itertools as it
-from typing import Callable
+import time
+from collections.abc import Callable
 
-from ..geometry.basis import Basis, traces
+import jax
+import jax.numpy as jnp
+import numpy as np
+from jax import Array
+
+from ..geometry.basis import Basis
 
 
 @jax.jit
 def trace_dot_jit(x: Array, y: Array) -> Array:
-    """Compute the trace of the matrix product $\\mathrm{Tr}(xy)$.
+    r"""Compute the trace of the matrix product $\mathrm{Tr}(xy)$.
 
     JIT-compiled for use inside scan loops.
 
@@ -45,9 +47,9 @@ def check_xy_comb(comb: tuple[int, ...]) -> bool:
     else:
         for i, a in enumerate(comb):
             for j, b in enumerate(comb):
-                if (i != j) and (a != b) and (a > 0) and (b > 0):
-                    return False
-                elif (a == 3) and (b == 3):
+                if ((i != j) and (a != b) and (a > 0) and (b > 0)) or (
+                    (a == 3) and (b == 3)
+                ):
                     return False
     return True
 
@@ -118,8 +120,8 @@ def restriction_order_function(
     """
     mapping = {"x": 1, "y": 2, "z": 3}
     restriction_int = []
-    for interaction in restriction.keys():
-        for label in restriction[interaction]:
+    for interaction, labels in restriction.items():
+        for label in labels:
             r = [0] * n
             if type(interaction) is int:
                 r[interaction - 1] = mapping[label[0]]
@@ -560,15 +562,22 @@ def construct_restricted_spin_boson_basis(
     return Basis(np.stack(b), labels=l)
 
 
+def get_system_seed():
+    # Get the current system time in nanoseconds
+    nanosecond_time = time.time_ns()
+    # Bitmask to fit the time into a standard 32-bit unsigned integer
+    return nanosecond_time & 0xFFFFFFFF
+
+
 def prepare_random_parameters(
     proj_indices: np.ndarray,
     expander: np.ndarray | None = None,
     spread: float = 1.0,
-    key: jax.Array = jax.random.key(0),
+    key: jax.Array | None = None,
 ) -> np.ndarray:
     """Generate a random parameter vector for the projected subspace.
 
-    Samples uniform random values in $[-\\text{spread}, \\text{spread}]$
+    Samples uniform random values in $[-\text{spread}, \text{spread}]$
     and optionally expands them through a constraint matrix.
 
     Args:
@@ -582,6 +591,8 @@ def prepare_random_parameters(
         A parameter ``np.ndarray`` of the same length as ``proj_indices``
         with random values at projected positions and zeros elsewhere.
     """
+    if key is None:
+        key = jax.random.key(get_system_seed())
     num_indep_params = proj_indices.sum() if expander is None else expander.shape[1]
     randoms = np.array(
         jax.random.uniform(
@@ -596,14 +607,14 @@ def prepare_random_parameters(
 
 
 def multicontrol_unitary(local_unitary: np.ndarray, num_controls: int) -> np.ndarray:
-    """Embed a single-qubit unitary as a multi-controlled gate.
+    r"""Embed a single-qubit unitary as a multi-controlled gate.
 
-    Places `local_unitary` in the bottom-right $2 \\times 2$ block
-    of a $2^{n+1} \\times 2^{n+1}$ identity matrix, where $n$ is
+    Places `local_unitary` in the bottom-right $2 \times 2$ block
+    of a $2^{n+1} \times 2^{n+1}$ identity matrix, where $n$ is
     `num_controls`.
 
     Args:
-        local_unitary: A $2 \\times 2$ unitary matrix.
+        local_unitary: A $2 \times 2$ unitary matrix.
         num_controls: Number of control qubits.
 
     Returns:
@@ -617,13 +628,13 @@ def multicontrol_unitary(local_unitary: np.ndarray, num_controls: int) -> np.nda
 
 
 def qft_unitary(num_qubits: int) -> np.ndarray:
-    """Construct the Quantum Fourier Transform unitary.
+    r"""Construct the Quantum Fourier Transform unitary.
 
     Args:
         num_qubits: Number of qubits.
 
     Returns:
-        A $2^n \\times 2^n$ QFT unitary matrix.
+        A $2^n \times 2^n$ QFT unitary matrix.
     """
     w = np.exp(1.0j * 2 * np.pi / 2**num_qubits)
     qft_unitary = (1 / np.sqrt(2**num_qubits)) * np.array(

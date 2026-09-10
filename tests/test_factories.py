@@ -13,26 +13,25 @@ left-trivialisation invariant they must satisfy) is assembled by
 covered in tests/test_geometry.py.
 """
 
-import pytest
-import numpy as np
-import scipy.linalg as spla
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
+import scipy.linalg as spla
 
 jax.config.update("jax_enable_x64", True)
 
+from geope.geometry import StateSphere
+from geope.geometry.basis import get_project_omegas_fn
 from geope.geometry.chart import (
     get_compute_matrices_params_list_fn,
     get_jacobian_fn,
 )
-from geope.geometry import StateSphere
 from geope.geometry.lie import groups
-from geope.geometry.basis import get_project_omegas_fn
 from geope.geometry.lie.groups import infidelity
-from geope.jax.hessian import get_hessian_fn
 from geope.geope import linear_comb_projected_coeffs_multigate
 from geope.jax import stiefel_hessian_quadratic_form, su_hessian_quadratic_form
+from geope.jax.hessian import get_hessian_fn
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -338,7 +337,7 @@ class TestStiefelHessianQuadraticForm:
     @pytest.mark.parametrize(
         "n, m",
         [(6, 2), (4, 2), (5, 3), (6, 3), (5, 1), (4, 4)],
-        ids="6x2 4x2 5x3 6x3 5x1 4x4".split(),
+        ids=["6x2", "4x2", "5x3", "6x3", "5x1", "4x4"],
     )
     @pytest.mark.parametrize("norm", [0.3, 0.9])
     def test_matches_the_unreduced_operator_reference(self, n, m, norm):

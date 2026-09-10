@@ -28,9 +28,10 @@ Run with, e.g.::
 which places the four line searches side by side for each problem.
 """
 
-import numpy as np
 import jax
+import numpy as np
 import pytest
+from conftest import LINESEARCH_BENCH_ROWS
 
 from geope import (
     ApproximateQuadraticArmijo,
@@ -47,8 +48,6 @@ from geope.utils import (
     multicontrol_unitary,
     qft_unitary,
 )
-
-from conftest import LINESEARCH_BENCH_ROWS
 
 SEED = 0
 PRECISION = 0.9999999
@@ -212,6 +211,6 @@ def test_all_methods_make_progress():
     for method_name, line_search in METHODS.items():
         g = Geope(_cnot_2q(), history=History())
         g.optimize(max_steps=100, line_search=line_search, precision=PRECISION)
-        assert (
-            g.history.best_fidelity > 0.99
-        ), f"{method_name} stalled at {float(g.history.best_fidelity)}"
+        assert g.history.best_fidelity > 0.99, (
+            f"{method_name} stalled at {float(g.history.best_fidelity)}"
+        )

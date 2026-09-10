@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 from .parameters import Parameters
 
 jax.config.update("jax_enable_x64", True)
 
+from collections.abc import Callable
+
 from .optimizers import NewtonTRM, Optimizer
 from .utils import prepare_random_parameters
-from .utils.history import History
 from .utils.callbacks import normalize_callbacks, run_callbacks
-from typing import Callable
+from .utils.history import History
 
 
 class Grape:
@@ -216,7 +216,9 @@ class Grape:
                 assert (
                     self.params.drift_basis.lie_algebra_dim
                     == self.drift_parameters.shape[0]
-                ), "Drift parameters must be the same length as the size of the drift basis."
+                ), (
+                    "Drift parameters must be the same length as the size of the drift basis."
+                )
 
             self.init_parameters[:, self.params.drift_indices] = np.tile(
                 self.drift_parameters, (self.params.piecewise_steps, 1)
@@ -382,5 +384,5 @@ class Grape:
             if not run_callbacks(cbs, step, self.history, self):
                 break
         if self.verbose:
-            print("")
+            print()
         return self.params

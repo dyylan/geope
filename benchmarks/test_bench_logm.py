@@ -24,11 +24,10 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from conftest import warm
 
 from geope.jax import logm, logm_unitary
 from geope.utils import qft_unitary
-
-from conftest import warm
 
 N_QUBITS = [
     1,

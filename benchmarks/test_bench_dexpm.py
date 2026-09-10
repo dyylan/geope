@@ -24,10 +24,9 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 import pytest
+from conftest import make_basis, warm
 
 from geope.jax import dexpm, dexpm_eig, get_dexpm, get_dexpm_eig, get_Ui_fn
-
-from conftest import make_basis, warm
 
 N_QUBITS = [
     1,

@@ -13,10 +13,9 @@ power-of-2 multiple of the true logarithm — see the diagonal-replacement fix i
 ``_logm_triu``.
 """
 
+import jax
 import numpy as np
 import pytest
-
-import jax
 
 jax.config.update("jax_enable_x64", True)
 

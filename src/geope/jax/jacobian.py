@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import partial
+
 import jax
 import jax.numpy as jnp
 from jax import Array
 
-from functools import partial
-from typing import Callable
-
 from .dexpm import (
-    get_Ui_fn,
+    expm_jvp,
+    expm_jvp_eig,
     get_adj_expm,
     get_adj_expm_eig,
     get_dexpm,
     get_dexpm_eig,
-    expm_jvp,
-    expm_jvp_eig,
+    get_Ui_fn,
 )
 
 

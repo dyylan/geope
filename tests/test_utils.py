@@ -24,35 +24,32 @@ Tested items:
     - _quadratic_armijo_line_search
 """
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
+from geope.geometry.basis import Basis, traces
 from geope.utils import (
-    trace_dot_jit,
-    traces,
-    check_xy_comb,
     check_Heisenberg_comb,
+    check_xy_comb,
+    construct_full_pauli_basis,
+    construct_full_spin_boson_basis,
+    construct_Heisenberg_pauli_basis,
+    construct_restricted_pauli_basis,
+    construct_restricted_spin_boson_basis,
+    construct_two_body_pauli_basis,
+    creation_annihilation_operators,
+    merge_constraints,
+    multicontrol_unitary,
+    prepare_random_parameters,
+    qft_unitary,
     restriction_function,
     restriction_order_function,
-    construct_restricted_pauli_basis,
-    construct_Heisenberg_pauli_basis,
-    construct_two_body_pauli_basis,
-    construct_full_pauli_basis,
-    creation_annihilation_operators,
-    construct_full_spin_boson_basis,
-    construct_restricted_spin_boson_basis,
-    prepare_random_parameters,
-    multicontrol_unitary,
-    qft_unitary,
-    merge_constraints,
+    trace_dot_jit,
 )
-
-from geope.geometry.basis import Basis
 
 # ===================================================================
 # Tests — trace_dot_jit

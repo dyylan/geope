@@ -47,8 +47,9 @@ state is line-search-owned and opaque to GEOPE — every search carries
 ``Geope.optimize`` re-``init()``s the state at the start of every run.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, NamedTuple
+from typing import NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -343,17 +344,17 @@ def _golden_section_search(
     state0 = (a, b, x1, x2, f1, f2, jnp.array(0, dtype=jnp.int32))
 
     def cond_fun(state):
-        a, b, x1, x2, f1, f2, i = state
+        a, b, _, _, _, _, i = state
         interval_check = (b - a) > tol
         iter_check = i < max_iter
         return jnp.logical_and(interval_check, iter_check)
 
     def body_fun(state):
-        a, b, x1, x2, f1, f2, i = state
+        _, _, _, _, f1, f2, _ = state
 
         def left_branch(s):
             # Minimum is in [a, x2]: discard the right portion (b <- x2).
-            a, b, x1, x2, f1, f2, i = s
+            a, _, x1, x2, f1, _, i = s
             b_new = x2
             x2_new = x1
             f2_new = f1
@@ -363,7 +364,7 @@ def _golden_section_search(
 
         def right_branch(s):
             # Minimum is in [x1, b]: discard the left portion (a <- x1).
-            a, b, x1, x2, f1, f2, i = s
+            _, b, x1, x2, _, f2, i = s
             a_new = x1
             x1_new = x2
             f1_new = f2
@@ -455,13 +456,13 @@ def _quadratic_armijo_line_search(
     state0 = (t0, f64(fF(t0)), jnp.array(1, dtype=jnp.int32))
 
     def cond_fun(state):
-        t, Ft, i = state
+        t, Ft, _ = state
         armijo_ok = Ft <= F0 + c1 * t * s
         step_ok = jnp.abs(beta * t) >= t_min
         return jnp.logical_and(jnp.logical_not(armijo_ok), step_ok)
 
     def body_fun(state):
-        t, Ft, i = state
+        t, _, i = state
         t_new = beta * t
         return (t_new, f64(fF(t_new)), i + 1)
 
@@ -545,7 +546,7 @@ def _armijo_line_search(
     state0 = (t0, f64(fF(t0)), jnp.array(1 + n_probe, dtype=jnp.int32))
 
     def cond_fun(state):
-        t, Ft, i = state
+        t, Ft, _ = state
         armijo_ok = Ft <= F0 + c1 * t * s
         # F0 <= 0: converged, so the test can never pass — accept and stop.
         armijo_ok = jnp.logical_or(armijo_ok, F0 <= 0.0)
@@ -553,7 +554,7 @@ def _armijo_line_search(
         return jnp.logical_and(jnp.logical_not(armijo_ok), step_ok)
 
     def body_fun(state):
-        t, Ft, i = state
+        t, _, i = state
         t_new = beta * t
         return (t_new, f64(fF(t_new)), i + 1)
 

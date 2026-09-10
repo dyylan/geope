@@ -26,7 +26,6 @@ Run with, e.g.::
 import jax
 import jax.numpy as jnp
 import pytest
-
 from conftest import make_su_manifold, warm
 
 # (n_qubits, n_steps): d = 2**n, K = 4**n - 1. The gradient is linear in K, so it

@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-from typing import Callable
-
-import numpy as np
 import itertools as it
 import re
+from collections.abc import Callable
+from functools import partial
 
 import jax
 import jax.numpy as jnp
-from jax import Array
-
-from functools import partial
-
 import numpy as np
+from jax import Array
 
 
 def traces(b_1: np.ndarray, b_2: np.ndarray) -> Array:
@@ -211,9 +207,10 @@ class Basis:
         self._interaction_map = interaction_map
         del_indices = []
         for i, interaction in enumerate(self.interaction_qubits):
-            if interaction not in interaction_map.keys():
-                del_indices.append(i)
-            elif self.interaction_labels[i] not in interaction_map[interaction]:
+            if (
+                interaction not in interaction_map
+                or self.interaction_labels[i] not in interaction_map[interaction]
+            ):
                 del_indices.append(i)
         self._remove_basis_elements(del_indices)
         return interaction_map
@@ -225,7 +222,7 @@ class Basis:
             for label in self.labels:
                 new_label = "$"
                 for i, c in enumerate(label):
-                    new_label += "" if c == "I" else f"{c}_{{{i+1}}}"
+                    new_label += "" if c == "I" else f"{c}_{{{i + 1}}}"
                 new_label += "$"
                 new_labels.append(new_label)
             return new_labels
@@ -299,7 +296,7 @@ class Basis:
     @property
     def labels(self) -> list[str] | None:
         """String labels for each basis element, or ``None``."""
-        return self._labels if self._labels else None
+        return self._labels or None
 
     @property
     def plot_labels(self) -> list[str] | None:
@@ -418,7 +415,6 @@ class Basis:
             bounds = bounds_map.get(new_label)
             for gate in range(piecewise_steps):
                 if bounds is not None:
-                    index = len(lower_bounds[gate])
                     lower_bounds[gate].append(bounds[0])
                     upper_bounds[gate].append(bounds[1])
                 else:

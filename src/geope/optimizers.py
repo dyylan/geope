@@ -413,7 +413,7 @@ def condition_loop(hessian: Array, g: Array, kappa: float | Array):
     g = jnp.expand_dims(g, axis=1)
 
     def body_fn(val):
-        k, i, a, H = val
+        _, i, a, H = val
         H_aug = jnp.block([[H * a**2, g * a], [g.T * a, 0.0]])
         # Regularize
         sigma = jnp.min(jnp.array([0.0, jnp.min(jnp.linalg.eigvalsh(H_aug))]))

@@ -18,10 +18,9 @@ Run with, e.g.::
 import jax
 import jax.numpy as jnp
 import pytest
+from conftest import make_basis, warm
 
 from geope.jax import d2expm, d2expm_eig, get_d2expm, get_d2expm_eig, get_Ui_fn
-
-from conftest import make_basis, warm
 
 N_QUBITS = [1, 2, 3]
 COMPILE_ROUNDS = 3

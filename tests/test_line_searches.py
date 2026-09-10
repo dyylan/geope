@@ -8,20 +8,16 @@ Tested items:
     - _armijo_line_search
 """
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
 from geope.line_searches import (
+    _armijo_line_search,
     _golden_section_search,
     _quadratic_armijo_line_search,
-    _armijo_line_search,
 )
-
 
 # ===================================================================
 # Tests — _golden_section_search (JAX version)
@@ -36,14 +32,14 @@ class TestGoldenSectionSearch:
 
     def test_x_within_bounds(self):
         f = lambda x: (x - 2.0) ** 2
-        x, fx, n = _golden_section_search(f, 0.0, 5.0, tol=1e-6)
+        x, _, n = _golden_section_search(f, 0.0, 5.0, tol=1e-6)
         assert 0.0 <= x <= 5.0
         # At least the two initial f1/f2 probes were spent.
         assert int(n) >= 2
 
     def test_f_matches_x(self):
         f = lambda x: (x + 1.0) ** 2
-        x, fx, n = _golden_section_search(f, -3.0, 1.0, tol=1e-6)
+        x, fx, _ = _golden_section_search(f, -3.0, 1.0, tol=1e-6)
         assert jnp.isclose(fx, f(x), atol=1e-8)
 
 
@@ -76,7 +72,7 @@ class TestQuadraticArmijoLineSearch:
         # -s/q = -2.0 lies outside [-1, 0]; the seed is clipped to a = -1.0.
         s, q, F0 = 1.0, 0.5, 1.0
         fF = lambda t: F0 + s * t + 0.5 * q * t**2
-        t, F, n = _quadratic_armijo_line_search(fF, -1.0, s, q, F0)
+        t, _, n = _quadratic_armijo_line_search(fF, -1.0, s, q, F0)
         assert jnp.isclose(t, -1.0)
         assert int(n) == 1
 
@@ -104,7 +100,7 @@ class TestQuadraticArmijoLineSearch:
     def test_jittable(self):
         s, q, F0 = 1.0, 4.0, 1.0
         fF = lambda t: F0 + s * t + 0.5 * q * t**2
-        t, F, n = jax.jit(lambda: _quadratic_armijo_line_search(fF, -1.0, s, q, F0))()
+        t, F, _ = jax.jit(lambda: _quadratic_armijo_line_search(fF, -1.0, s, q, F0))()
         assert bool(jnp.isfinite(t)) and bool(jnp.isfinite(F))
 
 
@@ -172,7 +168,7 @@ class TestArmijoLineSearch:
         # contracts to the floor and gives up there rather than looping forever.
         t_min = 1e-2
         fF = lambda t: 1.0 - 2.0 * t  # increases as t goes negative
-        t, F, n = _armijo_line_search(fF, -1.0, t_min=t_min)
+        t, F, _ = _armijo_line_search(fF, -1.0, t_min=t_min)
         assert t_min <= abs(float(t))
         assert -1.0 <= float(t) <= 0.0
         assert jnp.isclose(F, fF(t))
@@ -181,11 +177,11 @@ class TestArmijoLineSearch:
         # F0 <= 0 makes the Armijo test vacuous (nothing can beat it), so the
         # guard accepts the seed instead of grinding down to t_min.
         fF = lambda t: t**2  # fF(0) = 0, and every trial is worse
-        t, F, n = _armijo_line_search(fF, -1.0)
+        t, _, n = _armijo_line_search(fF, -1.0)
         assert jnp.isclose(t, -1.0)
         assert int(n) == 2
 
     def test_jittable(self):
         fF = lambda t: 1.0 + 2.0 * t
-        t, F, n = jax.jit(lambda: _armijo_line_search(fF, -1.0))()
+        t, F, _ = jax.jit(lambda: _armijo_line_search(fF, -1.0))()
         assert bool(jnp.isfinite(t)) and bool(jnp.isfinite(F))

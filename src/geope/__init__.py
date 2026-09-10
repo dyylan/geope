@@ -1,34 +1,7 @@
-from .geometry.lie.groups import (
-    fidelity,
-    infidelity,
-    fidelity_full,
-    infidelity_full,
+from . import line_searches, optimizers
+from .gecko import (
+    Gecko,
 )
-
-from .geope import (
-    Geope,
-)
-
-from . import line_searches
-from .line_searches import (
-    LineSearch,
-    LineSearchResult,
-    ApproximateQuadraticArmijo,
-    Armijo,
-    GoldenSection,
-    QuadraticArmijo,
-)
-
-from . import optimizers
-from .optimizers import (
-    Optimizer,
-    OptimizerResult,
-    Adam,
-    GradientDescent,
-    NewtonRFO,
-    NewtonTRM,
-)
-
 from .geometry import (
     GeometricContext,
     Manifold,
@@ -39,46 +12,60 @@ from .geometry import (
     TangentBundle,
     UnitaryGroup,
 )
-
-from .gecko import (
-    Gecko,
+from .geometry.basis import (
+    Basis,
+    traces,
 )
-
+from .geometry.lie.groups import (
+    fidelity,
+    fidelity_full,
+    infidelity,
+    infidelity_full,
+)
+from .geope import (
+    Geope,
+)
 from .grape import (
     Grape,
 )
-
+from .line_searches import (
+    ApproximateQuadraticArmijo,
+    Armijo,
+    GoldenSection,
+    LineSearch,
+    LineSearchResult,
+    QuadraticArmijo,
+)
+from .optimizers import (
+    Adam,
+    GradientDescent,
+    NewtonRFO,
+    NewtonTRM,
+    Optimizer,
+    OptimizerResult,
+)
 from .parameters import (
     Parameters,
 )
-
 from .utils import (
     History,
-)
-
-from .geometry.basis import (
-    Basis,
-)
-
-from .utils import (
-    trace_dot_jit,
-    traces,
-    check_xy_comb,
     check_Heisenberg_comb,
-    restriction_function,
-    restriction_order_function,
+    check_xy_comb,
+    construct_full_pauli_basis,
+    construct_full_spin_boson_basis,
+    construct_Heisenberg_pauli_basis,
+    construct_restricted_pauli_basis,
+    construct_restricted_spin_boson_basis,
+    construct_two_body_pauli_basis,
     control_to_indices,
+    creation_annihilation_operators,
     filter_basis_by_control,
     make_per_element_transform,
-    construct_restricted_pauli_basis,
-    construct_Heisenberg_pauli_basis,
-    construct_two_body_pauli_basis,
-    construct_full_pauli_basis,
-    creation_annihilation_operators,
-    construct_full_spin_boson_basis,
-    construct_restricted_spin_boson_basis,
-    prepare_random_parameters,
-    multicontrol_unitary,
-    qft_unitary,
     merge_constraints,
+    multicontrol_unitary,
+    prepare_random_parameters,
+    qft_unitary,
+    restriction_function,
+    restriction_order_function,
+    trace_dot_jit,
 )

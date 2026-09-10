@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import partial
+
 import jax
 import jax.numpy as jnp
 from jax import Array
-
-from functools import partial
-from typing import Callable
 
 
 def Ui(x: Array, basis: Array) -> Array:

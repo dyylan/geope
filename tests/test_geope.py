@@ -16,11 +16,11 @@ Tested items:
     - Ui / get_Ui_fn
     - jacobian_propagator
     - get_jacobian_propagator
-    - jvp_propagator / get_jvp_propagator 
+    - jvp_propagator / get_jvp_propagator
   jax primitives:
     - dexpm / dexpm_eig (per-step derivative)
     - d2expm / d2expm_eig (per-step second derivative)
-    - expm_jvp / expm_hvp (+ _eig) 
+    - expm_jvp / expm_hvp (+ _eig)
     - hessian_propagator / get_hessian_propagator (propagator Hessian)
     - hvp_propagator / get_hvp_propagator
     - vjp_propagator / get_vjp_propagator (the chart pullback)
@@ -31,24 +31,32 @@ import dataclasses
 from dataclasses import FrozenInstanceError
 from functools import partial
 
-import pytest
-import numpy as np
-import scipy.linalg as spla
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
+from geope.gecko import Gecko
+from geope.geometry.basis import Basis
+from geope.geometry.chart import (
+    get_compute_matrices_params_list_fn,
+    get_jacobian_fn,
+)
+from geope.geometry.lie.groups import (
+    infidelity_full,
+)
 from geope.geope import (
+    DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
+    DEFAULT_MAX_STEP_SIZE,
+    DEFAULT_PRECISION,
+    PROGRESS_RTOL,
     Geope,
     build_pulse_expander,
     linear_comb_projected_coeffs_multigate,
-    DEFAULT_PRECISION,
-    DEFAULT_MAX_STEP_SIZE,
-    DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
-    PROGRESS_RTOL,
 )
+from geope.jax.hessian import hvp_forward_over_reverse
 from geope.line_searches import (
     ApproximateQuadraticArmijo,
     Armijo,
@@ -57,25 +65,13 @@ from geope.line_searches import (
     LineSearchResult,
     QuadraticArmijo,
 )
-from geope.geometry.chart import (
-    get_compute_matrices_params_list_fn,
-    get_jacobian_fn,
-)
-from geope.geometry.lie.groups import (
-    infidelity,
-    infidelity_full,
-)
-from geope.jax.hessian import get_hessian_fn, hvp_forward_over_reverse
-from geope.gecko import Gecko
 from geope.parameters import Parameters
-from geope.utils.history import History
-from geope.geometry.basis import Basis
-from geope.geometry.lie.groups import fidelity
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
     construct_restricted_pauli_basis,
 )
+from geope.utils.history import History
 
 
 def _params_2q(
@@ -119,23 +115,33 @@ def _params_2q(
     )
 
 
-from geope.jax.jacobian import (
-    jacobian_propagator,
-    get_jacobian_propagator,
-    vjp_propagator,
-    get_vjp_propagator,
-    jvp_propagator,
-    get_jvp_propagator,
+from geope.jax.dexpm import (
+    Ui,
+    adj_expm,
+    adj_expm_eig,
+    d2expm,
+    d2expm_eig,
+    d2expm_eig_batched,
+    dexpm,
+    dexpm_eig,
+    dexpm_eig_batched,
+    expm_hvp,
+    expm_hvp_eig,
+    expm_jvp,
+    expm_jvp_eig,
+    get_dexpm,
+    get_Ui_fn,
 )
-from geope.jax.dexpm import Ui, get_Ui_fn, adj_expm, adj_expm_eig
-from geope.jax.dexpm import get_dexpm, dexpm, dexpm_eig, dexpm_eig_batched
-from geope.jax.dexpm import d2expm, d2expm_eig, d2expm_eig_batched
-from geope.jax.dexpm import expm_jvp, expm_jvp_eig, expm_hvp, expm_hvp_eig
 from geope.jax.hessian import (
-    hessian_propagator,
     get_hessian_propagator,
-    hvp_propagator,
     get_hvp_propagator,
+)
+from geope.jax.jacobian import (
+    get_jacobian_propagator,
+    get_jvp_propagator,
+    get_vjp_propagator,
+    jacobian_propagator,
+    vjp_propagator,
 )
 from geope.utils import qft_unitary
 
@@ -418,7 +424,6 @@ class TestGetJacobianPropagator:
         """Compare jacobian propagator against jax.jacobian for a single gate."""
         basis = _pauli_basis_1q()
         fn_propagator = get_jacobian_propagator(basis, method=method)
-        Ui_fn = get_Ui_fn(basis)
 
         params = jnp.array([[0.4, -0.2, 0.6]], dtype=complex)
         jac_propagator = fn_propagator(params)  # (1, 2, 2, 3)
@@ -788,7 +793,7 @@ class TestVjpPropagator:
             return Ui_fn(x)
 
         adj_fn = partial(adj_expm_eig, basis=basis)
-        point, pullback = vjp_propagator(params, counting_Ui, adj_fn)
+        _, pullback = vjp_propagator(params, counting_Ui, adj_fn)
         _ = pullback(jnp.eye(2, dtype=jnp.complex128))
         _ = pullback(jnp.eye(2, dtype=jnp.complex128) * 1j)
         assert len(calls) == 1  # one vmapped trace, however many pullbacks
@@ -1327,7 +1332,7 @@ class TestGeope:
         from geope.optimizers import Adam as GrapeAdam
 
         g = Geope(params_2q)
-        with pytest.raises(TypeError, match="geope.line_searches.LineSearch"):
+        with pytest.raises(TypeError, match=r"geope.line_searches.LineSearch"):
             g.optimize(max_steps=1, line_search=GrapeAdam(1e-2))
 
     def test_line_search_eq_and_hash(self):
@@ -1567,9 +1572,9 @@ class TestGeope:
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=1)
         rows = _run_with_geometry_probe(p, max_steps=4)
         assert any(r["xi_rel"] > 1e-3 for r in rows), "expected a non-zero residual"
-        assert any(
-            r["q"] - r["q_exact"] > 1e-9 for r in rows
-        ), "exact curvature should differ from the surrogate when xi_rel > 0"
+        assert any(r["q"] - r["q_exact"] > 1e-9 for r in rows), (
+            "exact curvature should differ from the surrogate when xi_rel > 0"
+        )
 
     def test_approx_quadratic_armijo_rejects_param_transform(
         self, cnot, full_basis_2q, projected_basis_2q

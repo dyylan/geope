@@ -14,11 +14,10 @@ The update rules themselves are pinned in test_optimizers.py; what is tested
 here is the loop around them.
 """
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -170,12 +169,12 @@ class TestGrapeOptimize:
 
     def test_non_optimizer_raises(self, cnot, full_basis_2q, projected_basis_2q):
         g = Grape(_params(cnot, full_basis_2q, projected_basis_2q))
-        with pytest.raises(TypeError, match="geope.optimizers.Optimizer"):
+        with pytest.raises(TypeError, match=r"geope.optimizers.Optimizer"):
             g.optimize(max_steps=1, optimizer="nr-trm")
         # A LineSearch tunes a scalar step along a direction GEOPE solved for; it
         # is not an update rule, and the mistake is makeable now that both
         # families are frozen dataclasses passed to an `optimize` keyword.
-        with pytest.raises(TypeError, match="geope.optimizers.Optimizer"):
+        with pytest.raises(TypeError, match=r"geope.optimizers.Optimizer"):
             g.optimize(max_steps=1, optimizer=GoldenSection())
 
 

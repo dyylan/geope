@@ -29,10 +29,9 @@ Run with, e.g.::
 import jax
 import jax.numpy as jnp
 import pytest
+from conftest import make_su_manifold, warm
 
 from geope.geometry.chart import get_chart_hessian_fn
-
-from conftest import make_su_manifold, warm
 
 # Three system sizes all three Hessian routes can still reach. What bounds the
 # range is the *dense* route's O(G^2 d^2 K^2) memory, not the live one's.
@@ -44,11 +43,11 @@ HESS_SCALING_IDS = [f"n{n}-G{g}" for n, g in HESS_SCALING_SIZES]
 
 
 def _dense_hessian(manifold):
-    """`Manifold.hessian` as it was before the pullback: materialise, then contract.
+    r"""`Manifold.hessian` as it was before the pullback: materialise, then contract.
 
     The route this module measures the acceleration against. Kept here rather
     than in the library because nothing calls it any more — the dense
-    $\\mathrm D^2\\Phi$ survives only as `geope.geometry.chart.get_chart_hessian_fn`,
+    $\mathrm D^2\Phi$ survives only as `geope.geometry.chart.get_chart_hessian_fn`,
     the reference the tests check the pullback against.
     """
     hessian_fn = get_chart_hessian_fn(

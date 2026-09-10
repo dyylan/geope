@@ -10,25 +10,24 @@ every step, and the loop stops early if any returns a falsy value.
 Also exercises the shared helper in ``geope.utils.callbacks``.
 """
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
+from geope.gecko import Gecko
 from geope.geope import Geope
 from geope.grape import Grape
-from geope.gecko import Gecko
 from geope.optimizers import Adam, NewtonTRM
 from geope.parameters import Parameters
-from geope.utils.history import History
-from geope.utils.callbacks import normalize_callbacks, run_callbacks
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
 )
+from geope.utils.callbacks import normalize_callbacks, run_callbacks
+from geope.utils.history import History
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -282,7 +281,7 @@ class TestGeckoCallbacks:
             seen.append(step)
             return step != 3
 
-        success, iters = gk.smooth(
+        _, iters = gk.smooth(
             piecewise_steps_multiplier=3,
             max_smoothing_steps=30,
             diff_tol=1e-12,

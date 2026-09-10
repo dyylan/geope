@@ -1,27 +1,27 @@
 from __future__ import annotations
 
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax import Array
 
 jax.config.update("jax_enable_x64", True)
 
+from collections.abc import Callable
+
 from .geometry.basis import Basis
-from .utils import (
-    prepare_random_parameters,
-    merge_constraints,
-    control_to_indices,
-)
 from .line_searches import (
     GoldenSection,
     LineSearch,
 )
 from .parameters import Parameters
-from .utils.history import History
+from .utils import (
+    control_to_indices,
+    merge_constraints,
+    prepare_random_parameters,
+)
 from .utils.callbacks import normalize_callbacks, run_callbacks
-from typing import Callable
+from .utils.history import History
 
 # Default settings.
 DEFAULT_PRECISION = 0.9999999
@@ -270,14 +270,7 @@ class Geope:
                 self.init_parameters = np.array(init_parameters)
             elif np.array(init_parameters).shape == (
                 self.params.projected_basis.lie_algebra_dim,
-            ):
-                self.init_parameters = np.zeros(
-                    (self.params.piecewise_steps, self.params.basis.lie_algebra_dim)
-                )
-                self.init_parameters[:, self.params.projected_indices] = np.array(
-                    init_parameters
-                )
-            elif np.array(init_parameters).shape == (
+            ) or np.array(init_parameters).shape == (
                 self.params.piecewise_steps,
                 self.params.projected_basis.lie_algebra_dim,
             ):
@@ -306,7 +299,9 @@ class Geope:
                     assert (
                         self.params.drift_basis.lie_algebra_dim
                         == self.drift_parameters.shape[0]
-                    ), "Drift parameters must be the same length as the size of the drift basis."
+                    ), (
+                        "Drift parameters must be the same length as the size of the drift basis."
+                    )
                 self.init_parameters[:, self.params.drift_indices] = np.tile(
                     self.drift_parameters, (self.params.piecewise_steps, 1)
                 )
@@ -491,7 +486,6 @@ class Geope:
                 # TODO: Can we just guarantees this is always a float by making it a property?
                 if self.gram_schmidt_step_size:
                     new_params_update, fidelity, step_size = self.gram_schmidt(coeffs)
-                pass
 
             self.add_parameters(new_params_update, fidelity, step_size)
 
@@ -504,7 +498,7 @@ class Geope:
             if not run_callbacks(cbs, step, self.history, self):
                 break
         if self.verbose:
-            print("")
+            print()
         return self.params
 
     def add_parameters(
@@ -570,7 +564,7 @@ class Geope:
                     self.drift_parameters, (self.params.piecewise_steps, 1)
                 )
         else:
-            ValueError(
+            raise ValueError(
                 "Parameter shape does not match with full basis, projected & drift basis, or projected basis."
             )
         if fidelity is None:

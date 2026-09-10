@@ -18,6 +18,53 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# --------------------------------------------------------------------------- #
+# Ruff: formatter (drop-in replacement for black) + linter (incl. docstrings)
+# --------------------------------------------------------------------------- #
+[tool.ruff]
+# black's default, which the tree is already formatted to.
+line-length = 88
+target-version = "py311"  # matches requires-python
+src = ["src"]
+
+extend-exclude = ["*.ipynb", "*.md"]
+
+[tool.ruff.format]
+# Format Python code inside docstrings
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+# [tool.ruff.lint]
+# preview = true
+# explicit-preview-rules = true
+# extend-select = [
+#     # pydocstyle
+#     "D",
+#     # pydoclint.
+#     "DOC102",  # documented parameter that is not in the signature
+#     "DOC201",  # returns, but has no `Returns:` section
+#     "DOC202",  # has a `Returns:` section but returns nothing
+#     "DOC402",  # yields, but has no `Yields:` section
+#     "DOC403",  # has a `Yields:` section but yields nothing
+#     "DOC501",  # raises, but has no `Raises:` entry
+#     "DOC502",  # has a `Raises:` entry for an exception never raised
+# ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pydoclint]
+ignore-one-line-docstrings = true
+
+[tool.ruff.lint.per-file-ignores]
+# The package's public surface is re-exported through `__init__.py`; the
+# "unused" imports *are* the API. See src/geope/__init__.py.
+"src/geope/**/__init__.py" = ["F401"]
+
+# Tests and benchmarks are not part of the documented API surface.
+"tests/**" = ["D", "DOC"]
+"benchmarks/**" = ["D", "DOC"]
+
 [tool.pytest.ini_options]
 # Default `pytest` runs only the test suite; benchmarks/ is opt-in and is run
 # explicitly (`pytest benchmarks/`, requires the [benchmark] extra).
@@ -28,16 +75,14 @@ addopts = "-m 'not notebooks'"
 markers = [
     "notebooks: end-to-end execution of the example notebooks (run with '-m notebooks')",
 ]
-filterwarnings = [
-    "ignore:Casting complex values to real discards the imaginary part:numpy.exceptions.ComplexWarning:jax._src.lax.lax",
-]
 
 [project.optional-dependencies]
 dev = [
     "pre-commit==3.7.0",
     "pytest==9.0.3",
     "pytest-benchmark==5.1.0",
-    "black==24.3.0",
+    # Formatter + linters
+    "ruff==0.16.6",
     # Notebook execution tests (tests/test_notebooks.py).
     "nbconvert==7.16.6",
     "nbformat==5.10.4",

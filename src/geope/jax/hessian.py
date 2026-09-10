@@ -1,21 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import cache, partial
+
 import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from functools import lru_cache, partial
-from typing import Callable
-
 from .dexpm import (
-    get_Ui_fn,
-    get_dexpm,
-    get_dexpm_eig,
-    get_d2expm,
-    get_d2expm_eig,
     expm_hvp,
     expm_hvp_eig,
+    get_d2expm,
+    get_d2expm_eig,
+    get_dexpm,
+    get_dexpm_eig,
+    get_Ui_fn,
 )
 from .jacobian import _prefix_suffix
 
@@ -533,7 +533,7 @@ def su_hessian_quadratic_form(A: Array, Omega: Array) -> tuple[Array, Array]:
     return value, rho
 
 
-@lru_cache(maxsize=None)
+@cache
 def _skew_hermitian_basis(m: int) -> np.ndarray:
     r"""An orthonormal real basis of the skew-Hermitian $m\times m$ matrices.
 
@@ -605,7 +605,7 @@ def _jacobi_coupled_sector(a: Array, b: Array, c: Array, d1: Array) -> Array:
         )
 
     def apply_m(vector: Array) -> Array:
-        skew, block = unpack(vector)
+        _, block = unpack(vector)
         commutator = block @ jnp.conj(b).T - b @ jnp.conj(block).T
         return pack(jnp.zeros((m, m), dtype), -commutator @ b)
 

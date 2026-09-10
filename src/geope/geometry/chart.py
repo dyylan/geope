@@ -36,14 +36,13 @@ enclosing ``@jax.jit`` update step that `geope.Geope.optimize` traces once.
 
 from __future__ import annotations
 
-import numpy as np
+from collections.abc import Callable
+from functools import partial
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax import Array
-
-from functools import partial
-from typing import Callable
 
 from ..jax.hessian import (
     get_hessian_propagator,
@@ -359,7 +358,7 @@ def get_chart_hessian_fn(
 
 
 def get_jacobian_fn(
-    compute_point_fn: Callable[[Array], Array]
+    compute_point_fn: Callable[[Array], Array],
 ) -> Callable[[Array], Array]:
     """Build the autodiff Jacobian of the chart w.r.t. parameters.
 

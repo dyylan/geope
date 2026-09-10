@@ -86,10 +86,10 @@ body if it is ever unavoidable — the idiom `lie/hamiltonian.py` uses for its o
 deferred imports.
 """
 
-from .basis import Basis, traces, get_project_omegas_fn, get_project_omegas_fn_otf
+from .basis import Basis, get_project_omegas_fn, get_project_omegas_fn_otf, traces
 from .context import GeometricContext
-from .manifold import Manifold
-from .tangent import TangentBundle
 from .lie.groups import MatrixLieGroup, SpecialUnitaryGroup, UnitaryGroup
+from .manifold import Manifold
 from .stiefel.sphere import StateSphere
 from .stiefel.stiefel import Stiefel
+from .tangent import TangentBundle

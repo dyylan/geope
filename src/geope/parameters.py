@@ -1,27 +1,25 @@
 from __future__ import annotations
 
-from functools import cached_property, partial
-from typing import Callable
-
 import inspect
+from collections.abc import Callable
+from functools import cached_property, partial
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from .geometry.basis import Basis
-
 from .geometry import (
     Manifold,
     SpecialUnitaryGroup,
 )
+from .geometry.basis import Basis
 from .utils import (
     construct_restricted_pauli_basis,
-    filter_basis_by_control,
     control_to_indices,
-    prepare_random_parameters,
+    filter_basis_by_control,
     merge_constraints,
+    prepare_random_parameters,
 )
 
 
@@ -466,7 +464,7 @@ class Parameters:
 
 
 def wrap_compute_point_param_transform(
-    params: "Parameters", raw_compute_point: Callable[[Array], Array]
+    params: Parameters, raw_compute_point: Callable[[Array], Array]
 ) -> Callable[[Array], Array]:
     r"""Wrap the chart to honour ``params.param_transform``.
 

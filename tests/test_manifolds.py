@@ -15,22 +15,20 @@ Tested items:
                             end-to-end state-preparation run)
 """
 
-from types import SimpleNamespace
-
 import dataclasses
-
-import pytest
-import numpy as np
-import scipy.linalg as spla
+from types import SimpleNamespace
 
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
+import scipy.linalg as spla
 
 jax.config.update("jax_enable_x64", True)
 
+from geope.gecko import Gecko
 from geope.geometry import (
     MatrixLieGroup,
-    SpecialUnitaryGroup,
     StateSphere,
     Stiefel,
     UnitaryGroup,
@@ -44,14 +42,13 @@ from geope.geometry.lie.groups import (
 )
 from geope.geope import Geope, linear_comb_projected_coeffs_multigate
 from geope.jax import su_hessian_quadratic_form
-from geope.gecko import Gecko
-from geope.parameters import Parameters
 from geope.line_searches import (
     ApproximateQuadraticArmijo,
     Armijo,
     GoldenSection,
     QuadraticArmijo,
 )
+from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
     construct_full_spin_boson_basis,
@@ -195,7 +192,7 @@ class TestHookContracts:
         m = space.manifold
         assert space.point.shape == tuple(m.ambient_shape)
         assert m.ambient_ndim == len(m.ambient_shape)
-        assert 0 < m.manifold_dim
+        assert m.manifold_dim > 0
 
     # --- membership --------------------------------------------------------
 
@@ -942,7 +939,7 @@ class TestStiefel:
     @pytest.mark.parametrize(
         "n, m",
         [(6, 2), (4, 2), (6, 3), (8, 2), (9, 3), (5, 1), (5, 3), (4, 4)],
-        ids="6x2 4x2 6x3 8x2 9x3 5x1 5x3 4x4".split(),
+        ids=["6x2", "4x2", "6x3", "8x2", "9x3", "5x1", "5x3", "4x4"],
     )
     def test_hessian_form_matches_a_finite_difference(self, n, m):
         """The definitive check, across every regime of ``p = min(m, N-m)``.

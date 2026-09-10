@@ -20,9 +20,10 @@ left-trivialisation and a global generator basis enter, and
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from functools import cached_property
-from typing import Callable, ClassVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import jax
 import jax.numpy as jnp
@@ -460,7 +461,7 @@ class Manifold(ABC):
         Raises:
             ValueError: If ``point`` is not on the manifold.
         """
-        return None
+        return
 
     def _require_bound(self, what: str) -> None:
         """Raise a pointed error when a bound-only quantity is asked for."""

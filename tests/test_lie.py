@@ -10,11 +10,10 @@ Tested items:
               _generate_interaction_map, _remove_basis_elements, __len__)
 """
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -22,7 +21,6 @@ from geope.geometry.basis import Basis
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
-    construct_two_body_pauli_basis,
 )
 
 # ---------------------------------------------------------------------------
@@ -147,7 +145,6 @@ class TestBasisInteraction:
 
 class TestBasisApplyInteractionGraph:
     def test_removes_two_body_terms(self, full_basis_2q):
-        original_dim = full_basis_2q.lie_algebra_dim
         # Only keep interactions between qubits 1-2
         full_basis_2q.apply_interaction_graph([(1, 2)])
         # Should have removed some 2-body terms that don't match graph

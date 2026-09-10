@@ -14,15 +14,12 @@
 
 from __future__ import annotations
 
-from functools import partial
-
 import textwrap
+from functools import partial
 
 import jax
 import jax.numpy as jnp
-from jax import jit, vmap, jvp
-from jax import lax
-
+from jax import jit, lax
 from jax._src.numpy.util import promote_dtypes_complex
 from jax._src.typing import Array, ArrayLike
 
@@ -369,7 +366,7 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
     X = jnp.ones((n, t), dtype=A.dtype)
 
     def needs_resampling(data, i: int):
-        X, key = data
+        X, _ = data
         return (X[:, :i].T @ X[:, i] == n).any()
 
     def resample(data, i: int):
@@ -399,7 +396,7 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
     X /= n
 
     def needs_resampling2(data, i: int):
-        S, S_old, key = data
+        S, S_old, _ = data
         cond_1 = (S[:, :i].T @ S[:, i] == n).any()
         cond_2 = (S_old.T @ S[:, i] == n).any()
         return jnp.logical_or(cond_1, cond_2)
@@ -476,7 +473,7 @@ def _onenormest(A: Array, key: ArrayLike, t: int = 2, itmax: int = 5) -> Array:
         return A, X, S, ind, ind_hist, est_old, key, k
 
     def main_loop_cond(x):
-        A, X, S, ind, ind_hist, est_old, key, k = x
+        _, _, _, _, _, _, _, k = x
         return k < itmax
 
     A, X, S, ind, ind_hist, est, key, k = jax.lax.while_loop(
@@ -519,7 +516,7 @@ def _inverse_squaring(
     s_0 = 0
 
     def cond(x):
-        diag, s_0 = x
+        diag, _ = x
         return jnp.max(jnp.abs(diag - 1)) > theta[7]
 
     def body(x):
@@ -539,10 +536,10 @@ def _inverse_squaring(
     a_2 = jnp.maximum(d_2, d_3)
     m = 0
     for i in (1, 2):
-        m = jax.lax.cond(a_2 < theta[i], lambda m: i, lambda m: m, m)
+        m = jax.lax.select(a_2 < theta[i], i, m)
 
     def main_loop_cond(x):
-        T, s, m = x
+        _, _, m = x
         return m == 0
 
     def main_loop_body(x):
@@ -668,8 +665,10 @@ def _logm_triu(T: Array, key: ArrayLike) -> Array:
     U = lax.fori_loop(
         0,
         m,
-        lambda i, U: U
-        + jax.scipy.linalg.solve_triangular(identity + R * nodes[i], R * weights[i]),
+        lambda i, U: (
+            U
+            + jax.scipy.linalg.solve_triangular(identity + R * nodes[i], R * weights[i])
+        ),
         U,
     )
     U = U * jnp.exp2(s)

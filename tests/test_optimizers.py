@@ -22,11 +22,10 @@ evidence anyway.
 import dataclasses
 from dataclasses import FrozenInstanceError
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -40,7 +39,6 @@ from geope.optimizers import (
     newton_rfo_step,
     newton_trm_step,
 )
-
 
 # ===================================================================
 # A quadratic stand-in for the context
@@ -171,10 +169,12 @@ class TestNewtonDirections:
     def test_both_directions_are_jittable(self):
         matrix, _ = _spd(4, seed=5)
         gradient = np.ones(4)
+
+        def _jitted(fn, arg):
+            return jax.jit(lambda m, g: fn(m, g, arg))
+
         for fn, arg in ((newton_trm_step, 0.1), (newton_rfo_step, 100.0)):
-            out = jax.jit(lambda m, g: fn(m, g, arg))(
-                jnp.asarray(matrix), jnp.asarray(gradient)
-            )
+            out = _jitted(fn, arg)(jnp.asarray(matrix), jnp.asarray(gradient))
             assert np.all(np.isfinite(out))
 
 
@@ -240,7 +240,7 @@ class TestAdam:
         x = np.full(4, 0.3)
         ctx = _QuadraticContext(matrix, offset, x)
         lr = 0.02
-        result, new_x = _run(Adam(learning_rate=lr), ctx)
+        _, new_x = _run(Adam(learning_rate=lr), ctx)
         grad = matrix @ x - offset
         assert np.allclose(new_x - x, -lr * np.sign(grad), atol=1e-9)
 

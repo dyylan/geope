@@ -14,24 +14,21 @@ Tested items:
     - Gecko
 """
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
-from geope.geope import Geope
 from geope.gecko import (
     Gecko,
     find_null_space,
-    piecewise_smoothing,
     piecewise_bounding_mp,
     piecewise_bounding_pg,
+    piecewise_smoothing,
 )
+from geope.geope import Geope
 from geope.parameters import Parameters
-from geope.utils.history import History
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
@@ -137,7 +134,7 @@ class TestFindNullSpace:
                 [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
             ]
         )
-        vh, num = find_null_space(omegas, None)
+        _, num = find_null_space(omegas, None)
         assert int(num) == 3
 
     def test_with_expander(self):
@@ -147,13 +144,13 @@ class TestFindNullSpace:
             ]
         )
         expander = jnp.eye(2)
-        vh, num = find_null_space(omegas, expander)
+        _, num = find_null_space(omegas, expander)
         assert int(num) == 2
 
     def test_all_zero_matrix(self):
         """All-zero matrix has rank 0."""
         omegas = jnp.zeros((1, 3, 4))
-        vh, num = find_null_space(omegas, None)
+        _, num = find_null_space(omegas, None)
         assert int(num) == 0
 
     def test_returns_vh_and_num(self):
@@ -198,9 +195,7 @@ class TestPiecewiseSmoothing:
         phi = jnp.ones((2, 3), dtype=jnp.float64)
         null_space = jnp.eye(6, 2, dtype=jnp.float64)
         expander = jnp.eye(6, dtype=jnp.float64)
-        result, diff = piecewise_smoothing(
-            phi, null_space, expander, smoothing_rate=0.01
-        )
+        result, _ = piecewise_smoothing(phi, null_space, expander, smoothing_rate=0.01)
         assert result.shape == phi.shape
 
 

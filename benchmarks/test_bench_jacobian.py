@@ -32,14 +32,13 @@ which places the manual and autodiff bars for each ``(n, G)`` side by side.
 import jax
 import jax.numpy as jnp
 import pytest
+from conftest import make_basis, make_params, warm
 
 from geope.geometry.chart import (
     get_compute_matrices_params_list_fn,
     get_jacobian_fn,
 )
 from geope.jax import get_jacobian_propagator
-
-from conftest import make_basis, make_params, warm
 
 # (n_qubits, n_steps): d = 2**n, K = 4**n - 1.
 SIZES = [

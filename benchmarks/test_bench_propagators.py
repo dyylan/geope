@@ -40,12 +40,11 @@ side by side.
 import jax
 import jax.numpy as jnp
 import pytest
+from conftest import make_params, warm
 
 from geope.geometry.chart import get_compute_matrices_params_list_fn
-from geope.jax import get_jvp_propagator, get_hvp_propagator
+from geope.jax import get_hvp_propagator, get_jvp_propagator
 from geope.utils import construct_restricted_pauli_basis
-
-from conftest import make_params, warm
 
 # System-size sweep at fixed G (isolates the d axis; expect ~8x per qubit) and
 # pulse-length sweep at fixed n (isolates the G axis; expect linear). The shared

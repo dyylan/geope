@@ -18,9 +18,10 @@ that one structure buys, because a manifold without it (see
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Callable, ClassVar
+from typing import ClassVar
 
 import jax.numpy as jnp
 import numpy as np
@@ -28,9 +29,9 @@ from jax import Array
 
 from ...jax.hessian import su_hessian_quadratic_form
 from ...jax.logm import logm_unitary
+from ..basis import get_project_omegas_fn, get_project_omegas_fn_otf
 from ..cost import trace_cost_gradient, trace_cost_hessian_form
 from ..manifold import Manifold
-from ..basis import Basis, get_project_omegas_fn, get_project_omegas_fn_otf
 
 # Loose enough for a target assembled in float32 or from a few matrix products,
 # tight enough to catch a genuinely non-unitary matrix.
@@ -206,7 +207,7 @@ class MatrixLieGroup(Manifold):
         (either `geope.geometry.stiefel` one) never builds either variant.
 
         Memoised, and first read from inside the jitted update. Safe: the
-        `geope.geometry.lie.Basis` it closes over is numpy and ``frame.n`` is an
+        `geope.geometry.basis.Basis` it closes over is numpy and ``frame.n`` is an
         ``int``, so nothing here can capture a tracer.
         """
         self._require_bound("coefficients")

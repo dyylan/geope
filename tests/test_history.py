@@ -9,21 +9,20 @@ Covers the opt-in ``History`` run log used by the optimisers:
   - the back-ref to the source ``Parameters``.
 """
 
-import pytest
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
 from geope.geope import Geope
 from geope.parameters import Parameters
-from geope.utils.history import History
 from geope.utils import (
     construct_full_pauli_basis,
     construct_Heisenberg_pauli_basis,
 )
+from geope.utils.history import History
 
 
 def _params_2q(

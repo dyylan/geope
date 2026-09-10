@@ -316,7 +316,8 @@ class GeometricContext:
     @cached_property
     def chi(self) -> Array:
         r"""The dimensionless radial bending coefficient
-        $\chi_\phi = \mathrm{accel}/\lVert\Omega\rVert_F^2$."""
+        $\chi_\phi = \mathrm{accel}/\lVert\Omega\rVert_F^2$.
+        """
         return self.acceleration / self.omega_norm2
 
     @cached_property
