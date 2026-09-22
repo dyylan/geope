@@ -37,9 +37,11 @@ from .line_searches import (
     QuadraticArmijo,
 )
 from .optimizers import (
+    LBFGS,
     Adam,
     GradientDescent,
     NewtonRFO,
+    NewtonSaddleFree,
     NewtonTRM,
     Optimizer,
     OptimizerResult,

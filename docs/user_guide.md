@@ -444,6 +444,59 @@ Live state and logging:
     These are **not** logged by default. To record them, pass a `logging_fn` (see `History` below) or read them from a callback.
 - `history` — an optional `History` logger (`None` unless one was passed). When supplied, the full run trajectory and `best_*` helpers are available on it (see below).
 
+### Choosing a GRAPE update rule (`optimizers.py`)
+
+`Grape.optimize(optimizer=...)` takes a frozen config object rather than a method
+string. All six share one shape — an **uphill** direction $p$ and a **negative** step
+$\mathrm dt$, so `Grape` forms `free_params + dt * coeffs` — and they differ in how
+they build $p$ from the cost's derivatives.
+
+| rule | direction $p$ | extra cost per step, beyond one gradient |
+|---|---|---|
+| `GradientDescent(learning_rate)` | $\nabla C$ | none; fixed step, no line search |
+| `Adam(learning_rate, b1, b2, eps)` | $\hat m/(\sqrt{\hat v}+\varepsilon)$ | none; fixed step |
+| `LBFGS(memory)` | $H_m\nabla C$, $H_m$ implicit | $O(mP)$ vector operations; line search |
+| `NewtonTRM(delta)` | $(H+\sigma\mathbb 1)^{-1}\nabla C$ | dense $(P,P)$ Hessian + `eigh`, $O(P^3)$ |
+| `NewtonRFO(kappa)` | shifted to $\mathrm{cond}\le\kappa$ | dense Hessian + a loop of `eigvalsh` |
+| `NewtonSaddleFree(rcond)` | $\lvert H\rvert^{+}\nabla C$ | dense Hessian + `eigh`, $O(P^3)$ |
+
+with $P = L\,K_{\text{free}}$ the number of free parameters.
+
+**The choice that usually matters is second-order regularisation.** The cost Hessian is
+*singular* near a solution — the solutions form a manifold whose tangent directions lie
+in $\ker\nabla^2C$ — so $\mathrm{cond}(H)$ runs to $10^{12}$ and beyond. `NewtonTRM` and
+`NewtonRFO` restore invertibility by **shifting**, which on such a spectrum swamps
+whatever curvature survives and collapses the direction onto $\nabla C$; that is
+second-order behaviour degenerating to first-order. `NewtonSaddleFree` **truncates**
+instead, inverting $|\lambda|$ rather than $\lambda$, which keeps the curvature that is
+actually there and follows negative curvature downhill. Prefer it among the three.
+
+**`LBFGS` is the one to reach for when $P$ is large.** The three Newton rules each build
+a dense $(P,P)$ Hessian and decompose it, which is $O(P^3)$ and comes to dominate
+everything else as the pulse lengthens. L-BFGS never forms a matrix: the two-loop
+recursion applies an implicit inverse Hessian built from the last `memory` curvature
+pairs $(s_k, y_k)$ using inner products alone. What it gives up is negative curvature —
+the curvature condition keeps $H_m$ positive definite, so near a saddle it degrades to a
+well-scaled descent method rather than escaping along $\lambda<0$.
+
+```python
+from geope import Grape, LBFGS, NewtonSaddleFree
+
+g = Grape(params, precision=1 - 1e-9)
+g.optimize(max_steps=200, optimizer=LBFGS(memory=10))      # cheap per step
+g.optimize(max_steps=200, optimizer=NewtonSaddleFree())    # uses curvature
+```
+
+`memory` is baked into the compiled update step, so changing it triggers one recompile;
+5–20 is the usual range and both cost and storage are linear in it.
+
+**Line searches.** The three Newton rules and `LBFGS` size their step by backtracking
+Armijo, or by a strong-Wolfe search with `wolfe=True`. Wolfe costs a *gradient* per
+trial rather than just a value, and buys a step that cannot be arbitrarily short.
+`LBFGS` is the one rule that defaults to `wolfe=True`, because only the Wolfe curvature
+condition guarantees $s^\intercal y > 0$ and hence that $H_m$ stays positive definite;
+a pair that fails the test is skipped either way, so `wolfe=False` is safe but weaker.
+
 ### `History` (`history.py`)
 
 ```python

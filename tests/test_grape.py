@@ -23,7 +23,14 @@ jax.config.update("jax_enable_x64", True)
 
 from geope.grape import Grape
 from geope.line_searches import GoldenSection
-from geope.optimizers import Adam, GradientDescent, NewtonRFO, NewtonTRM
+from geope.optimizers import (
+    LBFGS,
+    Adam,
+    GradientDescent,
+    NewtonRFO,
+    NewtonSaddleFree,
+    NewtonTRM,
+)
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -108,7 +115,14 @@ class TestGrapeOptimize:
         # itself gives a *positive* offset on the right-hand side of the
         # sufficient-decrease test, which permits an increase proportional to the
         # step; pairing it with the gradient does not.
-        for optimizer in (NewtonTRM(delta=0.1), NewtonRFO(kappa=100.0)):
+        for optimizer in (
+            NewtonTRM(delta=0.1),
+            NewtonRFO(kappa=100.0),
+            NewtonSaddleFree(),
+            NewtonSaddleFree(wolfe=True),
+            LBFGS(),
+            LBFGS(wolfe=False),
+        ):
             p = _params(cnot, full_basis_2q, projected_basis_2q)
             g = Grape(p, history=History())
             g.optimize(max_steps=60, optimizer=optimizer)
@@ -122,7 +136,12 @@ class TestGrapeOptimize:
         # params.fidelity and params.parameters must describe the same pulse. The
         # reported infidelity is measured at the step just taken, not at the point
         # it was taken from.
-        for optimizer in (NewtonTRM(delta=0.1), Adam(0.1), GradientDescent(0.1)):
+        for optimizer in (
+            NewtonTRM(delta=0.1),
+            Adam(0.1),
+            GradientDescent(0.1),
+            LBFGS(),
+        ):
             p = _params(cnot, full_basis_2q, projected_basis_2q)
             g = Grape(p)
             g.optimize(max_steps=5, optimizer=optimizer)
@@ -146,8 +165,17 @@ class TestGrapeOptimize:
 
     @pytest.mark.parametrize(
         "optimizer",
-        [GradientDescent(0.1), Adam(0.1), NewtonTRM(delta=0.1), NewtonRFO(kappa=100.0)],
-        ids=lambda o: o.name,
+        [
+            GradientDescent(0.1),
+            Adam(0.1),
+            NewtonTRM(delta=0.1),
+            NewtonRFO(kappa=100.0),
+            NewtonSaddleFree(),
+            NewtonSaddleFree(wolfe=True),
+            LBFGS(),
+            LBFGS(wolfe=False),
+        ],
+        ids=lambda o: f"{o.name}-wolfe" if getattr(o, "wolfe", False) else o.name,
     )
     def test_every_rule_runs_end_to_end(
         self, optimizer, cnot, full_basis_2q, projected_basis_2q

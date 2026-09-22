@@ -178,15 +178,39 @@ class GeometricContext:
 
         $\omega_{g,k} = \mathrm{coeff}\bigl(\texttt{to\_tangent}(U, \partial_{g,k}U)\bigr)$,
         restricted to the solvable columns. Shape ``(G, K_solvable, K)``.
+
+        **Resolved as one flat batch of $G\,K_{\text{free}}$ tangents, not gate by
+        gate.** `Manifold.coefficients` is already batched over leading axes — on a
+        group it is one einsum against the frame and does not even read ``point`` —
+        so a Python loop over gates buys nothing and costs a great deal: it unrolls
+        at trace time into $G$ separate call sites, making the jaxpr, and with it
+        the compile time, grow linearly in the pulse length. Measured on a
+        one-qubit chart at $G = 2000$ that was 14334 equations and 21.7 s to
+        compile, against 206 equations and 0.36 s here, with bit-identical output.
+        Worse at run time: the $G$ call sites are $G$ separate consumers of the
+        gate chain, which XLA is free to rematerialise per consumer rather than
+        keep, so the projection went quadratic in $G$ — $O(G^{1.8})$ measured,
+        and 17× slower than this at $G = 1000$ once the gates were cheap enough
+        for rematerialisation to look attractive.
+
+        The loop it replaces was there to keep the on-the-fly Pauli projector's
+        batch small above 5 qubits (`geope.geometry.basis.get_project_omegas_fn_otf`
+        vmaps over the input batch *and* over all $4^n-1$ Pauli strings, so its
+        working set goes as the product). That projector now sees a batch of
+        $G\,K_{\text{free}}$ rather than $K_{\text{free}}$, which is the one thing
+        this trades away: if it runs out of memory on a large system, its
+        ``batch_size`` argument — which scans over the combinations instead of
+        vmapping them — is the knob, and it is the right place to spend the
+        memory rather than here.
         """
         # (*ambient, G, K_free) -> (G, K_free, *ambient): one Jacobian column
         # per gate and parameter, however many axes a point has.
         columns = jnp.moveaxis(self.jacobian, (-2, -1), (0, 1))
         tangents = self.manifold.to_tangent(self.point, columns)
-        # Resolved gate by gate rather than as one flat batch: above 5 qubits
-        # the on-the-fly Pauli projector is memory-bound in its batch size.
-        per_gate = jnp.stack(
-            [self.manifold.coefficients(self.point, t) for t in tangents]
+        gates, n_free = tangents.shape[:2]
+        flat = tangents.reshape(-1, *self.manifold.ambient_shape)
+        per_gate = self.manifold.coefficients(self.point, flat).reshape(
+            gates, n_free, -1
         )
         return self.tangent.restrict(per_gate)
 

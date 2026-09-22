@@ -255,7 +255,8 @@ class Grape:
         if not isinstance(optimizer, Optimizer):
             raise TypeError(
                 "Grape.optimize(optimizer=...) takes a geope.optimizers.Optimizer "
-                "— GradientDescent, Adam, NewtonTRM or NewtonRFO — not "
+                "— GradientDescent, Adam, LBFGS, NewtonTRM, NewtonRFO or "
+                "NewtonSaddleFree — not "
                 f"{type(optimizer).__name__}. The `method='nr-trm'` strings were "
                 "replaced by these config objects; pass NewtonTRM(delta=...)."
             )
@@ -321,9 +322,19 @@ class Grape:
         Args:
             max_steps: Maximum number of optimisation steps. Defaults to 100.
             optimizer: The `geope.optimizers.Optimizer` to run — `GradientDescent`,
-                `Adam`, `NewtonTRM` or `NewtonRFO`, each a frozen dataclass
-                carrying its own hyperparameters. Defaults to
-                `geope.optimizers.NewtonTRM`.
+                `Adam`, `LBFGS`, `NewtonTRM`, `NewtonRFO` or `NewtonSaddleFree`,
+                each a frozen dataclass carrying its own hyperparameters. Defaults
+                to `geope.optimizers.NewtonTRM`. Prefer
+                `geope.optimizers.NewtonSaddleFree` on a rank-deficient landscape,
+                which for gate synthesis is the usual case: the solutions form a
+                manifold, so the cost Hessian is singular near one and the
+                shift-based rules degenerate toward gradient descent.
+                `geope.optimizers.LBFGS` is the cheap alternative when $P$ is
+                large enough that the $(P, P)$ Hessian and its ``eigh`` dominate:
+                it never forms one. The three Newton rules also take
+                ``wolfe=True`` for a strong-Wolfe line search in place of
+                backtracking Armijo, which `geope.optimizers.LBFGS` uses by
+                default.
             callbacks: Optional callback, or list/tuple of callbacks, invoked at
                 the end of every step with the signature
                 ``callback(step, history, grape) -> bool``. All callbacks run
