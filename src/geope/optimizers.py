@@ -278,7 +278,7 @@ class _BacktrackingNewton(Optimizer):
     Args:
         c1: Sufficient-decrease constant, for both searches. Defaults to 1e-4.
         beta: Backtracking contraction factor in ``(0, 1)``; Armijo only.
-            Defaults to 0.8.
+            Defaults to 0.5.
         t_min: Minimum step magnitude before the search gives up. Defaults to
             1e-10, which allows ~103 contractions at ``beta=0.8`` from a full step.
         max_step: Magnitude cap on the trial step. Defaults to 1.0.
@@ -297,7 +297,7 @@ class _BacktrackingNewton(Optimizer):
     """
 
     c1: float = field(default=1e-4, kw_only=True)
-    beta: float = field(default=0.8, kw_only=True)
+    beta: float = field(default=0.5, kw_only=True)
     t_min: float = field(default=1e-10, kw_only=True)
     max_step: float = field(default=1.0, kw_only=True)
     increase: float = field(default=1.5, kw_only=True)
@@ -527,7 +527,7 @@ class LBFGS(Optimizer):
     name = "lbfgs"
     memory: int = 10
     c1: float = field(default=1e-4, kw_only=True)
-    beta: float = field(default=0.8, kw_only=True)
+    beta: float = field(default=0.5, kw_only=True)
     t_min: float = field(default=1e-10, kw_only=True)
     max_step: float = field(default=1.0, kw_only=True)
     increase: float = field(default=1.5, kw_only=True)
