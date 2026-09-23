@@ -9,7 +9,7 @@ Before opening a new issue, search the [issue tracker](../../issues) to see if i
 ### Contributing Code
 
 1. **Fork** the repository and clone your fork locally.
-2. **Install the development tooling** and the [pre-commit](https://pre-commit.com) hooks. The hooks run [Black](https://black.readthedocs.io) on every commit so contributions are consistently formatted before they reach CI:
+2. **Install the development tooling** and the [pre-commit](https://pre-commit.com) hooks. The hooks run [Ruff](https://docs.astral.sh/ruff/) on every commit — the formatter, plus the linter's docstring rules — so contributions are consistently formatted and documented before they reach CI:
    ```bash
    pip install -e ".[dev]"
    pre-commit install
@@ -23,10 +23,17 @@ Before opening a new issue, search the [issue tracker](../../issues) to see if i
    ```bash
    pytest
    ```
-5. Run black to format the code:
+5. Format the code and check the lint (including docstrings):
    ```bash
-   black .
+   ruff format .
+   ruff check --fix .
    ```
+   All configuration lives in `[tool.ruff]` in `pyproject.toml`. The docstring
+   rules are pydocstyle (`D`, Google convention) plus pydoclint (`DOC`), which
+   checks that a docstring's `Returns:`/`Raises:` sections match the code. That
+   section also carries a **burn-down list** of rules currently silenced so the
+   hook is green; if you are touching a file, clearing one of those for it is a
+   welcome change.
 6. **Commit** your changes with a clear message:
    ```bash
    git commit -m "Short description of what changed"
