@@ -606,6 +606,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -783,12 +806,58 @@
   
   
     <li class="md-nav__item">
-      <a href="../engine/" class="md-nav__link">
+      <a href="../chart/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
     
   </span>
   
@@ -811,7 +880,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -932,6 +1001,57 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#the-adjoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      The adjoint
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The adjoint">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.dexpm.adj_expm_eig" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;adj_expm_eig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.dexpm.get_adj_expm_eig" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_adj_expm_eig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.dexpm.adj_expm" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;adj_expm
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.dexpm.get_adj_expm" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_adj_expm
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -994,12 +1114,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pauli_projector/" class="md-nav__link">
+      <a href="../hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -1120,6 +1240,57 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#the-adjoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      The adjoint
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The adjoint">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.dexpm.adj_expm_eig" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;adj_expm_eig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.dexpm.get_adj_expm_eig" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_adj_expm_eig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.dexpm.adj_expm" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;adj_expm
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.dexpm.get_adj_expm" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_adj_expm
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1151,7 +1322,7 @@
     <div class="doc doc-contents first">
 
         <p>Compute a unitary from a linear combination of Hermitian basis matrices.</p>
-<p>Constructs <span class="arithmatex">\(U = \exp(-i \sum_k x_k B_k)\)</span>.</p>
+<p>Constructs <span class="arithmatex">\(U = \exp(i \sum_k x_k B_k)\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1284,7 +1455,7 @@
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1294,7 +1465,7 @@
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1324,8 +1495,8 @@
         <p>Compute the derivative of the matrix exponential via the block method.</p>
 <p>Implements the block-matrix approach of
 <code>Al-Mohy &amp; Higham (2009) &lt;https://arxiv.org/pdf/1506.00628&gt;</code>_,
-Eq. (31), extracting <span class="arithmatex">\(d\exp(-iA)/dA \cdot x\)</span> from the upper-right
-block of <span class="arithmatex">\(\exp(-i[[A, x], [0, A]])\)</span>.</p>
+Eq. (31), extracting <span class="arithmatex">\(d\exp(iA)/dA \cdot x\)</span> from the upper-right
+block of <span class="arithmatex">\(\exp(i[[A, x], [0, A]])\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1415,7 +1586,7 @@ block of <span class="arithmatex">\(\exp(-i[[A, x], [0, A]])\)</span>.</p>
 
         <p>Compute the derivative of the exponential map for all basis directions.</p>
 <p>For each basis element <span class="arithmatex">\(B_k\)</span>, computes
-<span class="arithmatex">\(\partial \exp(-i \sum_j x_j B_j) / \partial x_k\)</span>.</p>
+<span class="arithmatex">\(\partial \exp(i \sum_j x_j B_j) / \partial x_k\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1681,7 +1852,7 @@ variant is used; otherwise the batched variant.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1691,11 +1862,466 @@ variant is used; otherwise the batched variant.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>the derivative array of shape <code>(d, d, K)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div><h2 id="the-adjoint">The adjoint<a class="headerlink" href="#the-adjoint" title="Permanent link">¤</a></h2>
+<p>The per-gate transpose of the above: all <code>K</code> overlaps of one covector with
+<code>dexpm</code>'s directions, from a single eigendecomposition and without ever forming
+the <code>(d, d, K)</code> tensor. This is the step <code>geope.jax.get_vjp_propagator</code> is built
+from.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.jax.dexpm.adj_expm_eig" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">dexpm</span><span class="o">.</span><span class="n">adj_expm_eig</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">hermitian</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#geope.jax.dexpm.adj_expm_eig" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Adjoint of the exponential-map derivative: all <code>K</code> overlaps, no <code>(d, d, K)</code>.</p>
+<p>Returns the vector of Frobenius overlaps of a single covector <code>b</code> with every
+partial derivative of <code>Ui</code>,</p>
+<div class="arithmatex">\[t_k = \mathrm{Tr}\bigl(b^\dagger\,\partial_k \exp(i\textstyle\sum_j x_j B_j)\bigr),\]</div>
+<p>which is what a chain rule through the exponential actually needs — the
+<code>(d, d, K)</code> tensor <code>dexpm_eig</code> builds is contracted away immediately, and
+building it first costs <span class="arithmatex">\(O(d^3 K)\)</span> where this costs <span class="arithmatex">\(O(d^3 + d^2 K)\)</span>.</p>
+<p>Writing <span class="arithmatex">\(M = i\sum_j x_j B_j = V\,\mathrm{diag}(\mu)\,V^{-1}\)</span> and <span class="arithmatex">\(\Delta\)</span> for
+the divided differences of <span class="arithmatex">\(\exp\)</span>, <code>dexpm_eig</code> gives
+<span class="arithmatex">\(\partial_k e^M = V(\Delta \circ V^{-1}(iB_k)V)V^{-1}\)</span>, so</p>
+<div class="arithmatex">\[t_k = \mathrm{Tr}\bigl(\bar A\,(iB_k)\bigr),\qquad
+  \bar A = V S^\intercal V^{-1},\quad
+  S_{pq} = \Delta_{pq}\,\bigl(V^{-1} b^\dagger V\bigr)_{qp}.\]</div>
+<p>The <code>K</code> directions therefore cost one <span class="arithmatex">\((K, d, d)\)</span> tensordot against a single
+<span class="arithmatex">\(d \times d\)</span> matrix, and the two rotations that build <span class="arithmatex">\(\bar A\)</span> are paid once.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Coefficient vector of shape <code>(K,)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>b</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The covector to contract against, of shape <code>(d, d)</code>. Paired with
+<span class="arithmatex">\(\partial_k e^M\)</span> through <span class="arithmatex">\(\mathrm{Tr}(b^\dagger \cdot)\)</span>, i.e. <code>b</code> is
+<em>conjugated</em>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>basis</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>hermitian</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Assume real coefficients (skew-Hermitian <code>M</code>) and diagonalise
+via <code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for complex coefficients.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A complex <code>Array</code> of shape <code>(K,)</code>. Real-valued cost gradients take</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>2 * jnp.real(...)</code> of it; the raw complex value is what a projective</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(absolute-value) cost needs.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.jax.dexpm.get_adj_expm_eig" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">dexpm</span><span class="o">.</span><span class="n">get_adj_expm_eig</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">hermitian</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#geope.jax.dexpm.get_adj_expm_eig" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Create a JIT-compiled spectral exponential-map adjoint.</p>
+<p>Wraps <code>adj_expm_eig</code> with a fixed basis. This is the per-gate step
+<code>geope.jax.get_vjp_propagator</code> is built from.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>basis</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>hermitian</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Assume real coefficients (skew-Hermitian <code>M</code>) and use
+<code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for complex coefficients.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A callable accepting a coefficient vector <code>(K,)</code> and a covector</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(d, d)</code>, returning the complex overlaps of shape <code>(K,)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.jax.dexpm.adj_expm" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">dexpm</span><span class="o">.</span><span class="n">adj_expm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
+
+<a href="#geope.jax.dexpm.adj_expm" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p><code>adj_expm_eig</code> by the block-exponential route — the slow, general path.</p>
+<p>The auxiliary-matrix method has no spectral structure to exploit, so this
+genuinely does build <code>dexpm</code>'s <code>(d, d, K)</code> tensor and contract it. It exists
+for parity with <code>method="block"</code> elsewhere in this module, and because the
+block method tolerates non-Hermitian generators; prefer <code>adj_expm_eig</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Coefficient vector of shape <code>(K,)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>b</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The covector to contract against, of shape <code>(d, d)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>basis</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A complex <code>Array</code> of shape <code>(K,)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.jax.dexpm.get_adj_expm" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">dexpm</span><span class="o">.</span><span class="n">get_adj_expm</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
+
+<a href="#geope.jax.dexpm.get_adj_expm" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Create a JIT-compiled block-method exponential-map adjoint.</p>
+<p>Wraps <code>adj_expm</code> with a fixed basis — the slow path, kept for parity with
+<code>method="block"</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>basis</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A callable accepting a coefficient vector <code>(K,)</code> and a covector</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(d, d)</code>, returning the complex overlaps of shape <code>(K,)</code>.</p>
               </div>
             </td>
           </tr>

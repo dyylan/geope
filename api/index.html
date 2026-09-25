@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://dyylan.github.io/geope/api/">
       
       
-        <link rel="prev" href="../examples/pulse_smoothing/">
+        <link rel="prev" href="../examples/stiefel_subspace/">
       
       
         <link rel="next" href="parameters/">
@@ -606,6 +606,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -793,12 +816,58 @@
   
   
     <li class="md-nav__item">
-      <a href="engine/" class="md-nav__link">
+      <a href="chart/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
     
   </span>
   
@@ -821,7 +890,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -908,12 +977,12 @@
   
   
     <li class="md-nav__item">
-      <a href="pauli_projector/" class="md-nav__link">
+      <a href="hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -1000,7 +1069,7 @@
 <tbody>
 <tr>
 <td><a href="parameters/">parameters</a></td>
-<td>The <code>Parameters</code> state object — the central hub of the Basis → Parameters → Optimizer pipeline, and the source of the (lazily built, cached) optimisation functions.</td>
+<td>The <code>Parameters</code> state object — the central hub of the Basis → Parameters → Optimizer pipeline, and the owner of the problem's (lazily built, cached) <code>Manifold</code>.</td>
 </tr>
 <tr>
 <td><a href="geope/">geope</a></td>
@@ -1011,12 +1080,24 @@
 <td>The <code>Gecko</code> null-space ("auxiliary cost") optimiser for refining GEOPE solutions.</td>
 </tr>
 <tr>
-<td><a href="engine/">engine</a></td>
-<td>Pure function factories for the optimisation primitives (unitary, fidelity, geodesic, Jacobian, Hessian, gammas/omegas).</td>
+<td><a href="geometry/">geometry</a></td>
+<td>The geometry layer: the <code>Manifold</code> interface, its <code>TangentBundle</code>, and the per-step <code>GeometricContext</code> every optimisation step reads.</td>
+</tr>
+<tr>
+<td><a href="manifolds/">manifolds</a></td>
+<td>The spaces available to synthesise on: the matrix Lie groups, and the Stiefel family (state preparation).</td>
+</tr>
+<tr>
+<td><a href="chart/">chart</a></td>
+<td>The pulse model: the product-of-exponentials chart every manifold is coordinatised by, and its two Jacobians.</td>
+</tr>
+<tr>
+<td><a href="hessian/">hessian</a></td>
+<td>Second derivatives of the chart: the manual propagator HVP/Hessian, the autodiff pair, and the Riemannian curvature form.</td>
 </tr>
 <tr>
 <td><a href="lie/">lie</a></td>
-<td>Lie-algebraic building blocks: <code>Basis</code>, <code>Hamiltonian</code>, and <code>Unitary</code>.</td>
+<td>The Lie-algebraic building block: <code>Basis</code>, the rank-3 tensor of Hermitian generators.</td>
 </tr>
 <tr>
 <td><a href="utils/">utils</a></td>

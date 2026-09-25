@@ -606,6 +606,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -852,12 +875,58 @@
   
   
     <li class="md-nav__item">
-      <a href="../engine/" class="md-nav__link">
+      <a href="../chart/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
     
   </span>
   
@@ -880,7 +949,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -967,12 +1036,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pauli_projector/" class="md-nav__link">
+      <a href="../hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -1100,10 +1169,10 @@
 
 
 
-        <p>Central state object for the Basis -&gt; Parameters -&gt; Optimizer pipeline.</p>
+        <p>Central state object for the parameters of the system.</p>
 <p>Holds the system description (basis, control/drift Hamiltonians, target),
 optimisation config (constraints, bounds, <code>param_transform</code>), and the
-<em>live</em> optimisation state (<code>parameters</code>, <code>fidelity</code>) that an optimiser
+live optimisation state (<code>parameters</code>, <code>fidelity</code>) that an optimiser
 such as <code>Geope</code> updates in place.</p>
 
 
@@ -1168,34 +1237,6 @@ such as <code>Geope</code> updates in place.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.parameters.Parameters.delta_t">delta_t</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Duration of each segment. Plain mutable state: it is threaded
-into the optimisation functions as an argument, not baked into
-them, so reassigning it takes effect immediately and never
-invalidates a compiled trace. <code>Gecko</code> subdivision divides it by the
-multiplier instead of rescaling <code>parameters</code>.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><a class="autorefs autorefs-internal" title="            total_time
-
-  
-      property
-   (geope.parameters.Parameters.total_time)" href="#geope.parameters.Parameters.total_time">total_time</a></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>piecewise_steps * delta_t</code> — invariant under subdivision.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
             <td><code><span title="geope.parameters.Parameters.fixed_drift">fixed_drift</span></code></td>
             <td>
             </td>
@@ -1247,13 +1288,27 @@ to basis coefficients.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.parameters.Parameters.projective">projective</span></code></td>
+            <td><code><span title="geope.parameters.Parameters.manifold">manifold</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Whether to optimise with the projective (SU)
-fidelity (<code>True</code>) or the phase-sensitive (U) fidelity.</p>
+                <p>The <code>geope.geometry.Manifold</code> this problem lives on.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            projective
+
+  
+      property
+   (geope.parameters.Parameters.projective)" href="#geope.parameters.Parameters.projective">projective</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether the geometry is the projective (SU) one.
+Read-only; delegates to <code>manifold</code>.</p>
               </div>
             </td>
           </tr>
@@ -1529,271 +1584,6 @@ the initial guess and updated in place by an optimiser.</p>
 
 
 
-<h5 id="geope.parameters.Parameters.compute_U_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">compute_U_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.compute_U_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Unitary-from-parameters function (wrapped when <code>param_transform</code> set).</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.fid_U_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">fid_U_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.fid_U_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Fidelity-of-unitary function bound to <code>target</code>.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.infid_U_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">infid_U_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.infid_U_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Infidelity-of-unitary function bound to <code>target</code>.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.infid_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">infid_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.infid_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Infidelity as a function of the free parameters and <code>delta_t</code>.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.grad_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">grad_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.grad_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Value-and-gradient of the infidelity (used by GRAPE).</p>
-<p>Differentiates with respect to the free parameters only; <code>delta_t</code>
-is a duration, not an optimisation variable.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.hess_fn_autodiff" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">hess_fn_autodiff</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.hess_fn_autodiff" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Hessian of the infidelity (used by GRAPE).</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.hess_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">hess_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.hess_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Manual (Goodwin–Kuprov) Hessian of the infidelity.</p>
-<p>Analytic drop-in for <code>hess_fn</code>, built from the manual propagator
-derivatives instead of autodiff. Only available without a
-<code>param_transform</code> (the manual derivatives operate directly on the
-proj+drift basis coefficients).</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.jac_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">jac_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.jac_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Jacobian of the unitary w.r.t. the free parameters.</p>
-<p>Holomorphic autodiff in projected-basis mode; a real/imag-split
-Jacobian when <code>param_transform</code> is set (so the imaginary part is not
-discarded through the real-valued user transform).</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.geo_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">geo_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.geo_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Geodesic-Hamiltonian function bound to <code>target</code> (used by GEOPE).</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.project_omegas_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">project_omegas_fn</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.project_omegas_fn" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Projection of matrices onto the Lie-algebra basis (used by GEOPE).</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.gammas_and_omegas" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">gammas_and_omegas</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.gammas_and_omegas" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Combined gammas-and-omegas function for the GEOPE update step.</p>
-<p>In <code>param_transform</code> (experimental) mode the omega projection has one
-free column per experimental parameter, so the projected-index
-restriction selects all of them.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
 <h5 id="geope.parameters.Parameters.__dict__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
 
@@ -1908,12 +1698,10 @@ errors defaults to 'strict'.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Hamiltonian amplitudes <span class="arithmatex">\(c\)</span> in <span class="arithmatex">\(H_g = \sum_k c_{g,k} G_k\)</span>.</p>
-<p>The current parameters mapped through <code>param_transform</code> when one is
-set, and the parameters themselves otherwise. These are amplitudes, not
-rotation angles: the segment is <span class="arithmatex">\(\exp(-i\,\Delta T\,H_g)\)</span>, so the
-duration :attr:<code>delta_t</code> is a separate quantity and is deliberately
-<em>not</em> folded in here.</p>
+        <p>Current parameters mapped through <code>param_transform</code> if set.</p>
+<p>Returns the induced basis coefficients corresponding to the
+current <code>self.parameters</code>. If <code>param_transform</code> is <code>None</code>
+this is just the current parameters.</p>
 
     </div>
 
@@ -1945,21 +1733,20 @@ duration :attr:<code>delta_t</code> is a separate quantity and is deliberately
 
 
 
-<h5 id="geope.parameters.Parameters.total_time" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">total_time</span></code>
+<h5 id="geope.parameters.Parameters.projective" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">projective</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.parameters.Parameters.total_time" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.parameters.Parameters.projective" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>Total gate duration <code>piecewise_steps * delta_t</code>.</p>
-<p>Invariant under <code>Gecko</code> subdivision, which splits each segment into
-<code>m</code> copies and divides <code>delta_t</code> by <code>m</code>.</p>
+        <p>Whether the geometry is the projective (SU) one.</p>
+<p>Delegates to the manifold, which is the single place the choice lives.</p>
 
     </div>
 
@@ -1972,7 +1759,7 @@ duration :attr:<code>delta_t</code> is a separate quantity and is deliberately
 
 
 <h5 id="geope.parameters.Parameters.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projected_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projected_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">manifold</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#geope.parameters.Parameters.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1998,7 +1785,7 @@ duration :attr:<code>delta_t</code> is a separate quantity and is deliberately
                 <code>basis</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="../lie/#geope.lie.Basis">Basis</a> | None</code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2051,7 +1838,7 @@ Mutually exclusive with <code>drift_basis</code>.</p>
                 <code>projected_basis</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="../lie/#geope.lie.Basis">Basis</a> | None</code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2069,7 +1856,7 @@ as a <code>control</code> dict. Mutually exclusive with <code>control</code>.</p
                 <code>drift_basis</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="../lie/#geope.lie.Basis">Basis</a> | None</code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2145,27 +1932,6 @@ Defaults to 1.</p>
             </td>
             <td>
                   <code>1</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>delta_t</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Duration <span class="arithmatex">\(\Delta T\)</span> of each segment, so that
-<span class="arithmatex">\(U_g = \exp(-i\,\Delta T\sum_k \phi_{g,k}G_k)\)</span>. Defaults to
-1.0, where the duration is absorbed into the coefficients and
-the parameters alone determine the unitary. Must be positive.
-<code>Gecko</code> subdivision rescales it rather than the parameters —
-see :attr:<code>delta_t</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1.0</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -2284,7 +2050,7 @@ to 0.1.</p>
                 <code>param_transform</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span> | None</code>
+                  <code><span title="collections.abc.Callable">Callable</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2317,20 +2083,130 @@ when <code>param_transform</code> is set. Defaults to
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>projective</code>
+                <code>manifold</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.manifold.Manifold" href="../geometry/#geope.geometry.manifold.Manifold">Manifold</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If <code>True</code> (default), use the projective
-(SU) fidelity. If <code>False</code>, use phase-sensitive
-(U) fidelity.</p>
+                <p>The <code>geope.geometry.Manifold</code> to synthesise on, as a
+constructed instance: <code>geope.geometry.SpecialUnitaryGroup</code>
+(the default, <code>dim</code> taken from <code>basis</code>) for the
+projective fidelity, <code>geope.geometry.UnitaryGroup</code> for the
+phase-sensitive one, or a <code>geope.geometry.StateSphere</code> /
+<code>geope.geometry.Stiefel</code> for state and subspace problems.
+The manifold carries the fidelity, the tangent projection
+and the geodesic with it, so it is the only place that
+choice is made.</p>
               </div>
             </td>
             <td>
-                  <code>True</code>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>control</code> and <code>projected_basis</code> (or <code>drift</code>
+and <code>drift_basis</code>) are both given, or if the control and
+drift bases overlap.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.parameters.Parameters.free" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">free</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.parameters.Parameters.free" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The free (proj+drift) parameter columns, in the pipeline's dtype.</p>
+<p>The single owner of the "which columns does the optimiser move, and in
+what dtype" question that <code>Geope</code>, <code>Gecko</code> and <code>Grape</code> all need. Identity
+in experimental (<code>param_transform</code>) mode, where every column is already
+free and the dtype is real; otherwise selects the proj+drift columns of
+the full-basis array and promotes to <code>complex128</code> for the holomorphic
+Jacobian.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameters</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span> | <span title="jax.Array">Array</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A full-basis parameter array. Defaults to the live
+<code>self.parameters</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An <code>Array</code> of shape <code>(piecewise_steps, K_free)</code>.</p>
+              </div>
             </td>
           </tr>
       </tbody>
@@ -2402,7 +2278,7 @@ to a single basis coefficient. Use <code>None</code> to mean identity.</p>
                 <code>transforms</code>
             </td>
             <td>
-                  <code><span title="list">list</span>[<span title="typing.Callable">Callable</span> | None]</code>
+                  <code><span title="list">list</span>[<span title="collections.abc.Callable">Callable</span> | None]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2428,7 +2304,7 @@ to a single basis coefficient. Use <code>None</code> to mean identity.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span></code>
+                  <code><span title="collections.abc.Callable">Callable</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2438,7 +2314,7 @@ to a single basis coefficient. Use <code>None</code> to mean identity.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span></code>
+                  <code><span title="collections.abc.Callable">Callable</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2493,7 +2369,7 @@ lower-case interaction label, then keep the element only if
                 <code>basis</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2536,7 +2412,7 @@ list of interaction labels, e.g. <code>{1: ['x', 'y'], (1, 2): ['xx']}</code>.</
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2546,7 +2422,7 @@ list of interaction labels, e.g. <code>{1: ['x', 'y'], (1, 2): ['xx']}</code>.</
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">

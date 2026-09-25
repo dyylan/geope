@@ -18,7 +18,7 @@
         <link rel="prev" href="../logm/">
       
       
-        <link rel="next" href="../pauli_projector/">
+        <link rel="next" href="../hessian/">
       
       
       <link rel="icon" href="../../_static/geope_logo.png">
@@ -606,6 +606,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -783,12 +806,58 @@
   
   
     <li class="md-nav__item">
-      <a href="../engine/" class="md-nav__link">
+      <a href="../chart/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
     
   </span>
   
@@ -811,7 +880,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -925,24 +994,16 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.jax.jacobian.Ui" class="md-nav__link">
+  <a href="#the-jacobian" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;Ui
+      The Jacobian
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.jax.jacobian.get_Ui_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_Ui_fn
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
+    <nav class="md-nav" aria-label="The Jacobian">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#geope.jax.jacobian.jacobian_propagator" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;jacobian_propagator
@@ -950,13 +1011,84 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#geope.jax.jacobian.get_jacobian_propagator" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jacobian_propagator
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pullback" class="md-nav__link">
+    <span class="md-ellipsis">
+      The pullback
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The pullback">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.jacobian.vjp_propagator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;vjp_propagator
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.jacobian.get_vjp_propagator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_vjp_propagator
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pushforward" class="md-nav__link">
+    <span class="md-ellipsis">
+      The pushforward
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The pushforward">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.jacobian.jvp_propagator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;jvp_propagator
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.jacobian.get_jvp_propagator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jvp_propagator
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -976,12 +1108,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pauli_projector/" class="md-nav__link">
+      <a href="../hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -1049,24 +1181,16 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.jax.jacobian.Ui" class="md-nav__link">
+  <a href="#the-jacobian" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;Ui
+      The Jacobian
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.jax.jacobian.get_Ui_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_Ui_fn
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
+    <nav class="md-nav" aria-label="The Jacobian">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#geope.jax.jacobian.jacobian_propagator" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;jacobian_propagator
@@ -1074,13 +1198,84 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#geope.jax.jacobian.get_jacobian_propagator" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jacobian_propagator
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pullback" class="md-nav__link">
+    <span class="md-ellipsis">
+      The pullback
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The pullback">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.jacobian.vjp_propagator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;vjp_propagator
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.jacobian.get_vjp_propagator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_vjp_propagator
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pushforward" class="md-nav__link">
+    <span class="md-ellipsis">
+      The pushforward
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The pushforward">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.jacobian.jvp_propagator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;jvp_propagator
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.jax.jacobian.get_jvp_propagator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jvp_propagator
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1101,177 +1296,19 @@
 
 
 <h1 id="geopejaxjacobian">geope.jax.jacobian<a class="headerlink" href="#geopejaxjacobian" title="Permanent link">¤</a></h1>
+<p>First derivatives of the pulse model, in both directions.</p>
+<p><code>jacobian_propagator</code> builds the whole <span class="arithmatex">\((G, d, d, K)\)</span> tensor
+<span class="arithmatex">\(\partial U/\partial\phi_{g,k}\)</span>; <code>vjp_propagator</code> contracts an ambient covector
+against every one of those columns <em>without</em> building it. Both share the two
+<code>jax.lax.scan</code> partial products (the gates before and after the one being
+differentiated), and both are exact — they differ only in what they are for. A
+Jacobian is what the geodesic least-squares problem needs, one column per
+parameter; a gradient is not, and paying <span class="arithmatex">\(O(G\,d^3K)\)</span> to build a tensor you
+immediately contract away is the difference between the two paths.</p>
+<p><code>jvp_propagator</code> is the third direction: one parameter-space direction pushed
+forward, in <span class="arithmatex">\(O(G)\)</span>, without either.</p>
+<h2 id="the-jacobian">The Jacobian<a class="headerlink" href="#the-jacobian" title="Permanent link">¤</a></h2>
 
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.jax.jacobian.Ui" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">Ui</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
-
-<a href="#geope.jax.jacobian.Ui" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Compute a unitary from a linear combination of Hermitian basis matrices.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>x</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Coefficient vector of shape <code>(K,)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>basis</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A unitary matrix of shape <code>(d, d)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.jax.jacobian.get_Ui_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_Ui_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
-
-<a href="#geope.jax.jacobian.get_Ui_fn" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Create a partial unitary function with a fixed basis.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>basis</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A callable that takes a coefficient vector and returns</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the corresponding unitary.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
 
 <div class="doc doc-object doc-function">
 
@@ -1286,9 +1323,9 @@
 
         <p>Compute the full Jacobian propagator of the product unitary.</p>
 <p>The product unitary follows the convention of
-:func:<code>geope.engine.compute_matrices_params_list_fn</code>, where each gate is
+:func:<code>geope.geometry.chart.compute_matrices_params_list_fn</code>, where each gate is
 left-multiplied onto the accumulator,</p>
-<div class="arithmatex">\[U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(-i \sum_k x_{i,k} G_k\Big).\]</div>
+<div class="arithmatex">\[U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(i \sum_k x_{i,k} G_k\Big).\]</div>
 <p>The derivative with respect to a parameter of gate <span class="arithmatex">\(i\)</span> leaves every other
 gate untouched, so it is a product with a single factor replaced by the
 per-gate derivative:</p>
@@ -1336,7 +1373,7 @@ built explicitly from the per-gate derivative <code>jac_fn</code>.</p>
                 <code>Ui_fn</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1352,7 +1389,7 @@ built explicitly from the per-gate derivative <code>jac_fn</code>.</p>
                 <code>jac_fn</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1408,7 +1445,7 @@ built explicitly from the per-gate derivative <code>jac_fn</code>.</p>
 
         <p>Create a JIT-compiled manual Jacobian function for a given gate basis.</p>
 <p>The returned function is wrapped in <code>jax.jit</code> so it is compiled once and
-reused across calls (rather than retracing on every invocation).</p>
+reused across calls.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1490,7 +1527,7 @@ complex-valued parameters. Only affects <code>method="eig"</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1500,7 +1537,7 @@ complex-valued parameters. Only affects <code>method="eig"</code>.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1510,11 +1547,561 @@ complex-valued parameters. Only affects <code>method="eig"</code>.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p><code>(G, d, d, K)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div><h2 id="the-pullback">The pullback<a class="headerlink" href="#the-pullback" title="Permanent link">¤</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.jax.jacobian.vjp_propagator" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">vjp_propagator</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">Ui_fn</span><span class="p">,</span> <span class="n">adj_fn</span><span class="p">)</span></code>
+
+<a href="#geope.jax.jacobian.vjp_propagator" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Pullback (VJP) of the product unitary — every partial, no Jacobian.</p>
+<p>Returns <code>(U, pullback)</code> in the shape of <code>jax.vjp</code>, and for the same reason:
+the covector a cost hands back is a function of the <em>value</em>, so the two
+cannot be asked for in one call. Splitting them this way means the gate
+exponentials and their two partial products are computed <strong>once</strong> and shared
+— a caller that evaluated the chart separately would pay for them twice.</p>
+<p><code>pullback</code> contracts a single ambient covector <span class="arithmatex">\(C\)</span> against <strong>all</strong>
+<span class="arithmatex">\(G\times K\)</span> columns of the Jacobian at once,</p>
+<div class="arithmatex">\[t_{i,k} = \mathrm{Tr}\Bigl(C^\dagger\,\frac{\partial U}{\partial x_{i,k}}\Bigr),\]</div>
+<p>which is what a chain rule out of the ambient space actually needs.
+<code>jacobian_propagator</code> would build the whole <span class="arithmatex">\((G, d, d, K)\)</span> tensor first; here
+the partial products land on the covector instead. Using</p>
+<div class="arithmatex">\[\Bigl\langle C,\ L_i\,\frac{\partial U_i}{\partial x_{i,k}}\,R_i \Bigr\rangle
+  = \Bigl\langle L_i^\dagger C R_i^\dagger,\ \frac{\partial U_i}{\partial x_{i,k}} \Bigr\rangle,\]</div>
+<p>each gate needs one <span class="arithmatex">\(d \times d\)</span> covector <span class="arithmatex">\(B_i = L_i^\dagger C R_i^\dagger\)</span> —
+two matrix products — after which <code>adj_fn</code> returns all <span class="arithmatex">\(K\)</span> overlaps for that
+gate without ever forming its <span class="arithmatex">\((d, d, K)\)</span> derivative. The whole call is
+<span class="arithmatex">\(O(G(d^3 + d^2 K))\)</span> in flops and <span class="arithmatex">\(O(G d^2)\)</span> in memory, against the Jacobian
+route's <span class="arithmatex">\(O(G d^3 K)\)</span> and <span class="arithmatex">\(O(G d^2 K)\)</span>.</p>
+<p><strong>The pullback's result is complex, and deliberately not halved or
+realified.</strong> A real-valued cost <span class="arithmatex">\(C(\phi)\)</span> whose ambient Wirtinger gradient is
+<span class="arithmatex">\(\hat G\)</span> has <span class="arithmatex">\(\partial_{i,k} C = 2\,\mathrm{Re}\,t_{i,k}\)</span> for a <code>cotangent</code>
+of <span class="arithmatex">\(\hat G\)</span>, so the gradient is one <code>2 * jnp.real(...)</code> away; but a
+projective cost also needs the <em>complex</em> overlaps
+<span class="arithmatex">\(\langle y, \partial U\rangle\)</span> for its second-order term, and returning the
+raw value serves both from one primitive.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>params</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Parameter <code>Array</code> of shape <code>(G, K)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>Ui_fn</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Callable mapping a coefficient <code>Array</code> to a unitary <code>Array</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>adj_fn</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-gate adjoint <code>(x, b) -&gt; (K,)</code> returning
+<span class="arithmatex">\(\mathrm{Tr}(b^\dagger \partial_k U_i)\)</span> (e.g. <code>geope.jax.adj_expm_eig</code>).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tuple <code>(U, pullback)</code>: the product unitary of shape <code>(d, d)</code>, and a</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>callable taking an ambient covector <code>(d, d)</code> — paired through</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><span class="arithmatex">\(\mathrm{Tr}(C^\dagger\,\cdot)\)</span>, i.e. <em>conjugated</em> — to the complex</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>overlaps of shape <code>(G, K)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.jax.jacobian.get_vjp_propagator" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_vjp_propagator</span><span class="p">(</span><span class="n">gate_basis</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'eig'</span><span class="p">,</span> <span class="n">hermitian</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#geope.jax.jacobian.get_vjp_propagator" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Create a pullback propagator for a given gate basis.</p>
+<p>Wraps <code>vjp_propagator</code> with a per-gate adjoint built from <code>gate_basis</code>.</p>
+<p>Unlike <code>get_jacobian_propagator</code> the result is <strong>not</strong> <code>jax.jit</code>-wrapped —
+it returns a closure, which a jitted function cannot. That is the right
+default anyway: it fuses into the enclosing <code>@jax.jit</code> that actually wants
+the gradient, which is where the value and the pullback get to share their
+partial products.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>gate_basis</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-gate adjoint method. <code>"eig"</code> (default) uses the spectral
+<code>geope.jax.adj_expm_eig</code>, which never forms the <code>(d, d, K)</code>
+per-gate derivative; <code>"block"</code> uses <code>geope.jax.adj_expm</code>, which
+does (it ignores <code>hermitian</code> and tolerates non-Hermitian
+generators).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;eig&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>hermitian</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Assume real parameters (skew-Hermitian generators) and use the
+faster <code>eigh</code>-based per-gate adjoint. Set <code>False</code> for
+complex-valued parameters. Only affects <code>method="eig"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>Callable[[Array], tuple[Array, Callable]]</code> taking parameters of</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>shape <code>(G, K)</code> to the pair <code>vjp_propagator</code> returns.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div><h2 id="the-pushforward">The pushforward<a class="headerlink" href="#the-pushforward" title="Permanent link">¤</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.jax.jacobian.jvp_propagator" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">jvp_propagator</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">step_fn</span><span class="p">)</span></code>
+
+<a href="#geope.jax.jacobian.jvp_propagator" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Directional first derivative (JVP) of the product unitary in <span class="arithmatex">\(O(G)\)</span>.</p>
+<p>Computes the value and the single-direction derivative of the product
+unitary along a parameter-space direction <span class="arithmatex">\(p\)</span>, without forming the full
+Jacobian. With the product convention of
+:func:<code>geope.geometry.chart.compute_matrices_params_list_fn</code>,
+<span class="arithmatex">\(\phi(\theta) = U_{G-1} \cdots U_1 U_0\)</span> with each gate left-multiplied,
+define the partial product <span class="arithmatex">\(X_g = U_g \cdots U_0\)</span> and its derivative
+<span class="arithmatex">\(V_g = \dot X_g(0)\)</span> along <span class="arithmatex">\(\theta(t) = \theta + t p\)</span>. Since
+<span class="arithmatex">\(X_g(t) = U_g(t) X_{g-1}(t)\)</span>, the product rule gives the linear-time
+recursion</p>
+<div class="arithmatex">\[X_g = U_g X_{g-1}, \qquad V_g = U_g V_{g-1} + E_g X_{g-1},\]</div>
+<p>with <span class="arithmatex">\(X_{-1} = I\)</span>, <span class="arithmatex">\(V_{-1} = 0\)</span>, where <span class="arithmatex">\(U_g = \exp(iA_g)\)</span> and
+<span class="arithmatex">\(E_g = D\exp(iA_g)[iB_g]\)</span> are the per-gate value and directional derivative
+(<code>step_fn</code>). After all <span class="arithmatex">\(G\)</span> gates, <span class="arithmatex">\(X_{G-1} = \phi(\theta)\)</span> and
+<span class="arithmatex">\(V_{G-1} = D\phi_\theta[p]\)</span>. The recursion is a single <code>jax.lax.scan</code>; this
+is the forward-mode (JVP) analogue of <code>jacobian_propagator</code>, and the
+first-order sibling of <code>geope.jax.hessian.hvp_propagator</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>params</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Parameter <code>Array</code> of shape <code>(G, K)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>direction</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Direction <code>Array</code> of shape <code>(G, K)</code> (the <span class="arithmatex">\(p\)</span> above).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>step_fn</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-gate step <code>(x, p) -&gt; (U, E)</code> mapping a gate's
+coefficients and direction to its value and directional derivative
+(e.g. <code>geope.jax.expm_jvp_eig</code>).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tuple <code>(X, V)</code> of matrices of shape <code>(d, d)</code>: the product unitary</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><span class="arithmatex">\(\phi(\theta)\)</span> and its directional derivative <span class="arithmatex">\(D\phi_\theta[p]\)</span>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.jax.jacobian.get_jvp_propagator" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="o">.</span><span class="n">get_jvp_propagator</span><span class="p">(</span><span class="n">gate_basis</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'eig'</span><span class="p">,</span> <span class="n">hermitian</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#geope.jax.jacobian.get_jvp_propagator" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Create a JIT-compiled directional-JVP propagator for a given gate basis.</p>
+<p>Wraps <code>jvp_propagator</code> with a per-gate step built from <code>gate_basis</code> and is
+wrapped in <code>jax.jit</code> so it compiles once and is reused across calls.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>gate_basis</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-gate method. <code>"eig"</code> (default) uses the spectral
+<code>geope.jax.expm_jvp_eig</code>; <code>"block"</code> uses the block-exponential
+<code>geope.jax.expm_jvp</code> (ignores <code>hermitian</code>).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;eig&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>hermitian</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Assume real parameters and use the <code>eigh</code>-based per-gate
+step. Set <code>False</code> for complex-valued parameters. Only affects
+<code>method="eig"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>Callable[[Array, Array], tuple[Array, Array]]</code> accepting parameters</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>and a direction, both of shape <code>(G, K)</code>, and returning the pair</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(phi, Dphi[p])</code> of shape <code>(d, d)</code>.</p>
               </div>
             </td>
           </tr>

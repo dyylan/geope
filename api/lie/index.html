@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://dyylan.github.io/geope/api/lie/">
       
       
-        <link rel="prev" href="../engine/">
+        <link rel="prev" href="../manifolds/">
       
       
         <link rel="next" href="../dexpm/">
@@ -26,7 +26,7 @@
     
     
       
-        <title>geope.lie - Geodesic Pulse Engineering (GEOPE)</title>
+        <title>geope.geometry.basis - Geodesic Pulse Engineering (GEOPE)</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#geopelie" class="md-skip">
+        <a href="#geopegeometrybasis" class="md-skip">
           Skip to content
         </a>
       
@@ -117,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              geope.lie
+              geope.geometry.basis
             
           </span>
         </div>
@@ -606,6 +606,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -783,12 +806,58 @@
   
   
     <li class="md-nav__item">
-      <a href="../engine/" class="md-nav__link">
+      <a href="../chart/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
     
   </span>
   
@@ -820,7 +889,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -833,7 +902,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -856,7 +925,7 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.lie.Basis" class="md-nav__link">
+  <a href="#geope.geometry.basis.Basis" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Basis
     </span>
@@ -865,20 +934,53 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.lie.Hamiltonian" class="md-nav__link">
+  <a href="#the-coefficient-projector" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Hamiltonian
+      The coefficient projector
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The coefficient projector">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.basis.project_omegas" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;project_omegas
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.lie.Unitary" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.basis.get_project_omegas_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Unitary
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_project_omegas_fn
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.basis.get_kron_chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_kron_chain
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.basis.get_project_omegas_fn_otf" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_project_omegas_fn_otf
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -967,12 +1069,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pauli_projector/" class="md-nav__link">
+      <a href="../hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -1040,7 +1142,7 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#geope.lie.Basis" class="md-nav__link">
+  <a href="#geope.geometry.basis.Basis" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Basis
     </span>
@@ -1049,20 +1151,53 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.lie.Hamiltonian" class="md-nav__link">
+  <a href="#the-coefficient-projector" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Hamiltonian
+      The coefficient projector
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The coefficient projector">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.basis.project_omegas" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;project_omegas
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.lie.Unitary" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.basis.get_project_omegas_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Unitary
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_project_omegas_fn
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.basis.get_kron_chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_kron_chain
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.basis.get_project_omegas_fn_otf" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_project_omegas_fn_otf
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1082,28 +1217,54 @@
 
 
 
-<h1 id="geopelie">geope.lie<a class="headerlink" href="#geopelie" title="Permanent link">¤</a></h1>
+<h1 id="geopegeometrybasis">geope.geometry.basis<a class="headerlink" href="#geopegeometrybasis" title="Permanent link">¤</a></h1>
+<p>The frame the pulse model is built on, and the projector that resolves against
+it. Despite the Pauli-algebra flavour this is <strong>not</strong> Lie-specific — it is the
+<em>ambient</em> coefficient frame, which both Stiefel manifolds take too — so it lives
+at the root of <code>geope.geometry</code> rather than under <code>lie</code>. The group <em>manifolds</em>
+live on the <a href="../manifolds/">Manifolds</a> page.</p>
 
 
 <div class="doc doc-object doc-class">
 
 
 
-<h4 id="geope.lie.Basis" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.lie.Basis</code>
+<h4 id="geope.geometry.basis.Basis" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.geometry.basis.Basis</code>
 
 
-<a href="#geope.lie.Basis" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.basis.Basis" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
 
 
-        <p>A Lie algebra basis for quantum Hamiltonian parameterisation.</p>
+        <p>A frame for the ambient matrix space, and the pulse's generators.</p>
 <p>Wraps a rank-3 tensor of Hermitian basis matrices together with
 associated labels, interaction metadata, and convenience utilities
 for building and manipulating Lie-algebraic decompositions.</p>
+<p><strong>Two roles, one class.</strong> A <code>Basis</code> is a real-orthogonal frame for the
+Hermitian matrices in the ambient space <span class="arithmatex">\(\mathbb C^{d\times d}\)</span> — the Paulis
+span that space over <span class="arithmatex">\(\mathbb C\)</span>, the Hermitian matrices in it over
+<span class="arithmatex">\(\mathbb R\)</span>, and, multiplied by <span class="arithmatex">\(i\)</span>, the algebra <span class="arithmatex">\(\mathfrak u(d)\)</span> over
+<span class="arithmatex">\(\mathbb R\)</span>. The pipeline uses that in two different places and at two
+different sizes:</p>
+<ul>
+<li>as the <strong>chart's generators</strong> — <code>params.proj_drift_basis</code>, the
+  controllable sub-frame the pulse is a product of exponentials in
+  (<code>geope.geometry.chart</code>);</li>
+<li>as the <strong>ambient coefficient frame</strong> — <code>params.basis</code>, what
+  <code>geope.geometry.manifold.Manifold.coefficients</code> resolves a tangent vector
+  against, stored on <code>geope.geometry.TangentBundle.frame</code>. The single factor
+  of <span class="arithmatex">\(i\)</span> that turns a skew-Hermitian algebra element into something this
+  frame can resolve is the one in
+  <code>geope.geometry.lie.groups.MatrixLieGroup.coefficients</code>.</li>
+</ul>
+<p>Completeness is not required in either role: an incomplete frame simply
+projects onto a subspace, which the spin-boson bases rely on. Nor is a
+manifold obliged to coordinatise through a frame at all — both Stiefel
+manifolds use a real/imaginary split of the ambient array instead.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1121,7 +1282,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.basis)" href="#geope.lie.Basis.basis">basis</a></code></td>
+   (geope.geometry.basis.Basis.basis)" href="#geope.geometry.basis.Basis.basis">basis</a></code></td>
             <td>
             </td>
             <td>
@@ -1135,7 +1296,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.labels)" href="#geope.lie.Basis.labels">labels</a></code></td>
+   (geope.geometry.basis.Basis.labels)" href="#geope.geometry.basis.Basis.labels">labels</a></code></td>
             <td>
             </td>
             <td>
@@ -1149,7 +1310,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.plot_labels)" href="#geope.lie.Basis.plot_labels">plot_labels</a></code></td>
+   (geope.geometry.basis.Basis.plot_labels)" href="#geope.geometry.basis.Basis.plot_labels">plot_labels</a></code></td>
             <td>
             </td>
             <td>
@@ -1163,7 +1324,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.interaction_labels)" href="#geope.lie.Basis.interaction_labels">interaction_labels</a></code></td>
+   (geope.geometry.basis.Basis.interaction_labels)" href="#geope.geometry.basis.Basis.interaction_labels">interaction_labels</a></code></td>
             <td>
             </td>
             <td>
@@ -1177,7 +1338,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.interaction_qubits)" href="#geope.lie.Basis.interaction_qubits">interaction_qubits</a></code></td>
+   (geope.geometry.basis.Basis.interaction_qubits)" href="#geope.geometry.basis.Basis.interaction_qubits">interaction_qubits</a></code></td>
             <td>
             </td>
             <td>
@@ -1191,7 +1352,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.interaction_graph)" href="#geope.lie.Basis.interaction_graph">interaction_graph</a></code></td>
+   (geope.geometry.basis.Basis.interaction_graph)" href="#geope.geometry.basis.Basis.interaction_graph">interaction_graph</a></code></td>
             <td>
             </td>
             <td>
@@ -1205,7 +1366,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.interaction_map)" href="#geope.lie.Basis.interaction_map">interaction_map</a></code></td>
+   (geope.geometry.basis.Basis.interaction_map)" href="#geope.geometry.basis.Basis.interaction_map">interaction_map</a></code></td>
             <td>
             </td>
             <td>
@@ -1219,12 +1380,12 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.n)" href="#geope.lie.Basis.n">n</a></code></td>
+   (geope.geometry.basis.Basis.n)" href="#geope.geometry.basis.Basis.n">n</a></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Number of qubits (<span class="arithmatex">\(\log_2 d\)</span>).</p>
+                <p>Number of qubits (<span class="arithmatex">\(\\log_2 d\)</span>).</p>
               </div>
             </td>
           </tr>
@@ -1233,7 +1394,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.local_dim)" href="#geope.lie.Basis.local_dim">local_dim</a></code></td>
+   (geope.geometry.basis.Basis.local_dim)" href="#geope.geometry.basis.Basis.local_dim">local_dim</a></code></td>
             <td>
             </td>
             <td>
@@ -1247,7 +1408,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.dim)" href="#geope.lie.Basis.dim">dim</a></code></td>
+   (geope.geometry.basis.Basis.dim)" href="#geope.geometry.basis.Basis.dim">dim</a></code></td>
             <td>
             </td>
             <td>
@@ -1261,7 +1422,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.lie_algebra_dim)" href="#geope.lie.Basis.lie_algebra_dim">lie_algebra_dim</a></code></td>
+   (geope.geometry.basis.Basis.lie_algebra_dim)" href="#geope.geometry.basis.Basis.lie_algebra_dim">lie_algebra_dim</a></code></td>
             <td>
             </td>
             <td>
@@ -1275,7 +1436,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
   
       property
-   (geope.lie.Basis.shape)" href="#geope.lie.Basis.shape">shape</a></code></td>
+   (geope.geometry.basis.Basis.shape)" href="#geope.geometry.basis.Basis.shape">shape</a></code></td>
             <td>
             </td>
             <td>
@@ -1309,14 +1470,14 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
 
 
-<h5 id="geope.lie.Basis.__dict__" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.__dict__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
   </span>
 
-<a href="#geope.lie.Basis.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1329,14 +1490,14 @@ for building and manipulating Lie-algebraic decompositions.</p>
 
 
 
-<h5 id="geope.lie.Basis.__doc__" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.__doc__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
   </span>
 
-<a href="#geope.lie.Basis.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1359,14 +1520,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.__module__" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.__module__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
   </span>
 
-<a href="#geope.lie.Basis.__module__" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.__module__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1389,14 +1550,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.__weakref__" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.__weakref__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1411,14 +1572,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.basis" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.basis" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">basis</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.basis" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.basis" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1433,14 +1594,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.dim" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.dim" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">dim</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.dim" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.dim" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1455,14 +1616,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.interaction_graph" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.interaction_graph" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">interaction_graph</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.interaction_graph" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.interaction_graph" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1477,14 +1638,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.interaction_labels" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.interaction_labels" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">interaction_labels</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.interaction_labels" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.interaction_labels" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1499,14 +1660,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.interaction_map" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.interaction_map" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">interaction_map</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.interaction_map" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.interaction_map" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1521,14 +1682,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.interaction_qubits" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.interaction_qubits" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">interaction_qubits</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.interaction_qubits" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.interaction_qubits" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1543,14 +1704,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.labels" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.labels" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">labels</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.labels" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.labels" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1565,14 +1726,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.lie_algebra_dim" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.lie_algebra_dim" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">lie_algebra_dim</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.lie_algebra_dim" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.lie_algebra_dim" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1587,14 +1748,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.local_dim" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.local_dim" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">local_dim</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.local_dim" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.local_dim" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1609,14 +1770,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.n" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.n" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">n</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.n" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.n" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1631,14 +1792,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.plot_labels" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.plot_labels" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">plot_labels</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.plot_labels" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.plot_labels" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1653,14 +1814,14 @@ errors defaults to 'strict'.</p>
 
 
 
-<h5 id="geope.lie.Basis.shape" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.shape" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">shape</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
-<a href="#geope.lie.Basis.shape" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.shape" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1677,10 +1838,10 @@ errors defaults to 'strict'.</p>
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.lie.Basis.__init__" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.__init__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">local_dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_qubits</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interaction_graph</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interaction_map</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-<a href="#geope.lie.Basis.__init__" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1813,15 +1974,69 @@ of interaction labels to keep.</p>
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.lie.Basis.__len__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__len__</span><span class="p">()</span></code>
+<h5 id="geope.geometry.basis.Basis.linear_span" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">linear_span</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span></code>
 
-<a href="#geope.lie.Basis.__len__" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.linear_span" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>Return the number of basis elements.</p>
+        <p>Compute the linear combination of basis matrices.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameters</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Coefficient <code>np.ndarray</code> of length <code>K</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>(d, d)</code> <code>np.ndarray</code> equal to <span class="arithmatex">\(\sum_k \phi_k B_k\)</span>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -1831,10 +2046,145 @@ of interaction labels to keep.</p>
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.lie.Basis.apply_interaction_graph" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.overlap" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">overlap</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.basis.Basis.overlap" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Compute the overlap mask between this basis and another.</p>
+<p>Uses trace inner products to determine which elements of
+<code>other</code> have non-zero overlap with elements of this basis.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>other</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="#geope.geometry.basis.Basis">Basis</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Another <code>Basis</code> instance.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A boolean <code>np.ndarray</code> of length <code>other.lie_algebra_dim</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>that is <code>True</code> where an overlap exists.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.basis.Basis.verify" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">verify</span><span class="p">()</span></code>
+
+<a href="#geope.geometry.basis.Basis.verify" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Verify that the basis elements are orthogonal under the trace inner product.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>True</code> if the trace-inner-product Gram matrix is diagonal,</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>False</code> otherwise.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.basis.Basis.apply_interaction_graph" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">apply_interaction_graph</span><span class="p">(</span><span class="n">interaction_graph</span><span class="p">)</span></code>
 
-<a href="#geope.lie.Basis.apply_interaction_graph" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.apply_interaction_graph" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1908,10 +2258,10 @@ the qubit indices of an allowed interaction
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.lie.Basis.apply_interaction_map" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.apply_interaction_map" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">apply_interaction_map</span><span class="p">(</span><span class="n">interaction_map</span><span class="p">)</span></code>
 
-<a href="#geope.lie.Basis.apply_interaction_map" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.apply_interaction_map" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -1984,10 +2334,102 @@ of allowed interaction label strings.</p>
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.lie.Basis.generate_bounds" class="doc doc-heading">
+<h5 id="geope.geometry.basis.Basis.__len__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__len__</span><span class="p">()</span></code>
+
+<a href="#geope.geometry.basis.Basis.__len__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the number of basis elements.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.basis.Basis.generate_parameter_list" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">generate_parameter_list</span><span class="p">(</span><span class="n">parameter_map</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.basis.Basis.generate_parameter_list" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Generate a parameter vector from a human-readable parameter map.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameter_map</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...], <span title="dict">dict</span>[<span title="str">str</span>, <span title="float">float</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dictionary whose keys are qubit indices (int) or
+qubit-index tuples, and whose values are dictionaries
+mapping interaction labels to parameter values.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A list of parameter values aligned with the basis ordering.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.basis.Basis.generate_bounds" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">generate_bounds</span><span class="p">(</span><span class="n">bounds_map</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="p">)</span></code>
 
-<a href="#geope.lie.Basis.generate_bounds" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.Basis.generate_bounds" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
@@ -2080,503 +2522,33 @@ and whose values are <code>(min, max)</code> tuples.</p>
 
 </div>
 
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Basis.generate_parameter_list" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">generate_parameter_list</span><span class="p">(</span><span class="n">parameter_map</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Basis.generate_parameter_list" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Generate a parameter vector from a human-readable parameter map.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>parameter_map</code>
-            </td>
-            <td>
-                  <code><span title="dict">dict</span>[<span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...], <span title="dict">dict</span>[<span title="str">str</span>, <span title="float">float</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Dictionary whose keys are qubit indices (int) or
-qubit-index tuples, and whose values are dictionaries
-mapping interaction labels to parameter values.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="list">list</span>[<span title="float">float</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A list of parameter values aligned with the basis ordering.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Basis.linear_span" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">linear_span</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Basis.linear_span" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the linear combination of basis matrices.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>parameters</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Coefficient <code>np.ndarray</code> of length <code>K</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>(d, d)</code> <code>np.ndarray</code> equal to <span class="arithmatex">\(\sum_k \phi_k B_k\)</span>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Basis.overlap" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">overlap</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Basis.overlap" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the overlap mask between this basis and another.</p>
-<p>Uses trace inner products to determine which elements of
-<code>other</code> have non-zero overlap with elements of this basis.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>other</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="#geope.lie.Basis">Basis</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Another <code>Basis</code> instance.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A boolean <code>np.ndarray</code> of length <code>other.lie_algebra_dim</code></p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>that is <code>True</code> where an overlap exists.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Basis.verify" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">verify</span><span class="p">()</span></code>
-
-<a href="#geope.lie.Basis.verify" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Verify that the basis elements are orthogonal under the trace inner product.</p>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>True</code> if the trace-inner-product Gram matrix is diagonal,</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>False</code> otherwise.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
 
 
   </div>
 
     </div>
 
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h4 id="geope.lie.Hamiltonian" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.lie.Hamiltonian</code>
+</div><h2 id="the-coefficient-projector">The coefficient projector<a class="headerlink" href="#the-coefficient-projector" title="Permanent link">¤</a></h2>
+<p>Resolving a batch of ambient matrices against the frame,
+<span class="arithmatex">\(c_i = \mathrm{Re}\,\mathrm{Tr}(G_i X)/d\)</span>. Above 5 qubits the on-the-fly projector
+<code>get_project_omegas_fn_otf</code> builds the Pauli strings on the fly to avoid
+materialising the full <span class="arithmatex">\((K, d, d)\)</span> frame.</p>
 
 
-<a href="#geope.lie.Hamiltonian" class="headerlink" title="Permanent link">¤</a></h4>
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.basis.project_omegas" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">basis</span><span class="o">.</span><span class="n">project_omegas</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.basis.project_omegas" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-
-
-        <p>A Hamiltonian defined by a Lie-algebra basis and coefficient vector.</p>
-<p>Constructs <span class="arithmatex">\(H = \sum_k \phi_k B_k\)</span> and its matrix exponential
-<span class="arithmatex">\(U = e^{iH}\)</span>.</p>
-
-
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.lie.Hamiltonian.basis">basis</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The <code>Basis</code> object defining the algebra.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.lie.Hamiltonian.parameters">parameters</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Coefficient vector <span class="arithmatex">\(\boldsymbol{\phi}\)</span>.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.lie.Hamiltonian.matrix">matrix</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The Hamiltonian matrix <span class="arithmatex">\(H\)</span>.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.lie.Hamiltonian.unitary">unitary</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Unitary</code> wrapping <span class="arithmatex">\(U = e^{iH}\)</span>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.lie.Hamiltonian.__dict__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.lie.Hamiltonian.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.lie.Hamiltonian.__doc__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.lie.Hamiltonian.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.lie.Hamiltonian.__module__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.lie.Hamiltonian.__module__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.lie.Hamiltonian.__weakref__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.lie.Hamiltonian.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>list of weak references to the object</p>
-
-    </div>
-
-</div>
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Hamiltonian.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Hamiltonian.__init__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Initialise a Hamiltonian.</p>
+        <p>Project a batch of matrices onto a Lie algebra basis.</p>
+<p>Computes the trace inner product of each matrix in <code>x</code> with
+each basis element, normalised by the Hilbert-space dimension.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2590,16 +2562,32 @@ errors defaults to 'strict'.</p>
         </tr>
       </thead>
       <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>Array</code> of matrices to project, with shape <code>(N, d, d)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
           <tr class="doc-section-item">
             <td>
                 <code>basis</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="#geope.lie.Basis">Basis</a></code>
+                  <code><span title="jax.Array">Array</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Basis</code> instance defining the Lie algebra.</p>
+                <p>Basis tensor <code>Array</code> of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -2608,63 +2596,14 @@ errors defaults to 'strict'.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>parameters</code>
+                <code>dim</code>
             </td>
             <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Coefficient <code>np.ndarray</code> of same length as the basis.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Hamiltonian.fidelity" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">fidelity</span><span class="p">(</span><span class="n">unitary_matrix</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Hamiltonian.fidelity" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the fidelity of this Hamiltonian's unitary to a target.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>unitary_matrix</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
+                  <code><span title="int">int</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The target unitary <code>np.ndarray</code>.</p>
+                <p>Hilbert-space dimension <span class="arithmatex">\(d\)</span>.</p>
               </div>
             </td>
             <td>
@@ -2690,7 +2629,7 @@ errors defaults to 'strict'.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Scalar fidelity <code>Array</code> in <span class="arithmatex">\([0, 1]\)</span>.</p>
+                <p>Real <code>Array</code> of shape <code>(N, K)</code> of projected coefficients.</p>
               </div>
             </td>
           </tr>
@@ -2705,544 +2644,15 @@ errors defaults to 'strict'.</p>
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.lie.Hamiltonian.geodesic_hamiltonian" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">geodesic_hamiltonian</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">)</span></code>
+<h4 id="geope.geometry.basis.get_project_omegas_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">basis</span><span class="o">.</span><span class="n">get_project_omegas_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
 
-<a href="#geope.lie.Hamiltonian.geodesic_hamiltonian" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the geodesic Hamiltonian towards a target unitary.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>target_unitary</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The target unitary <code>np.ndarray</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Hamiltonian (geope.lie.hamiltonian.Hamiltonian)" href="#geope.lie.Hamiltonian">Hamiltonian</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Hamiltonian</code> whose exponentiation yields the geodesic</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Hamiltonian (geope.lie.hamiltonian.Hamiltonian)" href="#geope.lie.Hamiltonian">Hamiltonian</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>rotation from <code>self.unitary</code> to <code>target_unitary</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Hamiltonian.parameters_from_hamiltonian" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">parameters_from_hamiltonian</span><span class="p">(</span><span class="n">hamiltonian</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
-  </span>
-
-<a href="#geope.lie.Hamiltonian.parameters_from_hamiltonian" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Extract Lie-algebra coefficients from a Hamiltonian matrix.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>hamiltonian</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The Hamiltonian <code>np.ndarray</code> of shape <code>(d, d)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="#geope.lie.Basis">Basis</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The <code>Basis</code> to decompose into.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A real-valued parameter <code>np.ndarray</code> of length</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>basis.lie_algebra_dim</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h4 id="geope.lie.Unitary" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.lie.Unitary</code>
-
-
-<a href="#geope.lie.Unitary" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.basis.get_project_omegas_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-
-
-        <p>A unitary matrix acting on <span class="arithmatex">\(n\)</span> qubits.</p>
-<p>Validates that the input is indeed unitary (<span class="arithmatex">\(UU^\dagger = I\)</span>) and
-exposes convenience methods for fidelity and geodesic computation.</p>
-
-
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.lie.Unitary.matrix">matrix</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The unitary matrix of shape <code>(d, d)</code>.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.lie.Unitary.n">n</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of qubits (<span class="arithmatex">\(\log_2 d\)</span>).</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.lie.Unitary.__dict__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.lie.Unitary.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.lie.Unitary.__doc__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.lie.Unitary.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.lie.Unitary.__module__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.lie.Unitary.__module__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to sys.getdefaultencoding().
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.lie.Unitary.__weakref__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.lie.Unitary.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>list of weak references to the object</p>
-
-    </div>
-
-</div>
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Unitary.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">unitary_matrix</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Unitary.__init__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Initialise a Unitary.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>unitary_matrix</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A square unitary <code>np.ndarray</code> of dimension
-<span class="arithmatex">\(2^n    imes 2^n\)</span>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="ValueError">ValueError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the matrix is not unitary or not square.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Unitary.__matmul__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__matmul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Unitary.__matmul__" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Unitary.fidelity" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">fidelity</span><span class="p">(</span><span class="n">unitary_matrix</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Unitary.fidelity" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the fidelity to a target unitary.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>unitary_matrix</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The target unitary <code>np.ndarray</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Scalar fidelity <code>Array</code> in <span class="arithmatex">\([0, 1]\)</span>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Unitary.geodesic_hamiltonian" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">geodesic_hamiltonian</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">target_unitary</span><span class="p">)</span></code>
-
-<a href="#geope.lie.Unitary.geodesic_hamiltonian" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the geodesic Hamiltonian towards a target unitary.</p>
+        <p>Create a partial projection function with a fixed basis.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3261,27 +2671,11 @@ errors defaults to 'strict'.</p>
                 <code>basis</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The <code>Basis</code> for the Hamiltonian decomposition.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>target_unitary</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The target unitary <code>np.ndarray</code>.</p>
+                <p>A <code>Basis</code> instance whose matrices and dimension are bound.</p>
               </div>
             </td>
             <td>
@@ -3303,21 +2697,21 @@ errors defaults to 'strict'.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Hamiltonian (geope.lie.hamiltonian.Hamiltonian)" href="#geope.lie.Hamiltonian">Hamiltonian</a></code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Hamiltonian</code> whose exponentiation yields the geodesic</p>
+                <p>A <code>Callable[[Array], Array]</code> that accepts an array of</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Hamiltonian (geope.lie.hamiltonian.Hamiltonian)" href="#geope.lie.Hamiltonian">Hamiltonian</a></code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>rotation from <code>self</code> to <code>target_unitary</code>.</p>
+                <p>matrices and returns the projected coefficients.</p>
               </div>
             </td>
           </tr>
@@ -3332,15 +2726,113 @@ errors defaults to 'strict'.</p>
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.lie.Unitary.parameters" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">parameters</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
+<h4 id="geope.geometry.basis.get_kron_chain" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">basis</span><span class="o">.</span><span class="n">get_kron_chain</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>
 
-<a href="#geope.lie.Unitary.parameters" class="headerlink" title="Permanent link">¤</a></h5>
+<a href="#geope.geometry.basis.get_kron_chain" class="headerlink" title="Permanent link">¤</a></h4>
 
 
-    <div class="doc doc-contents ">
+    <div class="doc doc-contents first">
 
-        <p>Extract Lie-algebra coefficients via the principal matrix logarithm.</p>
+        <p>Build a JIT-compiled Kronecker product chain function.</p>
+<p>Constructs the four single-qubit Pauli matrices and returns
+a function that builds an <span class="arithmatex">\(n\)</span>-qubit Pauli string via iterated
+Kronecker products.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>n</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of qubits.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A JIT-compiled <code>Callable[[Array], Array]</code> that accepts a</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>combination index array of length <code>n</code> (values 0–3) and</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>returns the corresponding <code>(2^n, 2^n)</code> Pauli matrix.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.basis.get_project_omegas_fn_otf" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">basis</span><span class="o">.</span><span class="n">get_project_omegas_fn_otf</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.basis.get_project_omegas_fn_otf" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Create an on-the-fly omega projection function.</p>
+<p>Instead of storing the full basis in memory, Pauli strings are
+constructed on the fly via Kronecker products. Useful when the
+number of qubits exceeds 5.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3359,15 +2851,33 @@ errors defaults to 'strict'.</p>
                 <code>basis</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The <code>Basis</code> to decompose into.</p>
+                <p>A <code>Basis</code> instance (only <code>basis.n</code> is used).</p>
               </div>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>batch_size</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional number of batches to split the
+Pauli combinations into. If <code>None</code>, a single vmap
+is used.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -3385,231 +2895,27 @@ errors defaults to 'strict'.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A real-valued parameter <code>np.ndarray</code> of length</p>
+                <p>A vmapped <code>Callable[[Array], Array]</code> that accepts a batch</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>basis.lie_algebra_dim</code>.</p>
+                <p>of matrices and returns projected coefficients.</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Unitary.parameters_from_unitary" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">parameters_from_unitary</span><span class="p">(</span><span class="n">unitary_matrix</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
-  </span>
-
-<a href="#geope.lie.Unitary.parameters_from_unitary" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Extract Lie-algebra coefficients from a unitary matrix.</p>
-<p>Uses the principal matrix logarithm to recover the generator,
-then decomposes it in the given basis.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>unitary_matrix</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The unitary <code>np.ndarray</code> of shape <code>(d, d)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>basis</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis (geope.lie.basis.Basis)" href="#geope.lie.Basis">Basis</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The <code>Basis</code> to decompose into.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A real-valued parameter <code>np.ndarray</code> of length</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>basis.lie_algebra_dim</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h5 id="geope.lie.Unitary.unitary_fidelity" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">unitary_fidelity</span><span class="p">(</span><span class="n">matrixA</span><span class="p">,</span> <span class="n">matrixB</span><span class="p">)</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
-  </span>
-
-<a href="#geope.lie.Unitary.unitary_fidelity" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the fidelity between two unitary matrices.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>matrixA</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>First unitary <code>Array</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>matrixB</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Second unitary <code>Array</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Scalar fidelity <code>Array</code> in <span class="arithmatex">\([0, 1]\)</span>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
 
     </div>
 

@@ -606,6 +606,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -834,12 +857,58 @@
   
   
     <li class="md-nav__item">
-      <a href="../engine/" class="md-nav__link">
+      <a href="../chart/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
     
   </span>
   
@@ -862,7 +931,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -949,12 +1018,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pauli_projector/" class="md-nav__link">
+      <a href="../hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -1093,6 +1162,16 @@ lazily-built/cached optimisation functions).</p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="geope.geope.Geope.#TODO">#TODO</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>do we need this to be public? Only used in optimize</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="geope.geope.Geope.precision">precision</span></code></td>
             <td>
             </td>
@@ -1100,6 +1179,16 @@ lazily-built/cached optimisation functions).</p>
               <div class="doc-md-description">
                 <p>Target fidelity threshold. Set by :meth:<code>optimize</code> (the
 <code>__init__</code>-body default holds until the first run).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geope.Geope.#TODO">#TODO</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>do we need this to be public? Only used in optimize</p>
               </div>
             </td>
           </tr>
@@ -1115,6 +1204,16 @@ lazily-built/cached optimisation functions).</p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="geope.geope.Geope.#TODO">#TODO</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>do we need this to be public? Only used in optimize</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="geope.geope.Geope.gram_schmidt_step_size">gram_schmidt_step_size</span></code></td>
             <td>
             </td>
@@ -1122,6 +1221,16 @@ lazily-built/cached optimisation functions).</p>
               <div class="doc-md-description">
                 <p>Step size for Gram-Schmidt fallback moves. Set
 by :meth:<code>optimize</code> (host-side only).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geope.Geope.#TODO">#TODO</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>do we need this to be public? Only used in optimize</p>
               </div>
             </td>
           </tr>
@@ -1138,6 +1247,16 @@ from the most recent :meth:<code>optimize</code> call. <code>None</code> until
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="geope.geope.Geope.#TODO">#TODO</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>do we need this to be public? Only used in optimize</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="geope.geope.Geope.line_search_state">line_search_state</span></code></td>
             <td>
             </td>
@@ -1145,6 +1264,16 @@ from the most recent :meth:<code>optimize</code> call. <code>None</code> until
               <div class="doc-md-description">
                 <p>The current line-search state pytree (re-<code>init()</code>d
 per run); <code>None</code> until :meth:<code>optimize</code> is first called.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geope.Geope.#TODO">#TODO</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>do we need this to be public? Only used in optimize</p>
               </div>
             </td>
           </tr>
@@ -1328,10 +1457,6 @@ errors defaults to 'strict'.</p>
 parameters, drift, constraints, pulse constraints, seed,
 initialisation spread, projective flag and <code>param_transform</code> are
 all read from it. To construct one, use :class:<code>Parameters</code>.</p>
-<p>The run-control knobs <code>precision</code> / <code>max_step_size</code> /
-<code>gram_schmidt_step_size</code> and the line search are arguments of
-:meth:<code>optimize</code>, not the constructor; they are initialised to their
-defaults here so the object is valid before the first run.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1582,7 +1707,7 @@ step 0 into <code>history</code> when one is attached.</p>
             <td>
               <div class="doc-md-description">
                 <p>The :class:<code>~geope.line_searches.LineSearch</code> object
-tuning the geodesic step size each step (e.g. <code>Adam(1e-2)</code>).
+tuning the geodesic step size each step (e.g. <code>Armijo()</code>).
 Defaults to :class:<code>~geope.line_searches.GoldenSection</code>.</p>
               </div>
             </td>
@@ -1647,7 +1772,7 @@ value disables the fallback.</p>
                 <code>callbacks</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
+                  <code><span title="collections.abc.Callable">Callable</span> | <span title="list">list</span>[<span title="collections.abc.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="collections.abc.Callable">Callable</span>, ...] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1667,6 +1792,11 @@ optimiser.</p>
           </tr>
       </tbody>
     </table>
+        <p>A step is kept when it reduced the line search's own objective by more
+than <code>PROGRESS_RTOL</code> relatively (<code>GoldenSection</code> minimises
+the infidelity, the Armijo family the squared geodesic distance);
+otherwise the Gram-Schmidt fallback replaces it. Convergence is always
+tested on the fidelity.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -1927,127 +2057,6 @@ coefficients and performs a signed step.</p>
 <div class="doc doc-object doc-function">
 
 
-<h5 id="geope.geope.Geope.get_update_linesearch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_update_linesearch</span><span class="p">(</span><span class="n">fid_fn</span><span class="p">,</span> <span class="n">compute_U_fn</span><span class="p">)</span></code>
-
-<a href="#geope.geope.Geope.get_update_linesearch" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Build a JIT-compiled line-search update function.</p>
-<p>Returns a function that, given current parameters and a search
-direction, finds the optimal step size via the configured
-line-search method.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>fid_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JIT-compiled fidelity function.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>compute_U_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JIT-compiled unitary computation function.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A callable</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>``update_linesearch(params, coeffs, piecewise_steps, ls_state,</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>delta_t)``</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>that returns <code>(new_parameters, fidelity, dt, new_ls_state)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
 <h5 id="geope.geope.Geope.get_update_step" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_update_step</span><span class="p">(</span><span class="n">expander_override</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
@@ -2056,9 +2065,17 @@ line-search method.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Build a JIT-compiled geodesic update step function.</p>
-<p>Computes the optimal linear combination of omegas that matches
-the geodesic direction, then performs a line search.</p>
+        <p>Build the JIT-compiled geodesic update step.</p>
+<p>One jitted function per line-search configuration, and one
+<code>geope.geometry.GeometricContext</code> per call of it. The step is: open the
+context, solve the least-squares problem for the linear combination of
+omegas that best matches the geodesic direction, renormalise it, attach
+it to the context, and line-search along it.</p>
+<p>The context is built <em>inside</em> this function and never leaves it — it is a
+trace-time object, not a pytree. Everything the line search needs (the
+ray, the slope, the curvature) it reads off that one context, so the base
+point's propagator, Jacobian and matrix logarithm are each evaluated
+once per step however geometry-hungry the line search is.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2105,77 +2122,77 @@ version. Used by pulse-shape constraints.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A JIT-compiled callable</p>
+                <p>A JIT-compiled callable <code>update_step(free_params, ls_state)</code></p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>update_step(free_params, params, piecewise_steps, key, ls_state)</code></p>
+                <p>returning ``(coeffs, new_params, fidelity, value0, value, step_size,</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>returning</p>
+                <p>new_ls_state, ls_diagnostics)``.</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>``(coeffs, new_params, fidelity, step_size, new_ls_state,</p>
+                <p><code>value</code> is the line search's own objective at the accepted step and</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>ls_diagnostics)``.</p>
+                <p><code>value0</code> the same objective at <code>t = 0</code>, which is what</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>ls_diagnostics</code> describes the least-squares solve for this step</p>
+                <p>meth:<code>optimize</code> tests for progress. <code>ls_diagnostics</code> describes the</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>(see</p>
+                <p>least-squares solve for this step (see</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2185,7 +2202,7 @@ version. Used by pulse-shape constraints.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2195,7 +2212,7 @@ version. Used by pulse-shape constraints.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2205,7 +2222,7 @@ version. Used by pulse-shape constraints.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="typing.Any">Any</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.Array">Array</span>]]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2231,8 +2248,10 @@ version. Used by pulse-shape constraints.</p>
 
 ::: geope.geope.linear_comb_projected_coeffs_multigate -->
 
-<!-- geodesic_hamiltonian / get_geodesic_hamiltonian_fn / hvp_forward_over_reverse
-moved to geope.engine — see api/engine.md. The null-space passes
+<!-- geodesic_hamiltonian / get_geodesic_hamiltonian_fn are gone: the geodesic
+tangent is now `-manifold.log(point, target)`, read off the GeometricContext —
+see api/geometry.md. hvp_forward_over_reverse moved to geope.jax.hessian — see
+api/hessian.md. The null-space passes
 (find_null_space, piecewise_smoothing, piecewise_bounding_mp,
 piecewise_bounding_pg, ...) live in geope.gecko — see api/gecko.md. -->
 

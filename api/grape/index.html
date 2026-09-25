@@ -18,7 +18,7 @@
         <link rel="prev" href="../gecko/">
       
       
-        <link rel="next" href="../engine/">
+        <link rel="next" href="../chart/">
       
       
       <link rel="icon" href="../../_static/geope_logo.png">
@@ -606,6 +606,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -834,12 +857,58 @@
   
   
     <li class="md-nav__item">
-      <a href="../engine/" class="md-nav__link">
+      <a href="../chart/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
     
   </span>
   
@@ -862,7 +931,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -949,12 +1018,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pauli_projector/" class="md-nav__link">
+      <a href="../hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -1065,10 +1134,18 @@
 
 
         <p>Gradient/Hessian-based GRAPE optimiser for quantum gate synthesis.</p>
-<p>Mirrors the <code>Geope</code> usage pattern: it is constructed from a <code>Parameters</code>
-object (the single source of truth for all configuration and the live
-optimisation state), while the optimiser <code>method</code>, its hyperparameters
-and <code>max_steps</code> are arguments of :meth:<code>optimize</code>.</p>
+<p>Mirrors the <code>Geope</code> usage pattern in every respect: it is constructed from a
+<code>Parameters</code> object (the single source of truth for all configuration and the
+live optimisation state), while the update rule and <code>max_steps</code> are
+arguments of :meth:<code>optimize</code>; and it builds <strong>one</strong> <code>GeometricContext</code> per
+step inside a single jitted <code>update_step</code>.</p>
+<p>Where <code>Geope</code> walks the geodesic toward the target, <code>Grape</code> walks the
+infidelity's own gradient. The step is therefore assembled from the context's
+<em>cost</em> tier — <code>value_and_grad</code>, and <code>cost_hessian</code> for the Newton rules —
+and never from <code>point</code>, <code>jacobian</code> or <code>A</code>. Because every context
+quantity is lazy, that is the whole reason <strong>a GRAPE run traces no matrix
+logarithm and never builds the Jacobian</strong>; see <code>geope.optimizers</code> for the rule
+an update rule has to obey to keep it that way.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1103,14 +1180,38 @@ lazily-built/cached optimisation functions).</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="geope.grape.Grape.method">method</span></code></td>
+            <td><code><span title="geope.grape.Grape.optimizer">optimizer</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optimiser method from the most recent :meth:<code>optimize</code> call
-(<code>'gd'</code>, <code>'adam'</code>, <code>'nr-trm'</code> or <code>'nr-rfo'</code>); <code>None</code>
-until :meth:<code>optimize</code> is first called.</p>
+                <p>The active <code>geope.optimizers.Optimizer</code> from the most recent
+:meth:<code>optimize</code> call; <code>None</code> until :meth:<code>optimize</code> is first called.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.grape.Grape.optimizer_state">optimizer_state</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The current optimiser state pytree (re-<code>init()</code>d per
+run); <code>None</code> until :meth:<code>optimize</code> is first called.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            method
+
+  
+      property
+   (geope.grape.Grape.method)" href="#geope.grape.Grape.method">method</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The active rule's <code>name</code> (e.g. <code>'newton_trm'</code>), or <code>None</code>.</p>
               </div>
             </td>
           </tr>
@@ -1120,7 +1221,7 @@ until :meth:<code>optimize</code> is first called.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Transient last step size (always 0 for GRAPE).</p>
+                <p>Transient last accepted step, <code>dt</code>.</p>
               </div>
             </td>
           </tr>
@@ -1252,6 +1353,28 @@ errors defaults to 'strict'.</p>
     <div class="doc doc-contents ">
 
         <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.grape.Grape.method" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">method</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.grape.Grape.method" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The active update rule's <code>name</code>, or <code>None</code> before the first run.</p>
 
     </div>
 
@@ -1473,8 +1596,77 @@ into <code>history</code> when one is attached.</p>
 <div class="doc doc-object doc-function">
 
 
+<h5 id="geope.grape.Grape.get_update_step" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_update_step</span><span class="p">()</span></code>
+
+<a href="#geope.grape.Grape.get_update_step" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Build the JIT-compiled GRAPE update step.</p>
+<p>One jitted function per update rule, and one
+<code>geope.geometry.GeometricContext</code> per call of it. The step is: open the
+context, let the rule read the cost tier off it and choose an uphill
+direction and a (negative) step, then move.</p>
+<p>The context is built <em>inside</em> this function and never leaves it — it is a
+trace-time object, not a pytree. Everything the rule needs it reads off
+that one context, and everything it does <em>not</em> read costs nothing, which
+is why no matrix logarithm and no Jacobian is traced here.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A JIT-compiled callable <code>update_step(free_params, opt_state)</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>returning <code>(new_parameters, infidelity, dt, new_opt_state)</code>, where</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>infidelity</code> is measured <strong>at</strong> <code>new_parameters</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h5 id="geope.grape.Grape.optimize" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'nr-trm'</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">optimizer_kwargs</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">optimize</span><span class="p">(</span><span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#geope.grape.Grape.optimize" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -1515,19 +1707,31 @@ into <code>history</code> when one is attached.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>method</code>
+                <code>optimizer</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="geope.optimizers.Optimizer">Optimizer</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>'gd'</code>, <code>'adam'</code>, <code>'nr-trm'</code> (default) or
-<code>'nr-rfo'</code>.</p>
+                <p>The <code>geope.optimizers.Optimizer</code> to run — <code>GradientDescent</code>,
+<code>Adam</code>, <code>LBFGS</code>, <code>NewtonTRM</code>, <code>NewtonRFO</code> or <code>NewtonSaddleFree</code>,
+each a frozen dataclass carrying its own hyperparameters. Defaults
+to <code>geope.optimizers.NewtonTRM</code>. Prefer
+<code>geope.optimizers.NewtonSaddleFree</code> on a rank-deficient landscape,
+which for gate synthesis is the usual case: the solutions form a
+manifold, so the cost Hessian is singular near one and the
+shift-based rules degenerate toward gradient descent.
+<code>geope.optimizers.LBFGS</code> is the cheap alternative when <span class="arithmatex">\(P\)</span> is
+large enough that the <span class="arithmatex">\((P, P)\)</span> Hessian and its <code>eigh</code> dominate:
+it never forms one. The three Newton rules also take
+<code>wolfe=True</code> for a strong-Wolfe line search in place of
+backtracking Armijo, which <code>geope.optimizers.LBFGS</code> uses by
+default.</p>
               </div>
             </td>
             <td>
-                  <code>&#39;nr-trm&#39;</code>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -1535,7 +1739,7 @@ into <code>history</code> when one is attached.</p>
                 <code>callbacks</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span> | <span title="list">list</span>[<span title="typing.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="typing.Callable">Callable</span>, ...] | None</code>
+                  <code><span title="collections.abc.Callable">Callable</span> | <span title="list">list</span>[<span title="collections.abc.Callable">Callable</span>] | <span title="tuple">tuple</span>[<span title="collections.abc.Callable">Callable</span>, ...] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1551,24 +1755,6 @@ optimiser.</p>
             </td>
             <td>
                   <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>**optimizer_kwargs</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Method hyperparameters — <code>learning_rate</code> for
-<code>'gd'</code>/<code>'adam'</code>, <code>delta</code> for <code>'nr-trm'</code>, <code>kappa</code> for
-<code>'nr-rfo'</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
             </td>
           </tr>
       </tbody>
@@ -1600,7 +1786,7 @@ optimiser.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>parameters</code> (current array) and <code>fidelity</code> (scalar). The full</p>
+                <p><code>parameters</code> (current array) and <code>fidelity</code> (scalar) — which</p>
               </div>
             </td>
           </tr>
@@ -1610,7 +1796,7 @@ optimiser.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>trajectory and <code>best_*</code> live on <code>grape.history</code> when a</p>
+                <p>describe the <strong>same</strong> pulse, since the reported infidelity is measured</p>
               </div>
             </td>
           </tr>
@@ -1620,7 +1806,40 @@ optimiser.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>History</code> was supplied.</p>
+                <p>at the step just taken. The full trajectory and <code>best_*</code> live on</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>grape.history</code> when a <code>History</code> was supplied.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>optimizer</code> is not an <code>geope.optimizers.Optimizer</code>.</p>
               </div>
             </td>
           </tr>

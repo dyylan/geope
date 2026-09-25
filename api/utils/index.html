@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://dyylan.github.io/geope/api/utils/">
       
       
-        <link rel="prev" href="../pauli_projector/">
+        <link rel="prev" href="../hessian/">
       
       
       
@@ -604,6 +604,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -781,12 +804,58 @@
   
   
     <li class="md-nav__item">
-      <a href="../engine/" class="md-nav__link">
+      <a href="../chart/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
     
   </span>
   
@@ -809,7 +878,7 @@
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -896,12 +965,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pauli_projector/" class="md-nav__link">
+      <a href="../hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -978,15 +1047,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.utils.traces" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;traces
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#geope.utils.check_xy_comb" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;check_xy_comb
@@ -999,15 +1059,6 @@
   <a href="#geope.utils.check_Heisenberg_comb" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;check_Heisenberg_comb
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.utils.check_2_local_comb" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;check_2_local_comb
     </span>
   </a>
   
@@ -1104,33 +1155,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.utils.construct_commuting_ansatz_matrix" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;construct_commuting_ansatz_matrix
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.utils.remove_solution_free_parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;remove_solution_free_parameters
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.utils.multikron" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;multikron
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#geope.utils.multicontrol_unitary" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;multicontrol_unitary
@@ -1143,15 +1167,6 @@
   <a href="#geope.utils.qft_unitary" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;qft_unitary
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.utils.golden_section_search_np" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;golden_section_search_np
     </span>
   </a>
   
@@ -1218,15 +1233,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.utils.traces" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;traces
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#geope.utils.check_xy_comb" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;check_xy_comb
@@ -1239,15 +1245,6 @@
   <a href="#geope.utils.check_Heisenberg_comb" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;check_Heisenberg_comb
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.utils.check_2_local_comb" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;check_2_local_comb
     </span>
   </a>
   
@@ -1344,33 +1341,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geope.utils.construct_commuting_ansatz_matrix" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;construct_commuting_ansatz_matrix
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.utils.remove_solution_free_parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;remove_solution_free_parameters
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.utils.multikron" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;multikron
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#geope.utils.multicontrol_unitary" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;multicontrol_unitary
@@ -1383,15 +1353,6 @@
   <a href="#geope.utils.qft_unitary" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;qft_unitary
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geope.utils.golden_section_search_np" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;golden_section_search_np
     </span>
   </a>
   
@@ -1503,96 +1464,6 @@
             <td>
               <div class="doc-md-description">
                 <p>A scalar trace <code>Array</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.utils.traces" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">traces</span><span class="p">(</span><span class="n">b_1</span><span class="p">,</span> <span class="n">b_2</span><span class="p">)</span></code>
-
-<a href="#geope.utils.traces" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Compute the trace inner-product Gram matrix between two basis sets.</p>
-<p>Returns a matrix <span class="arithmatex">\(G_{ij} = \mathrm{Tr}(B^{(1)}_i B^{(2)}_j)\)</span> for
-all pairs of basis elements.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>b_1</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>First basis tensor <code>np.ndarray</code> of shape <code>(K1, d, d)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>b_2</code>
-            </td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Second basis tensor <code>np.ndarray</code> of shape <code>(K2, d, d)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A complex <code>Array</code> of shape <code>(K1, K2)</code>.</p>
               </div>
             </td>
           </tr>
@@ -1755,89 +1626,6 @@ non-identity Pauli indices (XX, YY, ZZ).</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.utils.check_2_local_comb" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">check_2_local_comb</span><span class="p">(</span><span class="n">comb</span><span class="p">)</span></code>
-
-<a href="#geope.utils.check_2_local_comb" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Check whether a Pauli index combination is at most 2-local.</p>
-<p>Allows any term acting on at most two qubits.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>comb</code>
-            </td>
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Tuple of integers (0=I, 1=X, 2=Y, 3=Z).</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>True</code> if the combination involves at most two non-identity</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Pauli operators.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
 <h4 id="geope.utils.restriction_function" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">restriction_function</span><span class="p">(</span><span class="n">restriction</span><span class="p">)</span></code>
 
@@ -1893,7 +1681,7 @@ using characters <code>'x'</code>, <code>'y'</code>, <code>'z'</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="tuple">tuple</span>[<span title="int">int</span>, ...]], <span title="bool">bool</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="tuple">tuple</span>[<span title="int">int</span>, ...]], <span title="bool">bool</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1903,7 +1691,7 @@ using characters <code>'x'</code>, <code>'y'</code>, <code>'z'</code>.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="tuple">tuple</span>[<span title="int">int</span>, ...]], <span title="bool">bool</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="tuple">tuple</span>[<span title="int">int</span>, ...]], <span title="bool">bool</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1992,7 +1780,7 @@ lists of interaction label strings.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="tuple">tuple</span>[<span title="int">int</span>, ...]], <span title="bool">bool</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="tuple">tuple</span>[<span title="int">int</span>, ...]], <span title="bool">bool</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2002,7 +1790,7 @@ lists of interaction label strings.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="tuple">tuple</span>[<span title="int">int</span>, ...]], <span title="bool">bool</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="tuple">tuple</span>[<span title="int">int</span>, ...]], <span title="bool">bool</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2092,7 +1880,7 @@ labels.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2166,7 +1954,7 @@ form XX, YY, ZZ on any pair of qubits.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2239,7 +2027,7 @@ form XX, YY, ZZ on any pair of qubits.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2312,7 +2100,7 @@ form XX, YY, ZZ on any pair of qubits.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2510,7 +2298,7 @@ and momentum (<span class="arithmatex">\(p\)</span>) operators on each bosonic m
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2633,7 +2421,7 @@ a dictionary mapping qubit indices to interaction labels.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.lie.Basis" href="../lie/#geope.lie.Basis">Basis</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2653,7 +2441,7 @@ a dictionary mapping qubit indices to interaction labels.</p>
 
 
 <h4 id="geope.utils.prepare_random_parameters" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">prepare_random_parameters</span><span class="p">(</span><span class="n">proj_indices</span><span class="p">,</span> <span class="n">expander</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">Array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">key</span><span class="o">&lt;</span><span class="n">fry</span><span class="o">&gt;</span><span class="p">)</span> <span class="n">overlaying</span><span class="p">:</span><span class="p">[</span><span class="mi">0</span> <span class="mi">0</span><span class="p">])</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">prepare_random_parameters</span><span class="p">(</span><span class="n">proj_indices</span><span class="p">,</span> <span class="n">expander</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#geope.utils.prepare_random_parameters" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -2661,7 +2449,7 @@ a dictionary mapping qubit indices to interaction labels.</p>
     <div class="doc doc-contents first">
 
         <p>Generate a random parameter vector for the projected subspace.</p>
-<p>Samples uniform random values in <span class="arithmatex">\([-\text{spread}, \text{spread}]\)</span>
+<p>Samples uniform random values in <span class="arithmatex">\([-        ext{spread},    ext{spread}]\)</span>
 and optionally expands them through a constraint matrix.</p>
 
 
@@ -2730,7 +2518,7 @@ parameter positions.</p>
                 <code>key</code>
             </td>
             <td>
-                  <code><span title="jax.Array">Array</span></code>
+                  <code><span title="jax.Array">Array</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2738,8 +2526,7 @@ parameter positions.</p>
               </div>
             </td>
             <td>
-                  <code>Array((), dtype=key&lt;fry&gt;) overlaying:
-[0 0]</code>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -2772,258 +2559,6 @@ parameter positions.</p>
             <td>
               <div class="doc-md-description">
                 <p>with random values at projected positions and zeros elsewhere.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.utils.construct_commuting_ansatz_matrix" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">construct_commuting_ansatz_matrix</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">sols</span><span class="p">)</span></code>
-
-<a href="#geope.utils.construct_commuting_ansatz_matrix" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Construct the commuting-ansatz substitution matrix.</p>
-<p>Builds a matrix that encodes how free parameters map to the
-full parameter vector through the symbolic solutions.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>params</code>
-            </td>
-            <td>
-                  <code><span title="list">list</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>List of symbolic parameter names (or <code>0</code> / falsy
-for absent parameters).</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>sols</code>
-            </td>
-            <td>
-                  <code><span title="dict">dict</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Dictionary mapping dependent parameter names to
-symbolic expressions.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A square numpy array of shape <code>(len(params), len(params))</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.utils.remove_solution_free_parameters" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">remove_solution_free_parameters</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">sols</span><span class="p">)</span></code>
-
-<a href="#geope.utils.remove_solution_free_parameters" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Identify which parameters are free (not determined by solutions).</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>params</code>
-            </td>
-            <td>
-                  <code><span title="list">list</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>List of symbolic parameter names.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>sols</code>
-            </td>
-            <td>
-                  <code><span title="dict">dict</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Dictionary of solved dependent parameters.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="list">list</span>[<span title="int">int</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A list of 0s and 1s; <code>1</code> indicates a free parameter.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.utils.multikron" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">multikron</span><span class="p">(</span><span class="n">matrices</span><span class="p">)</span></code>
-
-<a href="#geope.utils.multikron" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Compute the Kronecker product of a list of matrices.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>matrices</code>
-            </td>
-            <td>
-                  <code><span title="list">list</span>[<span title="numpy.ndarray">ndarray</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>List of 2-D arrays.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The iterated Kronecker product.</p>
               </div>
             </td>
           </tr>
@@ -3193,150 +2728,6 @@ of a <span class="arithmatex">\(2^{n+1} \times 2^{n+1}\)</span> identity matrix,
       </tbody>
     </table>
 
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.utils.golden_section_search_np" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">golden_section_search_np</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-05</span><span class="p">)</span></code>
-
-<a href="#geope.utils.golden_section_search_np" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Golden-section search using NumPy.</p>
-<p>Finds the minimum of a unimodal function <code>f</code> on the interval
-<span class="arithmatex">\([a, b]\)</span> to within tolerance <code>tol</code>.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="float">float</span>], <span title="float">float</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Scalar-valued unimodal callable.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>a</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Left endpoint of the search interval.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>b</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Right endpoint of the search interval.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>tol</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Convergence tolerance. Defaults to 1e-5.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1e-05</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A tuple <code>(x_min, f_min)</code> of the approximate minimiser</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>and its function value.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<details class="example" open>
-  <summary>Example</summary>
-  <div class="highlight"><pre><span></span><code><span class="n">f</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
-<span class="n">x_min</span><span class="p">,</span> <span class="n">f_min</span> <span class="o">=</span> <span class="n">golden_section_search_np</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-</code></pre></div>
-</details>
-
-<details class="references" open>
-  <summary>References</summary>
-  <p><a href="https://en.wikipedia.org/wiki/Golden-section_search">Golden-section search</a></p>
-</details>
 
     </div>
 

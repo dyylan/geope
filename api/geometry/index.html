@@ -1,0 +1,5338 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The documentation for the GEOPE software library.">
+      
+      
+        <meta name="author" content="Dylan Lewis and Roeland Wiersema">
+      
+      
+        <link rel="canonical" href="https://dyylan.github.io/geope/api/geometry/">
+      
+      
+        <link rel="prev" href="../chart/">
+      
+      
+        <link rel="next" href="../manifolds/">
+      
+      
+      <link rel="icon" href="../../_static/geope_logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>geope.geometry - Geodesic Pulse Engineering (GEOPE)</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../assets/_hippogriffe.css">
+    
+      <link rel="stylesheet" href="../../_static/custom.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#geopegeometry" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Geodesic Pulse Engineering (GEOPE)" class="md-header__button md-logo" aria-label="Geodesic Pulse Engineering (GEOPE)" data-md-component="logo">
+      
+  <img src="../../_static/geope_logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Geodesic Pulse Engineering (GEOPE)
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              geope.geometry
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dyylan/geope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GEOPE
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user_guide/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/getting_started/" class="md-tabs__link">
+          
+  
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Geodesic Pulse Engineering (GEOPE)" class="md-nav__button md-logo" aria-label="Geodesic Pulse Engineering (GEOPE)" data-md-component="logo">
+      
+  <img src="../../_static/geope_logo.png" alt="logo">
+
+    </a>
+    Geodesic Pulse Engineering (GEOPE)
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dyylan/geope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GEOPE
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GEOPE
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    User Guide
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GEOPE – Geodesic Pulse Engineering
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting Started with GEOPE
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/pulse_smoothing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pulse Smoothing with GEOPE
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../parameters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.parameters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geope
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gecko/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.gecko
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.grape
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry.chart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#one-ambient-space-several-submanifolds" class="md-nav__link">
+    <span class="md-ellipsis">
+      One ambient space, several submanifolds
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ownership
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      The interface
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.manifold.Manifold" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Manifold
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-tangent-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      The tangent bundle
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The tangent bundle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.tangent.TangentBundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TangentBundle
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-cost-derivatives" class="md-nav__link">
+    <span class="md-ellipsis">
+      The cost derivatives
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The cost derivatives">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.cost.ambient_overlap" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;ambient_overlap
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.cost.trace_cost_gradient" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;trace_cost_gradient
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.cost.trace_cost_hessian_form" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;trace_cost_hessian_form
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-per-step-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      The per-step context
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The per-step context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.context.GeometricContext" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GeometricContext
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry.basis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dexpm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.jax.dexpm
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.jax.logm
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jacobian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.jax.jacobian
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hessian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.jax.hessian
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.utils
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#one-ambient-space-several-submanifolds" class="md-nav__link">
+    <span class="md-ellipsis">
+      One ambient space, several submanifolds
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ownership
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      The interface
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.manifold.Manifold" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Manifold
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-tangent-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      The tangent bundle
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The tangent bundle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.tangent.TangentBundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TangentBundle
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-cost-derivatives" class="md-nav__link">
+    <span class="md-ellipsis">
+      The cost derivatives
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The cost derivatives">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.cost.ambient_overlap" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;ambient_overlap
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.cost.trace_cost_gradient" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;trace_cost_gradient
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.cost.trace_cost_hessian_form" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;trace_cost_hessian_form
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-per-step-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      The per-step context
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The per-step context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.context.GeometricContext" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GeometricContext
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="geopegeometry">geope.geometry<a class="headerlink" href="#geopegeometry" title="Permanent link">¤</a></h1>
+<p>The geometry layer owns the space GEOPE walks, its tangent bundle, and every
+per-step geometric quantity the optimisers read.</p>
+<h2 id="one-ambient-space-several-submanifolds">One ambient space, several submanifolds<a class="headerlink" href="#one-ambient-space-several-submanifolds" title="Permanent link">¤</a></h2>
+<p>Every manifold in the library is a submanifold of one <strong>ambient space</strong>
+<span class="arithmatex">\(\mathcal A = \mathbb C^{N\times m}\)</span>, and each is the orbit of the same
+<span class="arithmatex">\(\mathrm U(N)\)</span> action through a different base point:</p>
+<table>
+<thead>
+<tr>
+<th>base point <span class="arithmatex">\(x_0\)</span></th>
+<th>the orbit through it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="arithmatex">\(\mathbb 1_N\)</span></td>
+<td><span class="arithmatex">\(\mathrm U(N)\)</span>, <span class="arithmatex">\(\mathrm{SU}(N)\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\((\mathbb 1_m;\,0)^\intercal\)</span></td>
+<td><span class="arithmatex">\(\mathrm{St}_m(\mathbb C^N)\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\lvert\psi_0\rangle\)</span></td>
+<td><span class="arithmatex">\(S^{2N-1} \to \mathbb{CP}^{N-1}\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>The pulse acts on all of <span class="arithmatex">\(\mathcal A\)</span> the same way, so everything <em>valued in</em>
+<span class="arithmatex">\(\mathcal A\)</span> is shared, and everything happening <em>inside a fibre</em>
+<span class="arithmatex">\(T_x\mathcal M\)</span> belongs to the submanifold. That single line is the layering:</p>
+<div class="highlight"><pre><span></span><code>ambient  A = C^{N×m}     Φ(φ) = U(φ)·x₀ ,  DΦ ,  D²Φ            chart.py
+                         the coefficient frame
+     │
+     │   to_tangent :  A → T_x M         &lt;- the only bridge
+     ▼
+submanifold  M ⊂ A       inner, coefficients, log,
+                         tangent_acceleration,
+                         hessian_quadratic_form, fidelity        Manifold hooks
+</code></pre></div>
+<h2 id="ownership">Ownership<a class="headerlink" href="#ownership" title="Permanent link">¤</a></h2>
+<div class="highlight"><pre><span></span><code>Manifold  --owns--&gt;  base_point     (x₀ = Φ(0): where the orbit starts)
+   |                 target         (the point being synthesised)
+   |                 compute_point  (the chart Φ: parameters -&gt; the manifold)
+   |
+   '-----owns--&gt;  TangentBundle --owns--&gt;  frame      (the ambient coefficient frame)
+                                          jacobian   (the pushforward DΦ)
+                                          vjp        (the pullback DΦᵀ)
+                                          hvp        (D²Φ along one direction)
+                                          hessian    (the dense D²Φ)
+</code></pre></div>
+<p>A manifold contributes only the point its orbit starts from; the pulse model
+supplies the rest. <code>Manifold.bind</code> composes the two and holds no mathematics of
+its own.</p>
+<p>Nothing above this layer knows what space it is optimising on: <code>Geope</code>, the line
+searches and <code>Gecko</code> speak only to the interface below. A manifold that is not a
+Lie group — no identity, no left translation, point-dependent tangent spaces —
+satisfies exactly the same contract; <code>geope.geometry.stiefel.sphere.StateSphere</code>
+is the worked example.</p>
+<h2 id="the-interface">The interface<a class="headerlink" href="#the-interface" title="Permanent link">¤</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="geope.geometry.manifold.Manifold" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.geometry.manifold.Manifold</code>
+
+
+<a href="#geope.geometry.manifold.Manifold" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>A Riemannian submanifold of the ambient space <span class="arithmatex">\(\mathcal A\)</span>.</p>
+<p>Constructed with only its dimensions this is the pure space, and its
+geometric primitives already work — <code>log</code>, <code>distance2</code>, <code>inner</code>, <code>norm2</code>,
+<code>fidelity</code>, <code>hessian_quadratic_form</code>. <code>bind</code> attaches the run's chart,
+coefficient frame and target, which is what a per-step <code>GeometricContext</code>
+needs. (<code>coefficients</code> is the one exception: a coordinate choice <em>is</em> problem
+data, so it needs the frame that <code>bind</code> brings.)</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.manifold.Manifold.base_point">base_point</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><span class="arithmatex">\(\Phi(0) \in \mathcal A\)</span> — the point the chart's orbit starts
+from, and the whole of what a manifold contributes to its own chart.
+<code>None</code> means the pulse propagator <em>is</em> the point, which is the case
+on any matrix Lie group; a homogeneous space supplies the state or
+frame the pulse drives. Unlike the other three this is part of the
+<em>space</em>, set at construction rather than by <code>bind</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.manifold.Manifold.target">target</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The target point; <code>None</code> when unbound.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.manifold.Manifold.compute_point">compute_point</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart <span class="arithmatex">\(\Phi\)</span>, <code>phi -&gt; point</code>; <code>None</code> when unbound.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.manifold.Manifold.tangent">tangent</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The <code>TangentBundle</code>; <code>None</code> when unbound.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <p>All four are keyword-only and defaulted, so a subclass can declare positional
+fields of its own.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.fidelity_at" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">fidelity_at</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.fidelity_at" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><code>phi -&gt;</code> the fidelity of the pulse <code>phi</code> against the target.</p>
+<p>Compiled and memoised rather than evaluated eagerly, because the
+host-side loops call it one trial pulse at a time: uncompiled, each
+call re-lowers the chart's <code>jax.lax.scan</code>, which cost ~100 ms per
+call on a 3-qubit, 20-step pulse and made <code>geope.Geope</code>'s
+Gram-Schmidt fallback more expensive than the whole geodesic step it
+was replacing.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.infidelity_at" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">infidelity_at</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.infidelity_at" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><code>phi -&gt;</code> the infidelity of the pulse <code>phi</code> — what GRAPE minimises.</p>
+<p>Compiled and memoised, for the same reason as <code>fidelity_at</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.value_and_grad_autodiff" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">value_and_grad_autodiff</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.value_and_grad_autodiff" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><code>phi -&gt; (infidelity, dinfidelity/dphi)</code> by reverse-mode autodiff.</p>
+<p>The reference the analytic path is checked against, and the fallback for a
+manifold that declines <code>cost_gradient</code>.</p>
+<p>Note that differentiating <code>infidelity_at</code> holomorphically with respect to
+a <code>complex128</code> array whose imaginary part is identically zero gives a
+gradient with a spurious imaginary part. <code>value_and_grad</code> does not.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.value_and_grad" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">value_and_grad</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.value_and_grad" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><code>phi -&gt; (infidelity, dinfidelity/dphi)</code> (used by GRAPE).</p>
+<p>Analytic when this manifold supplies <code>cost_gradient</code>: <strong>one</strong> pass over
+the pulse through <code>geope.geometry.tangent.TangentBundle.vjp</code>, which
+returns the point and a pullback sharing the gate exponentials and their
+partial products, then one ambient cost gradient through it,</p>
+<div class="arithmatex">\[\frac{\partial C}{\partial\phi_{g,k}}
+  = 2\,\mathrm{Re}\,\mathrm{Tr}\bigl(\hat G^\dagger\,\partial_{g,k}\Phi\bigr),\]</div>
+<p>which never forms the Jacobian. That the value comes back <em>with</em> the
+pullback is what keeps it to one pass: the covector <span class="arithmatex">\(\hat G\)</span> is a function
+of the point, so a separate <code>compute_point</code> call would re-exponentiate
+every gate. Falls back to <code>value_and_grad_autodiff</code> otherwise.</p>
+<p>The gradient is <strong>real by construction</strong> and returned in the parameter's
+own dtype, so it drops straight into <code>geope.optimizers</code> on the
+<code>complex128</code> pulse arrays <code>geope.parameters.Parameters.free</code> hands out.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.hessian_autodiff" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">hessian_autodiff</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.hessian_autodiff" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The infidelity Hessian <code>(P, P)</code> by forward-over-reverse HVPs.</p>
+<p>The reference the analytic path is checked against, and the fallback
+wherever the analytic one is unavailable — a manifold that declines
+<code>cost_hessian_form</code>, or the <code>param_transform</code> chart, which has no
+second differential to build one from.</p>
+<p>Carries the same spurious imaginary part as <code>value_and_grad_autodiff</code> on
+a <code>complex128</code> pulse whose imaginary part is identically zero — it
+differentiates the same holomorphic gradient. Its <strong>real part</strong> is right
+in every case, and it is exact on the <code>float64</code> pulses of the
+<code>param_transform</code> path where it is actually used. Compare against it on
+real input.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.hessian" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">hessian</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.hessian" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The infidelity Hessian <code>(P, P)</code> (used by GRAPE's Newton methods).</p>
+<p>Analytic when this manifold supplies <code>cost_hessian_form</code> <em>and</em> the chart
+has a second differential to offer
+(<code>geope.geometry.tangent.TangentBundle.hessian_vjp</code>). The assembly is the
+chain rule in two terms — the cost's own curvature and the chart's
+bending —</p>
+<div class="arithmatex">\[\partial_a\partial_b\,C(\Phi(\phi))
+  = \mathrm{Hess}_C[\mathrm D\Phi_a, \mathrm D\Phi_b]
+  + 2\,\mathrm{Re}\bigl\langle \hat G,\ \mathrm D^2\Phi_{ab}\bigr\rangle,\]</div>
+<p>the first from the hook and the second generic, since <span class="arithmatex">\(\hat G\)</span> is just
+<code>cost_gradient</code>. Falls back to <code>hessian_autodiff</code> otherwise.</p>
+<p><strong>The second term never forms <span class="arithmatex">\(\mathrm D^2\Phi\)</span></strong>: the pullback splits the
+pair table into a Gram matrix of two <span class="arithmatex">\(O(G)\)</span>-propagated derivative
+trajectories — see <code>geope.jax.hessian_vjp_propagator</code> — so a Newton step
+costs <span class="arithmatex">\(O(GKd^3 + G^2K^2md)\)</span> in flops and <span class="arithmatex">\(O(GKmd + (GK)^2)\)</span> in memory
+rather than the dense route's <span class="arithmatex">\(O(G^2K^2d^3)\)</span> and <span class="arithmatex">\(O(G^2K^2d^2)\)</span>. That the
+point comes back <em>with</em> the pullback keeps it to one pass over the pulse,
+exactly as in <code>value_and_grad</code>.</p>
+<p>The Jacobian is built only for the projective <span class="arithmatex">\(\zeta\)</span> term; a
+phase-sensitive cost's <code>cost_hessian_form</code> ignores its columns, and XLA
+eliminates the whole computation.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__abstractmethods__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__abstractmethods__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__abstractmethods__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>frozenset() -&gt; empty frozenset object
+frozenset(iterable) -&gt; frozenset object</p>
+<p>Build an immutable unordered collection of unique elements.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__annotations__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__annotations__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__annotations__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+    (key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+    d = {}
+    for k, v in iterable:
+        d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__dataclass_fields__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__dataclass_fields__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__dataclass_fields__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+    (key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+    d = {}
+    for k, v in iterable:
+        d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__dataclass_params__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__dataclass_params__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__dataclass_params__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__dict__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__doc__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__match_args__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__match_args__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__match_args__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Built-in immutable sequence.</p>
+<p>If no argument is given, the constructor returns an empty tuple.
+If iterable is specified the tuple is initialized from iterable's items.</p>
+<p>If the argument is a tuple, the return value is the same object.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__module__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__module__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.__weakref__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.ambient_ndim" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">ambient_ndim</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.ambient_ndim" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The number of array axes one point has.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.ambient_shape" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">ambient_shape</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.ambient_shape" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The shape of one point in the embedding space.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.has_cost_gradient" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">has_cost_gradient</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.has_cost_gradient" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Whether this manifold overrides <code>cost_gradient</code>.</p>
+<p>A host-side capability probe — an identity check on the bound method's
+function, so nothing is traced and no exception has to be caught inside a
+<code>jax.jit</code>. <code>value_and_grad</code> reads it to pick its path.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.has_cost_hessian_form" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">has_cost_hessian_form</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.has_cost_hessian_form" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Whether this manifold overrides <code>cost_hessian_form</code>. See <code>has_cost_gradient</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.is_bound" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">is_bound</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.is_bound" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Whether a chart, tangent bundle and target are attached.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.manifold.Manifold.manifold_dim" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">manifold_dim</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.manifold.Manifold.manifold_dim" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The intrinsic (real) dimension of the manifold.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.to_tangent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_tangent</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.to_tangent" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Map an ambient velocity at <code>point</code> into this manifold's tangent representation.</p>
+<p>The representation is whatever <code>inner</code>, <code>coefficients</code> and <code>log</code> all
+speak: left-trivialised algebra elements on a Lie group, ambient
+projections on a homogeneous space. Batches over leading axes.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>point</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The base point, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ambient</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Ambient velocities, shape <code>(..., *ambient_shape)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.inner" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">inner</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.inner" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The Riemannian metric <span class="arithmatex">\(\langle x, y\rangle_{\text{point}}\)</span>.</p>
+<p>Takes the base point because in general the metric depends on it (a
+bi-invariant group metric simply ignores it). Batches over leading axes.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.coefficients" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">coefficients</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">tangent</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.coefficients" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Linear coordinates for tangent vectors at <code>point</code>.</p>
+<p>Must be faithful and metric-consistent up to a fixed constant <span class="arithmatex">\(c &gt; 0\)</span>:
+<span class="arithmatex">\(\sum_k c_k(u)\,c_k(v) = c\,\langle u, v\rangle_{\text{point}}\)</span>. These are
+the coordinates the geodesic least-squares problem is posed in, so the
+constant cancels between its two operands.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.log" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.log" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\mathrm{Log}_x(y)\)</span>: the minimal-geodesic tangent <strong>at <span class="arithmatex">\(x\)</span></strong>, pointing to <span class="arithmatex">\(y\)</span>.</p>
+<p>Taking it at <span class="arithmatex">\(x\)</span> rather than at <span class="arithmatex">\(y\)</span> is what lets it be compared with a
+velocity at <span class="arithmatex">\(x\)</span>: on a general manifold <span class="arithmatex">\(T_x\)</span> and <span class="arithmatex">\(T_y\)</span> are unrelated
+spaces, and only a group's trivialisation makes the distinction vacuous.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The base point.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>y</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The end point.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>key</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional JAX key, for implementations whose logarithm is
+randomised (the unitary-specialised one is not).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.tangent_acceleration" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">tangent_acceleration</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.tangent_acceleration" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\dot\Omega(0)\)</span>: the derivative of the tangent representation along the chart.</p>
+<p>Given the ambient first and second directional derivatives <span class="arithmatex">\(V, W\)</span> of a
+curve through <code>point</code>, return
+<span class="arithmatex">\(\frac{\mathrm d}{\mathrm dt}\,\texttt{to\_tangent}(c(t), \dot c(t))\)</span> at
+<span class="arithmatex">\(t = 0\)</span>. This is the term that carries the <em>chart's</em> bending into the
+curvature of the objective, as distinct from the manifold's own curvature
+(<code>hessian_quadratic_form</code>). Finite-differencing <code>to_tangent</code> along the
+chart is the definitive check on an implementation.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.hessian_quadratic_form" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">hessian_quadratic_form</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">omega</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.hessian_quadratic_form" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\bigl(\langle\Omega,\mathcal K_A\Omega\rangle,\ \text{spread}\bigr)\)</span>.</p>
+<p>The intrinsic term of the second derivative of
+<span class="arithmatex">\(\tfrac12 d_g(\cdot, y)^2\)</span> along a curve with tangent <span class="arithmatex">\(\Omega\)</span>, where
+<span class="arithmatex">\(\mathcal K_A\)</span> is the Riemannian Hessian of the squared distance at
+<code>point</code>, plus a scalar diagnostic of how close <code>a</code> is to the cut
+locus. Must be exact for an arbitrary <span class="arithmatex">\(\Omega\)</span>, and must reduce to
+<span class="arithmatex">\(\lVert A\rVert^2\)</span> when <span class="arithmatex">\(\Omega = A\)</span> (the radial direction).</p>
+<p><strong><code>a</code> is the context's <span class="arithmatex">\(A = -\mathrm{Log}_x(y)\)</span></strong>, pointing <em>away</em> from
+the target, so an implementation that cares about the sign must negate
+it. Most do not — on a bi-invariant group and on the sphere the kernel is
+even in <span class="arithmatex">\(A\)</span> — but <code>geope.geometry.stiefel.stiefel.Stiefel</code> genuinely is
+not: <span class="arithmatex">\(-A\)</span> addresses the geodesic reflection of the target, which has a
+different Hessian. Do not read the group's evenness as the contract.</p>
+<p>A manifold may decline: raising <code>NotImplementedError</code> is the documented
+way to withdraw <code>GeometricContext.q_exact</code> and <code>GeometricContext.rho</code>
+(and with them <code>geope.line_searches.ApproximateQuadraticArmijo</code>) rather
+than return an inexact form, and <code>tests/test_manifolds.py</code> probes for the
+capability instead of assuming it.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.fidelity" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">fidelity</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.fidelity" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The convergence score between two points: <code>1</code> when they agree.</p>
+<p>The optimisers' stopping test and every logged trajectory read this, so
+it should be normalised to <span class="arithmatex">\(1\)</span> at the target whatever the manifold.
+"Fidelity" is GEOPE's name for that score; a manifold is free to define
+it however its geometry suggests.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.infidelity" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">infidelity</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.infidelity" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The cost the optimisers minimise: <code>0</code> when the two points agree.</p>
+<p>Declared separately from <code>fidelity</code> rather than derived from it as
+<code>1 - fidelity</code>: which cost a space is optimised against is the
+manifold's own business, and tying the two together here would impose a
+relation that only happens to hold for the trace fidelities.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.cost_gradient" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">cost_gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.cost_gradient" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\partial C/\partial\bar x\)</span>: the ambient gradient of <code>infidelity</code> at <code>x</code>.</p>
+<p>The Wirtinger derivative with respect to the <em>conjugate</em> point, so that
+the chain rule out of the ambient space reads</p>
+<div class="arithmatex">\[\frac{\partial\,C(\Phi(\phi))}{\partial\phi_a}
+  = 2\,\mathrm{Re}\bigl\langle \hat G,\ \mathrm D\Phi_a \bigr\rangle,
+  \qquad \hat G = \texttt{cost\_gradient}(x, y),\]</div>
+<p>which is what makes this — rather than the full Jacobian — the object a
+gradient is built from: contracted through
+<code>geope.geometry.tangent.TangentBundle.vjp</code> it costs one pullback, and no
+<span class="arithmatex">\((*\text{ambient}, G, K)\)</span> tensor is ever formed.</p>
+<p><strong>Declinable.</strong> The base implementation raises <code>NotImplementedError</code>,
+which withdraws the analytic <code>value_and_grad</code> in favour of autodiff — the
+same way <code>hessian_quadratic_form</code> may withdraw <code>GeometricContext.q_exact</code>.
+A manifold that declines still optimises; it just differentiates the slow
+way. Every manifold GEOPE ships implements it, in two lines, by
+delegating to <code>geope.geometry.cost.trace_cost_gradient</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The current point, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>y</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The target, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An <code>Array</code> of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotImplementedError">NotImplementedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If this manifold declines to supply one.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.cost_hessian_form" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">cost_hessian_form</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.cost_hessian_form" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The cost's <strong>own</strong> second-derivative form, <span class="arithmatex">\(\mathrm{Hess}_C[u_a, u_b]\)</span>.</p>
+<p>Only the term that comes from the curvature of <span class="arithmatex">\(C\)</span> in the ambient space.
+The other term — the <em>chart's</em> bending, <span class="arithmatex">\(2\,\mathrm{Re}\langle\hat G,
+\mathrm D^2\Phi_{ab}\rangle\)</span> — is the chain rule applied to <code>cost_gradient</code>
+and is assembled generically by <code>hessian</code>, so an implementation here must
+<strong>not</strong> include it. A cost that is affine in the point (any phase-sensitive
+trace fidelity) returns zeros.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The current point, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>y</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The target, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>u</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's Jacobian columns, of shape <code>(P, *ambient_shape)</code>
+with <code>P = G * K</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A real <code>Array</code> of shape <code>(P, P)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotImplementedError">NotImplementedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If this manifold declines to supply one, which
+withdraws the analytic <code>hessian</code> in favour of <code>hessian_autodiff</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.ambient_inner" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">ambient_inner</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.ambient_inner" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\mathrm{Re}\sum \bar x\,y\)</span> over the ambient axes — the metric of <span class="arithmatex">\(\mathcal A\)</span>.</p>
+<p>The default building block for <code>inner</code>, and correct as it stands for any
+manifold whose metric is the one <em>induced by the embedding</em> — which
+includes a bi-invariant group metric, where it is
+<span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(x^\dagger y)\)</span>, and the round metric on the
+state sphere. A manifold whose metric is <strong>not</strong> the ambient one must say
+so: <code>geope.geometry.stiefel.stiefel.Stiefel</code> carries the canonical metric
+<span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(x^\dagger W_Q y)\)</span> instead, which is what gives
+it different geodesics from the embedding's.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.norm2" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">norm2</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.norm2" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\lVert x\rVert^2_{\text{point}}\)</span>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.distance2" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">distance2</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.distance2" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Half the squared geodesic distance, <span class="arithmatex">\(\tfrac12 d_g(x, y)^2\)</span>.</p>
+<p>The objective the first- and second-order line searches minimise, and the
+quantity whose derivatives a <code>GeometricContext</code> reports. Costs one <code>log</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.bind" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">bind</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">generators</span><span class="p">,</span> <span class="n">frame</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">wrap_chart</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.bind" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Attach this problem's chart, coefficient frame and target.</p>
+<p>The seam between the two layers this package is built on, and it holds no
+mathematics of its own: <code>geope.geometry.chart</code> builds the ambient jet
+<span class="arithmatex">\((\Phi,\ \mathrm D\Phi,\ \mathrm D^2\Phi)\)</span> from <code>generators</code> and this
+manifold's <code>base_point</code>, and everything else here is assembly.</p>
+<p>Returns a <em>new</em> manifold — this one is frozen — so the unbound
+mathematical object stays reusable.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>target</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="numpy.ndarray">ndarray</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The point being synthesised, of shape <code>ambient_shape</code>, or
+<code>None</code> for a problem that names no target yet. The chart and
+the tangent bundle still attach, so the pulse stays computable
+and differentiable, but <code>is_bound</code> stays <code>False</code> and every
+target-dependent quantity raises.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>generators</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's generator sub-<code>geope.geometry.lie.Basis</code> —
+the proj+drift basis the pulse is expressed in.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>frame</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.basis.Basis" href="../lie/#geope.geometry.basis.Basis">Basis</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The <strong>ambient</strong> coefficient frame <code>coefficients</code> resolves a
+tangent vector against, if this manifold coordinatises through
+one. <code>None</code> is not a degraded mode: it is the right answer for
+a manifold whose fibre coordinates are a real/imaginary split of
+the ambient array (see
+<code>geope.geometry.stiefel.sphere.StateSphere</code>), and it means no
+projector is ever built.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>columns</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Boolean mask over the chart's coefficient columns selecting
+those the geodesic solve may move. <code>None</code> means every column.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>wrap_chart</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="collections.abc.Callable">Callable</span>], <span title="collections.abc.Callable">Callable</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An opaque <strong>reparametrisation of the chart's input</strong>, or
+<code>None</code>. Its presence is the single <code>param_transform</code> signal:
+it drops both second differentials (the HVP, and with it the
+curvature tier, and the dense chart Hessian), turns the first one
+into its autodiff form in both directions, and frees every
+column. The manifold never inspects it, which is what keeps
+<code>geope.parameters.Parameters</code> out of this layer.</p>
+<p>That it reparametrises the <em>input</em> is what lets it wrap the
+landed chart rather than the bare propagator:
+<span class="arithmatex">\(\mathrm{wrap}(\Phi)(\phi) = U(\tau(\phi))\,x_0\)</span> either way, so
+the base point never has to be threaded through it.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            geope.geometry.manifold.Manifold" href="#geope.geometry.manifold.Manifold">Manifold</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A bound <code>Manifold</code> of the same class.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If this manifold is already bound, or if <code>target</code> is
+not of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.validate_point" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">validate_point</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="s1">'point'</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.validate_point" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Raise if <code>point</code> does not lie on this manifold.</p>
+<p>The <em>membership</em> check — unitarity for a matrix group, unit norm on the
+sphere — as opposed to the shape check <code>bind</code> does.</p>
+<p><strong>Host-side only, and deliberately numpy.</strong> Membership of the target is a
+<em>configuration-time</em> question — <code>Parameters.__init__</code> calls this once,
+before the chart exists, so that a bad target fails at construction
+rather than as a plausible-looking fidelity. Keeping it numpy is what
+makes the alternative unmakeable: inside a <code>jax.jit</code> even
+<code>jnp.asarray(numpy_array)</code> yields a tracer, so a jnp-based membership
+check raises <code>ConcretizationTypeError</code> instead of validating. That is
+the trap that killed <code>validate_basis</code>; keep membership checks
+host-side and numpy.</p>
+<p>The base implementation accepts everything, so a manifold that cannot
+cheaply decide membership simply does not override it.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>point</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The candidate point, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>what</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the offending argument, used in the error message.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;point&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>point</code> is not on the manifold.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.context" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.context" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Open a <code>GeometricContext</code> at the pulse <code>free_params</code>.</p>
+<p>Cheap: every quantity on the returned context is lazy, so this on its own
+evaluates nothing. Build one per optimisation step, <em>inside</em> the jitted
+update — see <code>GeometricContext</code> for why it must not leave that trace.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.__delattr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__delattr__</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.__delattr__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.__init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">base_point</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">compute_point</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tangent</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.__init__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.__repr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__repr__</span><span class="p">()</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.__repr__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.manifold.Manifold.__setattr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__setattr__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.manifold.Manifold.__setattr__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="the-tangent-bundle">The tangent bundle<a class="headerlink" href="#the-tangent-bundle" title="Permanent link">¤</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="geope.geometry.tangent.TangentBundle" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.geometry.tangent.TangentBundle</code>
+
+
+<a href="#geope.geometry.tangent.TangentBundle" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>The fibre coordinates and the chart's differentials.</p>
+<p><strong>Data, not operations.</strong> The metric and the coefficient map are the
+<code>geope.geometry.manifold.Manifold</code>'s, because in general both depend on the
+base point; what is left here is what a chart and a coordinate choice are
+<em>made of</em>.</p>
+<p>The two <code>geope.geometry.lie.Basis</code> fields play different roles and are
+different sizes. <code>frame</code> is the <strong>ambient coefficient frame</strong>: the basis a
+manifold's <code>Manifold.coefficients</code> resolves a tangent vector against, i.e.
+<code>params.basis</code>. <code>generators</code> is the chart's own, smaller sub-basis (the
+proj+drift one), from which <code>jacobian</code> and <code>hvp</code> are built. Both are
+optional, and for unrelated reasons — see each below.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.tangent.TangentBundle.frame">frame</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The ambient coefficient frame, or <code>None</code>. <code>None</code> is not a
+degraded mode: it is the right answer for a manifold whose fibre
+coordinates are a real/imaginary split of the ambient array rather
+than a resolution against a matrix frame — which is both Stiefel
+manifolds, and which is also <em>cheaper</em>, <span class="arithmatex">\(2Nm\)</span> coefficients against a
+matrix frame's <span class="arithmatex">\(d^2\)</span>. It means no projector is ever built. The
+projector itself, and the &gt;5-qubit on-the-fly switch, belong to the
+manifold that reads this (see
+<code>geope.geometry.lie.groups.MatrixLieGroup</code>), because which frame is
+needed is a property of its <code>Manifold.coefficients</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.tangent.TangentBundle.jacobian">jacobian</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The pushforward of the chart, <code>phi -&gt; dPoint/dphi</code>, of shape
+<code>(*ambient_shape, G, K_free)</code>. <code>None</code> when unbound.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.tangent.TangentBundle.vjp">vjp</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's value and <em>pullback</em>, <code>phi -&gt; (point, pullback)</code>,
+where <code>pullback(C) -&gt; (G, K_free)</code> is the complex
+<span class="arithmatex">\(\\mathrm{Tr}(C^\\dagger\\,\\partial\\Phi)\)</span> for an ambient covector <code>C</code>
+of shape <code>ambient_shape</code>. The same differential as <code>jacobian</code>
+read in the other direction, and the one an objective's gradient
+actually needs — it never forms the Jacobian, so it costs
+<span class="arithmatex">\(O(G(d^3 + d^2K))\)</span> against <span class="arithmatex">\(O(G d^3 K)\)</span>.</p>
+<p>The <code>jax.vjp</code> shape is deliberate: the covector a cost hands back
+depends on the point, so value and pullback cannot be one call, and
+returning them together is what lets them <strong>share</strong> the gate
+exponentials instead of computing them twice. Present whenever
+<code>jacobian</code> is, analytic when <code>generators</code> are set and autodiff
+otherwise, so a gradient needs no branch. <code>None</code> when unbound.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.tangent.TangentBundle.hvp">hvp</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's second differential <code>(phi, p) -&gt; (point, V, W)</code> with
+<span class="arithmatex">\(V = \\mathrm D\\Phi_\\phi[p]\)</span> and <span class="arithmatex">\(W = \\mathrm D^2\\Phi_\\phi[p, p]\)</span>, built by
+<code>Manifold.bind</code>. <code>None</code> disables the curvature tier of a
+<code>GeometricContext</code> and nothing else.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.tangent.TangentBundle.hessian_vjp">hessian_vjp</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's second differential <em>pulled back</em>,
+<code>phi -&gt; (point, pullback)</code> with
+<code>pullback(C) -&gt; (G, K_free, G, K_free)</code> the complex
+<span class="arithmatex">\(\\mathrm{Tr}(C^\\dagger\\,\\partial^2\\Phi)\)</span> for an ambient covector
+<code>C</code> — every pair, where <code>hvp</code> takes one direction. The same
+<code>jax.vjp</code> shape as <code>vjp</code>, for the same reason. It never forms the
+dense <span class="arithmatex">\(\\mathrm D^2\\Phi\)</span>: two <span class="arithmatex">\(O(G)\)</span>-propagated derivative
+trajectories and one Gram matrix, <span class="arithmatex">\(O(GKmd + (GK)^2)\)</span> of memory against
+the dense route's <span class="arithmatex">\(O(G^2K^2d^2)\)</span>. <code>None</code> disables the analytic
+objective Hessian and nothing else.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.tangent.TangentBundle.generators">generators</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's generator sub-basis, present exactly when the
+chart is a plain product of exponentials in it. <code>None</code> under
+<code>param_transform</code>, which is the single signal that disables both
+second differentials (<code>hvp</code>, and with it every curvature quantity,
+and <code>hessian</code>) and turns <code>vjp</code> into its autodiff form.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.tangent.TangentBundle.columns">columns</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Boolean mask over the chart's coefficient columns selecting the
+ones the geodesic solve may move. <code>None</code> means "every column is
+free", which is what makes both <code>restrict</code> and <code>embed</code> no-ops under
+<code>param_transform</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__annotations__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__annotations__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.tangent.TangentBundle.__annotations__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+    (key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+    d = {}
+    for k, v in iterable:
+        d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__dataclass_fields__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__dataclass_fields__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.tangent.TangentBundle.__dataclass_fields__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+    (key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+    d = {}
+    for k, v in iterable:
+        d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__dataclass_params__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__dataclass_params__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.tangent.TangentBundle.__dataclass_params__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__dict__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.tangent.TangentBundle.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__doc__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.tangent.TangentBundle.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__match_args__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__match_args__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.tangent.TangentBundle.__match_args__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Built-in immutable sequence.</p>
+<p>If no argument is given, the constructor returns an empty tuple.
+If iterable is specified the tuple is initialized from iterable's items.</p>
+<p>If the argument is a tuple, the return value is the same object.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__module__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.tangent.TangentBundle.__module__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__weakref__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.tangent.TangentBundle.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__post_init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">__post_init__</span><span class="p">()</span></code>
+
+<a href="#geope.geometry.tangent.TangentBundle.__post_init__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The one co-invariant: the second differentials exist exactly when the generators do.</p>
+<p>Both <em>are</em> propagator recursions in those generators, so a chart built
+from them has both and a <code>param_transform</code> chart has neither. The first
+differential is not part of this: <code>jacobian</code> and <code>vjp</code> are always
+present, autodiff-flavoured when the structure is missing.
+<code>Manifold.bind</code> sets the group in one branch, but this is reachable — the
+tests build bundles directly — so it keeps a hand-built one honest.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.restrict" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">restrict</span><span class="p">(</span><span class="n">coefficients</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.tangent.TangentBundle.restrict" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Keep only the solvable coefficient columns (<code>columns</code>).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>coefficients</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>Array</code> of shape <code>(G, K_free, K)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(G, K_solvable, K)</code>, or the input unchanged when <code>columns</code> is</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>None</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.embed" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">embed</span><span class="p">(</span><span class="n">solution</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.tangent.TangentBundle.embed" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Scatter a solved direction back over every chart column — <code>restrict</code>'s inverse.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>solution</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>Array</code> of shape <code>(G, K_solvable)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(G, K_free)</code> with zeros outside <code>columns</code>, or the input</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>unchanged when <code>columns</code> is <code>None</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__delattr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__delattr__</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.tangent.TangentBundle.__delattr__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">frame</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">jacobian</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vjp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hvp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hessian_vjp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">generators</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.tangent.TangentBundle.__init__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__repr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__repr__</span><span class="p">()</span></code>
+
+<a href="#geope.geometry.tangent.TangentBundle.__repr__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.tangent.TangentBundle.__setattr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__setattr__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.tangent.TangentBundle.__setattr__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="the-cost-derivatives">The cost derivatives<a class="headerlink" href="#the-cost-derivatives" title="Permanent link">¤</a></h2>
+<p>What <code>Manifold.cost_gradient</code> and <code>Manifold.cost_hessian_form</code> delegate to on
+every manifold in the library — and, through them, what the objective's gradient
+and Hessian are built from. A <em>shared implementation</em>, not part of the interface:
+a manifold whose cost is not a function of the ambient overlap declines the hooks
+and gets autodiff instead.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.cost.ambient_overlap" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cost</span><span class="o">.</span><span class="n">ambient_overlap</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">ambient_ndim</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.cost.ambient_overlap" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p><span class="arithmatex">\(z = \sum \bar y\,x\)</span>, contracted over the trailing <code>ambient_ndim</code> axes.</p>
+<p>The Hermitian inner product every trace cost is a function of, batched over
+any leading axes so a stack of Jacobian columns resolves in one call.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The point, or a batch of ambient vectors, of shape
+<code>(..., *ambient_shape)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>y</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The target, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ambient_ndim</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How many trailing axes one ambient point has.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A complex <code>Array</code> of the leading batch shape.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.cost.trace_cost_gradient" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cost</span><span class="o">.</span><span class="n">trace_cost_gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">ambient_ndim</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">projective</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.cost.trace_cost_gradient" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p><span class="arithmatex">\(\partial C/\partial\bar x\)</span>: the ambient Wirtinger gradient of the infidelity.</p>
+<p>For a real-valued <span class="arithmatex">\(C\)</span> of a complex point, the chain rule out of the ambient
+space reads <span class="arithmatex">\(\partial_a C = 2\,\mathrm{Re}\langle \hat G, \partial_a x\rangle\)</span>
+with <span class="arithmatex">\(\hat G = \partial C/\partial\bar x\)</span>, which is what makes this — and not
+the full Jacobian — the object a gradient needs. With
+<span class="arithmatex">\(z = \langle y, x\rangle\)</span>,</p>
+<div class="arithmatex">\[\hat G = -\frac{y}{2\kappa}\quad\text{(phase-sensitive)},\qquad
+  \hat G = -\frac{z\,y}{2\kappa\lvert z\rvert}\quad\text{(projective)}.\]</div>
+<p>The projective form is singular at <span class="arithmatex">\(z = 0\)</span> — the near-identity /
+traceless-target gotcha the autodiff gradient has too, documented in
+<code>docs/user_guide.md</code>. It is guarded here only against a hard <code>nan</code>: at
+exactly <span class="arithmatex">\(z = 0\)</span> the phase factor is taken to be <span class="arithmatex">\(1\)</span>, which is as arbitrary as
+the geometry is there.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The current point, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>y</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The target, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ambient_ndim</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How many axes one ambient point has.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>scale</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cost's normalisation <span class="arithmatex">\(\kappa\)</span>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>projective</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether the cost quotients out a global phase.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An <code>Array</code> of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.cost.trace_cost_hessian_form" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cost</span><span class="o">.</span><span class="n">trace_cost_hessian_form</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">ambient_ndim</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">projective</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.cost.trace_cost_hessian_form" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>The intrinsic second-derivative form <span class="arithmatex">\(\mathrm{Hess}_C[u_a, u_b]\)</span> of the cost.</p>
+<p>The part of <span class="arithmatex">\(\partial_a\partial_b\,C(\Phi(\phi))\)</span> that comes from the <em>cost's</em>
+curvature in the ambient space, as opposed to the chart's bending — the caller
+adds <span class="arithmatex">\(2\,\mathrm{Re}\langle\hat G, \mathrm D^2\Phi_{ab}\rangle\)</span> for that.</p>
+<p>A phase-sensitive cost is affine in the point, so its form <strong>vanishes
+identically</strong>. The projective one factors entirely through the scalars
+<span class="arithmatex">\(\zeta_a = \langle y, u_a\rangle\)</span>: writing <span class="arithmatex">\(r = \lvert z\rvert\)</span>,</p>
+<div class="arithmatex">\[\mathrm{Hess}_C[u_a, u_b] = -\frac1\kappa\left[
+    \frac{\mathrm{Re}(\bar\zeta_a\zeta_b) + \mathrm{Re}(\bar z\,\eta_{ab})}{r}
+    - \frac{\mathrm{Re}(\bar z\zeta_a)\,\mathrm{Re}(\bar z\zeta_b)}{r^3}\right]\]</div>
+<p>where the <span class="arithmatex">\(\eta_{ab}\)</span> term is the chart's, supplied by the caller. Only the
+<span class="arithmatex">\(\zeta\)</span>-dependent terms are returned here, so the whole <span class="arithmatex">\(P\times P\)</span> form comes
+from <span class="arithmatex">\(P\)</span> scalars: rank-structured, and never a <span class="arithmatex">\(P^2\)</span>-sized ambient object.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The current point, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>y</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The target, of shape <code>ambient_shape</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>u</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's Jacobian columns, of shape <code>(P, *ambient_shape)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ambient_ndim</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How many axes one ambient point has.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>scale</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cost's normalisation <span class="arithmatex">\(\kappa\)</span>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>projective</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether the cost quotients out a global phase.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A real <code>Array</code> of shape <code>(P, P)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div><h2 id="the-per-step-context">The per-step context<a class="headerlink" href="#the-per-step-context" title="Permanent link">¤</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="geope.geometry.context.GeometricContext" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>geope.geometry.context.GeometricContext</code>
+
+
+<a href="#geope.geometry.context.GeometricContext" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Every per-step geometric quantity, derived lazily in cost tiers.</p>
+<p>Built by <code>Manifold.context</code> once per optimisation step, <strong>inside</strong> the jitted
+update. Every quantity is a <code>cached_property</code>, tier 0 included, so the tiers
+are a description of what a given consumer <em>pays</em>, not of what is computed:
+<code>Gecko</code> reads only <code>omegas</code> and therefore never traces the matrix logarithm.</p>
+<table>
+<thead>
+<tr>
+<th>tier</th>
+<th>quantities</th>
+<th>cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0</strong> base point</td>
+<td><code>point</code>, <code>jacobian</code>, <code>A</code>, <code>A_norm2</code>, <code>F0</code>, <code>gammas</code>, <code>omegas</code>, <code>infidelity</code>, <code>fidelity</code></td>
+<td>one propagator, one Jacobian, one logarithm</td>
+</tr>
+<tr>
+<td><strong>0′</strong> the cost</td>
+<td><code>value_and_grad</code>, <code>gradient</code></td>
+<td>one pullback pass</td>
+</tr>
+<tr>
+<td><strong>1</strong> direction</td>
+<td><code>V</code>, <code>Omega</code>, <code>omega_norm2</code>, <code>velocity</code>, <code>xi_rel</code>, <code>slope</code></td>
+<td>free: one contraction of tier 0's Jacobian</td>
+</tr>
+<tr>
+<td><strong>2</strong> curvature</td>
+<td><code>W</code>, <code>acceleration</code>, <code>chi</code>, <code>q</code>, <code>q_exact</code>, <code>rho</code>, <code>cost_hessian</code></td>
+<td>one directional HVP plus the manifold's Riemannian Hessian</td>
+</tr>
+<tr>
+<td><strong>3</strong> ray</td>
+<td><code>point_at</code>, <code>infidelity_at</code>, <code>fidelity_at</code>, <code>distance_at</code></td>
+<td>one propagator per trial point</td>
+</tr>
+</tbody>
+</table>
+<p>Only tiers 0 and 0′ are direction-free. Tiers 1–3 need the search direction,
+tier 3 because the ray <em>is</em> <code>free_params + t * coeffs</code>; it arrives through
+<code>set_direction</code> after the least-squares solve (which needs this context's own
+<code>gammas</code> and <code>omegas</code>), and may be set <strong>once</strong>. That single rule replaces any
+list of what to invalidate: every direction-dependent property raises while
+<code>coeffs</code> is <code>None</code>, and a raising <code>cached_property</code> memoises nothing, so no
+value computed for one direction can survive into another.</p>
+<p>Tier 2 additionally needs <code>TangentBundle.hvp</code>, which is <code>None</code> under
+<code>param_transform</code>; tiers 0, 0′, 1 and 3 work there, and so does
+<code>cost_hessian</code>, which falls back to autodiff.</p>
+<p><strong>Tier 0′ is a second route to the same base point, not an extension of tier
+0.</strong> <code>geope.Grape</code> walks the infidelity's own gradient rather than a geodesic,
+so it reads <code>value_and_grad</code> — one <code>TangentBundle.vjp</code> pass that returns the
+point and a pullback sharing the gate exponentials — and must read <em>nothing</em>
+from tier 0: <code>point</code>, <code>infidelity</code> and <code>fidelity</code> would each re-exponentiate
+the whole pulse, and <code>A</code> would drag in the matrix logarithm it has no use for.
+Conversely <code>infidelity</code> is deliberately <strong>not</strong> re-expressed through
+<code>value_and_grad</code>, which would make a <code>Geope</code> step compute a gradient it never
+reads. The two tiers are alternatives; a consumer picks one. This is the same
+laziness discipline <code>Gecko</code> relies on by reading only <code>omegas</code>.</p>
+<p><strong>The context is trace-time only.</strong> Never register it as a pytree, return it
+from a jitted function, or put it in a <code>scan</code>/<code>while_loop</code> carry: its memo
+is valid only inside the trace that built it. A property must also be first
+read <em>outside</em> any <code>lax</code> control flow you intend to read it from.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.context.GeometricContext.manifold">manifold</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The bound <code>Manifold</code> this context is opened on.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.context.GeometricContext.free_params">free_params</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The pulse <span class="arithmatex">\(\phi\)</span> at the base point, shape <code>(G, K_free)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.point" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">point</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.point" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The pulse's point on the manifold, <span class="arithmatex">\(\Phi(\phi)\)</span>. One propagator.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.jacobian" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">jacobian</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.jacobian" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\partial\Phi/\partial\phi\)</span>, shape <code>(*ambient, G, K_free)</code>. One Jacobian.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.A" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">A</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.A" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The geodesic tangent <span class="arithmatex">\(A = -\mathrm{Log}_U(V)\)</span>. <strong>The only logarithm.</strong></p>
+<p>The minimal-geodesic tangent <strong>at the base point</strong>, negated so that it
+points <em>away</em> from the target: the slope <code>velocity</code> is then positive at a descent
+direction and the line-search bracket is <span class="arithmatex">\([-t_{\max}, 0]\)</span>.</p>
+<p>Taking it at <span class="arithmatex">\(U\)</span> rather than at the target is what makes it comparable
+with <code>Omega</code> on a general manifold — <span class="arithmatex">\(T_U\)</span> and <span class="arithmatex">\(T_V\)</span> are unrelated spaces
+unless a group's trivialisation identifies them.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.A_norm2" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">A_norm2</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.A_norm2" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\lVert A\rVert_F^2 = 2 F_0\)</span>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.F0" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">F0</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.F0" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The squared-geodesic-distance objective <span class="arithmatex">\(F_0 = \tfrac12\lVert A\rVert_F^2\)</span>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.gammas" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">gammas</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.gammas" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The geodesic tangent's coefficients — the least-squares target.</p>
+<p><span class="arithmatex">\(\gamma = \mathrm{coeff}(A)\)</span>, in whatever linear coordinates the manifold
+puts on <span class="arithmatex">\(T_U\)</span>. <code>omegas</code> goes through the same map, so the arbitrary
+constant in <code>Manifold.coefficients</code> cancels between the two operands and
+the solve is the metric-orthogonal projection it is defined to be.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.omegas" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">omegas</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.omegas" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The left-trivialised Jacobian's coefficients — the least-squares matrix.</p>
+<p><span class="arithmatex">\(\omega_{g,k} = \mathrm{coeff}\bigl(\texttt{to\_tangent}(U, \partial_{g,k}U)\bigr)\)</span>,
+restricted to the solvable columns. Shape <code>(G, K_solvable, K)</code>.</p>
+<p><strong>Resolved as one flat batch of <span class="arithmatex">\(G\,K_{\text{free}}\)</span> tangents, not gate by
+gate.</strong> <code>Manifold.coefficients</code> is already batched over leading axes — on a
+group it is one einsum against the frame and does not even read <code>point</code> —
+so a Python loop over gates buys nothing and costs a great deal: it unrolls
+at trace time into <span class="arithmatex">\(G\)</span> separate call sites, making the jaxpr, and with it
+the compile time, grow linearly in the pulse length. Measured on a
+one-qubit chart at <span class="arithmatex">\(G = 2000\)</span> that was 14334 equations and 21.7 s to
+compile, against 206 equations and 0.36 s here, with bit-identical output.
+Worse at run time: the <span class="arithmatex">\(G\)</span> call sites are <span class="arithmatex">\(G\)</span> separate consumers of the
+gate chain, which XLA is free to rematerialise per consumer rather than
+keep, so the projection went quadratic in <span class="arithmatex">\(G\)</span> — <span class="arithmatex">\(O(G^{1.8})\)</span> measured,
+and 17× slower than this at <span class="arithmatex">\(G = 1000\)</span> once the gates were cheap enough
+for rematerialisation to look attractive.</p>
+<p>The loop it replaces was there to keep the on-the-fly Pauli projector's
+batch small above 5 qubits (<code>geope.geometry.basis.get_project_omegas_fn_otf</code>
+vmaps over the input batch <em>and</em> over all <span class="arithmatex">\(4^n-1\)</span> Pauli strings, so its
+working set goes as the product). That projector now sees a batch of
+<span class="arithmatex">\(G\,K_{\text{free}}\)</span> rather than <span class="arithmatex">\(K_{\text{free}}\)</span>, which is the one thing
+this trades away: if it runs out of memory on a large system, its
+<code>batch_size</code> argument — which scans over the combinations instead of
+vmapping them — is the knob, and it is the right place to spend the
+memory rather than here.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.infidelity" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">infidelity</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.infidelity" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The infidelity at the base point. Free, given <code>point</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.fidelity" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">fidelity</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.fidelity" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The fidelity at the base point. Free, given <code>point</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.value_and_grad" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">value_and_grad</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.value_and_grad" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><code>(infidelity, \partial C/\partial\phi)</code> at the base point.</p>
+<p>One <code>Manifold.value_and_grad</code> call: a single <code>TangentBundle.vjp</code> pass that
+returns the point together with a pullback sharing the gate exponentials,
+then one ambient cost gradient through it — the Jacobian is never formed.</p>
+<p>The first element equals <code>infidelity</code>, by a different route. <strong>Read one or
+the other, never both</strong>: <code>infidelity</code> goes through <code>point</code>, so asking for
+it as well re-exponentiates the whole pulse. See the class docstring.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.gradient" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">gradient</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.gradient" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\partial C/\partial\phi\)</span>, shape <code>(G, K_free)</code>. Free, given <code>value_and_grad</code>.</p>
+<p>Real by construction on the analytic path, though carried in the pulse's
+own dtype — <code>geope.optimizers</code> takes its real part before accumulating any
+moments, because the autodiff fallback is <em>not</em> real.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.V" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">V</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.V" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The ambient velocity <span class="arithmatex">\(V = \mathrm D\Phi_\phi[p]\)</span>.</p>
+<p>A contraction of tier 0's Jacobian, so it costs nothing beyond it — which
+is what makes the slope available even where the HVP is not.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.Omega" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">Omega</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.Omega" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The velocity in the manifold's tangent representation, <span class="arithmatex">\(\Omega\)</span>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.omega_norm2" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">omega_norm2</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.omega_norm2" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p><span class="arithmatex">\(\lVert\Omega\rVert_F^2\)</span>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.velocity" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">velocity</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.velocity" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The slope <span class="arithmatex">\(\psi'(0) = \langle A, \Omega\rangle_F\)</span> of <code>distance_at</code></p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.xi_rel" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">xi_rel</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.xi_rel" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The relative tangent-matching error: <span class="arithmatex">\(\sin\angle(\Omega, A)\)</span>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.slope" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">slope</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.slope" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The slope <span class="arithmatex">\(\langle\nabla C, p\rangle\)</span> of <code>infidelity_at</code> at <span class="arithmatex">\(t = 0\)</span>.</p>
+<p>The infidelity's counterpart to <code>velocity</code>, which is the slope of
+<code>distance_at</code> — the two objectives have different derivatives and a
+consumer must not substitute one for the other. Free once <code>gradient</code>
+exists: one contraction, no propagator. Tier 1 for exactly the reason
+<code>velocity</code> is, and with the same consequence: it survives under
+<code>param_transform</code>, where the curvature does not.</p>
+<p>The flat parameter-space pairing, <strong>not</strong> <code>Manifold.inner</code> — <code>gradient</code> is
+a covector in the same coordinates as <code>coeffs</code>, not a tangent vector.</p>
+<p><strong>Positive at a descent direction</strong>, matching <code>velocity</code>: <code>geope.Grape</code>
+speaks GEOPE's convention, so <code>coeffs</code> points <em>uphill</em> and the accepted
+step is negative. That is what an Armijo test needs (<span class="arithmatex">\(t\,s &lt; 0\)</span>), and it is
+why <code>geope.line_searches._armijo_line_search</code> serves both objectives
+unchanged.</p>
+<p>Both operands are real-valued but carried in the pulse's dtype, so the real
+parts are taken explicitly rather than relying on a complex inner product.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.W" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">W</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.W" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The ambient acceleration <span class="arithmatex">\(W = \mathrm D^2\Phi_\phi[p, p]\)</span>. One HVP.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.acceleration" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">acceleration</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.acceleration" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The extrinsic term <span class="arithmatex">\(\langle A, V^\dagger V + U^\dagger W\rangle_F\)</span>.</p>
+<p>The part of the curvature that comes from the chart bending, as opposed
+to the manifold's own curvature.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.chi" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">chi</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.chi" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The dimensionless radial bending coefficient
+<span class="arithmatex">\(\chi_\phi = \mathrm{accel}/\lVert\Omega\rVert_F^2\)</span>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.q" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">q</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.q" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The curvature <span class="arithmatex">\(\psi''(0)\)</span> with the <strong>radial surrogate</strong>
+<span class="arithmatex">\(\lVert\Omega\rVert_F^2\)</span> for the intrinsic term.</p>
+<p>Exact only when <span class="arithmatex">\(\Omega\parallel A\)</span>, i.e. when the geodesic direction is
+exactly reachable (<code>xi_rel</code> <code>== 0</code>). See <code>q_exact</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.q_exact" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">q_exact</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.q_exact" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The curvature <span class="arithmatex">\(\psi''(0)\)</span> with the <strong>exact</strong> intrinsic term
+<span class="arithmatex">\(\langle\Omega,\mathcal K_A\Omega\rangle_F\)</span>.</p>
+<p>Since <span class="arithmatex">\(\mathcal K_A\preceq I\)</span>, <code>q_exact &lt;= q</code> always, with equality iff
+<code>xi_rel</code> vanishes.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.rho" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">rho</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.rho" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The eigenphase spread <span class="arithmatex">\(\rho = \Delta(A)\)</span>.</p>
+<p>Below <span class="arithmatex">\(\pi\)</span> the intrinsic Hessian is positive definite; <span class="arithmatex">\(2\pi\)</span> is the cut
+locus, where the minimal geodesic stops being unique.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.cost_hessian" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">cost_hessian</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.cost_hessian" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The dense infidelity Hessian <span class="arithmatex">\(\partial^2 C/\partial\phi^2\)</span>, shape <code>(P, P)</code>.</p>
+<p><code>P = free_params.size</code>, flattened row-major over <code>(gate, coefficient)</code>
+so it pairs with <code>gradient.flatten()</code> — which is what <code>geope.Grape</code>'s
+Newton methods solve against.</p>
+<p>Named apart from <code>TangentBundle.hessian_vjp</code>, which is the <em>chart's</em>
+<span class="arithmatex">\(\mathrm D^2\Phi\)</span>; this is the objective's. Unlike <code>W</code> it needs no
+direction and no <code>_require_curvature</code> guard: <code>Manifold.hessian</code> falls back
+to autodiff when the chart has no second differential, so it works under
+<code>param_transform</code> too. Dense in the parameters — <span class="arithmatex">\((P, P)\)</span> — but assembled
+without ever forming <span class="arithmatex">\(\mathrm D^2\Phi\)</span>; see <code>Manifold.hessian</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.__dict__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.__dict__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.__doc__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__doc__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.__doc__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.__module__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__module__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.__module__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.__weakref__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__weakref__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.__weakref__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.coeffs" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">coeffs</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.coeffs" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The search direction, or <code>None</code> before <code>set_direction</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.tangent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">tangent</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.tangent" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The manifold's <code>TangentBundle</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.context.GeometricContext.target" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">target</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.context.GeometricContext.target" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The target point being synthesised.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.context.GeometricContext.__init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">manifold</span><span class="p">,</span> <span class="n">free_params</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.context.GeometricContext.__init__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.context.GeometricContext.set_direction" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">set_direction</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.context.GeometricContext.set_direction" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Attach the search direction, once.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>coeffs</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The direction <code>(G, K_free)</code>, in the same parameter space as
+<code>free_params</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a direction has already been set. Open a new context
+instead — the memoised tier-0 quantities are direction-free and
+cost nothing to keep, but a second direction would silently reuse
+tier-1/2 values computed for the first.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.context.GeometricContext.point_at" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">point_at</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.context.GeometricContext.point_at" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The point at <span class="arithmatex">\(\phi + t\,p\)</span> — the single gate for all of tier 3.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.context.GeometricContext.infidelity_at" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">infidelity_at</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.context.GeometricContext.infidelity_at" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The infidelity along the ray. One propagator.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.context.GeometricContext.fidelity_at" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">fidelity_at</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.context.GeometricContext.fidelity_at" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The fidelity along the ray. One propagator.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="geope.geometry.context.GeometricContext.distance_at" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">distance_at</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.context.GeometricContext.distance_at" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The squared-geodesic-distance objective <span class="arithmatex">\(\tfrac12 d_g(\cdot, V)^2\)</span>
+along the ray, whose derivatives <code>s</code>, <code>q</code> and <code>q_exact</code> describe.</p>
+<p>One propagator plus one logarithm.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.instant", "navigation.tabs", "navigation.sections", "header.autohide"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../../_static/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

@@ -12,13 +12,13 @@
         <meta name="author" content="Dylan Lewis and Roeland Wiersema">
       
       
-        <link rel="canonical" href="https://dyylan.github.io/geope/api/engine/">
+        <link rel="canonical" href="https://dyylan.github.io/geope/api/chart/">
       
       
         <link rel="prev" href="../grape/">
       
       
-        <link rel="next" href="../lie/">
+        <link rel="next" href="../geometry/">
       
       
       <link rel="icon" href="../../_static/geope_logo.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>geope.engine - Geodesic Pulse Engineering (GEOPE)</title>
+        <title>geope.geometry.chart - Geodesic Pulse Engineering (GEOPE)</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#geopeengine" class="md-skip">
+        <a href="#geopegeometrychart" class="md-skip">
           Skip to content
         </a>
       
@@ -117,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              geope.engine
+              geope.geometry.chart
             
           </span>
         </div>
@@ -606,6 +606,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stiefel_subspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subspace synthesis on a Stiefel manifold
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -797,7 +820,7 @@
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
     
   </span>
   
@@ -810,7 +833,7 @@
   
   
   <span class="md-ellipsis">
-    geope.engine
+    geope.geometry.chart
     
   </span>
   
@@ -833,41 +856,26 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#fidelity-infidelity" class="md-nav__link">
+  <a href="#the-propagator" class="md-nav__link">
     <span class="md-ellipsis">
-      Fidelity / infidelity
+      The propagator
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Fidelity / infidelity">
+    <nav class="md-nav" aria-label="The propagator">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#geope.engine.fidelity" class="md-nav__link">
+  <a href="#geope.geometry.chart.compute_matrices_params_list_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;fidelity
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;compute_matrices_params_list_fn
     </span>
   </a>
   
 </li>
         
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#unitary-computation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Unitary computation
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Unitary computation">
-      <ul class="md-nav__list">
-        
           <li class="md-nav__item">
-  <a href="#geope.engine.get_compute_matrices_params_list_fn" class="md-nav__link">
+  <a href="#geope.geometry.chart.get_compute_matrices_params_list_fn" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_compute_matrices_params_list_fn
     </span>
@@ -881,64 +889,19 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geodesic-jacobian-hessian-gammas-omegas" class="md-nav__link">
+  <a href="#the-chart" class="md-nav__link">
     <span class="md-ellipsis">
-      Geodesic, Jacobian, Hessian, gammas &amp; omegas
+      The chart
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Geodesic, Jacobian, Hessian, gammas &amp; omegas">
+    <nav class="md-nav" aria-label="The chart">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#geope.engine.get_geodesic_hamiltonian_fn" class="md-nav__link">
+  <a href="#geope.geometry.chart.get_chart_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_geodesic_hamiltonian_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_jacobian_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jacobian_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_gammas_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_gammas_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_omegas_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_omegas_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_gammas_and_omegas_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_gammas_and_omegas_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_hessian_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_hessian_fn
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_fn
     </span>
   </a>
   
@@ -950,28 +913,55 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#param_transform-helpers" class="md-nav__link">
+  <a href="#the-landed-jet" class="md-nav__link">
     <span class="md-ellipsis">
-      param_transform helpers
+      The landed jet
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="param_transform helpers">
+    <nav class="md-nav" aria-label="The landed jet">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#geope.engine.wrap_compute_U_param_transform" class="md-nav__link">
+  <a href="#geope.geometry.chart.get_chart_jacobian_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;wrap_compute_U_param_transform
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_jacobian_fn
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#geope.engine.get_split_jacobian_fn" class="md-nav__link">
+  <a href="#geope.geometry.chart.get_chart_vjp_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_split_jacobian_fn
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_vjp_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_chart_hvp_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_hvp_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_chart_hessian_vjp_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_hessian_vjp_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_chart_hessian_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_hessian_fn
     </span>
   </a>
   
@@ -979,6 +969,57 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-autodiff-jacobians" class="md-nav__link">
+    <span class="md-ellipsis">
+      The autodiff Jacobians
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The autodiff Jacobians">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_jacobian_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jacobian_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_split_jacobian_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_split_jacobian_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_split_vjp_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_split_vjp_fn
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      Related
+    </span>
+  </a>
   
 </li>
       
@@ -998,12 +1039,58 @@
   
   
     <li class="md-nav__item">
+      <a href="../geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifolds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Manifolds
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../lie/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie
+    geope.geometry.basis
     
   </span>
   
@@ -1090,12 +1177,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pauli_projector/" class="md-nav__link">
+      <a href="../hessian/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    geope.lie.pauli_projector
+    geope.jax.hessian
     
   </span>
   
@@ -1163,41 +1250,26 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#fidelity-infidelity" class="md-nav__link">
+  <a href="#the-propagator" class="md-nav__link">
     <span class="md-ellipsis">
-      Fidelity / infidelity
+      The propagator
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Fidelity / infidelity">
+    <nav class="md-nav" aria-label="The propagator">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#geope.engine.fidelity" class="md-nav__link">
+  <a href="#geope.geometry.chart.compute_matrices_params_list_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;fidelity
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;compute_matrices_params_list_fn
     </span>
   </a>
   
 </li>
         
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#unitary-computation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Unitary computation
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Unitary computation">
-      <ul class="md-nav__list">
-        
           <li class="md-nav__item">
-  <a href="#geope.engine.get_compute_matrices_params_list_fn" class="md-nav__link">
+  <a href="#geope.geometry.chart.get_compute_matrices_params_list_fn" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_compute_matrices_params_list_fn
     </span>
@@ -1211,64 +1283,19 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#geodesic-jacobian-hessian-gammas-omegas" class="md-nav__link">
+  <a href="#the-chart" class="md-nav__link">
     <span class="md-ellipsis">
-      Geodesic, Jacobian, Hessian, gammas &amp; omegas
+      The chart
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Geodesic, Jacobian, Hessian, gammas &amp; omegas">
+    <nav class="md-nav" aria-label="The chart">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#geope.engine.get_geodesic_hamiltonian_fn" class="md-nav__link">
+  <a href="#geope.geometry.chart.get_chart_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_geodesic_hamiltonian_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_jacobian_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jacobian_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_gammas_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_gammas_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_omegas_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_omegas_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_gammas_and_omegas_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_gammas_and_omegas_fn
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geope.engine.get_hessian_fn" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_hessian_fn
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_fn
     </span>
   </a>
   
@@ -1280,28 +1307,55 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#param_transform-helpers" class="md-nav__link">
+  <a href="#the-landed-jet" class="md-nav__link">
     <span class="md-ellipsis">
-      param_transform helpers
+      The landed jet
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="param_transform helpers">
+    <nav class="md-nav" aria-label="The landed jet">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#geope.engine.wrap_compute_U_param_transform" class="md-nav__link">
+  <a href="#geope.geometry.chart.get_chart_jacobian_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;wrap_compute_U_param_transform
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_jacobian_fn
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#geope.engine.get_split_jacobian_fn" class="md-nav__link">
+  <a href="#geope.geometry.chart.get_chart_vjp_fn" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_split_jacobian_fn
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_vjp_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_chart_hvp_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_hvp_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_chart_hessian_vjp_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_hessian_vjp_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_chart_hessian_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_chart_hessian_fn
     </span>
   </a>
   
@@ -1309,6 +1363,57 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-autodiff-jacobians" class="md-nav__link">
+    <span class="md-ellipsis">
+      The autodiff Jacobians
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The autodiff Jacobians">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_jacobian_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_jacobian_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_split_jacobian_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_split_jacobian_fn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geope.geometry.chart.get_split_vjp_fn" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_split_vjp_fn
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      Related
+    </span>
+  </a>
   
 </li>
       
@@ -1328,28 +1433,43 @@
 
 
 
-<h1 id="geopeengine">geope.engine<a class="headerlink" href="#geopeengine" title="Permanent link">¤</a></h1>
-<p><code>engine.py</code> is a collection of <strong>pure function factories</strong>. Each returns an
-un-jitted callable; JIT compilation happens once, lazily, when the optimiser's
-top-level <code>update_step</code> is first traced. The optimisers read these (lazily
-built and cached) off the <code>Parameters</code> object — there is no engine class.</p>
-<h2 id="fidelity-infidelity">Fidelity / infidelity<a class="headerlink" href="#fidelity-infidelity" title="Permanent link">¤</a></h2>
+<h1 id="geopegeometrychart">geope.geometry.chart<a class="headerlink" href="#geopegeometrychart" title="Permanent link">¤</a></h1>
+<p>The <strong>ambient layer</strong>. Every manifold in the library is a submanifold of one
+ambient space <span class="arithmatex">\(\mathcal A = \mathbb C^{N\times m}\)</span>, and the pulse acts on all of
+them the same way — by left multiplication with a product of piecewise-constant
+exponentials:</p>
+<div class="arithmatex">\[U(\phi) = \prod_g \exp\Bigl(i\sum_k \phi_{g,k} G_k\Bigr),
+\qquad \Phi(\phi) = U(\phi)\,x_0 .\]</div>
+<p>The chart is therefore the <strong>orbit map</strong> of that one action through a base point
+<span class="arithmatex">\(x_0 = \Phi(0)\)</span>: the identity on a matrix group (where the propagator <em>is</em> the
+point), a state on <code>StateSphere</code>, a frame on <code>Stiefel</code>. Only <span class="arithmatex">\(x_0\)</span> varies, which
+is why no manifold writes chart code of its own — <code>Manifold.bind</code> composes what
+is here, once.</p>
+<p>This module owns the whole <strong>jet</strong> <span class="arithmatex">\((\Phi,\ \mathrm D\Phi,\ \mathrm D^2\Phi)\)</span>,
+i.e. everything valued in <span class="arithmatex">\(\mathcal A\)</span>. What happens in the tangent space — the
+metric, the coefficient frame, the logarithm, the fidelity — is the
+<a href="../manifolds/">manifold's</a>, so the two never mix. It imports nothing but JAX and
+<code>geope.jax</code>, sitting <em>below</em> the manifolds rather than beside them.</p>
+<p>Each factory returns an un-jitted callable, so JIT compilation happens once,
+lazily, when the optimiser's top-level <code>update_step</code> is first traced.</p>
+<h2 id="the-propagator">The propagator<a class="headerlink" href="#the-propagator" title="Permanent link">¤</a></h2>
 
 
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.engine.fidelity" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">fidelity</span><span class="p">(</span><span class="n">unitary</span><span class="p">,</span> <span class="n">target_unitary</span><span class="p">)</span></code>
+<h4 id="geope.geometry.chart.compute_matrices_params_list_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">compute_matrices_params_list_fn</span><span class="p">(</span><span class="n">params_list</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span></code>
 
-<a href="#geope.engine.fidelity" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.chart.compute_matrices_params_list_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Compute the fidelity between a unitary and a target unitary.</p>
-<p>The fidelity is defined as the normalised absolute value of the
-Hilbert-Schmidt inner product between the two matrices.</p>
+        <p>Compute the product unitary from a list of parameter vectors.</p>
+<p>For each parameter vector in <code>params_list</code>, constructs a Hamiltonian
+as a linear combination of the <code>basis</code> elements, exponentiates it,
+and accumulates the product unitary via <code>jax.lax.scan</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1365,14 +1485,15 @@ Hilbert-Schmidt inner product between the two matrices.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>unitary</code>
+                <code>params_list</code>
             </td>
             <td>
                   <code><span title="jax.Array">Array</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The unitary <code>Array</code> to evaluate.</p>
+                <p><code>Array</code> of shape <code>(piecewise_steps, K)</code> where each row
+contains the Lie-algebra coefficients for one gate segment.</p>
               </div>
             </td>
             <td>
@@ -1381,14 +1502,14 @@ Hilbert-Schmidt inner product between the two matrices.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>target_unitary</code>
+                <code>basis</code>
             </td>
             <td>
                   <code><span title="jax.Array">Array</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The target unitary <code>Array</code>.</p>
+                <p><code>Array</code> of shape <code>(K, d, d)</code> of Hermitian basis matrices.</p>
               </div>
             </td>
             <td>
@@ -1414,7 +1535,7 @@ Hilbert-Schmidt inner product between the two matrices.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A scalar fidelity <code>Array</code> in the range <span class="arithmatex">\([0, 1]\)</span>.</p>
+                <p>The product unitary <code>Array</code> of shape <code>(d, d)</code>.</p>
               </div>
             </td>
           </tr>
@@ -1424,30 +1545,20 @@ Hilbert-Schmidt inner product between the two matrices.</p>
 
     </div>
 
-</div><!-- ::: geope.engine.get_fidelity_fn
-::: geope.engine.infidelity
-::: geope.engine.get_infidelity_fn
-::: geope.engine.fidelity_full
-::: geope.engine.infidelity_full -->
-
-<h2 id="unitary-computation">Unitary computation<a class="headerlink" href="#unitary-computation" title="Permanent link">¤</a></h2>
-
+</div>
 
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.engine.get_compute_matrices_params_list_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_compute_matrices_params_list_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
+<h4 id="geope.geometry.chart.get_compute_matrices_params_list_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_compute_matrices_params_list_fn</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span></code>
 
-<a href="#geope.engine.get_compute_matrices_params_list_fn" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.chart.get_compute_matrices_params_list_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Create a unitary-computation function with a fixed basis.</p>
-<p>A closure rather than <code>partial(..., basis=basis)</code> so that <code>delta_t</code>
-can be passed positionally: binding <code>basis</code> as a keyword would make
-<code>compute_U(params, dt)</code> collide with it.</p>
+        <p>Create a partial unitary-computation function with a fixed basis.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1492,21 +1603,21 @@ can be passed positionally: binding <code>basis</code> as a keyword would make
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Callable[..., Array]</code> <code>compute_U(params_list, delta_t=1.0)</code></p>
+                <p>A <code>Callable[[Array], Array]</code> that accepts a parameter list</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>returning the product unitary.</p>
+                <p>and returns the product unitary.</p>
               </div>
             </td>
           </tr>
@@ -1516,21 +1627,24 @@ can be passed positionally: binding <code>basis</code> as a keyword would make
 
     </div>
 
-</div><h2 id="geodesic-jacobian-hessian-gammas-omegas">Geodesic, Jacobian, Hessian, gammas &amp; omegas<a class="headerlink" href="#geodesic-jacobian-hessian-gammas-omegas" title="Permanent link">¤</a></h2>
+</div><h2 id="the-chart">The chart<a class="headerlink" href="#the-chart" title="Permanent link">¤</a></h2>
 
 
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.engine.get_geodesic_hamiltonian_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_geodesic_hamiltonian_fn</span><span class="p">(</span><span class="n">target_unitary</span><span class="p">,</span> <span class="n">projective</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<h4 id="geope.geometry.chart.get_chart_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_chart_fn</span><span class="p">(</span><span class="n">generators</span><span class="p">,</span> <span class="n">base_point</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-<a href="#geope.engine.get_geodesic_hamiltonian_fn" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.chart.get_chart_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Create a partial geodesic Hamiltonian function with a fixed target.</p>
+        <p>Build the chart: the pulse's orbit through <code>base_point</code>.</p>
+<p><span class="arithmatex">\(\Phi(\phi) = U(\phi)\,x_0\)</span>, with <span class="arithmatex">\(U\)</span> the propagator above. Since that
+propagator's <code>jax.lax.scan</code> is seeded at the ambient identity,
+<span class="arithmatex">\(\Phi(0) = x_0\)</span> — the base point <em>is</em> where the chart starts.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1546,360 +1660,14 @@ can be passed positionally: binding <code>basis</code> as a keyword would make
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>target_unitary</code>
-            </td>
-            <td>
-                  <code><span title="jax.Array">Array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The target unitary <code>Array</code> to bind.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>projective</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If <code>True</code>, return the projective (SU) geodesic.
-Defaults to <code>True</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Callable[[Array, Array], Array]</code> that accepts a unitary and a</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JAX random key and returns the geodesic Hamiltonian.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.engine.get_jacobian_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_jacobian_fn</span><span class="p">(</span><span class="n">compute_U_fn</span><span class="p">)</span></code>
-
-<a href="#geope.engine.get_jacobian_fn" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Build the autodiff Jacobian of the unitary w.r.t. parameters.</p>
-<p>Returns the holomorphic <code>jax.jacobian</code> of <code>compute_U_fn</code>. This is the
-live Jacobian path for <em>all</em> system sizes: the manual Jacobian
-(<code>geope.jax.jacobian.get_jacobian_propagator</code>) exists and is independently
-tested, but is not currently wired into the optimisation pipeline (the
-autodiff path historically overwrote it for the &gt;5-qubit branch — see
-issue #4). The returned function is left un-jitted so it fuses into the
-enclosing <code>@jax.jit</code> update step on first <code>optimize()</code>.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>compute_U_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Callable mapping a parameter list to the product unitary.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> returning the Jacobian of the unitary.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.engine.get_gammas_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_gammas_fn</span><span class="p">(</span><span class="n">compute_U_fn</span><span class="p">,</span> <span class="n">geo_fn</span><span class="p">,</span> <span class="n">project_omegas_fn</span><span class="p">)</span></code>
-
-<a href="#geope.engine.get_gammas_fn" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Build the projected geodesic-Hamiltonian (<code>gammas</code>) function.</p>
-<p>Computes the unitary, its geodesic Hamiltonian towards the target,
-left-trivialises it, and projects that onto the Pauli basis (normalised by
-the dimension). Returned un-jitted so it composes inside an enclosing
-<code>@jax.jit</code>.</p>
-<p><code>geo_fn</code> returns the <em>ambient</em> tangent <span class="arithmatex">\(U\Omega'\)</span> with
-<span class="arithmatex">\(\Omega'=-i\log(U^\dagger V)\)</span>; the <span class="arithmatex">\(U^\dagger\)</span> applied here recovers
-<span class="arithmatex">\(\Omega'\)</span> itself. That matters because the Pauli basis is Hermitian, so
-<code>project_omegas</code> keeps only the traceless-Hermitian part of its argument --
-see :func:<code>get_gammas_and_omegas_fn</code> for why projecting the ambient matrix
-instead would be lossy.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>compute_U_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Parameter-list -&gt; unitary.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>geo_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>(unitary, key) -&gt; geodesic Hamiltonian</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>project_omegas_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Projection of matrices onto the Lie-algebra basis.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>Callable[[Array, Array], Array]</code> <code>gammas(free_params, key)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="geope.engine.get_omegas_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_omegas_fn</span><span class="p">(</span><span class="n">compute_U_fn</span><span class="p">,</span> <span class="n">jac_fn</span><span class="p">,</span> <span class="n">project_omegas_fn</span><span class="p">,</span> <span class="n">proj_indices</span><span class="p">,</span> <span class="n">has_proj_drift</span><span class="p">)</span></code>
-
-<a href="#geope.engine.get_omegas_fn" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Build the projected per-gate Jacobian (<code>omegas</code>) function.</p>
-<p>Left-trivialises the Jacobian of each gate (w.r.t. each parameter) and
-projects it onto the Pauli basis, optionally restricting to the projected
-indices within the combined proj+drift basis. Returned un-jitted so it
-composes inside an enclosing <code>@jax.jit</code>.</p>
-<p>The <span class="arithmatex">\(U^\dagger\)</span> is what makes <span class="arithmatex">\(iU^\dagger\partial U\)</span> Hermitian and hence the
-Pauli projection lossless; see :func:<code>get_gammas_and_omegas_fn</code>.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>compute_U_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Parameter-list -&gt; unitary, used to left-trivialise.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>jac_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Jacobian of the unitary w.r.t. the free parameters.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>project_omegas_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Projection of matrices onto the Lie-algebra basis.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>proj_indices</code>
+                <code>generators</code>
             </td>
             <td>
                   <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Projected indices within the proj+drift basis.</p>
+                <p>The chart's generator basis <code>(K, d, d)</code>, Hermitian.</p>
               </div>
             </td>
             <td>
@@ -1908,20 +1676,23 @@ Pauli projection lossless; see :func:<code>get_gammas_and_omegas_fn</code>.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>has_proj_drift</code>
+                <code>base_point</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><span title="jax.Array">Array</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Whether the proj+drift basis is non-empty (gates the
-projected-index restriction; mirrors the legacy
-<code>np.any(proj_drift_basis)</code> check).</p>
+                <p>The point <span class="arithmatex">\(x_0 \in \mathcal A\)</span> the pulse drives, of shape
+<code>ambient_shape</code>. <code>None</code> means the propagator <em>is</em> the point,
+which is the case on any matrix Lie group; the underlying callable is
+then returned <strong>unchanged</strong>, so no multiplication by the identity is
+introduced on that hot path. The branch is on a Python value and is
+resolved at trace time.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -1939,11 +1710,21 @@ projected-index restriction; mirrors the legacy
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> <code>omegas(free_params)</code>.</p>
+                <p>A <code>Callable[[Array], Array]</code> mapping <code>(G, K)</code> parameters to a point</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>of shape <code>ambient_shape</code>.</p>
               </div>
             </td>
           </tr>
@@ -1953,52 +1734,33 @@ projected-index restriction; mirrors the legacy
 
     </div>
 
-</div>
+</div><h2 id="the-landed-jet">The landed jet<a class="headerlink" href="#the-landed-jet" title="Permanent link">¤</a></h2>
+<p>The whole of <span class="arithmatex">\((\mathrm D\Phi,\ \mathrm D\Phi^\intercal,\ \mathrm D^2\Phi)\)</span>, built
+from the propagator recursions in <code>geope.jax</code> and landed on the base point. Right
+multiplication by <span class="arithmatex">\(x_0\)</span> is linear, so it commutes with differentiation and each
+term lands termwise — which is why a homogeneous space reuses the group's
+machinery wholesale and no manifold writes chart code of its own.</p>
+
 
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.engine.get_gammas_and_omegas_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_gammas_and_omegas_fn</span><span class="p">(</span><span class="n">compute_U_fn</span><span class="p">,</span> <span class="n">jac_fn</span><span class="p">,</span> <span class="n">geo_fn</span><span class="p">,</span> <span class="n">project_omegas_fn</span><span class="p">,</span> <span class="n">proj_indices</span><span class="p">,</span> <span class="n">has_proj_drift</span><span class="p">)</span></code>
+<h4 id="geope.geometry.chart.get_chart_jacobian_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_chart_jacobian_fn</span><span class="p">(</span><span class="n">generators</span><span class="p">,</span> <span class="n">base_point</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-<a href="#geope.engine.get_gammas_and_omegas_fn" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.chart.get_chart_jacobian_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Build the combined gammas-and-omegas function used by the GEOPE step.</p>
-<p>Gammas are the projected geodesic Hamiltonian coefficients; omegas encode
-the Jacobian of each gate w.r.t. each parameter, projected onto the Pauli
-basis. This is the single combined body the GEOPE update step calls (one
-<code>compute_U_fn</code> and one <code>jac_fn</code> evaluation);
-:func:<code>get_gammas_fn</code> / :func:<code>get_omegas_fn</code> are the separately testable
-halves. Returned un-jitted so it fuses into the enclosing <code>@jax.jit</code>
-update step on first <code>optimize()</code>.</p>
-<p><strong>Both arguments are left-trivialised before projecting, and they must be.</strong>
-The Pauli basis is Hermitian, so <code>project_omegas_fn</code> computes
-<span class="arithmatex">\(\mathrm{Re}\,\mathrm{Tr}(P_k M)/d\)</span> and therefore keeps only the
-traceless-Hermitian part of <span class="arithmatex">\(M\)</span>. The raw quantities are <em>ambient</em>: <code>geo_fn</code>
-returns <span class="arithmatex">\(U\Omega'\)</span> and the Jacobian columns are <span class="arithmatex">\(\partial_{g,k}U\)</span>, both of
-the form <span class="arithmatex">\(U\cdot(\text{traceless Hermitian})\)</span>, whose Hermitian part rotates
-with <span class="arithmatex">\(U\)</span>. Projecting those directly discards most of each matrix and makes
-the downstream least squares
-(:func:<code>geope.geope.linear_comb_projected_coeffs_multigate</code>) minimise in a
-<span class="arithmatex">\(U\)</span>-dependent seminorm rather than in <span class="arithmatex">\(\langle\cdot,\cdot\rangle_F\)</span>.</p>
-<p>Multiplying by <span class="arithmatex">\(U^\dagger\)</span> first gives <span class="arithmatex">\(\Omega'\)</span> and
-<span class="arithmatex">\(iU^\dagger\partial_{g,k}U\)</span>, which are traceless Hermitian, so the
-projection is an isometry onto its coefficients and the solve is exactly the
-Frobenius-orthogonal projection of the geodesic tangent onto
-<span class="arithmatex">\(\mathrm{Im}(\mathrm D\Phi)\)</span> that the geodesic step is defined to be. This
-is what makes the achieved velocity satisfy <span class="arithmatex">\(\Psi=P\Omega\)</span>, and with it the
-least-squares-residual lemma the second-order line searches rely on:
-:class:<code>geope.line_searches.QuadraticArmijo</code> substitutes
-<span class="arithmatex">\(\|\Omega\|_F^2\)</span> for the intrinsic curvature term, which is valid only under
-it, and :class:<code>geope.line_searches.ApproximateQuadraticArmijo</code> evaluates
-that term exactly. Left translation is itself an isometry — it is the
-<em>projection after it</em> that was lossy, which is why the two operations cannot
-be commuted.</p>
-<p><code>tests/test_factories.py</code> pins this invariant directly, with a
-rank-deficient Jacobian that makes the ambient-projection failure visible.</p>
+        <p>Build the chart's first differential <span class="arithmatex">\(\mathrm D\Phi\)</span>, from the propagator.</p>
+<p>The manual <code>geope.jax.get_jacobian_propagator</code> — two <code>jax.lax.scan</code> partial
+products and one per-gate spectral derivative — landed on <code>base_point</code> and
+transposed into the layout <code>geope.geometry.tangent.TangentBundle</code> declares.</p>
+<p>This is the live Jacobian path. <code>get_jacobian_fn</code> is the autodiff equivalent,
+kept as the reference the tests and benchmarks compare against, and still
+used through <code>get_split_jacobian_fn</code> on the <code>param_transform</code> path where no
+exponential-product structure survives.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2014,78 +1776,14 @@ rank-deficient Jacobian that makes the ambient-projection failure visible.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>compute_U_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Parameter-list -&gt; unitary.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>jac_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Jacobian of the unitary w.r.t. the free parameters.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>geo_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[..., <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>(unitary, key) -&gt; geodesic Hamiltonian</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>project_omegas_fn</code>
-            </td>
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Projection of matrices onto the Lie-algebra basis.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>proj_indices</code>
+                <code>generators</code>
             </td>
             <td>
                   <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Projected indices within the proj+drift basis.</p>
+                <p>The chart's generator basis <code>(K, d, d)</code>, Hermitian.</p>
               </div>
             </td>
             <td>
@@ -2094,18 +1792,19 @@ rank-deficient Jacobian that makes the ambient-projection failure visible.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>has_proj_drift</code>
+                <code>base_point</code>
             </td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><span title="jax.Array">Array</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Whether the proj+drift basis is non-empty.</p>
+                <p>As <code>get_chart_fn</code> — <code>None</code> means the propagator <em>is</em> the
+point, and only the transpose is applied.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -2123,37 +1822,36 @@ rank-deficient Jacobian that makes the ambient-projection failure visible.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Callable[[Array, Array], tuple[Array, Array]]</code></p>
+                <p>A <code>Callable[[Array], Array]</code> mapping <code>(G, K)</code> parameters to the</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>``gammas_and_omegas(free_params, key, delta_t)</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>-&gt; (gammaU_params, omegas)``.</p>
+                <p>Jacobian of shape <code>(*ambient_shape, G, K)</code>.</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>Built with <code>hermitian=True</code>: the per-gate derivative diagonalises with
+<code>eigh</code>, which assumes the pulse coefficients are real. That holds
+throughout the pipeline — <code>geope.parameters.Parameters.free</code> promotes to
+<code>complex128</code> with an exactly-zero imaginary part — but it is an
+assumption the holomorphic autodiff path did not make.</p>
+</details>
 
     </div>
 
@@ -2162,18 +1860,27 @@ rank-deficient Jacobian that makes the ambient-projection failure visible.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.engine.get_hessian_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_hessian_fn</span><span class="p">(</span><span class="n">infid_fn</span><span class="p">)</span></code>
+<h4 id="geope.geometry.chart.get_chart_vjp_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_chart_vjp_fn</span><span class="p">(</span><span class="n">generators</span><span class="p">,</span> <span class="n">base_point</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-<a href="#geope.engine.get_hessian_fn" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.chart.get_chart_vjp_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Build the full Hessian function via forward-over-reverse HVPs.</p>
-<p>Materialises the Hessian of <code>infid_fn</code> by mapping a Hessian-vector
-product over the identity matrix's columns. Returned un-jitted so it fuses
-into the enclosing <code>@jax.jit</code> update step.</p>
+        <p>Build the chart's value and <strong>pullback</strong> <span class="arithmatex">\((\Phi,\ \mathrm D\Phi^\intercal)\)</span>.</p>
+<p>Returns <code>phi -&gt; (point, pullback)</code>, in the shape of <code>jax.vjp</code>. The pullback
+contracts an ambient covector against every column of <span class="arithmatex">\(\mathrm D\Phi\)</span> without
+forming it — see <code>geope.jax.vjp_propagator</code> for why that is
+<span class="arithmatex">\(O(G(d^3 + d^2K))\)</span> rather than <span class="arithmatex">\(O(G d^3 K)\)</span>, and why the value comes back
+with it rather than from a second <code>get_chart_fn</code> call that would recompute
+every gate exponential.</p>
+<p>This is what an objective's gradient in parameter space is made of, and the
+reason <code>geope.geometry.manifold.Manifold.value_and_grad</code> needs no autodiff.</p>
+<p>The base point lands on the <em>covector</em> rather than on the differential, using</p>
+<div class="arithmatex">\[\langle \hat G,\ \mathrm dU\,x_0\rangle = \langle \hat G\,x_0^\dagger,\ \mathrm dU\rangle,\]</div>
+<p>which is the same "right multiplication is linear" fact that lets
+<code>get_chart_hvp_fn</code> land termwise — just read in the opposite direction.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2189,21 +1896,34 @@ into the enclosing <code>@jax.jit</code> update step.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>infid_fn</code>
+                <code>generators</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Scalar-valued infidelity callable <code>(free_params, delta_t)</code>.
-Both arguments are positional, matching
-<code>Parameters.infid_fn</code>; the signature mirrors
-<code>get_hessian_propagator_fn</code> so the two remain drop-in equivalents.</p>
+                <p>The chart's generator basis <code>(K, d, d)</code>, Hermitian.</p>
               </div>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>base_point</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>As <code>get_chart_fn</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -2221,31 +1941,51 @@ Both arguments are positional, matching
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>Callable[[Array], Array]</code> <code>hess(y, delta_t)</code> returning the</p>
+                <p>A <code>Callable[[Array], tuple[Array, Callable]]</code> taking <code>(G, K)</code></p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Hessian with respect to <code>y</code> alone — <code>delta_t</code> is a duration, not an</p>
+                <p>parameters to the point of shape <code>ambient_shape</code> and a callable</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>optimisation variable.</p>
+                <p>mapping an ambient covector of that shape to the complex overlaps of</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>shape <code>(G, K)</code>. See <code>geope.jax.vjp_propagator</code> for why those are</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>complex rather than already realified.</p>
               </div>
             </td>
           </tr>
@@ -2255,27 +1995,25 @@ Both arguments are positional, matching
 
     </div>
 
-</div><h2 id="param_transform-helpers">param_transform helpers<a class="headerlink" href="#param_transform-helpers" title="Permanent link">¤</a></h2>
-
+</div>
 
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.engine.wrap_compute_U_param_transform" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">wrap_compute_U_param_transform</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">raw_compute_U</span><span class="p">)</span></code>
+<h4 id="geope.geometry.chart.get_chart_hvp_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_chart_hvp_fn</span><span class="p">(</span><span class="n">generators</span><span class="p">,</span> <span class="n">base_point</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-<a href="#geope.engine.wrap_compute_U_param_transform" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.chart.get_chart_hvp_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Wrap <code>compute_U</code> to honour <code>params.param_transform</code>.</p>
-<p>The user-facing experimental parameters <span class="arithmatex">\(\phi^{\mathrm{exp}}\)</span> are mapped to
-projected-basis coefficients via <code>params.param_transform</code> (possibly
-step-dependent), embedded into the proj+drift basis, and combined with the
-drift before the original <code>raw_compute_U</code> is called.</p>
-<p>Returned un-jitted so it fuses into the enclosing <code>@jax.jit</code> update step
-on first <code>optimize()</code>.</p>
+        <p>Build the chart's second differential: the jet <span class="arithmatex">\((\Phi,\ \mathrm D\Phi[p],\ \mathrm D^2\Phi[p, p])\)</span>.</p>
+<p>The same landing as <code>get_chart_fn</code>, applied termwise. That it <em>can</em> be
+applied termwise is the whole reason a homogeneous space reuses the group's
+propagator machinery wholesale: right multiplication by a constant is linear,
+so it commutes with differentiation and carries the jet with no
+manifold-specific code and no linearity contract to uphold.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2291,14 +2029,14 @@ on first <code>optimize()</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>params</code>
+                <code>generators</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            geope.parameters.Parameters" href="../parameters/#geope.parameters.Parameters">Parameters</a></code>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The <code>Parameters</code> object carrying <code>param_transform</code>.</p>
+                <p>The chart's generator basis <code>(K, d, d)</code>, Hermitian.</p>
               </div>
             </td>
             <td>
@@ -2307,14 +2045,398 @@ on first <code>optimize()</code>.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>raw_compute_U</code>
+                <code>base_point</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="jax.Array">Array</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The projected-basis unitary-computation function.</p>
+                <p>As <code>get_chart_fn</code> — <code>None</code> returns the propagator's own HVP
+unchanged.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>Callable[[Array, Array], tuple[Array, Array, Array]]</code> accepting</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>parameters and a direction, both <code>(G, K)</code>, and returning the triple</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>, <span title="jax.Array">Array</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>landed on <code>base_point</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.chart.get_chart_hessian_vjp_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_chart_hessian_vjp_fn</span><span class="p">(</span><span class="n">generators</span><span class="p">,</span> <span class="n">base_point</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.chart.get_chart_hessian_vjp_fn" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Build the chart's value and second-differential <strong>pullback</strong> <span class="arithmatex">\((\Phi,\ \mathrm D^2\Phi^\intercal)\)</span>.</p>
+<p>Returns <code>phi -&gt; (point, pullback)</code>, in the shape of <code>jax.vjp</code>, exactly as
+<code>get_chart_vjp_fn</code> does one order down and for the same reason. The pullback
+contracts an ambient covector against <strong>every pair</strong> of <span class="arithmatex">\(\mathrm D^2\Phi\)</span>'s
+blocks without forming any of them — see <code>geope.jax.hessian_vjp_propagator</code>
+for the splitting that makes the pair table one Gram matrix of two
+<span class="arithmatex">\(O(G)\)</span>-propagated derivative trajectories, rather than the
+<span class="arithmatex">\(O(G^2K^2d^3)\)</span>-and-<span class="arithmatex">\(O(G^2K^2d^2)\)</span> dense tensor <code>get_chart_hessian_fn</code> builds.</p>
+<p>This is what an objective's Hessian in parameter space is made of, and the
+reason <code>geope.geometry.manifold.Manifold.hessian</code> needs neither autodiff nor
+the dense <span class="arithmatex">\(\mathrm D^2\Phi\)</span>.</p>
+<p>The base point reaches the primitive as its <code>right</code> factor rather than
+landing on the covector, which is what keeps the contraction <span class="arithmatex">\(O(m d)\)</span> per pair
+instead of <span class="arithmatex">\(O(d^2)\)</span> — a factor <span class="arithmatex">\(d\)</span> on a state, where <span class="arithmatex">\(m = 1\)</span>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>generators</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's generator basis <code>(K, d, d)</code>, Hermitian.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>base_point</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>As <code>get_chart_fn</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>Callable[[Array], tuple[Array, Callable]]</code> taking <code>(G, K)</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>parameters to the point of shape <code>ambient_shape</code> and a callable mapping</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>an ambient covector of that shape to the complex overlaps of shape</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(G, K, G, K)</code> — the row-major <code>(gate, coefficient)</code> layout a caller</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>reshapes to <code>(P, P)</code> with no transpose. See</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>geope.jax.hessian_vjp_propagator</code> for why those are complex rather than</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>already realified.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p><code>geope.jax.hessian_vjp_propagator</code> splits the middle product <em>using
+unitarity</em>, so this is valid only for real pulse coefficients — which is
+what the pipeline always has, but see the note on
+<code>get_chart_jacobian_fn</code>.</p>
+</details>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.chart.get_chart_hessian_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_chart_hessian_fn</span><span class="p">(</span><span class="n">generators</span><span class="p">,</span> <span class="n">base_point</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.chart.get_chart_hessian_fn" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Build the chart's dense second differential <span class="arithmatex">\(\mathrm D^2\Phi\)</span>, from the propagator.</p>
+<p><code>geope.jax.get_hessian_propagator</code> landed on <code>base_point</code>. Unlike
+<code>get_chart_hvp_fn</code>, which takes one direction in <span class="arithmatex">\(O(G)\)</span>, this materialises
+every pair — <span class="arithmatex">\(O(G^2K^2d^3)\)</span> in flops and <span class="arithmatex">\(O(G^2K^2d^2)\)</span> in memory.</p>
+<p><strong>This is the reference, not the live path</strong>, in the same way
+<code>get_jacobian_fn</code> is: an objective contracts every block against one covector
+immediately, which <code>get_chart_hessian_vjp_fn</code> does without building them.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>generators</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The chart's generator basis <code>(K, d, d)</code>, Hermitian.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>base_point</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>As <code>get_chart_fn</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>Callable[[Array], Array]</code> mapping <code>(G, K)</code> parameters to the</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hessian of shape <code>(G, G, *ambient_shape, K, K)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p><code>geope.jax.hessian_propagator</code> builds its off-diagonal blocks <em>using
+unitarity</em>, so this is valid only for real pulse coefficients — which is
+what the pipeline always has, but see the note on
+<code>get_chart_jacobian_fn</code>.</p>
+</details>
+
+    </div>
+
+</div><h2 id="the-autodiff-jacobians">The autodiff Jacobians<a class="headerlink" href="#the-autodiff-jacobians" title="Permanent link">¤</a></h2>
+<p><code>get_jacobian_fn</code> is the reference the manual path is tested against.
+<code>get_split_jacobian_fn</code> and <code>get_split_vjp_fn</code> are the <code>param_transform</code> path's
+only option: a user-supplied transform has no exponential-product structure to
+pull back through, and its real intermediates would lose their imaginary part
+under a holomorphic derivative.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.chart.get_jacobian_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_jacobian_fn</span><span class="p">(</span><span class="n">compute_point_fn</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.chart.get_jacobian_fn" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Build the autodiff Jacobian of the chart w.r.t. parameters.</p>
+<p>Returns the holomorphic <code>jax.jacobian</code> of <code>compute_point_fn</code>. The live
+path is now the manual <code>get_chart_jacobian_fn</code>; this is kept as the reference
+the tests and benchmarks check it against, and as the basis of
+<code>get_split_jacobian_fn</code>, which the <code>param_transform</code> path still needs.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>compute_point_fn</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Callable mapping a parameter list to the chart's point.</p>
               </div>
             </td>
             <td>
@@ -2336,11 +2458,11 @@ on first <code>optimize()</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The wrapped experimental-space <code>compute_U</code> callable.</p>
+                <p>A <code>Callable[[Array], Array]</code> returning the Jacobian of the point.</p>
               </div>
             </td>
           </tr>
@@ -2355,20 +2477,19 @@ on first <code>optimize()</code>.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="geope.engine.get_split_jacobian_fn" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">get_split_jacobian_fn</span><span class="p">(</span><span class="n">compute_U_fn</span><span class="p">)</span></code>
+<h4 id="geope.geometry.chart.get_split_jacobian_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_split_jacobian_fn</span><span class="p">(</span><span class="n">compute_point_fn</span><span class="p">)</span></code>
 
-<a href="#geope.engine.get_split_jacobian_fn" class="headerlink" title="Permanent link">¤</a></h4>
+<a href="#geope.geometry.chart.get_split_jacobian_fn" class="headerlink" title="Permanent link">¤</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Build a real/imag-split Jacobian of <code>compute_U_fn</code>.</p>
+        <p>Build a real/imag-split Jacobian of <code>compute_point_fn</code>.</p>
 <p>Used on the <code>param_transform</code> path: differentiating through the
 real-valued user transform with a holomorphic Jacobian would discard the
-imaginary part of intermediates, so the unitary is split into real and
+imaginary part of intermediates, so the point is split into real and
 imaginary parts, each differentiated, then recombined.</p>
-<p>Returned un-jitted so it fuses into the enclosing <code>@jax.jit</code> update step.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2384,14 +2505,14 @@ imaginary parts, each differentiated, then recombined.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>compute_U_fn</code>
+                <code>compute_point_fn</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The (wrapped) experimental-space unitary function.</p>
+                <p>The (wrapped) experimental-space chart.</p>
               </div>
             </td>
             <td>
@@ -2413,7 +2534,7 @@ imaginary parts, each differentiated, then recombined.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2428,6 +2549,116 @@ imaginary parts, each differentiated, then recombined.</p>
     </div>
 
 </div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="geope.geometry.chart.get_split_vjp_fn" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">geope</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">chart</span><span class="o">.</span><span class="n">get_split_vjp_fn</span><span class="p">(</span><span class="n">compute_point_fn</span><span class="p">)</span></code>
+
+<a href="#geope.geometry.chart.get_split_vjp_fn" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Build a real/imag-split value-and-pullback of <code>compute_point_fn</code>.</p>
+<p>The autodiff counterpart of <code>get_chart_vjp_fn</code>, and the <code>param_transform</code>
+path's only option: there is no exponential-product structure left to pull
+back through, and the user's transform must be differentiated as it stands.
+<code>jax.vjp</code> already has the <code>(value, pullback)</code> shape, and for the same
+reason — so the value is shared rather than recomputed.</p>
+<p>Split for the same reason <code>get_split_jacobian_fn</code> is — real intermediates in
+the transform would drop the imaginary part under a holomorphic pullback —
+and returning the same complex <span class="arithmatex">\(\mathrm{Tr}(C^\dagger \partial\Phi)\)</span> so that
+<code>geope.geometry.manifold.Manifold.value_and_grad</code> is one expression on both
+paths.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>compute_point_fn</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The (wrapped) experimental-space chart.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="collections.abc.Callable">Callable</span>[[<span title="jax.Array">Array</span>], <span title="jax.Array">Array</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>Callable[[Array], tuple[Array, Callable]]</code>, as <code>get_chart_vjp_fn</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div><h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">¤</a></h2>
+<p>The rest of what used to live in <code>engine.py</code> moved to the owner of the
+mathematics in question:</p>
+<table>
+<thead>
+<tr>
+<th>what</th>
+<th>where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the fidelity formulas</td>
+<td><a href="../manifolds/">manifolds</a> — they are the <em>group's</em></td>
+</tr>
+<tr>
+<td>the objective's gradient and Hessian, assembled from this jet</td>
+<td><a href="../manifolds/">manifolds</a> — <code>Manifold.value_and_grad</code> / <code>.hessian</code></td>
+</tr>
+<tr>
+<td>the autodiff Hessian and its HVP</td>
+<td><a href="../hessian/">hessian</a> — <code>geope.jax.hessian</code></td>
+</tr>
+<tr>
+<td>the <code>param_transform</code> chart wrapper</td>
+<td><code>geope.parameters</code> — the one place that reads a <code>Parameters</code></td>
+</tr>
+</tbody>
+</table>
 
 
 
