@@ -2,8 +2,6 @@
 
 ::: geope.utils.trace_dot_jit
 
-::: geope.utils.traces
-
 ::: geope.utils.check_xy_comb
 
 ::: geope.utils.check_Heisenberg_comb
