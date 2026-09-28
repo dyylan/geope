@@ -1440,6 +1440,9 @@ them the same way — by left multiplication with a product of piecewise-constan
 exponentials:</p>
 <div class="arithmatex">\[U(\phi) = \prod_g \exp\Bigl(i\sum_k \phi_{g,k} G_k\Bigr),
 \qquad \Phi(\phi) = U(\phi)\,x_0 .\]</div>
+<p>That is the chart's own sign. The physical convention lives in <code>Parameters</code>,
+which hands the chart the generators <span class="arithmatex">\(-\Delta T\,G_k\)</span>, so the pulse is
+<span class="arithmatex">\(\prod_g \exp(-i\,\Delta T\sum_k \phi_{g,k} G_k)\)</span>.</p>
 <p>The chart is therefore the <strong>orbit map</strong> of that one action through a base point
 <span class="arithmatex">\(x_0 = \Phi(0)\)</span>: the identity on a matrix group (where the propagator <em>is</em> the
 point), a state on <code>StateSphere</code>, a frame on <code>Stiefel</code>. Only <span class="arithmatex">\(x_0\)</span> varies, which
