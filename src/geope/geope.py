@@ -153,6 +153,11 @@ class Geope:
         self.line_search = None
         self.line_search_state = None
         self._linesearch_config = None
+        # The bound manifold the compiled update_step closes over. Compared by
+        # identity, not by value: `Parameters` replaces the manifold whenever
+        # `delta_t` changes (a `Gecko` subdivision does), and a step compiled
+        # against the old chart would silently optimise the old duration.
+        self._compiled_manifold = None
         self.update_step = None
 
         self.verbose = verbose
@@ -331,7 +336,9 @@ class Geope:
     ) -> None:
         """Select the line search and (re)build its update functions.
         If line_search or max_step changes, we have to rebuild these object
-        to force retracing.
+        to force retracing. So too if ``params.manifold`` has been replaced
+        since the last build (a new ``delta_t`` re-binds it), since the
+        compiled step closes over the manifold it was built from.
 
         Args:
             line_search: The :class:`~geope.line_searches.LineSearch` object.
@@ -359,10 +366,14 @@ class Geope:
         self.line_search = line_search
         self.max_step_size = max_step_size
         # TODO: Can we do this without the extra self._linsearch_config?
-        if self._linesearch_config == config:
+        if (
+            self._linesearch_config == config
+            and self._compiled_manifold is self.params.manifold
+        ):
             return
         self.update_step = self.get_update_step()
         self._linesearch_config = config
+        self._compiled_manifold = self.params.manifold
 
     def optimize(
         self,
@@ -644,7 +655,9 @@ class Geope:
             A tuple ``(new_parameters, fidelity, step_size)``.
         """
         fids = {}
-        scaled_gs_step = self.gram_schmidt_step_size / self.params.piecewise_steps
+        # Per unit of total duration, like the line-search bracket: a Gecko
+        # subdivision (G -> mG, delta_t -> delta_t / m) leaves it unchanged.
+        scaled_gs_step = self.gram_schmidt_step_size / self.params.total_time
         if self._real_params:
             current_params = self.params.free()
             for sign in [1, -1]:
@@ -787,6 +800,9 @@ class Geope:
             the error of the step actually taken.
         """
         manifold = self.params.manifold
+        # Read together with the manifold it was bound into, so the two cannot
+        # disagree: a new delta_t is a new manifold, hence a rebuilt step.
+        delta_t = self.params.delta_t
         line_search = self.line_search
         # Bracket half-width: baked in, so it joins the compile memo.
         max_step_size = self.max_step_size
@@ -821,7 +837,10 @@ class Geope:
 
             # One-sided bracket on the descent side: a useful step is negative
             # (see `MatrixLieGroup.coefficients` for why), and t = 0 is "don't move".
-            a = -max_step_size / free_params.shape[0]
+            # Scaled per unit of total duration G * delta_t: the chart's
+            # generators carry delta_t, so this keeps the step's effect on the
+            # unitary independent of how the duration is split into segments.
+            a = -max_step_size / (free_params.shape[0] * delta_t)
             result = line_search(ctx, a, jnp.asarray(0.0, jnp.float64), ls_state)
             new_params = free_params + result.dt * coeffs
 

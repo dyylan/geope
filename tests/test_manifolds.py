@@ -492,8 +492,10 @@ class TestHookContracts:
         spells it.
         """
         m = space.manifold
+        # The physical segment is exp(-i dt H): `Parameters` hands the chart the
+        # generators -dt * G_k.
         propagator = get_compute_matrices_params_list_fn(
-            space.params.proj_drift_basis.basis
+            -space.params.delta_t * np.asarray(space.params.proj_drift_basis.basis)
         )
         u = np.asarray(propagator(space.free))
         expected = u if m.base_point is None else u @ np.asarray(m.base_point)

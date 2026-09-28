@@ -22,6 +22,7 @@ import jax.numpy as jnp
 import jax.scipy.linalg as jsla
 import numpy as np
 import pytest
+import scipy.linalg as spla
 
 jax.config.update("jax_enable_x64", True)
 
@@ -31,6 +32,7 @@ from geope.geometry import (
     TangentBundle,
     UnitaryGroup,
 )
+from geope.geometry.chart import get_compute_matrices_params_list_fn
 from geope.geope import linear_comb_projected_coeffs_multigate
 from geope.parameters import Parameters
 from geope.utils import (
@@ -693,7 +695,10 @@ class TestTangentBundleHvp:
     def test_built_from_the_generators(self, problem):
         p, free, coeffs = problem
         tangent = p.manifold.tangent
-        assert tangent.generators is p.proj_drift_basis
+        # The chart's generators carry the physical convention: -delta_t * G_k.
+        np.testing.assert_array_equal(
+            tangent.generators.basis, -p.delta_t * np.asarray(p.proj_drift_basis.basis)
+        )
         x, v, w = tangent.hvp(jnp.real(free), coeffs)
         assert x.shape == v.shape == w.shape == (4, 4)
 
@@ -779,6 +784,81 @@ _AUTODIFF_TRANSFORMS = (
     "hessian",
     "linearize",
 )
+
+
+# ---------------------------------------------------------------------------
+# The physical gate convention: U_g = exp(-i delta_t H_g)
+# ---------------------------------------------------------------------------
+
+
+class TestPhysicalConvention:
+    """The sign and the duration live in `Parameters`, and nowhere below it.
+
+    The chart primitives keep ``expm(+1j * A)``; `Parameters._bind` hands them
+    the generators ``-delta_t * G``. These tests pin the result against an
+    outside reference, pin that the primitive itself is untouched, and pin that
+    the rest of the step convention (the bracket side, the Hessian) survives.
+    """
+
+    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
+    def test_chart_is_the_physical_propagator(self, delta_t):
+        """Pinned against scipy, not against other geope code."""
+        p = _params(delta_t=delta_t)
+        free = np.asarray(p.free())
+        basis = np.asarray(p.proj_drift_basis.basis)
+        expected = np.eye(4, dtype=complex)
+        for row in free:
+            h = np.tensordot(row, basis, axes=1)
+            expected = spla.expm(-1j * delta_t * h) @ expected
+        np.testing.assert_allclose(
+            np.asarray(p.manifold.compute_point(p.free())), expected, atol=1e-13
+        )
+
+    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
+    def test_the_primitive_keeps_the_plus_sign(self, delta_t):
+        """``U_phys(phi) = U_prim(-delta_t * phi)``: a half-applied flip fails."""
+        p = _params(delta_t=delta_t)
+        primitive = get_compute_matrices_params_list_fn(p.proj_drift_basis.basis)
+        np.testing.assert_allclose(
+            np.asarray(p.manifold.compute_point(p.free())),
+            np.asarray(primitive(-delta_t * p.free())),
+            atol=1e-13,
+        )
+
+    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
+    def test_the_bracket_side_is_still_descent(self, delta_t):
+        """The solve absorbs the chart's sign, so ``[-t_max, 0]`` still descends.
+
+        Negating the generators negates the Jacobian, hence the omegas; ``ctx.A``
+        and the gammas do not depend on the chart, so the solved *parameter*
+        direction flips while its image in the tangent space still matches
+        ``A``. The slopes therefore stay positive and a negative step still
+        approaches the target.
+        """
+        p = _params(delta_t=delta_t)
+        ctx = p.manifold.context(p.free())
+        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
+        coeffs = p.manifold.tangent.embed(sol)
+        ctx.set_direction(coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs)))
+
+        assert float(ctx.velocity) > 0
+        assert float(ctx.slope) > 0
+        eps = jnp.asarray(1e-2)
+        assert (
+            float(ctx.infidelity_at(-eps))
+            < float(ctx.infidelity)
+            < float(ctx.infidelity_at(eps))
+        )
+
+    def test_hessian_matches_autodiff_at_a_non_unit_duration(self):
+        """The analytic Hessian picks up delta_t**2 through the generators alone."""
+        p = _params(delta_t=0.7)
+        free = jnp.real(p.free()).astype(jnp.float64)
+        np.testing.assert_allclose(
+            np.asarray(p.manifold.hessian(free)),
+            np.asarray(p.manifold.hessian_autodiff(free)),
+            atol=1e-8,
+        )
 
 
 class _AutodiffTaken(AssertionError):

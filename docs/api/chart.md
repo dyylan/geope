@@ -8,6 +8,10 @@ exponentials:
 $$U(\phi) = \prod_g \exp\Bigl(i\sum_k \phi_{g,k} G_k\Bigr),
 \qquad \Phi(\phi) = U(\phi)\,x_0 .$$
 
+That is the chart's own sign. The physical convention lives in `Parameters`,
+which hands the chart the generators $-\Delta T\,G_k$, so the pulse is
+$\prod_g \exp(-i\,\Delta T\sum_k \phi_{g,k} G_k)$.
+
 The chart is therefore the **orbit map** of that one action through a base point
 $x_0 = \Phi(0)$: the identity on a matrix group (where the propagator *is* the
 point), a state on `StateSphere`, a frame on `Stiefel`. Only $x_0$ varies, which
