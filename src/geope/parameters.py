@@ -37,13 +37,22 @@ class Parameters:
         drift_basis: The drift sub-``Basis``, or ``None``.
         target: Target unitary as ``np.ndarray``.
         piecewise_steps: Number of piecewise-constant gate segments.
+        delta_t: Duration $\\Delta T$ of each segment, so that
+            $U_g = \\exp(-i\\,\\Delta T\\sum_k \\phi_{g,k}G_k)$. Settable:
+            assigning it re-binds ``manifold``, since the duration is baked
+            into the chart's generators. `Gecko` subdivision divides it by the
+            multiplier instead of rescaling ``parameters``.
+        total_time: ``piecewise_steps * delta_t``. Read-only; invariant under
+            `Gecko` subdivision.
         fixed_drift: Whether the drift contribution is held fixed.
         control: The control dict used to build ``projected_basis``.
         drift_config: The dict used to build ``drift_basis``.
         pulse_constraints: Optional pulse-shape constraint config.
         param_transform: Optional callable mapping experimental params
             to basis coefficients.
-        manifold: The `geope.geometry.Manifold` this problem lives on.
+        manifold: The bound `geope.geometry.Manifold` this problem lives on.
+            Replaced (never mutated) when ``delta_t`` changes, so a consumer
+            that captured it holds the old duration's chart.
         projective: Whether the geometry is the projective (SU) one.
             Read-only; delegates to ``manifold``.
         n_experimental_params: Length of the experimental-parameter
@@ -73,6 +82,7 @@ class Parameters:
         drift_values: dict | np.ndarray | None = None,
         target: np.ndarray | None = None,
         piecewise_steps: int = 1,
+        delta_t: float = 1.0,
         fixed_drift: bool = True,
         constraints: list | None = None,
         pulse_constraints: dict | list | None = None,
@@ -105,6 +115,11 @@ class Parameters:
             target: Target unitary.
             piecewise_steps: Number of piecewise-constant gate segments.
                 Defaults to 1.
+            delta_t: Duration $\\Delta T$ of each segment, so that
+                $U_g = \\exp(-i\\,\\Delta T\\sum_k \\phi_{g,k}G_k)$. Defaults to
+                1.0, where the duration is absorbed into the coefficients.
+                Must be positive. `Gecko` subdivision rescales it rather than
+                the parameters — see :attr:`delta_t`.
             fixed_drift: Whether the drift contribution is held fixed.
                 Defaults to ``True``.
             constraints: Optional list of linear-equality constraints,
@@ -144,8 +159,8 @@ class Parameters:
 
         Raises:
             ValueError: If ``control`` and ``projected_basis`` (or ``drift``
-                and ``drift_basis``) are both given, or if the control and
-                drift bases overlap.
+                and ``drift_basis``) are both given, if the control and
+                drift bases overlap, or if ``delta_t`` is not positive.
         """
         # --- Basis ---
         if basis is None:
@@ -208,9 +223,10 @@ class Parameters:
                     "for a worked example."
                 )
 
-        # --- Immutable config ---
+        # --- Config, immutable after construction except for the time grid ---
         self.target = np.array(target) if target is not None else None
         self.piecewise_steps = piecewise_steps
+        self._delta_t = self._validate_delta_t(delta_t)
         self.fixed_drift = fixed_drift
         self.control = control
         self.drift_config = drift
@@ -318,27 +334,97 @@ class Parameters:
 
         # --- The bound manifold: the one handle every optimiser reads -------
         # Last, because everything `bind` reads is settled by now: the index
-        # masks, the drift values and the transform. What a `Parameters` alone
-        # knows is exactly the four arguments below — which frame the
-        # coefficients resolve against, which generators the pulse drives, which
-        # columns the solve may move, and the reparametrisation. The chart and
-        # both its differentials are the geometry layer's, so no mathematics
-        # crosses this line.
+        # masks, the drift values and the transform.
         #
         # Eager rather than a `cached_property`: binding traces nothing (every
         # factory is a partial or a closure), and doing it here means no
-        # `jax.jit` can ever be the first thing to touch it.
-        self.manifold = manifold.bind(
+        # `jax.jit` can ever be the first thing to touch it. The unbound space is
+        # kept because a bound manifold refuses to re-bind, and a new `delta_t`
+        # needs a new chart.
+        self._space = manifold
+        self.manifold = self._bind()
+
+    def _bind(self) -> Manifold:
+        r"""Bind the unbound space to this problem's chart and target.
+
+        What a `Parameters` alone knows is exactly the arguments below — which
+        frame the coefficients resolve against, which generators the pulse
+        drives, which columns the solve may move, and the reparametrisation.
+        The chart and both its differentials are the geometry layer's, so no
+        mathematics crosses this line.
+
+        **This is the one place the physical gate convention lives.** The chart
+        primitives compute $\exp(i\sum_k c_k G_k)$ — the natural sign for the
+        mathematics, kept throughout `geope.jax` and `geope.geometry.chart`.
+        A physical segment is $\exp(-i\,\Delta T\sum_k \phi_k G_k)$, which is
+        the same map with generators $-\Delta T\,G_k$, so handing the chart
+        those generators makes the point *and* its whole jet (Jacobian, pullback,
+        both second differentials) physical with no change below this line. The
+        coefficient ``frame`` stays unscaled: it resolves tangents, and the
+        $-\Delta T$ reaches the omegas through the Jacobian on its own.
+
+        Returns:
+            The bound manifold.
+        """
+        chart_generators = Basis(
+            -self.delta_t * np.asarray(self.proj_drift_basis.basis),
+            labels=self.proj_drift_basis.labels,
+        )
+        return self._space.bind(
             target=self.target,
-            generators=self.proj_drift_basis,
+            generators=chart_generators,
             frame=self.basis,
             columns=self.proj_indices_projdrift_basis,
             wrap_chart=(
                 None
-                if param_transform is None
+                if self.param_transform is None
                 else partial(wrap_compute_point_param_transform, self)
             ),
         )
+
+    @staticmethod
+    def _validate_delta_t(delta_t: float) -> float:
+        """Return ``delta_t`` as a float, raising unless it is positive."""
+        # `not x > 0` rather than `x <= 0`, so that NaN is rejected too.
+        if not delta_t > 0:
+            raise ValueError(f"delta_t must be positive, got {delta_t}.")
+        return float(delta_t)
+
+    @property
+    def delta_t(self) -> float:
+        r"""Duration $\Delta T$ of each piecewise-constant segment.
+
+        Assigning it re-binds :attr:`manifold`: the duration is baked into the
+        chart's generators (see ``_bind``), so the new value takes effect for
+        every consumer that reads ``params.manifold`` afresh. The optimisers'
+        compile memos key on the manifold's identity, so a step compiled at the
+        old duration is never reused. A live ``fidelity`` is recomputed at the
+        new duration, so it keeps describing ``parameters``.
+
+        Raises:
+            ValueError: On assignment of a non-positive value.
+        """
+        return self._delta_t
+
+    @delta_t.setter
+    def delta_t(self, value: float) -> None:
+        self._delta_t = self._validate_delta_t(value)
+        self.manifold = self._bind()
+        # The live fidelity describes (parameters, delta_t); left alone it would
+        # describe the old duration, and an optimiser's convergence test reads
+        # it before taking a step. One propagator on the new chart, which the
+        # next consumer compiles anyway.
+        if self.fidelity is not None:
+            self.fidelity = self.manifold.fidelity_at(self.free())
+
+    @property
+    def total_time(self) -> float:
+        """Total gate duration ``piecewise_steps * delta_t``.
+
+        Invariant under `Gecko` subdivision, which splits each segment into
+        ``m`` copies and divides ``delta_t`` by ``m``.
+        """
+        return self.piecewise_steps * self.delta_t
 
     @property
     def infidelity(self) -> float | None:
@@ -379,11 +465,13 @@ class Parameters:
 
     @property
     def basis_coefficients(self) -> np.ndarray | None:
-        """Current parameters mapped through ``param_transform`` if set.
+        r"""Hamiltonian amplitudes $c$ in $H_g = \sum_k c_{g,k} G_k$.
 
-        Returns the induced basis coefficients corresponding to the
-        current ``self.parameters``. If ``param_transform`` is ``None``
-        this is just the current parameters.
+        The current parameters mapped through ``param_transform`` when one is
+        set, and the parameters themselves otherwise. These are amplitudes, not
+        rotation angles: the segment is $\exp(-i\,\Delta T\,H_g)$, so the
+        duration :attr:`delta_t` is a separate quantity and is deliberately
+        *not* folded in here.
         """
         if self.param_transform is not None:
             import jax

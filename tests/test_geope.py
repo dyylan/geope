@@ -1605,12 +1605,13 @@ class TestGeope:
     ):
         # A search that does not move cannot have made progress on any
         # objective, so the fallback must replace the step. Its signature is the
-        # step size: +/- gram_schmidt_step_size rather than a bracket step.
+        # step size: +/- gram_schmidt_step_size per unit of total duration,
+        # rather than a bracket step.
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
         g = Geope(p, history=History())
         g.optimize(max_steps=3, line_search=_ReportingSearch(factor=1.0))
         for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert np.isclose(abs(dt), DEFAULT_GRAM_SCHMIDT_STEP_SIZE)
+            assert np.isclose(abs(dt), DEFAULT_GRAM_SCHMIDT_STEP_SIZE / p.total_time)
 
     def test_a_stalled_step_without_the_fallback_does_not_move(
         self, cnot, full_basis_2q, projected_basis_2q
@@ -1635,7 +1636,7 @@ class TestGeope:
             max_steps=2, line_search=_ReportingSearch(factor=1.0 - PROGRESS_RTOL / 100)
         )
         for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert np.isclose(abs(dt), DEFAULT_GRAM_SCHMIDT_STEP_SIZE)
+            assert np.isclose(abs(dt), DEFAULT_GRAM_SCHMIDT_STEP_SIZE / p.total_time)
 
     def test_progress_above_the_threshold_keeps_the_step(
         self, cnot, full_basis_2q, projected_basis_2q

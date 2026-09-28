@@ -114,6 +114,10 @@ class Grape:
         self.optimizer = None
         self.optimizer_state = None
         self._optimizer_config = None
+        # The bound manifold the compiled update_step closes over, compared by
+        # identity: a new `delta_t` replaces `params.manifold`, and a step
+        # compiled against the old chart would optimise the old duration.
+        self._compiled_manifold = None
         self.update_step = None
 
         self.verbose = verbose
@@ -242,7 +246,9 @@ class Grape:
 
         The JIT-compiled ``update_step`` closes over the rule, so it is rebuilt
         whenever the rule changes — which the frozen dataclass's value ``__eq__``
-        decides, so two equal rules reuse the compiled function. This is exactly
+        decides, so two equal rules reuse the compiled function. It is also
+        rebuilt when ``params.manifold`` has been replaced since (a new
+        ``delta_t`` re-binds it). This is exactly
         `geope.Geope._configure_line_search`, with `geope.optimizers.Optimizer` in
         place of the line search.
 
@@ -264,10 +270,14 @@ class Grape:
         # the latest value — safe because an equal rule means identical trace-time
         # behaviour.
         self.optimizer = optimizer
-        if self._optimizer_config == optimizer:
+        if (
+            self._optimizer_config == optimizer
+            and self._compiled_manifold is self.params.manifold
+        ):
             return
         self.update_step = self.get_update_step()
         self._optimizer_config = optimizer
+        self._compiled_manifold = self.params.manifold
 
     def get_update_step(self) -> Callable[..., tuple]:
         """Build the JIT-compiled GRAPE update step.
