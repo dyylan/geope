@@ -644,7 +644,7 @@ class Geope:
             A tuple ``(new_parameters, fidelity, step_size)``.
         """
         fids = {}
-        scaled_gs_step = self.gram_schmidt_step_size
+        scaled_gs_step = self.gram_schmidt_step_size / self.params.piecewise_steps
         if self._real_params:
             current_params = self.params.free()
             for sign in [1, -1]:
