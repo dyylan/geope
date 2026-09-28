@@ -4359,8 +4359,11 @@ read <em>outside</em> any <code>lax</code> control flow you intend to read it fr
 
         <p>The geodesic tangent <span class="arithmatex">\(A = -\mathrm{Log}_U(V)\)</span>. <strong>The only logarithm.</strong></p>
 <p>The minimal-geodesic tangent <strong>at the base point</strong>, negated so that it
-points <em>away</em> from the target: the slope <code>velocity</code> is then positive at a descent
-direction and the line-search bracket is <span class="arithmatex">\([-t_{\max}, 0]\)</span>.</p>
+points <em>away</em> from the target: it is the Riemannian gradient of the
+squared distance <span class="arithmatex">\(\tfrac12 d_g(\cdot, V)^2\)</span>. The geodesic solve matches
+the tangent to it, so <code>geope.Geope</code> steps along the <em>negated</em> solution —
+a descent direction, on which <code>velocity</code> is negative and the line-search
+bracket is <span class="arithmatex">\([0, t_{\max}]\)</span>.</p>
 <p>Taking it at <span class="arithmatex">\(U\)</span> rather than at the target is what makes it comparable
 with <code>Omega</code> on a general manifold — <span class="arithmatex">\(T_U\)</span> and <span class="arithmatex">\(T_V\)</span> are unrelated spaces
 unless a group's trivialisation identifies them.</p>
@@ -4678,7 +4681,8 @@ is what makes the slope available even where the HVP is not.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The slope <span class="arithmatex">\(\psi'(0) = \langle A, \Omega\rangle_F\)</span> of <code>distance_at</code></p>
+        <p>The slope <span class="arithmatex">\(\psi'(0) = \langle A, \Omega\rangle_F\)</span> of <code>distance_at</code>.</p>
+<p>Negative at a descent direction.</p>
 
     </div>
 
@@ -4733,10 +4737,11 @@ exists: one contraction, no propagator. Tier 1 for exactly the reason
 <code>param_transform</code>, where the curvature does not.</p>
 <p>The flat parameter-space pairing, <strong>not</strong> <code>Manifold.inner</code> — <code>gradient</code> is
 a covector in the same coordinates as <code>coeffs</code>, not a tangent vector.</p>
-<p><strong>Positive at a descent direction</strong>, matching <code>velocity</code>: <code>geope.Grape</code>
-speaks GEOPE's convention, so <code>coeffs</code> points <em>uphill</em> and the accepted
-step is negative. That is what an Armijo test needs (<span class="arithmatex">\(t\,s &lt; 0\)</span>), and it is
-why <code>geope.line_searches._armijo_line_search</code> serves both objectives
+<p><strong>Negative at a descent direction</strong>, matching <code>velocity</code>: <code>geope.Grape</code>
+and <code>geope.Geope</code> share the textbook convention, so <code>coeffs</code> points
+<em>downhill</em> and the accepted step is positive. That is what an Armijo test
+needs (<span class="arithmatex">\(t\,s &lt; 0\)</span>), and it is why
+<code>geope.line_searches._armijo_line_search</code> serves both objectives
 unchanged.</p>
 <p>Both operands are real-valued but carried in the pulse's dtype, so the real
 parts are taken explicitly rather than relying on a complex inner product.</p>
@@ -5255,7 +5260,7 @@ tier-1/2 values computed for the first.</p>
     <div class="doc doc-contents ">
 
         <p>The squared-geodesic-distance objective <span class="arithmatex">\(\tfrac12 d_g(\cdot, V)^2\)</span>
-along the ray, whose derivatives <code>s</code>, <code>q</code> and <code>q_exact</code> describe.</p>
+along the ray, whose derivatives <code>velocity</code>, <code>q</code> and <code>q_exact</code> describe.</p>
 <p>One propagator plus one logarithm.</p>
 
 

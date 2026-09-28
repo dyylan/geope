@@ -1607,8 +1607,8 @@ into <code>history</code> when one is attached.</p>
         <p>Build the JIT-compiled GRAPE update step.</p>
 <p>One jitted function per update rule, and one
 <code>geope.geometry.GeometricContext</code> per call of it. The step is: open the
-context, let the rule read the cost tier off it and choose an uphill
-direction and a (negative) step, then move.</p>
+context, let the rule read the cost tier off it and choose a descent
+direction and a (positive) step, then move.</p>
 <p>The context is built <em>inside</em> this function and never leaves it — it is a
 trace-time object, not a pytree. Everything the rule needs it reads off
 that one context, and everything it does <em>not</em> read costs nothing, which
