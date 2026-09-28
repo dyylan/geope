@@ -284,8 +284,8 @@ class Grape:
 
         One jitted function per update rule, and one
         `geope.geometry.GeometricContext` per call of it. The step is: open the
-        context, let the rule read the cost tier off it and choose an uphill
-        direction and a (negative) step, then move.
+        context, let the rule read the cost tier off it and choose a descent
+        direction and a (positive) step, then move.
 
         The context is built *inside* this function and never leaves it — it is a
         trace-time object, not a pytree. Everything the rule needs it reads off

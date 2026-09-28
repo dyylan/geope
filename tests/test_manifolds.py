@@ -594,11 +594,11 @@ class TestContextOnEveryManifold:
         m = space.manifold
         ctx = m.context(space.free)
         sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
-        ctx.set_direction(m.tangent.embed(sol))
+        ctx.set_direction(-m.tangent.embed(sol))
         exact = (ctx.q_exact, ctx.rho) if space.has_curvature else ()
         for value in (ctx.F0, ctx.velocity, ctx.q, ctx.xi_rel, *exact):
             assert np.isfinite(float(value)), value
-        for t in (0.0, -0.1):
+        for t in (0.0, 0.1):
             assert np.isfinite(float(ctx.distance_at(t)))
             assert np.isfinite(float(ctx.infidelity_at(t)))
 
@@ -615,27 +615,28 @@ class TestContextOnEveryManifold:
         m = space.manifold
         ctx = m.context(space.free)
         sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
-        ctx.set_direction(m.tangent.embed(sol))
+        ctx.set_direction(-m.tangent.embed(sol))
 
         h = 1e-4
         f = [float(ctx.distance_at(t)) for t in (-2 * h, -h, 0.0, h, 2 * h)]
         slope = (f[0] - 8 * f[1] + 8 * f[3] - f[4]) / (12 * h)
         curvature = (-f[0] + 16 * f[1] - 30 * f[2] + 16 * f[3] - f[4]) / (12 * h * h)
-        # `velocity` *is* psi'(0), positive on a descent direction — which is why the
-        # bracket is [-t_max, 0] and the accepted step comes out negative.
+        # `velocity` *is* psi'(0), negative on a descent direction — which is why
+        # the bracket is [0, t_max] and the accepted step comes out positive.
         assert float(ctx.velocity) == pytest.approx(slope, rel=1e-6, abs=1e-9)
         assert float(ctx.q_exact) == pytest.approx(curvature, rel=1e-5, abs=1e-8)
 
     def test_the_solved_direction_descends(self, space):
-        # The whole algorithm in one assertion: the least-squares direction has a
-        # positive slope on the distance objective (GEOPE's sign convention), so
-        # stepping *negatively* along it reduces the geodesic distance.
+        # The whole algorithm in one assertion: the least-squares solution matches
+        # the tangent to A, which points away from the target, so its negation
+        # has a negative slope on the distance objective and a positive step
+        # along it reduces the geodesic distance.
         m = space.manifold
         ctx = m.context(space.free)
         sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
-        ctx.set_direction(m.tangent.embed(sol))
-        assert float(ctx.velocity) > 0
-        assert float(ctx.distance_at(-1e-3)) < float(ctx.F0)
+        ctx.set_direction(-m.tangent.embed(sol))
+        assert float(ctx.velocity) < 0
+        assert float(ctx.distance_at(1e-3)) < float(ctx.F0)
 
     def test_omegas_and_gammas_share_their_units(self, space):
         # Both operands go through the same `coefficients`, so the residual is a
