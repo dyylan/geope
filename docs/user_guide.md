@@ -417,13 +417,13 @@ optimize(max_steps=1000,
 The line searches are immutable config objects (frozen dataclasses):
 
 - `GoldenSection(tol=1e-5)` — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
-- `Armijo(c1=1e-4, beta=0.5, t_min=1e-8)` — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step $-t_{\max}$ and backtracks, taking the slope from the objective value alone ($s = 2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
+- `Armijo(c1=1e-4, beta=0.5, t_min=1e-8)` — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step $t_{\max}$ and backtracks, taking the slope from the objective value alone ($s = -2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
 - `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — geometry-aware second-order line search: seeds the step from the SU(N) curvature (clipped to the bracket, falling back to the full step when the curvature is non-positive) and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
 - `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` on a group or the state sphere, and one small operator exponential on `Stiefel` (standard mode only; on `Stiefel` it also needs `projective=False`, see below).
 
     Whether it changes anything is structural: the solve has `piecewise_steps × K_proj` unknowns against `K_basis` equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. `GeometricContext.xi_rel` reports the residual as the (scale-invariant) sine of the angle between $\Omega$ and $A$, and tracks `ls_diagnostics["residual_rel"]` closely; it is `0` exactly when the two curvatures agree.
 
-The three differ in what they evaluate per step, not just in flops: `GoldenSection` evaluates the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[-t_{\max}, 0]$ and is clipped to $-t_{\max}$, which is exactly where `Armijo` starts anyway.
+The three differ in what they evaluate per step, not just in flops: `GoldenSection` evaluates the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[0, t_{\max}]$ and is clipped to $t_{\max}$, which is exactly where `Armijo` starts anyway.
 
 The line-search object and `max_step_size` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `GoldenSection()`) reuse the compiled functions, while changing the object or `max_step_size` triggers a one-off recompile. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
 
@@ -448,9 +448,9 @@ Live state and logging:
 ### Choosing a GRAPE update rule (`optimizers.py`)
 
 `Grape.optimize(optimizer=...)` takes a frozen config object rather than a method
-string. All six share one shape — an **uphill** direction $p$ and a **negative** step
-$\mathrm dt$, so `Grape` forms `free_params + dt * coeffs` — and they differ in how
-they build $p$ from the cost's derivatives.
+string. All six share one shape — a **descent** direction `coeffs` $=-p$ and a
+**positive** step $\mathrm dt$, so `Grape` forms `free_params + dt * coeffs` — and
+they differ in how they build $p$ from the cost's derivatives.
 
 | rule | direction $p$ | extra cost per step, beyond one gradient |
 |---|---|---|
@@ -576,8 +576,8 @@ for each step:
        → residual / rank / condition number recorded in geope.ls_diagnostics
 
     5. Normalise and line-search:
-       coeffs = sol · sqrt(N_g) / ||sol||
-       dt     = argmin infid(φ + t · coeffs)        # over t ∈ [-t_max, 0]
+       coeffs = -sol · sqrt(N_g) / ||sol||
+       dt     = argmin infid(φ + t · coeffs)        # over t ∈ [0, t_max]
        φ_new  = φ + dt · coeffs
 
     6. If fidelity decreased, Gram–Schmidt fallback:
@@ -585,7 +585,7 @@ for each step:
        try ±proj_c, keep the side with higher fidelity
 ```
 
-The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under the algorithm's sign convention: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity $\Omega$ to $A$, the geodesic tangent *pointing away from* the target, so negative `dt` is what approaches it. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
+The line search interval $[0, t_{\max}]$ is the toward-target half-line: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity to $A$, the geodesic tangent *pointing away from* the target (the gradient of the squared distance), so `coeffs` is the negated solution — a descent direction — and a positive `dt` approaches the target. This is the textbook convention, shared with `Grape`: the context's slopes `ctx.velocity` and `ctx.slope` are negative along `coeffs`. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
 
 ### Key functions
 

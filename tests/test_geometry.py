@@ -617,14 +617,15 @@ class TestContextValues:
             atol=1e-12,
         )
 
-    def test_slope_is_positive_on_the_solved_direction(self, problem):
+    def test_slope_is_negative_on_the_descent_direction(self, problem):
         # The sign convention: the solve matches Omega to A, which points away
-        # from the target, so the slope is positive and the useful step negative.
+        # from the target, so its negation is the descent direction — negative
+        # slope, positive useful step.
         p, free, _ = problem
         ctx = p.manifold.context(free)
         sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
-        ctx.set_direction(p.manifold.tangent.embed(sol))
-        assert float(ctx.velocity) > 0
+        ctx.set_direction(-p.manifold.tangent.embed(sol))
+        assert float(ctx.velocity) < 0
 
     def test_q_exact_never_exceeds_q(self, problem):
         p, free, coeffs = problem
@@ -827,27 +828,27 @@ class TestPhysicalConvention:
 
     @pytest.mark.parametrize("delta_t", [1.0, 0.7])
     def test_the_bracket_side_is_still_descent(self, delta_t):
-        """The solve absorbs the chart's sign, so ``[-t_max, 0]`` still descends.
+        """The solve absorbs the chart's sign, so ``[0, t_max]`` still descends.
 
         Negating the generators negates the Jacobian, hence the omegas; ``ctx.A``
         and the gammas do not depend on the chart, so the solved *parameter*
         direction flips while its image in the tangent space still matches
-        ``A``. The slopes therefore stay positive and a negative step still
-        approaches the target.
+        ``A``. Stepping along its negation — what `geope.Geope` does — therefore
+        has negative slopes, and a positive step approaches the target.
         """
         p = _params(delta_t=delta_t)
         ctx = p.manifold.context(p.free())
         sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
-        coeffs = p.manifold.tangent.embed(sol)
+        coeffs = -p.manifold.tangent.embed(sol)
         ctx.set_direction(coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs)))
 
-        assert float(ctx.velocity) > 0
-        assert float(ctx.slope) > 0
+        assert float(ctx.velocity) < 0
+        assert float(ctx.slope) < 0
         eps = jnp.asarray(1e-2)
         assert (
-            float(ctx.infidelity_at(-eps))
+            float(ctx.infidelity_at(eps))
             < float(ctx.infidelity)
-            < float(ctx.infidelity_at(eps))
+            < float(ctx.infidelity_at(-eps))
         )
 
     def test_hessian_matches_autodiff_at_a_non_unit_duration(self):

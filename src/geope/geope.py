@@ -830,18 +830,20 @@ class Geope:
             # Scatter the solved columns back over the chart's parameters (a
             # no-op under param_transform, where every column is solvable), then
             # fix the direction's norm so the bracket means the same thing at
-            # every step.
-            coeffs = manifold.tangent.embed(sol)
+            # every step. The solve matches the tangent to `ctx.A`, which points
+            # *away* from the target (it is the gradient of the squared geodesic
+            # distance), so the descent direction is its negative.
+            coeffs = -manifold.tangent.embed(sol)
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
             ctx.set_direction(coeffs)
 
-            # One-sided bracket on the descent side: a useful step is negative
-            # (see `MatrixLieGroup.coefficients` for why), and t = 0 is "don't move".
-            # Scaled per unit of total duration G * delta_t: the chart's
-            # generators carry delta_t, so this keeps the step's effect on the
-            # unitary independent of how the duration is split into segments.
-            a = -max_step_size / (free_params.shape[0] * delta_t)
-            result = line_search(ctx, a, jnp.asarray(0.0, jnp.float64), ls_state)
+            # One-sided bracket on the descent side: t = 0 is "don't move" and a
+            # useful step is positive. Scaled per unit of total duration
+            # G * delta_t: the chart's generators carry delta_t, so this keeps the
+            # step's effect on the unitary independent of how the duration is
+            # split into segments.
+            t_max = max_step_size / (free_params.shape[0] * delta_t)
+            result = line_search(ctx, jnp.asarray(0.0, jnp.float64), t_max, ls_state)
             new_params = free_params + result.dt * coeffs
 
             if line_search.objective == "infidelity":

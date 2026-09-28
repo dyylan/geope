@@ -1453,7 +1453,7 @@ class TestGeope:
         assert g.history.best_fidelity > 0.999
 
     def test_armijo_steps_within_bracket(self, cnot, full_basis_2q, projected_basis_2q):
-        # Every line-search step must land in [-max_step_size / G, 0]. The
+        # Every line-search step must land in [0, max_step_size / G]. The
         # Gram-Schmidt fallback is disabled so that every recorded step size
         # really is one the line search chose (the fallback steps by
         # +/- gram_schmidt_step_size, either sign).
@@ -1466,9 +1466,9 @@ class TestGeope:
             max_step_size=max_step_size,
             gram_schmidt_step_size=0,
         )
-        a = -max_step_size / steps
+        t_max = max_step_size / steps
         for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert a - 1e-12 <= dt <= 0.0
+            assert 0.0 <= dt <= t_max + 1e-12
 
     def test_armijo_works_under_param_transform(
         self, cnot, full_basis_2q, projected_basis_2q

@@ -513,7 +513,8 @@ class TestLeftTrivialisation:
         m = p.manifold
         U = np.asarray(m.compute_point(free))
         # The context's convention: the tangent at U, pointing away from the
-        # target, so that the slope of the distance objective is positive.
+        # target (the gradient of the squared distance); GEOPE steps along the
+        # negation of the direction solved against it.
         A = -np.asarray(m.log(U, m.target))
         dU = np.transpose(np.asarray(m.tangent.jacobian(free)), [2, 3, 0, 1])
         J = 1j * np.einsum("ab,gkbc->gkac", U.conj().T, dU)[:, pidx]

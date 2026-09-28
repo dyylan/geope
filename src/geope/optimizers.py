@@ -21,22 +21,23 @@ jitted update) and calls ``optimizer(ctx, state)``, which returns an
 lands on** — not at the base point — so `geope.Grape` can report a fidelity that
 actually describes the parameters it stores.
 
-**All six rules have one shape:** an *uphill* direction and a *negative* step.
+**All six rules have one shape:** a *descent* direction ``coeffs`` $=-p$ and a
+*positive* step — the textbook (Nocedal & Wright) convention.
 
 | rule | $p$ | $\mathrm dt$ |
 |---|---|---|
-| `GradientDescent` | $\nabla C$ | $-\eta$ |
-| `Adam` | $\hat m/(\sqrt{\hat v}+\varepsilon)$ | $-\eta$ |
-| `LBFGS` | $H_m\nabla C$, $H_m$ implicit in $m$ stored pairs | Armijo or strong-Wolfe backtrack on $[-t_{\max}, 0]$ |
-| `NewtonTRM` / `NewtonRFO` | $H_{\text{reg}}^{-1}\nabla C$ | Armijo or strong-Wolfe backtrack on $[-t_{\max}, 0]$ |
-| `NewtonSaddleFree` | $\lvert H\rvert^{+}\nabla C$ | Armijo or strong-Wolfe backtrack on $[-t_{\max}, 0]$ |
+| `GradientDescent` | $\nabla C$ | $\eta$ |
+| `Adam` | $\hat m/(\sqrt{\hat v}+\varepsilon)$ | $\eta$ |
+| `LBFGS` | $H_m\nabla C$, $H_m$ implicit in $m$ stored pairs | Armijo or strong-Wolfe backtrack on $[0, t_{\max}]$ |
+| `NewtonTRM` / `NewtonRFO` | $H_{\text{reg}}^{-1}\nabla C$ | Armijo or strong-Wolfe backtrack on $[0, t_{\max}]$ |
+| `NewtonSaddleFree` | $\lvert H\rvert^{+}\nabla C$ | Armijo or strong-Wolfe backtrack on $[0, t_{\max}]$ |
 
 Adam fits because its per-coordinate rescaling is a *preconditioner on the
-direction*, not a step size. That this is GEOPE's convention — ``coeffs`` uphill,
-the accepted step negative, `GeometricContext.slope` positive at a descent
-direction — is what lets `geope.line_searches._armijo_line_search` serve here
-**unchanged**, and it is why `newton_trm_step` returns $H^{-1}g$ with no minus
-sign: on this convention that already *is* the direction.
+direction*, not a step size. That this is also `geope.Geope`'s convention —
+``coeffs`` downhill, the accepted step positive, `GeometricContext.slope` negative
+at a descent direction — is what lets `geope.line_searches._armijo_line_search`
+serve here **unchanged**. The solves (`newton_trm_step` and its siblings) return
+the unsigned $p$; each rule negates it once, where it sets the direction.
 
 **The three Newton rules differ only in how they regularise $H$**, and the choice
 matters because the cost Hessian is *singular* near a solution: the solutions form
@@ -98,10 +99,11 @@ class OptimizerResult(NamedTuple):
     """What an :class:`Optimizer` returns.
 
     Attributes:
-        dt: The accepted step along `coeffs` — **negative**, on GEOPE's
-            convention. `geope.Grape` forms ``free_params + dt * coeffs`` and
-            reports this as ``step_size``.
-        coeffs: The *uphill* direction, the same shape as ``ctx.free_params``.
+        dt: The accepted step along `coeffs` — **non-negative**. `geope.Grape`
+            forms ``free_params + dt * coeffs`` and reports this as
+            ``step_size``.
+        coeffs: The *descent* direction, the same shape as
+            ``ctx.free_params``.
         value: The infidelity **at** ``free_params + dt * coeffs``. Every
             optimiser here evaluates it anyway — the Newton pair get it from the
             last accepted backtracking trial — and reporting it is what keeps
@@ -157,7 +159,7 @@ class Optimizer:
 
 @dataclass(frozen=True)
 class _FixedStep(Optimizer):
-    r"""Shared tail of the first-order rules: an uphill direction, a fixed $-\eta$.
+    r"""Shared tail of the first-order rules: a descent direction, a fixed $\eta$.
 
     Both subclasses differ only in how they precondition the gradient. Neither
     line-searches, so the step is whatever ``learning_rate`` says and a too-large
@@ -173,16 +175,18 @@ class _FixedStep(Optimizer):
     learning_rate: float = 0.01
 
     def direction(self, gradient: Array, state: dict) -> tuple[Array, dict]:
-        """The uphill direction, and whatever state carried it."""
+        """The unsigned direction $p$ (``coeffs = -p``), and its carried state."""
         raise NotImplementedError
 
     def __call__(self, ctx, state):
         grad = ctx.gradient
         # Realify once: the pulse is complex128 with an identically-zero imaginary
-        # part, and every rule below is real arithmetic.
-        coeffs, new_state = self.direction(jnp.real(grad), state)
+        # part, and every rule below is real arithmetic. Negate the *output*:
+        # Adam's moments must keep accumulating the gradient itself.
+        p, new_state = self.direction(jnp.real(grad), state)
+        coeffs = -p
         ctx.set_direction(coeffs.astype(grad.dtype))
-        dt = jnp.asarray(-self.learning_rate, jnp.float64)
+        dt = jnp.asarray(self.learning_rate, jnp.float64)
         value = ctx.infidelity_at(dt)
         new_state["n_eval"] = jnp.asarray(1, jnp.int32)
         return OptimizerResult(dt, coeffs.astype(grad.dtype), value, new_state)
@@ -215,7 +219,7 @@ class Adam(_FixedStep):
       p = \frac{\hat m}{\sqrt{\hat v} + \varepsilon},$$
 
     with $\hat m = m/(1-\beta_1^t)$, $\hat v = v/(1-\beta_2^t)$ and the step
-    $-\eta p$. The defaults match the reference implementation, so runs stay
+    $\phi \leftarrow \phi - \eta p$. The defaults match the reference implementation, so runs stay
     comparable with the ``optax.adam`` this replaced.
 
     **The moments are accumulated on the real part of the gradient.**
@@ -259,16 +263,16 @@ class Adam(_FixedStep):
 class _BacktrackingNewton(Optimizer):
     r"""Shared machinery for the three regularised-Newton rules.
 
-    They differ only in how they turn the raw ``(P, P)`` Hessian into an uphill
-    direction; the step sizing is shared. By default it is
-    `geope.line_searches._armijo_line_search` — the same backtracking the Armijo
-    line searches use, reused unchanged because GRAPE speaks GEOPE's convention:
-    the bracket is one-sided $[-t_{\max}, 0]$ and
-    $s = \langle\nabla C, H_{\text{reg}}^{-1}\nabla C\rangle > 0$ is exactly its
+    They differ only in how they turn the raw ``(P, P)`` Hessian into a
+    direction $p$ (the rule steps along ``coeffs`` $=-p$); the step sizing is
+    shared. By default it is `geope.line_searches._armijo_line_search` — the same
+    backtracking the Armijo line searches use, reused unchanged because GRAPE
+    speaks GEOPE's convention: the bracket is one-sided $[0, t_{\max}]$ and
+    $s = -\langle\nabla C, H_{\text{reg}}^{-1}\nabla C\rangle < 0$ is exactly its
     documented descent slope. Setting ``wolfe=True`` swaps in
     :func:`_strong_wolfe_line_search` instead.
 
-    The trial step is warm-started at ``clip(increase * dt_prev, a, 0)`` and shrunk
+    The trial step is warm-started at ``clip(increase * dt_prev, 0, t_max)`` and shrunk
     by ``beta`` until sufficient decrease holds, reproducing the growth and cap of
     the transform this replaced. ``max_step = 1.0`` means the first trial of the
     first step is the **full Newton step**, which is the right default: the Newton
@@ -305,13 +309,14 @@ class _BacktrackingNewton(Optimizer):
     c2: float = field(default=0.9, kw_only=True)
 
     def direction(self, hessian: Array, gradient: Array) -> Array:
-        """The uphill direction from the flattened Hessian and gradient."""
+        """The unsigned direction $p$ (``coeffs = -p``) from the flattened
+        Hessian and gradient."""
         raise NotImplementedError
 
     def init(self, free_params):
         del free_params
         return {
-            "dt": jnp.asarray(-self.max_step, jnp.float64),
+            "dt": jnp.asarray(self.max_step, jnp.float64),
             "n_eval": jnp.asarray(0, jnp.int32),
         }
 
@@ -321,7 +326,7 @@ class _BacktrackingNewton(Optimizer):
         # Solve in the reals: the Hessian is real and the gradient real-valued, so
         # carrying the pulse's complex dtype into the solve buys nothing.
         flat_grad = jnp.real(grad).flatten()
-        flat = self.direction(hessian, flat_grad)
+        flat = -self.direction(hessian, flat_grad)
         coeffs = flat.reshape(grad.shape).astype(grad.dtype)
         ctx.set_direction(coeffs)
 
@@ -330,12 +335,14 @@ class _BacktrackingNewton(Optimizer):
         # body is a trap.
         slope = ctx.slope
 
-        a = jnp.asarray(-self.max_step, jnp.float64)
+        t_max = jnp.asarray(self.max_step, jnp.float64)
         # Warm start, as the transform this replaced did. A previous step of
         # exactly 0 (a search that gave up) would otherwise pin the bracket shut
-        # for the rest of the run, so fall back to the full bracket there.
-        warm = jnp.clip(self.increase * state["dt"], a, 0.0)
-        a_eff = jnp.where(warm == 0.0, a, warm)
+        # for the rest of the run, so fall back to the full bracket there. The
+        # init "dt", the clip and this fallback must agree on the sign: a clip to
+        # the wrong side returns 0 and silently disables the warm start.
+        warm = jnp.clip(self.increase * state["dt"], 0.0, t_max)
+        t_eff = jnp.where(warm == 0.0, t_max, warm)
 
         if self.wolfe:
             # `self.wolfe` is a Python bool, so this branch is resolved at trace
@@ -356,13 +363,13 @@ class _BacktrackingNewton(Optimizer):
                 c2=self.c2,
             )
         else:
-            # ctx.slope is <grad, coeffs> = g^T H_reg^-1 g > 0 for the positive
+            # ctx.slope is <grad, coeffs> = -g^T H_reg^-1 g < 0 for the positive
             # definite regularised Hessian, so this is a genuine
             # sufficient-decrease test rather than the relaxation a same-signed
             # slope would give.
             dt, value_at_dt, n_eval = _armijo_line_search(
                 ctx.infidelity_at,
-                a_eff,
+                t_eff,
                 F0=value,
                 s=slope,
                 c1=self.c1,
@@ -383,7 +390,7 @@ class NewtonTRM(_BacktrackingNewton):
 
     Shifts the Hessian's spectrum by $\sigma = \max(0,\ \delta - \lambda_{\min})$
     so it is positive definite with smallest eigenvalue at least $\delta$, then
-    solves $H_{\text{reg}}p = \nabla C$ by Cholesky. A larger ``delta``
+    solves $H_{\text{reg}}p = \nabla C$ by Cholesky and steps along $-p$. A larger ``delta``
     regularises harder and shortens the step toward gradient descent; a very small
     one takes near-pure Newton steps, which bounce on an indefinite landscape.
 
@@ -433,7 +440,7 @@ class NewtonRFO(_BacktrackingNewton):
 class NewtonSaddleFree(_BacktrackingNewton):
     r"""Saddle-free Newton — regularise by *discarding* the null space, not shifting.
 
-    Solves $p = \lvert H\rvert^{+}\nabla C$: diagonalise, invert the eigenvalue
+    Steps along $-p$ with $p = \lvert H\rvert^{+}\nabla C$: diagonalise, invert the eigenvalue
     **magnitudes**, and drop the directions whose magnitude falls below ``rcond``
     times the largest. Prefer this to :class:`NewtonTRM` and :class:`NewtonRFO`
     whenever the Hessian is rank-deficient, which for gate synthesis it is — the
@@ -464,7 +471,7 @@ class NewtonSaddleFree(_BacktrackingNewton):
 class LBFGS(Optimizer):
     r"""Limited-memory BFGS — second-order behaviour with no Hessian.
 
-    The direction is $p = H_m\nabla C$, where $H_m$ approximates the inverse
+    The rule steps along $-p$ with $p = H_m\nabla C$, where $H_m$ approximates the inverse
     Hessian from the last ``memory`` curvature pairs
     $s_k=\phi_{k+1}-\phi_k$, $y_k=\nabla C_{k+1}-\nabla C_k$. It is never
     formed: the two-loop recursion (N&W Alg. 7.4) applies it to the gradient
@@ -548,7 +555,7 @@ class LBFGS(Optimizer):
             "prev_x": jnp.zeros(shape, jnp.float64),
             "prev_g": jnp.zeros(shape, jnp.float64),
             "count": jnp.asarray(0, jnp.int32),
-            "dt": jnp.asarray(-self.max_step, jnp.float64),
+            "dt": jnp.asarray(self.max_step, jnp.float64),
             "n_eval": jnp.asarray(0, jnp.int32),
         }
 
@@ -581,9 +588,8 @@ class LBFGS(Optimizer):
     def _two_loop(self, gradient, s, y, rho):
         r"""$H_m g$ by the two-loop recursion, newest pair last.
 
-        Returns the **uphill** direction: the textbook's leading minus is
-        dropped, because on GEOPE's convention ``coeffs`` points uphill and the
-        accepted step is negative.
+        Returns the unsigned $p = H_m g$: the textbook's leading minus is applied
+        by the caller, where it sets the direction.
         """
         # gamma = s.y / y.y from the newest retained pair; 1.0 on a cold start,
         # which makes the first direction exactly steepest descent.
@@ -614,7 +620,7 @@ class LBFGS(Optimizer):
         fresh = state["count"] > 0
         memory = self._push(state, x - state["prev_x"], g - state["prev_g"], fresh)
 
-        direction = self._two_loop(g, memory["s"], memory["y"], memory["rho"])
+        direction = -self._two_loop(g, memory["s"], memory["y"], memory["rho"])
         coeffs = direction.astype(grad.dtype)
         ctx.set_direction(coeffs)
 
@@ -639,12 +645,12 @@ class LBFGS(Optimizer):
                 c2=self.c2,
             )
         else:
-            a = jnp.asarray(-self.max_step, jnp.float64)
-            warm = jnp.clip(self.increase * state["dt"], a, 0.0)
-            a_eff = jnp.where(warm == 0.0, a, warm)
+            t_max = jnp.asarray(self.max_step, jnp.float64)
+            warm = jnp.clip(self.increase * state["dt"], 0.0, t_max)
+            t_eff = jnp.where(warm == 0.0, t_max, warm)
             dt, value_at_dt, n_eval = _armijo_line_search(
                 ctx.infidelity_at,
-                a_eff,
+                t_eff,
                 F0=value,
                 s=slope,
                 c1=self.c1,
@@ -686,7 +692,7 @@ def newton_trm_step(hessian: Array, gradient: Array, delta: float | Array) -> Ar
         delta: Floor on the regularised spectrum.
 
     Returns:
-        The ``(P,)`` uphill direction $p$; GRAPE steps along $-p$.
+        The ``(P,)`` unsigned direction $p$; GRAPE steps along $-p$.
     """
     eigenvalues, u = jnp.linalg.eigh(hessian)
     # Shift only if the spectrum reaches below delta.
@@ -705,9 +711,9 @@ def newton_saddle_free_step(
 
     **Invert the magnitudes, not the eigenvalues.** A plain pseudo-inverse of an
     indefinite $H$ inverts $\lambda$ *with its sign*, so the negative-curvature
-    directions are climbed rather than descended and $p$ need not be an uphill
-    direction at all — on GEOPE's convention that makes ``ctx.slope`` negative and
-    the sufficient-decrease test unsatisfiable, so the search collapses to
+    directions are climbed rather than descended and $-p$ need not be a descent
+    direction at all — that makes ``ctx.slope`` positive and the
+    sufficient-decrease test unsatisfiable, so the search collapses to
     ``t_min`` and the run stalls. Inverting $|\lambda|$ instead (saddle-free
     Newton, Dauphin *et al.*) follows negative curvature *downhill* and gives
 
@@ -729,7 +735,7 @@ def newton_saddle_free_step(
             $|\lambda| \le \texttt{rcond}\cdot\max_j|\lambda_j|$ are discarded.
 
     Returns:
-        The ``(P,)`` uphill direction $p$; GRAPE steps along $-p$.
+        The ``(P,)`` unsigned direction $p$; GRAPE steps along $-p$.
     """
     eigenvalues, u = jnp.linalg.eigh(hessian)
     magnitude = jnp.abs(eigenvalues)
@@ -787,7 +793,7 @@ def newton_rfo_step(hessian: Array, gradient: Array, kappa: float | Array) -> Ar
         kappa: Target condition number.
 
     Returns:
-        The ``(P,)`` uphill direction $p$; GRAPE steps along $-p$.
+        The ``(P,)`` unsigned direction $p$; GRAPE steps along $-p$.
     """
     # Regularize in loop
     _, _, _, hessian = condition_loop(hessian, gradient, kappa)
@@ -808,11 +814,11 @@ def newton_rfo_step(hessian: Array, gradient: Array, kappa: float | Array) -> Ar
 # phi'(alpha) at trial points, i.e. `Manifold.value_and_grad` at an arbitrary
 # pulse, which is a GRAPE-side object the geodesic line searches never touch.
 #
-# Everything below runs on the *positive* step length alpha, so the book reads
-# verbatim; GEOPE's negative-step convention is restored on the way out.
+# Everything below runs on the positive step length alpha along the descent
+# direction ``coeffs``, so the book reads verbatim:
 #
-#     phi(alpha)  = C(phi - alpha * p)
-#     phi'(alpha) = -<grad(phi - alpha * p), p>,  so phi'(0) = -ctx.slope < 0.
+#     phi(alpha)  = C(phi + alpha * coeffs)
+#     phi'(alpha) = <grad(phi + alpha * coeffs), coeffs>,  so phi'(0) = ctx.slope < 0.
 #
 # Every `lax` carry element is float64 or int32 with a fixed structure, which is
 # what `while_loop` requires.
@@ -913,16 +919,17 @@ def _strong_wolfe_line_search(
     Args:
         ctx: The step's `geope.geometry.GeometricContext`, with the direction
             already set. Its ``manifold.value_and_grad`` supplies $\phi'$.
-        coeffs: The uphill direction $p$, shaped like ``ctx.free_params``.
+        coeffs: The descent direction, shaped like ``ctx.free_params``.
         value: $\phi(0)$, the infidelity at the base point.
-        slope: ``ctx.slope`` $=\langle\nabla C,p\rangle>0$, so $\phi'(0)=-$``slope``.
+        slope: ``ctx.slope`` $=\langle\nabla C,\texttt{coeffs}\rangle<0$, which
+            is $\phi'(0)$.
         curvature: $p^\intercal Hp$, used only to seed the first trial.
         max_step: Cap on the step length $\alpha$.
         c1: Sufficient-decrease constant.
         c2: Curvature constant.
 
     Returns:
-        ``(dt, value, n_eval)`` with ``dt = -alpha`` **negative**, matching
+        ``(dt, value, n_eval)`` with ``dt = alpha`` **non-negative**, matching
         :func:`geope.line_searches._armijo_line_search`'s contract. On exhaustion
         it returns the best point it bracketed.
     """
@@ -930,7 +937,7 @@ def _strong_wolfe_line_search(
     i32 = lambda x: jnp.asarray(x, dtype=jnp.int32)
 
     f0 = f64(value)
-    d0 = -f64(slope)  # phi'(0) < 0 for a descent direction
+    d0 = f64(slope)  # phi'(0) < 0 for a descent direction
     alpha_max = f64(max_step)
     free = ctx.free_params
     # Hoisted: `value_and_grad` is a cached_property returning a jitted callable,
@@ -938,11 +945,11 @@ def _strong_wolfe_line_search(
     value_and_grad = ctx.manifold.value_and_grad
 
     def phi(alpha):
-        return f64(ctx.infidelity_at(-alpha))
+        return f64(ctx.infidelity_at(alpha))
 
     def dphi(alpha):
-        f_a, g_a = value_and_grad(free - alpha * coeffs)
-        return f64(f_a), -f64(jnp.sum(jnp.real(g_a) * jnp.real(coeffs)))
+        f_a, g_a = value_and_grad(free + alpha * coeffs)
+        return f64(f_a), f64(jnp.sum(jnp.real(g_a) * jnp.real(coeffs)))
 
     # A non-positive model curvature has no minimum to offer; take the full step.
     alpha_1 = jnp.where(
@@ -1088,4 +1095,4 @@ def _strong_wolfe_line_search(
         )
 
     zoomed = jax.lax.while_loop(zoom_cond, zoom_body, zoom_init)
-    return -zoomed[9], zoomed[10], zoomed[11]
+    return zoomed[9], zoomed[10], zoomed[11]

@@ -18,7 +18,10 @@ calls ``line_search(ctx, a, b, state)``, which returns a :class:`LineSearchResul
 ``(dt, value, state)``. The context carries **only geometry**; the bracket
 ``[a, b]`` and the threaded state are the search's own bookkeeping and travel
 alongside it, which is what lets a consumer with no bracket (``Gecko``) share the
-same context type. Every quantity on the context is lazy, and the line search is
+same context type. The direction on the context is a **descent** direction and the
+bracket is ``[0, t_max]``: ``t = 0`` is "don't move", a useful step is positive, and
+the context's slopes (``ctx.velocity``, ``ctx.slope``) are negative there — the
+textbook (Nocedal & Wright) convention. Every quantity on the context is lazy, and the line search is
 traced *inside* the jitted update, so a quantity a method never reads is never
 traced: zeroth-order methods pay nothing for the ``logm``/HVP the geometry needs.
 
@@ -101,8 +104,9 @@ class LineSearch:
         Args:
             ctx: The step's :class:`~geope.geometry.GeometricContext`, with a
                 direction already set.
-            a: Bracket endpoint (``Geope`` passes ``-max_step_size / G``).
-            b: Bracket endpoint (``Geope`` passes ``0.0``).
+            a: Near bracket endpoint, "don't move" (``Geope`` passes ``0.0``).
+            b: Far bracket endpoint, the largest step (``Geope`` passes
+                ``max_step_size / (G * delta_t)``).
             state: This search's threaded state from the previous step.
 
         Returns:
@@ -138,7 +142,7 @@ class Armijo(LineSearch):
     r"""Backtracking Armijo line search — first-order, no curvature.
 
     The non-quadratic sibling of :class:`QuadraticArmijo`: it seeds the trial
-    step at the full bracket step $t_0=a=-t_{\max}$ instead of at the quadratic
+    step at the full bracket step $t_0=b=t_{\max}$ instead of at the quadratic
     model minimiser $-s/q$, and then enforces sufficient decrease by Armijo
     backtracking on ``ctx.distance_at``. The note's §15 shows this loses nothing
     in correctness — termination follows from the descent slope alone, and the
@@ -149,7 +153,7 @@ class Armijo(LineSearch):
     logarithm, and ``ctx.velocity`` is the exact slope $\langle A,\Omega\rangle$, one
     contraction of tier 0's Jacobian. So this search spends no propagator and no
     logarithm of its own before its first trial, and it uses the exact slope
-    rather than the radial $s=2F_0$ of the note's §11 — which held only under
+    rather than the radial $s=-2F_0$ of the note's §11 — which held only under
     perfect tangent matching, and not once ``coeffs`` has been renormalised.
 
     Because it never reads the *curvature*, this line search still works under
@@ -172,7 +176,7 @@ class Armijo(LineSearch):
     def __call__(self, ctx, a, b, state):
         dt, value, n_eval = _armijo_line_search(
             ctx.distance_at,
-            a,
+            b,
             F0=ctx.F0,
             s=ctx.velocity,
             c1=self.c1,
@@ -215,7 +219,7 @@ class QuadraticArmijo(LineSearch):
     def __call__(self, ctx, a, b, state):
         dt, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
-            a,
+            b,
             ctx.velocity,
             ctx.q,
             ctx.F0,
@@ -279,7 +283,7 @@ class ApproximateQuadraticArmijo(LineSearch):
     def __call__(self, ctx, a, b, state):
         dt, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
-            a,
+            b,
             ctx.velocity,
             ctx.q_exact,
             ctx.F0,
@@ -372,12 +376,14 @@ def _golden_section_search(
             f2_new = f(x2_new)
             return (a_new, b, x1_new, x2_new, f1_new, f2_new, i + 1)
 
-        return jax.lax.cond(f1 < f2, left_branch, right_branch, state)
+        # Ties keep the left portion, i.e. drift toward ``a`` — which on the
+        # descent bracket ``[0, t_max]`` is "don't move".
+        return jax.lax.cond(f1 <= f2, left_branch, right_branch, state)
 
     a, b, x1, x2, f1, f2, i = jax.lax.while_loop(cond_fun, body_fun, state0)
 
-    t_best = jnp.where(f1 < f2, x1, x2)
-    f_best = jnp.where(f1 < f2, f1, f2)
+    t_best = jnp.where(f1 <= f2, x1, x2)
+    f_best = jnp.where(f1 <= f2, f1, f2)
     # Each loop iteration spends one new ``f`` evaluation; the two initial
     # ``f1``/``f2`` probes bring the total to ``i + 2``.
     n_eval = i + jnp.array(2, dtype=jnp.int32)
@@ -386,7 +392,7 @@ def _golden_section_search(
 
 def _quadratic_armijo_line_search(
     fF: Callable[[Array], Array],
-    a: float | Array,
+    t_max: float | Array,
     s: float | Array,
     q: float | Array,
     F0: float | Array,
@@ -405,32 +411,30 @@ def _quadratic_armijo_line_search(
 
     Unlike :func:`_golden_section_search`, which sees
     only the scalar objective, this routine consumes the second-order
-    information ``(s, q)`` directly. The bracket is one-sided: the descent side
-    ``[a, 0]`` with ``a`` the maximum-magnitude step (``a < 0`` in GEOPE, where a
-    useful step is negative and ``t = 0`` is "no move"). It expects ``s > 0`` on
-    that convention, so the model minimiser $-s/q$ is negative.
+    information ``(s, q)`` directly. The bracket is one-sided: ``[0, t_max]``,
+    with ``t = 0`` "no move" and a useful step positive. It expects a descent
+    direction, ``s < 0``, so the model minimiser $-s/q$ is positive.
 
     Method (note §§6–8):
 
     - **Seed.** If ``q > 0`` (the local model has a minimiser), start at
-      ``t0 = clip(-s / q, a, 0)`` — the model minimiser, clipped to the bracket.
-      Otherwise (``q <= 0``: the model is concave, so it has no minimiser at all)
-      fall back to the full step ``t0 = a``. A non-positive ``q`` never
-      invalidates the *direction* — descent is guaranteed by ``s > 0`` on GEOPE's
-      sign convention — only its *scale*, which the backtracking then fixes.
+      ``t0 = clip(-s / q, 0, t_max)`` — the model minimiser, clipped to the
+      bracket. Otherwise (``q <= 0``: the model is concave, so it has no
+      minimiser at all) fall back to the full step ``t0 = t_max``. A non-positive
+      ``q`` never invalidates the *direction* — descent is guaranteed by
+      ``s < 0`` — only its *scale*, which the backtracking then fixes.
     - **Armijo.** Accept ``t`` when ``fF(t) <= F0 + c1 * t * s`` (sufficient
       decrease; the right-hand side is below ``F0`` since ``t * s < 0``).
-    - **Backtrack.** Otherwise ``t <- beta * t`` (shrinking the magnitude toward
-      0) until the test passes or the next step would fall below ``t_min`` in
-      magnitude.
+    - **Backtrack.** Otherwise ``t <- beta * t`` (shrinking toward 0) until the
+      test passes or the next step would fall below ``t_min``.
 
     Args:
         fF: Scalar-valued objective along the ray, ``fF(t) -> value``. This is
             the objective whose derivatives ``s`` and ``q`` describe (e.g. the
             squared-geodesic-distance pullback), not necessarily the fidelity.
-        a: Maximum-magnitude (bracket) step; ``a < 0`` on GEOPE's convention.
-        s: Exact slope $\psi'(0)$ of ``fF`` along the ray (expected ``< 0`` for a
-            descent direction, i.e. ``> 0`` before the sign of ``a``; see above).
+        t_max: The largest (bracket) step, ``> 0``.
+        s: Exact slope $\psi'(0)$ of ``fF`` along the ray, ``< 0`` for a
+            descent direction.
         q: Exact curvature $\psi''(0)$ of ``fF`` along the ray.
         F0: The objective value ``fF(0)`` at the current point.
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
@@ -443,15 +447,15 @@ def _quadratic_armijo_line_search(
         step, and the number of ``fF`` evaluations spent.
     """
     f64 = lambda x: jnp.asarray(x, dtype=jnp.float64)
-    a = f64(a)
+    t_max = f64(t_max)
     s = f64(s)
     q = f64(q)
     F0 = f64(F0)
     # TODO: cut locus boundary.
-    # With s > 0, a concave model (q < 0) puts -s/q on the *positive* side, which
+    # With s < 0, a concave model (q < 0) puts -s/q on the *negative* side, which
     # the clip would collapse to t = 0 (a stalled step); take the full bracket
-    # step instead. q == 0 reaches the same place via -inf, so branch on q > 0.
-    t0 = jnp.where(q > 0.0, jnp.clip(-s / q, a, 0.0), a)
+    # step instead. q == 0 reaches the same place via +inf, so branch on q > 0.
+    t0 = jnp.where(q > 0.0, jnp.clip(-s / q, 0.0, t_max), t_max)
 
     state0 = (t0, f64(fF(t0)), jnp.array(1, dtype=jnp.int32))
 
@@ -472,7 +476,7 @@ def _quadratic_armijo_line_search(
 
 def _armijo_line_search(
     fF: Callable[[Array], Array],
-    a: float | Array,
+    t_max: float | Array,
     F0: float | Array | None = None,
     s: float | Array | None = None,
     c1: float = 1e-4,
@@ -482,45 +486,44 @@ def _armijo_line_search(
     r"""JIT-compatible backtracking Armijo line search using JAX.
 
     The non-quadratic counterpart of :func:`_quadratic_armijo_line_search`: it
-    seeds the trial step at the full bracket step ``t0 = a`` (i.e. clipped to
-    $t_{\max}$) rather than at the quadratic model minimiser $-s/q$, so it needs
+    seeds the trial step at the full bracket step ``t0 = t_max`` rather than at the quadratic model minimiser $-s/q$, so it needs
     no curvature and no second derivative of the objective. §15 of the note
     *Quadratic-Seeded Armijo Line Search on $\mathrm{SU}(N)$* shows this loses
     nothing in correctness — termination follows from the descent slope alone, and
     $q$ serves only to scale the *first* trial.
 
-    The bracket convention matches the quadratic version: one-sided ``[a, 0]``
-    with ``a < 0``, a useful step negative, ``t = 0`` meaning "don't move", and a
-    descent direction giving ``s > 0``.
+    The bracket convention matches the quadratic version: one-sided
+    ``[0, t_max]``, a useful step positive, ``t = 0`` meaning "don't move", and a
+    descent direction giving ``s < 0``.
 
     Method:
 
     - **Slope.** When ``s`` is not supplied it is taken from the objective value
-      as $s=2F_0$. This is the note's §11 *exact radial specialization*: under the
-      tangent matching $\Omega=-A$ that GEOPE's geodesic step targets,
-      $s=\|A\|_F^2=2F_0$, and the Armijo test collapses to
+      as $s=-2F_0$. This is the note's §11 *exact radial specialization*: under
+      the tangent matching $\Omega=-A$ that GEOPE's geodesic step targets,
+      $s=-\|A\|_F^2=-2F_0$, and the Armijo test collapses to
       $F(t)\le F_0\,(1-2c_1 t)$ — current and trial objective values only.
       It is an approximation once ``coeffs`` has been renormalised to
       $\|p\|_F=\sqrt{G}$ (so $\|\Omega\|_F\neq\|A\|_F$), but the test is scaled by
       ``c1``, which is tiny by default. Pass ``s`` explicitly (e.g. the exact
       $\langle A,\Omega\rangle_F$) to override.
-    - **Seed.** ``t0 = a``, the full bracket step.
+    - **Seed.** ``t0 = t_max``, the full bracket step.
     - **Armijo.** Accept ``t`` when ``fF(t) <= F0 + c1 * t * s`` (the right-hand
       side is below ``F0`` since ``t * s < 0``). A non-positive ``F0`` — a
       converged iterate, where the test is vacuous — also accepts, so the loop
-      cannot grind through $\log_\beta(t_{\min}/|a|)$ evaluations at the end of a
+      cannot grind through $\log_\beta(t_{\min}/t_{\max})$ evaluations at the end of a
       run.
     - **Backtrack.** Otherwise ``t <- beta * t`` until the test passes or the next
-      step would fall below ``t_min`` in magnitude.
+      step would fall below ``t_min``.
 
     Args:
         fF: Scalar-valued objective along the ray, ``fF(t) -> value`` (e.g. the
             squared-geodesic-distance pullback ``ctx.distance_at``).
-        a: Maximum-magnitude (bracket) step; ``a < 0`` on GEOPE's convention.
+        t_max: The largest (bracket) step, ``> 0``.
         F0: The objective value ``fF(0)``. Evaluated here when omitted, which
             costs one ``fF`` evaluation.
-        s: Slope $\psi'(0)$ of ``fF`` along the ray (``> 0`` for a descent
-            direction on this convention). Defaults to the radial $2F_0$.
+        s: Slope $\psi'(0)$ of ``fF`` along the ray, ``< 0`` for a descent
+            direction. Defaults to the radial $-2F_0$.
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum allowed step magnitude before the search gives up.
@@ -533,16 +536,16 @@ def _armijo_line_search(
         :func:`_quadratic_armijo_line_search`.
     """
     f64 = lambda x: jnp.asarray(x, dtype=jnp.float64)
-    a = f64(a)
-    # An omitted F0 costs one probe; an omitted s is free (the radial 2 * F0).
+    t_max = f64(t_max)
+    # An omitted F0 costs one probe; an omitted s is free (the radial -2 * F0).
     n_probe = 0
     if F0 is None:
         F0 = fF(0.0)
         n_probe = 1
     F0 = f64(F0)
-    s = f64(2.0 * F0 if s is None else s)
+    s = f64(-2.0 * F0 if s is None else s)
 
-    t0 = a  # clip to t_max: the full bracket step, no curvature involved
+    t0 = t_max  # the full bracket step, no curvature involved
     state0 = (t0, f64(fF(t0)), jnp.array(1 + n_probe, dtype=jnp.int32))
 
     def cond_fun(state):
