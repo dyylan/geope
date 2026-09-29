@@ -1218,7 +1218,7 @@ class _CountingLineSearch(GoldenSection):
     def __call__(self, ctx, a, b, state):
         res = super().__call__(ctx, a, b, state)
         return LineSearchResult(
-            res.dt, res.value, {"n_step": state["n_step"] + 1, **res.state}
+            res.eta, res.value, {"n_step": state["n_step"] + 1, **res.state}
         )
 
 

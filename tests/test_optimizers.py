@@ -74,6 +74,7 @@ class _QuadraticContext:
         self._offset = jnp.asarray(offset)
         self._shape = shape or (1, offset.size)
         self.free_params = jnp.asarray(x).reshape(self._shape)
+        self.delta_t = jnp.asarray(1.0, jnp.float64)
         self.coeffs = None
 
     def _cost(self, x_flat):
@@ -126,7 +127,7 @@ def _run(optimizer, ctx, state=None):
     """One step; returns ``(result, new_x_flat)``."""
     state = optimizer.init(ctx.free_params) if state is None else state
     result = optimizer(ctx, state)
-    new_x = ctx.free_params + result.dt * result.coeffs
+    new_x = ctx.free_params + result.eta * result.coeffs
     return result, np.asarray(new_x).flatten()
 
 
@@ -379,7 +380,7 @@ class TestAdam:
 class TestNewtonRules:
     def test_a_full_newton_step_lands_on_the_exact_minimiser(self):
         # With delta below the spectrum the direction is A^-1 g, and the Armijo
-        # test accepts the full bracket step dt = -1 on the first trial, so one
+        # test accepts the full bracket step eta = -1 on the first trial, so one
         # step is exact. That it accepts immediately is itself the proof that the
         # slope is a genuine descent slope.
         matrix, eigenvalues = _spd(5, seed=13, shift=2.0)
@@ -389,7 +390,7 @@ class TestNewtonRules:
         assert eigenvalues.min() > 0.5
         result, new_x = _run(NewtonTRM(delta=0.5), ctx)
         assert np.allclose(new_x, np.linalg.solve(matrix, offset))
-        assert float(result.dt) == -1.0
+        assert float(result.eta) == -1.0
         assert int(result.state["n_eval"]) == 1
 
     def test_the_slope_is_the_gradient_pairing_not_the_direction_norm(self):
@@ -444,10 +445,10 @@ class TestNewtonRules:
         matrix, _ = _spd(4, seed=16, shift=2.0)
         opt = NewtonTRM(delta=0.5)
         state = opt.init(jnp.zeros((1, 4)))
-        assert float(state["dt"]) == -opt.max_step
+        assert float(state["eta"]) == -opt.max_step
         ctx = _QuadraticContext(matrix, np.arange(1.0, 5.0), np.full(4, 0.25))
         result, _ = _run(opt, ctx, state)
-        assert float(result.state["dt"]) == float(result.dt)
+        assert float(result.state["eta"]) == float(result.eta)
 
 
 # ===================================================================
@@ -467,7 +468,7 @@ class _NoHessianContext(_QuadraticContext):
         def __init__(self, matrix, offset, shape):
             self._matrix, self._offset, self._shape = matrix, offset, shape
 
-        def value_and_grad(self, x):
+        def value_and_grad(self, x, delta_t=1.0):
             flat = x.flatten()
             value = 0.5 * flat @ self._matrix @ flat - self._offset @ flat
             return value, (self._matrix @ flat - self._offset).reshape(self._shape)
@@ -489,7 +490,7 @@ def _descend(optimizer, matrix, offset, x0, steps, context=_NoHessianContext):
     for _ in range(steps):
         ctx = context(matrix, offset, x)
         result = optimizer(ctx, state)
-        x = np.asarray(ctx.free_params + result.dt * result.coeffs).flatten()
+        x = np.asarray(ctx.free_params + result.eta * result.coeffs).flatten()
         state = result.state
         per_step.append(result)
     return x, state, per_step
@@ -518,7 +519,7 @@ class TestLBFGS:
         opt = LBFGS(3)
         ctx = _NoHessianContext(matrix, np.ones(4), np.full(4, 0.3))
         state = opt.init(ctx.free_params)
-        expected = {"s", "y", "rho", "prev_x", "prev_g", "count", "dt", "n_eval"}
+        expected = {"s", "y", "rho", "prev_x", "prev_g", "count", "eta", "n_eval"}
         assert set(state) == expected
         result = opt(ctx, state)
         assert set(result.state) == expected
@@ -547,7 +548,7 @@ class TestLBFGS:
         for _ in range(6):
             ctx = _NoHessianContext(matrix, np.arange(1.0, 6.0), x)
             result = opt(ctx, state)
-            x = np.asarray(ctx.free_params + result.dt * result.coeffs).flatten()
+            x = np.asarray(ctx.free_params + result.eta * result.coeffs).flatten()
             state = result.state
             counts.append(int(np.count_nonzero(np.asarray(state["rho"]))))
         # One pair per completed step, capped at `memory`; the newest is last.
@@ -572,7 +573,7 @@ class TestLBFGS:
             LBFGS(4), matrix, np.arange(1.0, 6.0), np.full(5, 0.4), steps=5
         )
         for result in per_step:
-            assert float(result.dt) <= 0.0
+            assert float(result.eta) <= 0.0
 
     def test_the_state_stays_real_on_a_complex_gradient(self):
         matrix, _ = _spd(3, seed=36, shift=1.0)
@@ -594,11 +595,11 @@ class TestLBFGS:
         ctx = _NoHessianContext(matrix, offset, np.full(5, 0.3))
         result = opt(ctx, opt.init(ctx.free_params))
 
-        alpha = -float(result.dt)
+        alpha = -float(result.eta)
         phi0 = float(ctx.value_and_grad[0])
         d0 = -float(ctx.slope)  # phi'(0) < 0 at a descent direction
         phi_a = float(result.value)
-        flat = np.asarray(ctx.free_params + result.dt * result.coeffs).flatten()
+        flat = np.asarray(ctx.free_params + result.eta * result.coeffs).flatten()
         grad_a = matrix @ flat - offset
         d_a = -float(grad_a @ np.asarray(result.coeffs).flatten())
 
@@ -608,7 +609,7 @@ class TestLBFGS:
     def test_it_stalls_gracefully_at_the_floating_point_floor(self):
         # Past the point where the achievable decrease falls below the
         # resolution of the cost itself, the strong-Wolfe search is testing
-        # rounding noise and returns dt = 0. It must stop *moving*, not
+        # rounding noise and returns eta = 0. It must stop *moving*, not
         # diverge, and the zero-length pair must be rejected rather than
         # poisoning the memory with rho = inf.
         n = 6
@@ -623,7 +624,7 @@ class TestLBFGS:
         values = [float(r.value) for r in per_step]
         assert np.all(np.diff(values) <= 1e-12)  # never uphill
         # Whatever the tail does, it does not move.
-        assert float(per_step[-1].dt) == 0.0
+        assert float(per_step[-1].eta) == 0.0
 
     def test_memory_participates_in_the_compile_memo(self):
         assert LBFGS(5) != LBFGS(10)
@@ -638,7 +639,7 @@ class TestLBFGS:
         state = opt.init(ctx.free_params)
 
         def one_step(st):
-            return opt(_NoHessianContext(matrix, np.ones(4), np.full(4, 0.3)), st).dt
+            return opt(_NoHessianContext(matrix, np.ones(4), np.full(4, 0.3)), st).eta
 
         assert float(jax.jit(one_step)(state)) <= 0.0
 
@@ -660,7 +661,7 @@ class _WolfeContext(_QuadraticContext):
         def __init__(self, matrix, offset, shape):
             self._matrix, self._offset, self._shape = matrix, offset, shape
 
-        def value_and_grad(self, x):
+        def value_and_grad(self, x, delta_t=1.0):
             flat = x.flatten()
             value = 0.5 * flat @ self._matrix @ flat - self._offset @ flat
             return value, (self._matrix @ flat - self._offset).reshape(self._shape)
@@ -691,7 +692,7 @@ class TestStrongWolfe:
         result, new_x = _run(make(), ctx)
 
         assert np.allclose(new_x, np.linalg.solve(matrix, offset))
-        assert np.isclose(float(result.dt), -1.0)
+        assert np.isclose(float(result.eta), -1.0)
         # One value and one gradient: the first trial is accepted.
         assert int(result.state["n_eval"]) == 2
 
@@ -720,7 +721,7 @@ class TestStrongWolfe:
         opt = NewtonSaddleFree(wolfe=True)
         result, _ = _run(opt, ctx)
 
-        alpha = -float(result.dt)
+        alpha = -float(result.eta)
         assert alpha > 0.0
         coeffs = ctx.coeffs
         slope0 = float(jnp.sum(jnp.real(ctx.gradient) * jnp.real(coeffs)))
@@ -745,8 +746,8 @@ class TestStrongWolfe:
             NewtonSaddleFree(wolfe=True), _WolfeContext(matrix, offset, np.zeros(5))
         )
 
-        # Both keep "dt" in the state, which the warm start depends on.
-        assert "dt" in armijo.state and "dt" in wolfe.state
+        # Both keep "eta" in the state, which the warm start depends on.
+        assert "eta" in armijo.state and "eta" in wolfe.state
         # Wolfe spends a gradient as well as a value on its accepted trial.
         assert int(wolfe.state["n_eval"]) > int(armijo.state["n_eval"])
 
@@ -837,7 +838,7 @@ class TestOptimizerValueSemantics:
             assert isinstance(result, OptimizerResult)
             assert "n_eval" in result.state
             # Uphill direction, negative step — GEOPE's convention.
-            assert float(result.dt) < 0
+            assert float(result.eta) < 0
 
     def test_base_optimizer_declines(self):
         with pytest.raises(NotImplementedError):

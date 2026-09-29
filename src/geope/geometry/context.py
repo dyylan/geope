@@ -63,11 +63,17 @@ class GeometricContext:
     Attributes:
         manifold: The bound `Manifold` this context is opened on.
         free_params: The pulse $\phi$ at the base point, shape ``(G, K_free)``.
+        delta_t: The segment duration, threaded into every chart evaluation.
+            A traced scalar at trace time — safe, because the context itself is
+            trace-time-only. Defaults to ``1.0``.
     """
 
-    def __init__(self, manifold: Manifold, free_params: Array) -> None:
+    def __init__(
+        self, manifold: Manifold, free_params: Array, delta_t: Array | float = 1.0
+    ) -> None:
         self.manifold = manifold
         self.free_params = free_params
+        self.delta_t = delta_t
         self._coeffs: Array | None = None
 
     # --- the direction ------------------------------------------------------
@@ -130,12 +136,12 @@ class GeometricContext:
     @cached_property
     def point(self) -> Array:
         r"""The pulse's point on the manifold, $\Phi(\phi)$. One propagator."""
-        return self.manifold.compute_point(self.free_params)
+        return self.manifold.compute_point(self.free_params, self.delta_t)
 
     @cached_property
     def jacobian(self) -> Array:
         r"""$\partial\Phi/\partial\phi$, shape ``(*ambient, G, K_free)``. One Jacobian."""
-        return jnp.asarray(self.tangent.jacobian(self.free_params))
+        return jnp.asarray(self.tangent.jacobian(self.free_params, self.delta_t))
 
     @cached_property
     def A(self) -> Array:
@@ -238,7 +244,7 @@ class GeometricContext:
         the other, never both**: `infidelity` goes through `point`, so asking for
         it as well re-exponentiates the whole pulse. See the class docstring.
         """
-        return self.manifold.value_and_grad(self.free_params)
+        return self.manifold.value_and_grad(self.free_params, self.delta_t)
 
     @cached_property
     def gradient(self) -> Array:
@@ -325,7 +331,9 @@ class GeometricContext:
         self._require_curvature("W")
         # The HVP also returns the propagator and V; both are already known from
         # tier 0/1, and recomputing them is inherent to its O(G) recursion.
-        return self.tangent.hvp(jnp.real(self.free_params), self.coeffs)[2]
+        return self.tangent.hvp(jnp.real(self.free_params), self.coeffs, self.delta_t)[
+            2
+        ]
 
     @cached_property
     def acceleration(self) -> Array:
@@ -398,27 +406,29 @@ class GeometricContext:
         ``param_transform`` too. Dense in the parameters — $(P, P)$ — but assembled
         without ever forming $\mathrm D^2\Phi$; see `Manifold.hessian`.
         """
-        return self.manifold.hessian(self.free_params)
+        return self.manifold.hessian(self.free_params, self.delta_t)
 
     # --- tier 3: the ray ----------------------------------------------------
 
-    def point_at(self, t: Array) -> Array:
-        r"""The point at $\phi + t\,p$ — the single gate for all of tier 3."""
+    def point_at(self, eta: Array) -> Array:
+        r"""The point at $\phi + \eta\,p$ — the single gate for all of tier 3."""
         self._require_direction("point_at")
-        return self.manifold.compute_point(self.free_params + t * self.coeffs)
+        return self.manifold.compute_point(
+            self.free_params + eta * self.coeffs, self.delta_t
+        )
 
-    def infidelity_at(self, t: Array) -> Array:
+    def infidelity_at(self, eta: Array) -> Array:
         """The infidelity along the ray. One propagator."""
-        return self.manifold.infidelity(self.point_at(t), self.target)
+        return self.manifold.infidelity(self.point_at(eta), self.target)
 
-    def fidelity_at(self, t: Array) -> Array:
+    def fidelity_at(self, eta: Array) -> Array:
         """The fidelity along the ray. One propagator."""
-        return self.manifold.fidelity(self.point_at(t), self.target)
+        return self.manifold.fidelity(self.point_at(eta), self.target)
 
-    def distance_at(self, t: Array) -> Array:
+    def distance_at(self, eta: Array) -> Array:
         r"""The squared-geodesic-distance objective $\tfrac12 d_g(\cdot, V)^2$
         along the ray, whose derivatives `s`, `q` and `q_exact` describe.
 
         One propagator plus one logarithm.
         """
-        return self.manifold.distance2(self.point_at(t), self.target)
+        return self.manifold.distance2(self.point_at(eta), self.target)

@@ -903,3 +903,55 @@ class TestAlgebraConvention:
         element = jnp.asarray(np.tensordot(c, basis_2q.algebra, axes=[[-1], [0]]))
         got = bound.coefficients(jnp.eye(4, dtype=jnp.complex128), element)
         np.testing.assert_allclose(np.asarray(got), c, atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Tests — delta_t: threaded as a traced argument, never baked (#25)
+# ---------------------------------------------------------------------------
+
+
+class TestDeltaTThreading:
+    """The duration is an argument of the jitted callables, not a closure."""
+
+    def _params(self, basis_2q, **kw):
+        return Parameters(
+            basis=basis_2q,
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+            piecewise_steps=2,
+            seed=5,
+            **kw,
+        )
+
+    def test_a_new_delta_t_value_reuses_the_compiled_trace(self, basis_2q):
+        params = self._params(basis_2q)
+        m = params.manifold
+        phi = params.free()
+        m.fidelity_at(phi, jnp.asarray(1.0, jnp.float64))
+        size = m.fidelity_at._cache_size()
+        f_half = m.fidelity_at(phi, jnp.asarray(0.5, jnp.float64))
+        # A duration change is a value, not a shape: no recompile.
+        assert m.fidelity_at._cache_size() == size
+        # exp(dt sum phi E) == exp(sum (dt phi) E): the scaled pulse at dt = 1.
+        f_ref = m.fidelity_at(0.5 * phi, jnp.asarray(1.0, jnp.float64))
+        np.testing.assert_allclose(float(f_half), float(f_ref), atol=1e-12)
+
+    def test_reassigning_delta_t_cannot_go_stale(self, basis_2q):
+        params = self._params(basis_2q)
+        params.delta_t = 0.5
+        got = params.manifold.fidelity_at(
+            params.free(), jnp.asarray(params.delta_t, jnp.float64)
+        )
+        fresh = self._params(basis_2q, delta_t=0.5)
+        expected = fresh.manifold.fidelity_at(
+            fresh.free(), jnp.asarray(fresh.delta_t, jnp.float64)
+        )
+        np.testing.assert_allclose(float(got), float(expected), atol=1e-14)
+
+    def test_parameters_validates_delta_t(self, basis_2q):
+        with pytest.raises(ValueError, match="delta_t"):
+            self._params(basis_2q, delta_t=0.0)
+        with pytest.raises(ValueError, match="delta_t"):
+            self._params(basis_2q, delta_t=-1.0)
+        params = self._params(basis_2q, delta_t=2.0)
+        assert params.total_time == pytest.approx(4.0)

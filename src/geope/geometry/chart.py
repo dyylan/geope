@@ -4,8 +4,16 @@ Every manifold in the library is a submanifold of one **ambient space**
 $\mathcal A = \mathbb C^{N\times m}$, and the pulse acts on all of them the same
 way — by left multiplication with a product of piecewise-constant exponentials,
 
-$$U(\phi) = \prod_g \exp\Bigl(\sum_k \phi_{g,k} E_k\Bigr),
-\qquad \Phi(\phi) = U(\phi)\,x_0 .$$
+$$U(\phi) = \prod_g \exp\Bigl(\Delta t\sum_k \phi_{g,k} E_k\Bigr),
+\qquad \Phi(\phi) = U(\phi)\,x_0 ,$$
+
+with $\Delta t$ the segment duration, a **traced scalar argument** defaulting
+to ``1.0`` on every callable a factory here returns. Because the generators
+enter linearly, $\exp(\Delta t\sum_k\phi_kE_k) = \exp(\sum_k(\Delta t\,\phi_k)
+E_k)$: each factory scales its *parameters* by $\Delta t$ and applies the exact
+chain-rule factor to the differentials ($\Delta t$ on the Jacobian and its
+pullback, $\Delta t^2$ on the Hessian pullback, direction scaling on the HVP),
+so the `geope.jax` kernels never see time.
 
 The chart is therefore the **orbit map** of that one ambient action through a
 base point $x_0 = \Phi(0)$: the identity on a matrix group (where the propagator
@@ -37,7 +45,6 @@ enclosing ``@jax.jit`` update step that `geope.Geope.optimize` traces once.
 from __future__ import annotations
 
 from collections.abc import Callable
-from functools import partial
 
 import jax
 import jax.numpy as jnp
@@ -52,17 +59,21 @@ from ..jax.hessian import (
 from ..jax.jacobian import get_jacobian_propagator, get_vjp_propagator
 
 
-def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
+def compute_matrices_params_list_fn(
+    params_list: Array, basis: Array, delta_t: Array | float = 1.0
+) -> Array:
     """Compute the product unitary from a list of parameter vectors.
 
     For each parameter vector in `params_list`, constructs the algebra element
-    as a linear combination of the generator array `basis`, exponentiates it,
-    and accumulates the product unitary via `jax.lax.scan`.
+    as a linear combination of the generator array `basis`, scales it by the
+    segment duration `delta_t`, exponentiates it, and accumulates the product
+    unitary via `jax.lax.scan`.
 
     Args:
         params_list: ``Array`` of shape ``(piecewise_steps, K)`` where each row
             contains the Lie-algebra coefficients for one gate segment.
         basis: Generator ``Array`` of shape ``(K, d, d)``.
+        delta_t: The segment duration, a traced scalar. Defaults to ``1.0``.
 
     Returns:
         The product unitary ``Array`` of shape ``(d, d)``.
@@ -70,7 +81,7 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
 
     def step(U, params):
         A = jnp.tensordot(params, basis, axes=[[-1], [0]])
-        Ui = jax.scipy.linalg.expm(A)
+        Ui = jax.scipy.linalg.expm(delta_t * A)
         U_new = jnp.matmul(Ui, U)
         return U_new, None
 
@@ -79,7 +90,7 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
     return U_final
 
 
-def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], Array]:
+def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[..., Array]:
     """Create a partial unitary-computation function with a fixed generator array.
 
     Args:
@@ -87,10 +98,14 @@ def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], 
             pipeline.
 
     Returns:
-        A ``Callable[[Array], Array]`` that accepts a parameter list
-        and returns the product unitary.
+        A ``Callable[[Array, float], Array]`` accepting a parameter list and a
+        ``delta_t`` (defaulting to ``1.0``), returning the product unitary.
     """
-    return partial(compute_matrices_params_list_fn, basis=basis)
+
+    def compute(params_list: Array, delta_t: Array | float = 1.0) -> Array:
+        return compute_matrices_params_list_fn(params_list, basis, delta_t)
+
+    return compute
 
 
 def get_chart_fn(
@@ -120,8 +135,8 @@ def get_chart_fn(
         return propagator
     base = jnp.asarray(base_point, dtype=jnp.complex128)
 
-    def chart(params_list: Array) -> Array:
-        return propagator(params_list) @ base
+    def chart(params_list: Array, delta_t: Array | float = 1.0) -> Array:
+        return propagator(params_list, delta_t) @ base
 
     return chart
 
@@ -150,12 +165,22 @@ def get_chart_hvp_fn(
     # The bare two-argument form: `method="eig", hermitian=True`, the defaults
     # the whole pipeline has always run on.
     propagator_hvp = get_hvp_propagator(jnp.asarray(generators))
+
+    def scaled_hvp(
+        params_list: Array, direction: Array, delta_t: Array | float = 1.0
+    ) -> tuple[Array, Array, Array]:
+        # Scaling the parameters *and* the direction makes the returned
+        # (X, V, W) the derivatives along `direction` at fixed delta_t.
+        return propagator_hvp(delta_t * params_list, delta_t * direction)
+
     if base_point is None:
-        return propagator_hvp
+        return scaled_hvp
     base = jnp.asarray(base_point, dtype=jnp.complex128)
 
-    def chart_hvp(params_list: Array, direction: Array) -> tuple[Array, Array, Array]:
-        point, velocity, acceleration = propagator_hvp(params_list, direction)
+    def chart_hvp(
+        params_list: Array, direction: Array, delta_t: Array | float = 1.0
+    ) -> tuple[Array, Array, Array]:
+        point, velocity, acceleration = scaled_hvp(params_list, direction, delta_t)
         return point @ base, velocity @ base, acceleration @ base
 
     return chart_hvp
@@ -192,15 +217,24 @@ def get_chart_jacobian_fn(
         assumption the holomorphic autodiff path did not make.
     """
     jac = get_jacobian_propagator(jnp.asarray(generators))
+
+    def scaled_jac(params_list: Array, delta_t: Array | float) -> Array:
+        # d/dphi exp(sum (dt phi) E) = dt * (the derivative at the scaled pulse).
+        return delta_t * jac(delta_t * params_list)
+
     if base_point is None:
         # (G, d, d, K) -> (d, d, G, K).
-        return lambda params_list: jnp.moveaxis(jac(params_list), 0, -2)
+        return lambda params_list, delta_t=1.0: jnp.moveaxis(
+            scaled_jac(params_list, delta_t), 0, -2
+        )
     base = jnp.asarray(base_point, dtype=jnp.complex128)
 
-    def chart_jacobian(params_list: Array) -> Array:
+    def chart_jacobian(params_list: Array, delta_t: Array | float = 1.0) -> Array:
         # (G, d, d, K) -> (G, d, K, *base_trailing) -> (G, *ambient, K).
         landed = jnp.moveaxis(
-            jnp.tensordot(jac(params_list), base, axes=[[2], [0]]), 2, -1
+            jnp.tensordot(scaled_jac(params_list, delta_t), base, axes=[[2], [0]]),
+            2,
+            -1,
         )
         return jnp.moveaxis(landed, 0, -2)
 
@@ -242,16 +276,27 @@ def get_chart_vjp_fn(
     """
     vjp = get_vjp_propagator(jnp.asarray(generators))
     if base_point is None:
-        return vjp
+
+        def scaled_vjp(
+            params_list: Array, delta_t: Array | float = 1.0
+        ) -> tuple[Array, Callable[[Array], Array]]:
+            point, pullback = vjp(delta_t * params_list)
+            return point, lambda cotangent: delta_t * pullback(cotangent)
+
+        return scaled_vjp
     base = jnp.asarray(base_point, dtype=jnp.complex128)
     # Reshape a state (d,) to the (d, 1) frame it is, so one expression serves both.
     base_2d = base.reshape(base.shape[0], -1)
 
-    def chart_vjp(params_list: Array) -> tuple[Array, Callable[[Array], Array]]:
-        propagator, pullback = vjp(params_list)
+    def chart_vjp(
+        params_list: Array, delta_t: Array | float = 1.0
+    ) -> tuple[Array, Callable[[Array], Array]]:
+        propagator, pullback = vjp(delta_t * params_list)
 
         def landed_pullback(cotangent: Array) -> Array:
-            return pullback(cotangent.reshape(base_2d.shape) @ jnp.conj(base_2d).T)
+            return delta_t * pullback(
+                cotangent.reshape(base_2d.shape) @ jnp.conj(base_2d).T
+            )
 
         return propagator @ base, landed_pullback
 
@@ -299,19 +344,27 @@ def get_chart_hessian_vjp_fn(
         `get_chart_jacobian_fn`.
     """
     if base_point is None:
-        return get_hessian_vjp_propagator(jnp.asarray(generators))
+        raw = get_hessian_vjp_propagator(jnp.asarray(generators))
+
+        def scaled_hessian_vjp(
+            params_list: Array, delta_t: Array | float = 1.0
+        ) -> tuple[Array, Callable[[Array], Array]]:
+            point, pullback = raw(delta_t * params_list)
+            return point, lambda cotangent: delta_t**2 * pullback(cotangent)
+
+        return scaled_hessian_vjp
     base = jnp.asarray(base_point, dtype=jnp.complex128)
     # Reshape a state (d,) to the (d, 1) frame it is, so one expression serves both.
     base_2d = base.reshape(base.shape[0], -1)
     vjp_hess = get_hessian_vjp_propagator(jnp.asarray(generators), right=base_2d)
 
     def chart_hessian_vjp(
-        params_list: Array,
+        params_list: Array, delta_t: Array | float = 1.0
     ) -> tuple[Array, Callable[[Array], Array]]:
-        propagator, pullback = vjp_hess(params_list)
+        propagator, pullback = vjp_hess(delta_t * params_list)
 
         def landed_pullback(cotangent: Array) -> Array:
-            return pullback(cotangent.reshape(base_2d.shape))
+            return delta_t**2 * pullback(cotangent.reshape(base_2d.shape))
 
         return propagator @ base, landed_pullback
 
@@ -346,13 +399,17 @@ def get_chart_hessian_fn(
         `get_chart_jacobian_fn`.
     """
     hess = get_hessian_propagator(jnp.asarray(generators))
+
+    def scaled_hess(params_list: Array, delta_t: Array | float) -> Array:
+        return delta_t**2 * hess(delta_t * params_list)
+
     if base_point is None:
-        return hess
+        return lambda params_list, delta_t=1.0: scaled_hess(params_list, delta_t)
     base = jnp.asarray(base_point, dtype=jnp.complex128)
 
-    def chart_hessian(params_list: Array) -> Array:
+    def chart_hessian(params_list: Array, delta_t: Array | float = 1.0) -> Array:
         # (G, G, d, d, K, K) -> (G, G, d, K, K, *trail) -> (G, G, *ambient, K, K).
-        landed = jnp.tensordot(hess(params_list), base, axes=[[3], [0]])
+        landed = jnp.tensordot(scaled_hess(params_list, delta_t), base, axes=[[3], [0]])
         return jnp.moveaxis(landed, (3, 4), (-2, -1))
 
     return chart_hessian
@@ -372,9 +429,16 @@ def get_jacobian_fn(
         compute_point_fn: Callable mapping a parameter list to the chart's point.
 
     Returns:
-        A ``Callable[[Array], Array]`` returning the Jacobian of the point.
+        A ``Callable[[Array, float], Array]`` returning the Jacobian of the
+        point with respect to the parameters, at fixed ``delta_t``.
     """
-    return jax.jacobian(compute_point_fn, argnums=0, holomorphic=True)
+
+    def jacobian_fn(x: Array, delta_t: Array | float = 1.0) -> Array:
+        return jax.jacobian(
+            lambda p: compute_point_fn(p, delta_t), argnums=0, holomorphic=True
+        )(x)
+
+    return jacobian_fn
 
 
 def get_split_jacobian_fn(
@@ -394,14 +458,12 @@ def get_split_jacobian_fn(
         A ``Callable[[Array], Array]`` returning the complex Jacobian.
     """
 
-    def _split_U(x):
-        U = compute_point_fn(x)
-        return jnp.stack([jnp.real(U), jnp.imag(U)])
+    def _jac_fn(x: Array, delta_t: Array | float = 1.0) -> Array:
+        def _split_U(p):
+            U = compute_point_fn(p, delta_t)
+            return jnp.stack([jnp.real(U), jnp.imag(U)])
 
-    _raw_jac_split = jax.jacobian(_split_U, argnums=0)
-
-    def _jac_fn(x):
-        jac_split = _raw_jac_split(x)
+        jac_split = jax.jacobian(_split_U, argnums=0)(x)
         return jac_split[0] + 1j * jac_split[1]
 
     return _jac_fn
@@ -431,11 +493,13 @@ def get_split_vjp_fn(
         A ``Callable[[Array], tuple[Array, Callable]]``, as `get_chart_vjp_fn`.
     """
 
-    def _split_U(x):
-        U = compute_point_fn(x)
-        return jnp.stack([jnp.real(U), jnp.imag(U)])
+    def _vjp_fn(
+        x: Array, delta_t: Array | float = 1.0
+    ) -> tuple[Array, Callable[[Array], Array]]:
+        def _split_U(p):
+            U = compute_point_fn(p, delta_t)
+            return jnp.stack([jnp.real(U), jnp.imag(U)])
 
-    def _vjp_fn(x: Array) -> tuple[Array, Callable[[Array], Array]]:
         split, pullback = jax.vjp(_split_U, x)
 
         def _pull(cotangent: Array) -> Array:

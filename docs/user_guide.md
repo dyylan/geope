@@ -5,10 +5,10 @@
 `geope` finds piecewise-constant control pulses that implement a target quantum gate on an $n$-qubit system. Given a target unitary $U_T$, a set of available control generators (the projected basis), and optionally fixed drift generators, the optimiser searches for real-valued parameters $\phi$ such that
 
 $$
-U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
+U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i\,\Delta t \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
 $$
 
-where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$.
+where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$ and $\Delta t$ is the segment duration. Only the product $\Delta t \cdot \phi$ enters the exponent, so at the default `delta_t = 1.0` each parameter is the whole product amplitude × duration — a rotation angle per segment — and time never needs thinking about. A non-default `delta_t` separates the two: $\phi_{g,k}$ then reads as an amplitude (a rate) and $\Delta t$ as the time it acts for.
 
 The core algorithm is the **geodesic method**: at each step it computes the shortest path on $U(d)$ from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.
 
@@ -239,6 +239,7 @@ Parameters(basis=None, control=None, drift=None,
 | `drift_values` | dict, `ndarray`, or `None` (ones) |
 | `target` | target unitary as `ndarray` |
 | `piecewise_steps` | number of gate segments $N_g$ |
+| `delta_t` | segment duration $\Delta t$, so $U_g = \exp(-i\,\Delta t\,H_g)$; defaults to `1.0`. |
 | `fixed_drift` | whether drift is held fixed during optimisation |
 | `constraints` | list of constraint vectors / dicts |
 | `pulse_constraints` | control-format dict `{site: [ops]}` (same format as `control`) of projected terms whose time-shape is fixed |
@@ -576,15 +577,15 @@ for each step:
 
     5. Normalise and line-search:
        coeffs = sol · sqrt(N_g) / ||sol||
-       dt     = argmin infid(φ + t · coeffs)        # over t ∈ [-t_max, 0]
-       φ_new  = φ + dt · coeffs
+       eta    = argmin infid(φ + η · coeffs)        # over η ∈ [-η_max, 0]
+       φ_new  = φ + eta · coeffs
 
     6. If fidelity decreased, Gram–Schmidt fallback:
        proj_c = random_direction ⊥ coeffs
        try ±proj_c, keep the side with higher fidelity
 ```
 
-The line search interval $[-t_{\max}, 0]$ is the toward-target half-line under the algorithm's sign convention: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity $\Omega$ to $A$, the geodesic tangent *pointing away from* the target, so negative `dt` is what approaches it. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
+The line search interval $[-\eta_{\max}, 0]$ is the toward-target half-line under the algorithm's sign convention: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity $\Omega$ to $A$, the geodesic tangent *pointing away from* the target, so negative `eta` is what approaches it. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
 
 ### Key functions
 
@@ -722,7 +723,23 @@ print(g.history.best_fidelity)         # best fidelity over the trajectory
 ### Practical implications
 
 - `Gecko`'s null-space methods (`speed`, `length`, `robust`) must use `parameter_indices`, not `parameter_labels`, when `param_transform` is set — labels no longer correspond to optimised parameters. `Gecko` raises `ValueError` otherwise. (`Gecko` supports experimental parameters in every construction mode: when reusing a `Geope` the engine is already wrapped; when built from `params` it re-wraps a fresh engine.)
+- `Gecko.bound` likewise takes integer-indexed bounds under `param_transform` — `{index: (lo, hi)}`, the same convention as `pulse_constraints` — since interaction labels have no meaning in experimental space.
 - Internally `param_transform` mode uses `float64`; basis-coefficient mode uses `complex128`. Tolerances and bounds you supply should match.
+- `Gecko` subdivision (`piecewise_steps_multiplier=m`) replicates each segment's parameters **unchanged** and divides `params.delta_t` by `m`, which is exact for *any* transform: $\exp(\Delta t\,A) = \exp((\Delta t/m)A)^m$. `params.total_time` is invariant under subdivision.
+
+### An optimisable duration
+
+`delta_t` itself is a constant the optimisers never move. A *controllable* duration needs no library support: a multiplicative knob inside your own transform is an ordinary experimental parameter —
+
+```python
+def tau(phi):                          # n_experimental_params = n + 1
+    return phi[-1] * f(phi[:-1])       # phi[-1] is the duration knob
+
+Parameters(..., param_transform=tau, n_experimental_params=n + 1,
+           pulse_constraints=[n])      # optional: pin it uniform across segments
+```
+
+It is optimised by both `Geope` and `Gecko`, boundable to `(0, inf)` via `Gecko.bound({n: (0.0, np.inf)})`, and survives subdivision unchanged while `delta_t` halves. One caveat: a multiplicative duration is rank-deficient against the amplitude inside `f` — scaling one up and the other down leaves the coefficients unchanged — so "optimise the duration" is only well-posed when the amplitude is pinned (bounded, normalised, or of fixed shape). The degeneracy is benign for the optimisers themselves: it merely widens the null space.
 
 ## Phase-sensitive vs projective
 

@@ -15,7 +15,7 @@ place and silently reuse a stale compiled function).
 **The call contract.** ``Geope`` builds one
 :class:`~geope.geometry.GeometricContext` per step (inside the jitted update) and
 calls ``line_search(ctx, a, b, state)``, which returns a :class:`LineSearchResult`
-``(dt, value, state)``. The context carries **only geometry**; the bracket
+``(eta, value, state)``. The context carries **only geometry**; the bracket
 ``[a, b]`` and the threaded state are the search's own bookkeeping and travel
 alongside it, which is what lets a consumer with no bracket (``Gecko``) share the
 same context type. Every quantity on the context is lazy, and the line search is
@@ -60,15 +60,15 @@ class LineSearchResult(NamedTuple):
     """What a :class:`LineSearch` returns.
 
     Attributes:
-        dt: The accepted step size along the search direction.
-        value: The search's own ``objective`` at ``dt`` — every 1-D minimiser
+        eta: The accepted step size along the search direction.
+        value: The search's own ``objective`` at ``eta`` — every 1-D minimiser
             computes this anyway, and ``Geope.optimize`` tests progress against
             it rather than against a quantity the search never minimised.
         state: The new line-search-owned state pytree (always carries
             ``"n_eval"``).
     """
 
-    dt: Array
+    eta: Array
     value: Array
     state: dict
 
@@ -127,10 +127,10 @@ class GoldenSection(LineSearch):
     tol: float = 1e-5
 
     def __call__(self, ctx, a, b, state):
-        dt, value, n_eval = _golden_section_search(
+        eta, value, n_eval = _golden_section_search(
             ctx.infidelity_at, a, b, tol=self.tol
         )
-        return LineSearchResult(dt, value, {"n_eval": n_eval})
+        return LineSearchResult(eta, value, {"n_eval": n_eval})
 
 
 @dataclass(frozen=True)
@@ -170,7 +170,7 @@ class Armijo(LineSearch):
     t_min: float = 1e-8
 
     def __call__(self, ctx, a, b, state):
-        dt, value, n_eval = _armijo_line_search(
+        eta, value, n_eval = _armijo_line_search(
             ctx.distance_at,
             a,
             F0=ctx.F0,
@@ -179,7 +179,7 @@ class Armijo(LineSearch):
             beta=self.beta,
             t_min=self.t_min,
         )
-        return LineSearchResult(dt, value, {"n_eval": n_eval})
+        return LineSearchResult(eta, value, {"n_eval": n_eval})
 
 
 @dataclass(frozen=True)
@@ -213,7 +213,7 @@ class QuadraticArmijo(LineSearch):
     t_min: float = 1e-8
 
     def __call__(self, ctx, a, b, state):
-        dt, value, n_eval = _quadratic_armijo_line_search(
+        eta, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
             a,
             ctx.velocity,
@@ -223,7 +223,7 @@ class QuadraticArmijo(LineSearch):
             beta=self.beta,
             t_min=self.t_min,
         )
-        return LineSearchResult(dt, value, {"n_eval": n_eval})
+        return LineSearchResult(eta, value, {"n_eval": n_eval})
 
 
 @dataclass(frozen=True)
@@ -277,7 +277,7 @@ class ApproximateQuadraticArmijo(LineSearch):
     t_min: float = 1e-8
 
     def __call__(self, ctx, a, b, state):
-        dt, value, n_eval = _quadratic_armijo_line_search(
+        eta, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
             a,
             ctx.velocity,
@@ -287,7 +287,7 @@ class ApproximateQuadraticArmijo(LineSearch):
             beta=self.beta,
             t_min=self.t_min,
         )
-        return LineSearchResult(dt, value, {"n_eval": n_eval})
+        return LineSearchResult(eta, value, {"n_eval": n_eval})
 
 
 # ---------------------------------------------------------------------------

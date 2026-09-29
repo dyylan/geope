@@ -310,7 +310,9 @@ class Geope:
         else:
             self.drift_parameters = None
         self.params.parameters = np.array(self.init_parameters)
-        self.params.fidelity = self.params.manifold.fidelity_at(self.params.free())
+        self.params.fidelity = self.params.manifold.fidelity_at(
+            self.params.free(), self._delta_t()
+        )
         self.step_size = 0
         # line search diagnostics
         self.ls_diagnostics = {
@@ -453,7 +455,7 @@ class Geope:
                 step_size,
                 self.line_search_state,
                 ls_diagnostics,
-            ) = update_step(self.params.free(), self.line_search_state)
+            ) = update_step(self.params.free(), self._delta_t(), self.line_search_state)
             # Pull the diagnostics to the host
             self.ls_diagnostics = {
                 "residual": float(ls_diagnostics["residual"]),
@@ -568,7 +570,9 @@ class Geope:
                 "Parameter shape does not match with full basis, projected & drift basis, or projected basis."
             )
         if fidelity is None:
-            fidelity = self.params.manifold.fidelity_at(self.params.free(new_params))
+            fidelity = self.params.manifold.fidelity_at(
+                self.params.free(new_params), self._delta_t()
+            )
         if step_size is None:
             step_size = self.max_step_size
         self.params.parameters = new_params
@@ -581,6 +585,10 @@ class Geope:
     def _split_key(self) -> jax.Array:
         self._key, subkey = jax.random.split(self._key)
         return subkey
+
+    def _delta_t(self) -> Array:
+        """``params.delta_t`` as a JAX array, ready for the jitted callables."""
+        return jnp.asarray(self.params.delta_t, dtype=jnp.float64)
 
     def gram_schmidt(self, coeffs: Array) -> tuple[Array, Array, float]:
         """Generate a Gram-Schmidt orthogonal fallback direction.
@@ -650,7 +658,7 @@ class Geope:
             for sign in [1, -1]:
                 new_exp = current_params + sign * scaled_gs_step * coeffs
                 fids[sign] = self.params.manifold.fidelity_at(
-                    jnp.asarray(new_exp, dtype=jnp.float64)
+                    jnp.asarray(new_exp, dtype=jnp.float64), self._delta_t()
                 )
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
@@ -671,7 +679,9 @@ class Geope:
             # is by construction the fidelity of the parameters returned.
             for sign in [1, -1]:
                 trial = current_params + sign * scaled_gs_step * direction
-                fids[sign] = self.params.manifold.fidelity_at(jnp.asarray(trial))
+                fids[sign] = self.params.manifold.fidelity_at(
+                    jnp.asarray(trial), self._delta_t()
+                )
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
             new_parameters = current_params + sign * scaled_gs_step * direction
@@ -740,7 +750,9 @@ class Geope:
                 params[:, full_idx] = scale * tmpl
         self.params.parameters = params
         # Recompute fidelity after enforcement
-        fid = float(self.params.manifold.fidelity_at(self.params.free(params)))
+        fid = float(
+            self.params.manifold.fidelity_at(self.params.free(params), self._delta_t())
+        )
         self.params.fidelity = fid
         if self.history is not None:
             if "parameters" in self.history.logs:
@@ -773,7 +785,7 @@ class Geope:
                 version. Used by pulse-shape constraints.
 
         Returns:
-            A JIT-compiled callable ``update_step(free_params, ls_state)``
+            A JIT-compiled callable ``update_step(free_params, delta_t, ls_state)``
             returning ``(coeffs, new_params, fidelity, value0, value, step_size,
             new_ls_state, ls_diagnostics)``.
 
@@ -792,8 +804,8 @@ class Geope:
         max_step_size = self.max_step_size
 
         @jax.jit
-        def update_step(free_params, ls_state):
-            ctx = manifold.context(free_params)
+        def update_step(free_params, delta_t, ls_state):
+            ctx = manifold.context(free_params, delta_t)
 
             if expander_override is not None:
                 expander_gates = expander_override
@@ -824,7 +836,7 @@ class Geope:
             # and t = 0 is "don't move".
             a = -max_step_size / free_params.shape[0]
             result = line_search(ctx, a, jnp.asarray(0.0, jnp.float64), ls_state)
-            new_params = free_params + result.dt * coeffs
+            new_params = free_params + result.eta * coeffs
 
             if line_search.objective == "infidelity":
                 # The search already evaluated the infidelity at the accepted
@@ -833,7 +845,7 @@ class Geope:
                 fidelity = 1.0 - result.value
             else:
                 value0 = ctx.F0
-                fidelity = manifold.fidelity_at(new_params)
+                fidelity = manifold.fidelity_at(new_params, delta_t)
 
             return (
                 coeffs,
@@ -841,7 +853,7 @@ class Geope:
                 fidelity,
                 value0,
                 result.value,
-                result.dt,
+                result.eta,
                 result.state,
                 ls_diagnostics,
             )

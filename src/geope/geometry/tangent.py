@@ -34,6 +34,11 @@ class TangentBundle:
     base point; what is left here is what a chart and a coordinate choice are
     *made of*.
 
+    Every callable field takes the segment duration ``delta_t`` (defaulting to
+    ``1.0``) as its final argument, threaded down from
+    `geope.geometry.context.GeometricContext` — a traced scalar, never baked
+    into the closures.
+
     The two `geope.geometry.lie.Basis` fields play different roles and are
     different sizes. ``frame`` is the **ambient coefficient frame**: the basis a
     manifold's `Manifold.coefficients` resolves a tangent vector against, i.e.

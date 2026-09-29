@@ -489,7 +489,11 @@ class Manifold(ABC):
         was replacing.
         """
         self._require_bound("fidelity_at")
-        return jax.jit(lambda phi: self.fidelity(self.compute_point(phi), self.target))
+        return jax.jit(
+            lambda phi, delta_t=1.0: self.fidelity(
+                self.compute_point(phi, delta_t), self.target
+            )
+        )
 
     @cached_property
     def infidelity_at(self) -> Callable[[Array], Array]:
@@ -499,7 +503,9 @@ class Manifold(ABC):
         """
         self._require_bound("infidelity_at")
         return jax.jit(
-            lambda phi: self.infidelity(self.compute_point(phi), self.target)
+            lambda phi, delta_t=1.0: self.infidelity(
+                self.compute_point(phi, delta_t), self.target
+            )
         )
 
     @cached_property
@@ -545,8 +551,8 @@ class Manifold(ABC):
         vjp = self.tangent.vjp
 
         @jax.jit
-        def value_and_grad_fn(phi: Array) -> tuple[Array, Array]:
-            point, pullback = vjp(phi)
+        def value_and_grad_fn(phi: Array, delta_t=1.0) -> tuple[Array, Array]:
+            point, pullback = vjp(phi, delta_t)
             grad = 2.0 * jnp.real(pullback(self.cost_gradient(point, target)))
             return self.infidelity(point, target), grad.astype(phi.dtype)
 
@@ -569,10 +575,15 @@ class Manifold(ABC):
         real input.
         """
         self._require_bound("hessian_autodiff")
-        raw = get_hessian_fn(self.infidelity_at)
-        # `get_hessian_fn` returns (P, *phi.shape); flatten so both paths share
-        # the one (P, P) contract their callers rely on.
-        return lambda phi: jnp.reshape(raw(phi), (phi.size, phi.size))
+
+        # `get_hessian_fn` differentiates a single-argument callable, so bind
+        # delta_t per call; it returns (P, *phi.shape), flattened here so both
+        # paths share the one (P, P) contract their callers rely on.
+        def hessian_fn(phi: Array, delta_t=1.0) -> Array:
+            raw = get_hessian_fn(lambda p: self.infidelity_at(p, delta_t))
+            return jnp.reshape(raw(phi), (phi.size, phi.size))
+
+        return hessian_fn
 
     @cached_property
     def hessian(self) -> Callable[[Array], Array]:
@@ -612,12 +623,12 @@ class Manifold(ABC):
         hessian_vjp = self.tangent.hessian_vjp
 
         @jax.jit
-        def hessian_fn_of_phi(phi: Array) -> Array:
+        def hessian_fn_of_phi(phi: Array, delta_t=1.0) -> Array:
             p = phi.size
-            point, pullback = hessian_vjp(phi)
+            point, pullback = hessian_vjp(phi, delta_t)
 
             # (*ambient, G, K) -> (P, *ambient): one Jacobian column per parameter.
-            columns = jnp.moveaxis(jacobian_fn(phi), (-2, -1), (0, 1))
+            columns = jnp.moveaxis(jacobian_fn(phi, delta_t), (-2, -1), (0, 1))
             columns = columns.reshape((p, *self.ambient_shape))
 
             # The pullback's (G, K, G, K) already *is* the row-major (gate, coeff)
@@ -630,12 +641,19 @@ class Manifold(ABC):
 
     # --- the per-step geometry ---------------------------------------------
 
-    def context(self, free_params: Array) -> GeometricContext:
+    def context(
+        self, free_params: Array, delta_t: Array | float = 1.0
+    ) -> GeometricContext:
         """Open a `GeometricContext` at the pulse ``free_params``.
 
         Cheap: every quantity on the returned context is lazy, so this on its own
         evaluates nothing. Build one per optimisation step, *inside* the jitted
         update — see `GeometricContext` for why it must not leave that trace.
+
+        Args:
+            free_params: The pulse, shape ``(G, K_free)``.
+            delta_t: The segment duration, threaded (as a traced scalar) into
+                every chart evaluation the context performs. Defaults to 1.0.
         """
         self._require_bound("context")
-        return GeometricContext(self, free_params)
+        return GeometricContext(self, free_params, delta_t)
