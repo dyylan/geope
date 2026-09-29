@@ -11,7 +11,7 @@ from collections.abc import Callable
 
 from .geometry.basis import Basis
 from .line_searches import (
-    GoldenSection,
+    Armijo,
     LineSearch,
 )
 from .parameters import Parameters
@@ -25,7 +25,7 @@ from .utils.history import History
 
 # Default settings.
 DEFAULT_PRECISION = 0.9999999
-DEFAULT_MAX_STEP_SIZE = 0.9
+DEFAULT_MAX_STEP_SIZE = 1.0
 DEFAULT_GRAM_SCHMIDT_STEP_SIZE = 1.3
 
 # Relative threshold to assert if step made progress.
@@ -433,7 +433,7 @@ class Geope:
         # passed in because it is baked into the jitted closure and so guarded
         # by the compile memo (it must not just be set as self.max_step_size
         # after a memo hit, or a reused closure would keep the old value).
-        line_search = line_search or GoldenSection()
+        line_search = line_search or Armijo()
         self._configure_line_search(line_search, max_step_size)
 
         # Reset the per-run line-search state. Doing this here — not inside
