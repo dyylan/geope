@@ -4,7 +4,7 @@ Every manifold in the library is a submanifold of one **ambient space**
 $\mathcal A = \mathbb C^{N\times m}$, and the pulse acts on all of them the same
 way — by left multiplication with a product of piecewise-constant exponentials,
 
-$$U(\phi) = \prod_g \exp\Bigl(i\sum_k \phi_{g,k} G_k\Bigr),
+$$U(\phi) = \prod_g \exp\Bigl(\sum_k \phi_{g,k} E_k\Bigr),
 \qquad \Phi(\phi) = U(\phi)\,x_0 .$$
 
 The chart is therefore the **orbit map** of that one ambient action through a
@@ -55,14 +55,14 @@ from ..jax.jacobian import get_jacobian_propagator, get_vjp_propagator
 def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
     """Compute the product unitary from a list of parameter vectors.
 
-    For each parameter vector in `params_list`, constructs a Hamiltonian
-    as a linear combination of the `basis` elements, exponentiates it,
+    For each parameter vector in `params_list`, constructs the algebra element
+    as a linear combination of the generator array `basis`, exponentiates it,
     and accumulates the product unitary via `jax.lax.scan`.
 
     Args:
         params_list: ``Array`` of shape ``(piecewise_steps, K)`` where each row
             contains the Lie-algebra coefficients for one gate segment.
-        basis: ``Array`` of shape ``(K, d, d)`` of Hermitian basis matrices.
+        basis: Generator ``Array`` of shape ``(K, d, d)``.
 
     Returns:
         The product unitary ``Array`` of shape ``(d, d)``.
@@ -70,7 +70,7 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
 
     def step(U, params):
         A = jnp.tensordot(params, basis, axes=[[-1], [0]])
-        Ui = jax.scipy.linalg.expm(1j * A)
+        Ui = jax.scipy.linalg.expm(A)
         U_new = jnp.matmul(Ui, U)
         return U_new, None
 
@@ -80,10 +80,11 @@ def compute_matrices_params_list_fn(params_list: Array, basis: Array) -> Array:
 
 
 def get_compute_matrices_params_list_fn(basis: np.ndarray) -> Callable[[Array], Array]:
-    """Create a partial unitary-computation function with a fixed basis.
+    """Create a partial unitary-computation function with a fixed generator array.
 
     Args:
-        basis: Array of shape ``(K, d, d)`` of Hermitian basis matrices.
+        basis: Generator array of shape ``(K, d, d)`` — skew-Hermitian in the
+            pipeline.
 
     Returns:
         A ``Callable[[Array], Array]`` that accepts a parameter list
@@ -102,7 +103,7 @@ def get_chart_fn(
     $\Phi(0) = x_0$ — the base point *is* where the chart starts.
 
     Args:
-        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        generators: The chart's generator array ``(K, d, d)``.
         base_point: The point $x_0 \in \mathcal A$ the pulse drives, of shape
             ``ambient_shape``. ``None`` means the propagator *is* the point,
             which is the case on any matrix Lie group; the underlying callable is
@@ -137,7 +138,7 @@ def get_chart_hvp_fn(
     manifold-specific code and no linearity contract to uphold.
 
     Args:
-        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        generators: The chart's generator array ``(K, d, d)``.
         base_point: As `get_chart_fn` — ``None`` returns the propagator's own HVP
             unchanged.
 
@@ -175,7 +176,7 @@ def get_chart_jacobian_fn(
     exponential-product structure survives.
 
     Args:
-        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        generators: The chart's generator array ``(K, d, d)``.
         base_point: As `get_chart_fn` — ``None`` means the propagator *is* the
             point, and only the transpose is applied.
 
@@ -229,7 +230,7 @@ def get_chart_vjp_fn(
     `get_chart_hvp_fn` land termwise — just read in the opposite direction.
 
     Args:
-        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        generators: The chart's generator array ``(K, d, d)``.
         base_point: As `get_chart_fn`.
 
     Returns:
@@ -279,7 +280,7 @@ def get_chart_hessian_vjp_fn(
     instead of $O(d^2)$ — a factor $d$ on a state, where $m = 1$.
 
     Args:
-        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        generators: The chart's generator array ``(K, d, d)``.
         base_point: As `get_chart_fn`.
 
     Returns:
@@ -331,7 +332,7 @@ def get_chart_hessian_fn(
     immediately, which `get_chart_hessian_vjp_fn` does without building them.
 
     Args:
-        generators: The chart's generator basis ``(K, d, d)``, Hermitian.
+        generators: The chart's generator array ``(K, d, d)``.
         base_point: As `get_chart_fn`.
 
     Returns:

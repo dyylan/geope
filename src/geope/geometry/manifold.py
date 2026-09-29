@@ -401,14 +401,15 @@ class Manifold(ABC):
                     f"got {tuple(target.shape)}."
                 )
 
-        compute_point = get_chart_fn(generators.basis, self.base_point)
+        algebra = generators.algebra
+        compute_point = get_chart_fn(algebra, self.base_point)
         if wrap_chart is None:
             # The whole jet from the propagator recursions: no autodiff anywhere
             # on this path.
-            jacobian = get_chart_jacobian_fn(generators.basis, self.base_point)
-            vjp = get_chart_vjp_fn(generators.basis, self.base_point)
-            hvp = get_chart_hvp_fn(generators.basis, self.base_point)
-            hessian_vjp = get_chart_hessian_vjp_fn(generators.basis, self.base_point)
+            jacobian = get_chart_jacobian_fn(algebra, self.base_point)
+            vjp = get_chart_vjp_fn(algebra, self.base_point)
+            hvp = get_chart_hvp_fn(algebra, self.base_point)
+            hessian_vjp = get_chart_hessian_vjp_fn(algebra, self.base_point)
         else:
             compute_point = wrap_chart(compute_point)
             # Holomorphic autodiff through a real-valued user transform would

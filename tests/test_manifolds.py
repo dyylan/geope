@@ -493,7 +493,7 @@ class TestHookContracts:
         """
         m = space.manifold
         propagator = get_compute_matrices_params_list_fn(
-            space.params.proj_drift_basis.basis
+            space.params.proj_drift_basis.algebra
         )
         u = np.asarray(propagator(space.free))
         expected = u if m.base_point is None else u @ np.asarray(m.base_point)

@@ -64,7 +64,7 @@ def jacobian_propagator(
     :func:`geope.geometry.chart.compute_matrices_params_list_fn`, where each gate is
     left-multiplied onto the accumulator,
 
-    $$U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(i \sum_k x_{i,k} G_k\Big).$$
+    $$U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(\sum_k x_{i,k} E_k\Big).$$
 
     The derivative with respect to a parameter of gate $i$ leaves every other
     gate untouched, so it is a product with a single factor replaced by the
@@ -110,11 +110,12 @@ def get_jacobian_propagator(
     reused across calls.
 
     Args:
-        gate_basis: ``Array`` of Hermitian basis matrices of shape ``(K, d, d)``.
+        gate_basis: Generator ``Array`` of shape ``(K, d, d)`` — skew-Hermitian
+            in the pipeline (`geope.geometry.basis.Basis.algebra`).
         method: Per-gate derivative method. ``"eig"`` (default) uses the
             spectral method (`geope.jax.dexpm_eig`); ``"block"`` uses the
-            block-exponential method (`geope.jax.dexpm`), which handles
-            non-Hermitian generators and ignores ``hermitian``.
+            block-exponential method (`geope.jax.dexpm`), which assumes no
+            skew-Hermitian structure and ignores ``hermitian``.
         hermitian: Assume real parameters (skew-Hermitian generators) and use
             the faster ``eigh``-based per-gate derivative. Set ``False`` for
             complex-valued parameters. Only affects ``method="eig"``.
@@ -213,12 +214,12 @@ def get_vjp_propagator(
     partial products.
 
     Args:
-        gate_basis: ``Array`` of Hermitian basis matrices of shape ``(K, d, d)``.
+        gate_basis: Generator ``Array`` of shape ``(K, d, d)`` — skew-Hermitian
+            in the pipeline (`geope.geometry.basis.Basis.algebra`).
         method: Per-gate adjoint method. ``"eig"`` (default) uses the spectral
             `geope.jax.adj_expm_eig`, which never forms the ``(d, d, K)``
             per-gate derivative; ``"block"`` uses `geope.jax.adj_expm`, which
-            does (it ignores ``hermitian`` and tolerates non-Hermitian
-            generators).
+            does (it ignores ``hermitian`` and assumes no skew structure).
         hermitian: Assume real parameters (skew-Hermitian generators) and use the
             faster ``eigh``-based per-gate adjoint. Set ``False`` for
             complex-valued parameters. Only affects ``method="eig"``.
@@ -256,8 +257,8 @@ def jvp_propagator(
 
     $$X_g = U_g X_{g-1}, \qquad V_g = U_g V_{g-1} + E_g X_{g-1},$$
 
-    with $X_{-1} = I$, $V_{-1} = 0$, where $U_g = \exp(iA_g)$ and
-    $E_g = D\exp(iA_g)[iB_g]$ are the per-gate value and directional derivative
+    with $X_{-1} = I$, $V_{-1} = 0$, where $U_g = \exp(A_g)$ and
+    $E_g = D\exp(A_g)[B_g]$ are the per-gate value and directional derivative
     (`step_fn`). After all $G$ gates, $X_{G-1} = \phi(\theta)$ and
     $V_{G-1} = D\phi_\theta[p]$. The recursion is a single ``jax.lax.scan``; this
     is the forward-mode (JVP) analogue of `jacobian_propagator`, and the
@@ -298,7 +299,8 @@ def get_jvp_propagator(
     wrapped in ``jax.jit`` so it compiles once and is reused across calls.
 
     Args:
-        gate_basis: ``Array`` of Hermitian basis matrices of shape ``(K, d, d)``.
+        gate_basis: Generator ``Array`` of shape ``(K, d, d)`` — skew-Hermitian
+            in the pipeline (`geope.geometry.basis.Basis.algebra`).
         method: Per-gate method. ``"eig"`` (default) uses the spectral
             `geope.jax.expm_jvp_eig`; ``"block"`` uses the block-exponential
             `geope.jax.expm_jvp` (ignores ``hermitian``).

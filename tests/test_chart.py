@@ -22,6 +22,7 @@ import pytest
 
 jax.config.update("jax_enable_x64", True)
 
+from geope.geometry.basis import Basis
 from geope.geometry.chart import (
     compute_matrices_params_list_fn,
     get_chart_fn,
@@ -42,12 +43,12 @@ from geope.utils import (
 # ---------------------------------------------------------------------------
 
 
-def _pauli_basis_1q():
-    """Single-qubit Pauli basis (X, Y, Z)."""
+def _pauli_algebra_1q():
+    """Single-qubit chart generators: the algebra the Pauli frame induces."""
     X = np.array([[0, 1], [1, 0]], dtype=complex)
     Y = np.array([[0, -1j], [1j, 0]], dtype=complex)
     Z = np.array([[1, 0], [0, -1]], dtype=complex)
-    return np.stack([X, Y, Z])
+    return Basis.ALGEBRA_CONVENTION * np.stack([X, Y, Z])
 
 
 # ---------------------------------------------------------------------------
@@ -100,26 +101,26 @@ def projected_basis_2q():
 
 class TestComputeMatricesParamsListFn:
     def test_zero_params_gives_identity(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         params = jnp.zeros((1, 3), dtype=complex)
         U = compute_matrices_params_list_fn(params, basis)
         assert jnp.allclose(U, jnp.eye(2), atol=1e-12)
 
     def test_output_is_unitary_1q(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         params = jnp.array([[0.3, -0.5, 0.7]], dtype=complex)
         U = compute_matrices_params_list_fn(params, basis)
         assert jnp.allclose(U @ U.conj().T, jnp.eye(2), atol=1e-10)
 
     def test_output_shape_1q(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         params = jnp.array([[0.1, 0.2, 0.3]], dtype=complex)
         U = compute_matrices_params_list_fn(params, basis)
         assert U.shape == (2, 2)
 
     def test_multi_gate(self):
         """Two gates composed: U2 @ U1."""
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         params = jnp.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], dtype=complex)
         U = compute_matrices_params_list_fn(params, basis)
         assert U.shape == (2, 2)
@@ -128,19 +129,19 @@ class TestComputeMatricesParamsListFn:
     def test_2q_basis(self, full_basis_2q):
         n = full_basis_2q.lie_algebra_dim
         params = jnp.zeros((1, n), dtype=complex)
-        U = compute_matrices_params_list_fn(params, full_basis_2q.basis)
+        U = compute_matrices_params_list_fn(params, full_basis_2q.algebra)
         assert U.shape == (4, 4)
         assert jnp.allclose(U, jnp.eye(4), atol=1e-12)
 
 
 class TestGetComputeMatricesParamsListFn:
     def test_returns_callable(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         fn = get_compute_matrices_params_list_fn(basis)
         assert callable(fn)
 
     def test_matches_direct_call(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         fn = get_compute_matrices_params_list_fn(basis)
         params = jnp.array([[0.3, -0.1, 0.5]], dtype=complex)
         U_fn = fn(params)
@@ -173,7 +174,7 @@ def _base_point(case, d, key):
 @pytest.fixture(params=BASE_POINT_CASES)
 def jet(request):
     """A 2-qubit, 3-step chart landed on each kind of base point."""
-    basis = np.asarray(construct_full_pauli_basis(2).basis)
+    basis = np.asarray(construct_full_pauli_basis(2).algebra)
     d, K = basis.shape[1], basis.shape[0]
     key_p, key_b = jax.random.split(jax.random.key(11))
     params = (jax.random.normal(key_p, (3, K)) * 0.3).astype(jnp.complex128)

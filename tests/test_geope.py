@@ -271,12 +271,12 @@ def geope_2q(params_2q):
 # ---------------------------------------------------------------------------
 
 
-def _pauli_basis_1q():
-    """Single-qubit Pauli basis (X, Y, Z) — 3 generators, 2×2."""
+def _pauli_algebra_1q():
+    """Single-qubit chart generators — the algebra (X, Y, Z) induces, 3 of them, 2×2."""
     X = np.array([[0, 1], [1, 0]], dtype=complex)
     Y = np.array([[0, -1j], [1j, 0]], dtype=complex)
     Z = np.array([[1, 0], [0, -1]], dtype=complex)
-    return jnp.stack([X, Y, Z])
+    return Basis.ALGEBRA_CONVENTION * jnp.stack([X, Y, Z])
 
 
 # ---------------------------------------------------------------------------
@@ -286,29 +286,29 @@ def _pauli_basis_1q():
 
 class TestUi:
     def test_zero_params_gives_identity(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         U = Ui(jnp.zeros(3), basis)
         assert jnp.allclose(U, jnp.eye(2), atol=1e-12)
 
     def test_output_is_unitary(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         params = jnp.array([0.3, -0.5, 0.7])
         U = Ui(params, basis)
         assert jnp.allclose(U @ U.conj().T, jnp.eye(2), atol=1e-10)
 
     def test_shape(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         U = Ui(jnp.ones(3), basis)
         assert U.shape == (2, 2)
 
     def test_get_Ui_fn_matches_direct(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         fn = get_Ui_fn(basis)
         params = jnp.array([0.1, 0.2, 0.3])
         assert jnp.allclose(fn(params), Ui(params, basis))
 
     def test_get_Ui_fn_is_callable(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         assert callable(get_Ui_fn(basis))
 
 
@@ -321,38 +321,39 @@ class TestDexpmEig:
     """The spectral derivative must match the block-exponential `dexpm`."""
 
     def test_matches_block_method_1q(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         x = jnp.array([0.4, -0.2, 0.6], dtype=complex)
         assert jnp.allclose(dexpm_eig(x, basis), dexpm(x, basis), atol=1e-9)
 
     def test_matches_block_method_2q(self):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)  # (15, 4, 4)
         x = jax.random.normal(jax.random.key(7), (basis.shape[0],)).astype(complex)
         assert jnp.allclose(dexpm_eig(x, basis), dexpm(x, basis), atol=1e-9)
 
     def test_complex_coeffs_need_hermitian_false(self):
-        """For genuinely complex coefficients the default (eigh) is invalid; the
-        hermitian=False fallback (general eig) must match the block method."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        """For genuinely complex coefficients the combination is not skew-Hermitian,
+        so the default (eigh) is invalid; the hermitian=False fallback (general
+        eig) must match the block method."""
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         K = basis.shape[0]
         x = jax.random.normal(jax.random.key(20), (K,)) + 1j * jax.random.normal(
             jax.random.key(21), (K,)
         )
-        ref = dexpm(x, basis)  # block method handles non-Hermitian A
+        ref = dexpm(x, basis)  # the block method assumes no skew structure
         assert jnp.allclose(dexpm_eig(x, basis, hermitian=False), ref, atol=1e-8)
         assert not jnp.allclose(dexpm_eig(x, basis), ref, atol=1e-3)
 
     def test_zero_params_gives_generators(self):
-        """At x=0 the derivative of expm(iA) w.r.t. x_k is i*B_k."""
-        basis = _pauli_basis_1q()
+        """At x=0 the derivative of expm(sum_k x_k E_k) w.r.t. x_k is E_k."""
+        basis = _pauli_algebra_1q()
         x = jnp.zeros(3, dtype=complex)
         out = dexpm_eig(x, basis)  # (2, 2, 3)
-        expected = jnp.moveaxis(1j * basis, 0, -1)
+        expected = jnp.moveaxis(basis, 0, -1)
         assert jnp.allclose(out, expected, atol=1e-9)
 
     def test_batched_matches_full(self):
         """Chunking the directions must not change the result."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # K=15
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)  # K=15
         x = jax.random.normal(jax.random.key(9), (basis.shape[0],)).astype(complex)
         full = dexpm_eig(x, basis)
         for batch_size in (1, 4, basis.shape[0]):
@@ -363,7 +364,7 @@ class TestDexpmEig:
 
 class TestJacobianPropagator:
     def test_output_shape_single_gate(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.1, 0.2, 0.3]])
@@ -372,7 +373,7 @@ class TestJacobianPropagator:
         assert result.shape == (1, 2, 2, 3)
 
     def test_output_shape_multi_gate(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
@@ -381,12 +382,12 @@ class TestJacobianPropagator:
 
     def test_zero_params_derivatives_nonzero(self):
         """At identity, derivatives of expm are the generators themselves."""
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
         params = jnp.array([[0.0, 0.0, 0.0]])
         result = jacobian_propagator(params, Ui_fn, jac_fn)
-        # Should not be all zeros — derivative of expm(i*0) w.r.t. params gives i*basis
+        # Should not be all zeros — the derivative of expm at 0 is the generators
         assert not jnp.allclose(result, 0, atol=1e-10)
 
 
@@ -397,20 +398,20 @@ class TestJacobianPropagator:
 
 class TestGetJacobianPropagator:
     def test_returns_callable(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         fn = get_jacobian_propagator(basis)
         assert callable(fn)
 
     @pytest.mark.parametrize("method", ["eig", "block"])
     def test_call_produces_correct_shape(self, method):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         fn = get_jacobian_propagator(basis, method=method)
         params = jnp.array([[0.1, 0.2, 0.3]])
         result = fn(params)
         assert result.shape == (1, 2, 2, 3)
 
     def test_matches_jacobian_propagator_direct(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         fn = get_jacobian_propagator(basis)
         Ui_fn = get_Ui_fn(basis)
         jac_fn = get_dexpm(basis)
@@ -422,7 +423,7 @@ class TestGetJacobianPropagator:
     @pytest.mark.parametrize("method", ["eig", "block"])
     def test_agrees_with_jax_jacobian(self, method):
         """Compare jacobian propagator against jax.jacobian for a single gate."""
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         fn_propagator = get_jacobian_propagator(basis, method=method)
 
         params = jnp.array([[0.4, -0.2, 0.6]], dtype=complex)
@@ -431,7 +432,7 @@ class TestGetJacobianPropagator:
         # jax.jacobian over full compute
         def compute_point(p):
             A = jnp.tensordot(p[0], basis, axes=[[-1], [0]])
-            return jax.scipy.linalg.expm(1j * A)
+            return jax.scipy.linalg.expm(A)
 
         jac_auto = jax.jacobian(compute_point, holomorphic=True)(params)  # (2,2,1,3)
         # manual shape is (1,2,2,3), auto shape is (2,2,1,3) — rearrange
@@ -442,7 +443,7 @@ class TestGetJacobianPropagator:
     def test_agrees_with_autodiff_multigate_multiqubit(self, method):
         """The prefix/suffix Jacobian must match full-sequence autodiff for
         the general G>1, n>1 case, not just a single 1-qubit gate."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)  # (15, 4, 4)
         K = basis.shape[0]
         params = jax.random.normal(jax.random.key(3), (3, K)).astype(jnp.complex128)
 
@@ -459,14 +460,14 @@ class TestGetJacobianPropagator:
 
     def test_block_method_matches_eig(self):
         """The ``method`` switch: block and eig must agree (real params)."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)  # (15, 4, 4)
         params = jax.random.normal(jax.random.key(30), (3, basis.shape[0])) * 0.3
         eig = get_jacobian_propagator(basis, method="eig")(params)
         block = get_jacobian_propagator(basis, method="block")(params)
         assert jnp.allclose(eig, block, atol=1e-8)
 
     def test_unknown_method_raises(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         with pytest.raises(ValueError, match="Unknown method"):
             get_jacobian_propagator(basis, method="nope")
 
@@ -484,28 +485,28 @@ class TestD2expm:
         return jax.jacfwd(jax.jacrev(Ui_fn, holomorphic=True), holomorphic=True)(x)
 
     def test_block_matches_autodiff(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         x = jnp.array([0.4, -0.2, 0.6], dtype=complex)
         assert jnp.allclose(d2expm(x, basis), self._autodiff(basis, x), atol=1e-8)
 
     def test_eig_matches_autodiff_2q(self):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         x = jax.random.normal(jax.random.key(11), (basis.shape[0],)).astype(complex)
         assert jnp.allclose(d2expm_eig(x, basis), self._autodiff(basis, x), atol=1e-8)
 
     def test_block_matches_eig(self):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         x = jax.random.normal(jax.random.key(12), (basis.shape[0],)).astype(complex)
         assert jnp.allclose(d2expm(x, basis), d2expm_eig(x, basis), atol=1e-8)
 
     def test_symmetric_in_kl(self):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         x = jax.random.normal(jax.random.key(13), (basis.shape[0],)).astype(complex)
         out = d2expm_eig(x, basis)  # (d, d, K, K)
         assert jnp.allclose(out, jnp.swapaxes(out, -1, -2), atol=1e-12)
 
     def test_batched_matches_full(self):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         x = jax.random.normal(jax.random.key(14), (basis.shape[0],)).astype(complex)
         full = d2expm_eig(x, basis)
         for bs in (1, 4, basis.shape[0]):
@@ -513,12 +514,12 @@ class TestD2expm:
 
     def test_complex_coeffs_need_hermitian_false(self):
         """Complex coefficients require the hermitian=False (general eig) path."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         K = basis.shape[0]
         x = jax.random.normal(jax.random.key(22), (K,)) + 1j * jax.random.normal(
             jax.random.key(23), (K,)
         )
-        ref = d2expm(x, basis)  # block method handles non-Hermitian A
+        ref = d2expm(x, basis)  # the block method assumes no skew structure
         assert jnp.allclose(d2expm_eig(x, basis, hermitian=False), ref, atol=1e-8)
 
 
@@ -535,7 +536,7 @@ class TestHessianPropagator:
 
     @pytest.mark.parametrize("method", ["eig", "block"])
     def test_shape_and_value_single_gate(self, method):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         params = jnp.array([[0.4, -0.2, 0.6]], dtype=complex)
         H = get_hessian_propagator(basis, method=method)(params)
         assert H.shape == (1, 1, 2, 2, 3, 3)
@@ -543,7 +544,7 @@ class TestHessianPropagator:
 
     @pytest.mark.parametrize("method", ["eig", "block"])
     def test_agrees_with_autodiff_multigate_multiqubit(self, method):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)  # (15, 4, 4)
         K = basis.shape[0]
         params = jax.random.normal(jax.random.key(15), (3, K)).astype(complex)
         H = get_hessian_propagator(basis, method=method)(params)
@@ -552,7 +553,7 @@ class TestHessianPropagator:
 
     @pytest.mark.parametrize("method", ["eig", "block"])
     def test_symmetric_under_pair_exchange(self, method):
-        basis = jnp.asarray(construct_full_pauli_basis(1).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(1).algebra)
         params = jax.random.normal(jax.random.key(16), (2, 3)).astype(complex)
         H = get_hessian_propagator(basis, method=method)(params)  # (G, G, d, d, K, K)
         # H[i,j,:,:,k,l] == H[j,i,:,:,l,k]
@@ -561,14 +562,14 @@ class TestHessianPropagator:
 
     def test_block_method_matches_eig(self):
         """The ``method`` switch: block and eig must agree (real params)."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)  # (15, 4, 4)
         params = jax.random.normal(jax.random.key(31), (3, basis.shape[0])) * 0.3
         eig = get_hessian_propagator(basis, method="eig")(params)
         block = get_hessian_propagator(basis, method="block")(params)
         assert jnp.allclose(eig, block, atol=1e-8)
 
     def test_unknown_method_raises(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         with pytest.raises(ValueError, match="Unknown method"):
             get_hessian_propagator(basis, method="nope")
 
@@ -592,7 +593,7 @@ class TestExpmDirectionalPrimitives:
         return x, p
 
     def test_jvp_matches_dexpm_contraction(self):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)  # (15, 4, 4)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)  # (15, 4, 4)
         x, p = self._xp(basis.shape[0], 40)
         U_ref = Ui(x, basis)
         E_ref = jnp.einsum("dek,k->de", dexpm(x, basis), p)
@@ -601,7 +602,7 @@ class TestExpmDirectionalPrimitives:
             assert jnp.allclose(E, E_ref, atol=1e-8)
 
     def test_hvp_matches_dexpm_d2expm_contraction(self):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         x, p = self._xp(basis.shape[0], 42)
         U_ref = Ui(x, basis)
         E_ref = jnp.einsum("dek,k->de", dexpm(x, basis), p)
@@ -612,7 +613,7 @@ class TestExpmDirectionalPrimitives:
             assert jnp.allclose(G, G_ref, atol=1e-8)
 
     def test_block_matches_eig(self):
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         x, p = self._xp(basis.shape[0], 44)
         Ub, Eb, Gb = expm_hvp(x, p, basis)
         Ue, Ee, Ge = expm_hvp_eig(x, p, basis)
@@ -623,13 +624,15 @@ class TestExpmDirectionalPrimitives:
     def test_complex_coeffs_need_hermitian_false(self):
         """Genuinely complex ``x`` requires the general-eig path; the default
         (eigh) is invalid, the block method is the reference."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         K = basis.shape[0]
         x = jax.random.normal(jax.random.key(46), (K,)) + 1j * jax.random.normal(
             jax.random.key(47), (K,)
         )
         p = jax.random.normal(jax.random.key(48), (K,)).astype(complex)
-        _, _, G_ref = expm_hvp(x, p, basis)  # block handles non-Hermitian A
+        _, _, G_ref = expm_hvp(
+            x, p, basis
+        )  # the block method assumes no skew structure
         _, _, G_eig = expm_hvp_eig(x, p, basis, hermitian=False)
         assert jnp.allclose(G_eig, G_ref, atol=1e-8)
 
@@ -654,7 +657,7 @@ class TestJvpPropagator:
     @pytest.mark.parametrize("method", ["eig", "block"])
     @pytest.mark.parametrize("n,G", [(1, 2), (2, 3)])
     def test_matches_autodiff(self, method, n, G):
-        basis = jnp.asarray(construct_full_pauli_basis(n).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(n).algebra)
         K = basis.shape[0]
         params = jax.random.normal(jax.random.key(50), (G, K)).astype(complex)
         p = jax.random.normal(jax.random.key(51), (G, K)).astype(complex)
@@ -669,7 +672,7 @@ class TestJvpPropagator:
 
     def test_finite_difference(self):
         """Note §11: V ≈ (phi(θ+hp) − phi(θ−hp)) / 2h."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         compute_point = get_compute_matrices_params_list_fn(basis)
         params = jax.random.normal(jax.random.key(52), (3, basis.shape[0])) * 0.3
         p = jax.random.normal(jax.random.key(53), (3, basis.shape[0])) * 0.3
@@ -679,7 +682,7 @@ class TestJvpPropagator:
         assert jnp.allclose(V, V_fd, atol=1e-6)
 
     def test_unknown_method_raises(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         with pytest.raises(ValueError, match="Unknown method"):
             get_jvp_propagator(basis, method="nope")
 
@@ -690,7 +693,7 @@ class TestHvpPropagator:
     @pytest.mark.parametrize("method", ["eig", "block"])
     @pytest.mark.parametrize("n,G", [(1, 2), (2, 3)])
     def test_matches_autodiff(self, method, n, G):
-        basis = jnp.asarray(construct_full_pauli_basis(n).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(n).algebra)
         K = basis.shape[0]
         params = jax.random.normal(jax.random.key(54), (G, K)).astype(complex)
         p = jax.random.normal(jax.random.key(55), (G, K)).astype(complex)
@@ -706,7 +709,7 @@ class TestHvpPropagator:
 
     def test_first_order_matches_jvp_propagator(self):
         """X and V from the HVP must equal the JVP propagator's outputs."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         params = jax.random.normal(jax.random.key(56), (3, basis.shape[0])).astype(
             complex
         )
@@ -718,7 +721,7 @@ class TestHvpPropagator:
 
     def test_finite_difference(self):
         """Note §11: W ≈ (phi(θ+hp) − 2phi(θ) + phi(θ−hp)) / h^2."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         compute_point = get_compute_matrices_params_list_fn(basis)
         params = jax.random.normal(jax.random.key(58), (3, basis.shape[0])) * 0.3
         p = jax.random.normal(jax.random.key(59), (3, basis.shape[0])) * 0.3
@@ -732,7 +735,7 @@ class TestHvpPropagator:
         assert jnp.allclose(W, W_fd, atol=1e-4)
 
     def test_unknown_method_raises(self):
-        basis = _pauli_basis_1q()
+        basis = _pauli_algebra_1q()
         with pytest.raises(ValueError, match="Unknown method"):
             get_hvp_propagator(basis, method="nope")
 
@@ -748,7 +751,7 @@ class TestVjpPropagator:
     @pytest.mark.parametrize("method", ["eig", "block"])
     @pytest.mark.parametrize("n,G", [(1, 2), (2, 3)])
     def test_matches_jacobian_contraction(self, method, n, G):
-        basis = jnp.asarray(construct_full_pauli_basis(n).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(n).algebra)
         K, d = basis.shape[0], basis.shape[1]
         key_p, key_c = jax.random.split(jax.random.key(31))
         params = jax.random.normal(key_p, (G, K)) * 0.3
@@ -768,7 +771,7 @@ class TestVjpPropagator:
     @pytest.mark.parametrize("n,G", [(1, 2), (2, 3)])
     def test_returns_the_propagator_for_free(self, n, G):
         """The value comes back with the pullback — that is what keeps it one pass."""
-        basis = jnp.asarray(construct_full_pauli_basis(n).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(n).algebra)
         params = jax.random.normal(jax.random.key(34), (G, basis.shape[0])) * 0.3
 
         point, _ = get_vjp_propagator(basis)(params)
@@ -782,7 +785,7 @@ class TestVjpPropagator:
         routes give the same numbers, and the whole point of returning the value
         alongside the pullback is that the second pass does not happen.
         """
-        basis = jnp.asarray(construct_full_pauli_basis(1).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(1).algebra)
         params = jax.random.normal(jax.random.key(35), (3, basis.shape[0])) * 0.3
         calls = []
 
@@ -800,7 +803,7 @@ class TestVjpPropagator:
 
     def test_per_gate_adjoint_matches_dexpm(self):
         """`adj_expm_eig` is `dexpm_eig` contracted, without the (d, d, K) tensor."""
-        basis = jnp.asarray(construct_full_pauli_basis(2).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(2).algebra)
         K, d = basis.shape[0], basis.shape[1]
         key_x, key_b = jax.random.split(jax.random.key(32))
         x = jax.random.normal(key_x, (K,)) * 0.4
@@ -813,7 +816,7 @@ class TestVjpPropagator:
 
     def test_gradient_of_a_real_cost_is_two_re(self):
         """The documented use: 2 Re of the pullback is the real parameter gradient."""
-        basis = jnp.asarray(construct_full_pauli_basis(1).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(1).algebra)
         K = basis.shape[0]
         target = jnp.asarray(qft_unitary(1))
         compute_point = get_compute_matrices_params_list_fn(basis)
@@ -828,7 +831,7 @@ class TestVjpPropagator:
         assert jnp.allclose(grad, expected, atol=1e-9)
 
     def test_unknown_method_raises(self):
-        basis = jnp.asarray(construct_full_pauli_basis(1).basis)
+        basis = jnp.asarray(construct_full_pauli_basis(1).algebra)
         with pytest.raises(ValueError, match="Unknown method"):
             get_vjp_propagator(basis, method="nope")
 
