@@ -88,7 +88,7 @@ class Basis:
         shape: Shape of the underlying basis tensor ``(K, d, d)``.
     """
 
-    ALGEBRA_CONVENTION: complex = 1j
+    ALGEBRA_CONVENTION: complex = -1j
 
     def __init__(
         self,

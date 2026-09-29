@@ -31,6 +31,7 @@ from geope.geometry import (
     TangentBundle,
     UnitaryGroup,
 )
+from geope.geometry.basis import Basis
 from geope.geope import linear_comb_projected_coeffs_multigate
 from geope.parameters import Parameters
 from geope.utils import (
@@ -835,3 +836,70 @@ class TestNoAutodiffInThePipeline:
         _ = ctx.gammas, ctx.omegas, ctx.fidelity
         ctx.set_direction(coeffs)
         _ = ctx.velocity, ctx.q, ctx.q_exact, ctx.infidelity_at(-0.1)
+
+
+# ---------------------------------------------------------------------------
+# Tests — the sign convention (issue #31)
+# ---------------------------------------------------------------------------
+
+
+class TestAlgebraConvention:
+    """U = exp(-i H): one constant, two seams, and they cannot disagree."""
+
+    def test_the_convention_is_minus_i(self):
+        assert Basis.ALGEBRA_CONVENTION == -1j
+
+    def test_algebra_is_the_convention_times_the_basis(self, basis_2q):
+        expected = Basis.ALGEBRA_CONVENTION * np.asarray(basis_2q.basis)
+        assert basis_2q.algebra.dtype == np.complex128
+        assert np.array_equal(basis_2q.algebra, expected)
+
+    def test_the_chart_computes_expm_minus_i_H(self, basis_2q):
+        """The forward map against a scipy reference, not other geope code."""
+        import scipy.linalg as sla
+
+        params = Parameters(
+            basis=basis_2q,
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+            piecewise_steps=3,
+            seed=1,
+        )
+        free = np.asarray(params.free())
+        gens = np.asarray(params.proj_drift_basis.basis)
+        expected = np.eye(4, dtype=complex)
+        for row in free:
+            H = np.tensordot(row, gens, axes=[[-1], [0]])
+            expected = sla.expm(-1j * H) @ expected
+        got = np.asarray(params.manifold.compute_point(params.free()))
+        np.testing.assert_allclose(got, expected, atol=1e-12)
+
+    def test_old_new_equivalence(self, basis_2q):
+        """U_new(phi) == U_old(-phi): the flip is the reparametrisation."""
+        import scipy.linalg as sla
+
+        params = Parameters(
+            basis=basis_2q,
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+            piecewise_steps=2,
+            seed=2,
+        )
+        free = np.asarray(params.free())
+        gens = np.asarray(params.proj_drift_basis.basis)
+        old = np.eye(4, dtype=complex)
+        for row in -free:
+            H = np.tensordot(row, gens, axes=[[-1], [0]])
+            old = sla.expm(+1j * H) @ old
+        got = np.asarray(params.manifold.compute_point(params.free()))
+        np.testing.assert_allclose(got, old, atol=1e-12)
+
+    def test_coefficients_invert_the_generators(self, basis_2q):
+        """The outbound seam: coefficients(sum_k c_k E_k) == c, exactly."""
+        m = UnitaryGroup(4)
+        bound = m.bind(target=jnp.asarray(CNOT), generators=basis_2q, frame=basis_2q)
+        rng = np.random.default_rng(3)
+        c = rng.normal(size=basis_2q.lie_algebra_dim)
+        element = jnp.asarray(np.tensordot(c, basis_2q.algebra, axes=[[-1], [0]]))
+        got = bound.coefficients(jnp.eye(4, dtype=jnp.complex128), element)
+        np.testing.assert_allclose(np.asarray(got), c, atol=1e-12)

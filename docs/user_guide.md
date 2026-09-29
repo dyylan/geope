@@ -5,7 +5,7 @@
 `geope` finds piecewise-constant control pulses that implement a target quantum gate on an $n$-qubit system. Given a target unitary $U_T$, a set of available control generators (the projected basis), and optionally fixed drift generators, the optimiser searches for real-valued parameters $\phi$ such that
 
 $$
-U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
+U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
 $$
 
 where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$.

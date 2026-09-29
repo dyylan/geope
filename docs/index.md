@@ -17,7 +17,7 @@ Designing multi-qubit quantum logic gates under experimental hardware constraint
 
 $$U_G(\mathbf{\Phi}) = U(\phi_L)\, U(\phi_{L-1})\, \cdots \, U(\phi_1) \approx V,$$
 
-where each $U(\phi_l) = e^{i H(\phi_l)}$ and $H(\phi_l) = \sum_k \phi_{l,k}\, G_k$ is a Hamiltonian restricted to the available interactions $G_k \in \mathcal{H}$.
+where each $U(\phi_l) = e^{-i H(\phi_l)}$ and $H(\phi_l) = \sum_k \phi_{l,k}\, G_k$ is a Hamiltonian restricted to the available interactions $G_k \in \mathcal{H}$.
 
 The standard approach is GRAPE (Gradient Ascent Pulse Engineering), which performs gradient ascent on the fidelity
 
@@ -29,11 +29,13 @@ GEOPE takes a fundamentally different approach. Instead of following the gradien
 
 The geodesic direction is given by:
 
-$$\Gamma = -i \log\!\left(U_G(\mathbf{\Phi})^\dagger V\right) \in \mathfrak{su}(N).$$
+$$\Gamma = i \log\!\left(U_G(\mathbf{\Phi})^\dagger V\right),$$
+
+a traceless Hermitian matrix — the Hamiltonian that would drive the current unitary to the target in unit time under $U = e^{-iH}$.
 
 At each iteration, GEOPE solves a **convex least-squares** problem to find the parameter update $\delta\mathbf{\Phi}$ that best aligns the available control directions (the Jacobian) with the geodesic:
 
-$$\mathcal{L}(\delta\mathbf{\Phi}) = \left\| \sum_{l,k} \mathbf{J}_{l,k}(\mathbf{\Phi})\, \delta\phi_{l,k} - i\, U_G(\mathbf{\Phi})\, \Gamma \right\|^2.$$
+$$\mathcal{L}(\delta\mathbf{\Phi}) = \left\| \sum_{l,k} \mathbf{J}_{l,k}(\mathbf{\Phi})\, \delta\phi_{l,k} + i\, U_G(\mathbf{\Phi})\, \Gamma \right\|^2.$$
 
 A golden-section line search then determines the optimal step size along this direction. When the line search fails to improve fidelity (indicating a local minimum), a Gram-Schmidt procedure steps orthogonally to escape. This strategy gives GEOPE two key advantages over GRAPE:
 

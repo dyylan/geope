@@ -820,7 +820,8 @@ class Geope:
             ctx.set_direction(coeffs)
 
             # One-sided bracket on the descent side: a useful step is negative
-            # (see `MatrixLieGroup.coefficients` for why), and t = 0 is "don't move".
+            # because ctx.A points *away* from the target (see `GeometricContext.A`),
+            # and t = 0 is "don't move".
             a = -max_step_size / free_params.shape[0]
             result = line_search(ctx, a, jnp.asarray(0.0, jnp.float64), ls_state)
             new_params = free_params + result.dt * coeffs
