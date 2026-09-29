@@ -1247,19 +1247,18 @@ for building and manipulating Lie-algebraic decompositions.</p>
 <p><strong>Two roles, one class.</strong> A <code>Basis</code> is a real-orthogonal frame for the
 Hermitian matrices in the ambient space <span class="arithmatex">\(\mathbb C^{d\times d}\)</span> — the Paulis
 span that space over <span class="arithmatex">\(\mathbb C\)</span>, the Hermitian matrices in it over
-<span class="arithmatex">\(\mathbb R\)</span>, and, multiplied by <span class="arithmatex">\(i\)</span>, the algebra <span class="arithmatex">\(\mathfrak u(d)\)</span> over
-<span class="arithmatex">\(\mathbb R\)</span>. The pipeline uses that in two different places and at two
-different sizes:</p>
+<span class="arithmatex">\(\mathbb R\)</span>, and, multiplied by <code>ALGEBRA_CONVENTION</code>, the algebra
+<span class="arithmatex">\(\mathfrak u(d)\)</span> over <span class="arithmatex">\(\mathbb R\)</span>. The pipeline uses that in two different
+places and at two different sizes:</p>
 <ul>
-<li>as the <strong>chart's generators</strong> — <code>params.proj_drift_basis</code>, the
-  controllable sub-frame the pulse is a product of exponentials in
+<li>as the <strong>chart's generators</strong> — <code>params.proj_drift_basis</code>, whose
+  <code>algebra</code> array the pulse is a product of exponentials in
   (<code>geope.geometry.chart</code>);</li>
 <li>as the <strong>ambient coefficient frame</strong> — <code>params.basis</code>, what
   <code>geope.geometry.manifold.Manifold.coefficients</code> resolves a tangent vector
-  against, stored on <code>geope.geometry.TangentBundle.frame</code>. The single factor
-  of <span class="arithmatex">\(i\)</span> that turns a skew-Hermitian algebra element into something this
-  frame can resolve is the one in
-  <code>geope.geometry.lie.groups.MatrixLieGroup.coefficients</code>.</li>
+  against, stored on <code>geope.geometry.TangentBundle.frame</code> — see
+  <code>geope.geometry.lie.groups.MatrixLieGroup.coefficients</code>, the inverse
+  direction of the same dictionary.</li>
 </ul>
 <p>Completeness is not required in either role: an incomplete frame simply
 projects onto a subspace, which the spin-boson bases rely on. Nor is a
@@ -1277,6 +1276,49 @@ manifolds use a real/imaginary split of the ambient array instead.</p>
         </tr>
       </thead>
       <tbody>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            ALGEBRA_CONVENTION
+
+  
+      class-attribute
+   (geope.geometry.basis.Basis.ALGEBRA_CONVENTION)" href="#geope.geometry.basis.Basis.ALGEBRA_CONVENTION">ALGEBRA_CONVENTION</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The library's sign convention — its single factor
+of <span class="arithmatex">\(\pm i\)</span> — as a <strong>class</strong> attribute, so the chart's generator
+sub-basis and the ambient coefficient frame can never disagree.
+The user-facing frame is Hermitian; the library's internal
+currency is skew-Hermitian algebra elements; the dictionary
+between the two is <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k\)</span>
+going in (<code>algebra</code>, which the chart exponentiates, so
+<span class="arithmatex">\(U(\phi) = \exp(\mathrm{ALGEBRA\_CONVENTION}\sum_k\phi_kB_k)\)</span>)
+and its conjugate coming out
+(<code>geope.geometry.lie.groups.MatrixLieGroup.coefficients</code>).
+Everything between the two — <code>geope.geometry.chart</code> and the
+<code>geope.jax</code> derivative kernels — is sign-free and inherits the
+convention through the generator array alone, an auditable
+invariant: those modules contain no imaginary-unit literal tied
+to the convention.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            algebra
+
+  
+      property
+   (geope.geometry.basis.Basis.algebra)" href="#geope.geometry.basis.Basis.algebra">algebra</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The skew-Hermitian generator array
+<span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k\)</span> this frame induces.</p>
+              </div>
+            </td>
+          </tr>
           <tr class="doc-section-item">
             <td><code><a class="autorefs autorefs-internal" title="            basis
 
@@ -1470,6 +1512,59 @@ manifolds use a real/imaginary split of the ambient array instead.</p>
 
 
 
+<h5 id="geope.geometry.basis.Basis.ALGEBRA_CONVENTION" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">ALGEBRA_CONVENTION</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.basis.Basis.ALGEBRA_CONVENTION" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a complex number from a real part and an optional imaginary part.</p>
+<p>This is equivalent to (real + imag*1j) where imag defaults to 0.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.basis.Basis.__annotations__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__annotations__</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.basis.Basis.__annotations__" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+    (key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+    d = {}
+    for k, v in iterable:
+        d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
 <h5 id="geope.geometry.basis.Basis.__dict__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__dict__</span></code>
 
@@ -1563,6 +1658,28 @@ errors defaults to 'strict'.</p>
     <div class="doc doc-contents ">
 
         <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.basis.Basis.algebra" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">algebra</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#geope.geometry.basis.Basis.algebra" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The algebra generators this frame induces: <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k\)</span>.</p>
 
     </div>
 

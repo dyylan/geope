@@ -831,6 +831,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#an-optimisable-duration" class="md-nav__link">
+    <span class="md-ellipsis">
+      An optimisable duration
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1745,6 +1754,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#an-optimisable-duration" class="md-nav__link">
+    <span class="md-ellipsis">
+      An optimisable duration
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1863,9 +1881,9 @@
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h2>
 <p><code>geope</code> finds piecewise-constant control pulses that implement a target quantum gate on an <span class="arithmatex">\(n\)</span>-qubit system. Given a target unitary <span class="arithmatex">\(U_T\)</span>, a set of available control generators (the projected basis), and optionally fixed drift generators, the optimiser searches for real-valued parameters <span class="arithmatex">\(\phi\)</span> such that</p>
 <div class="arithmatex">\[
-U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i\,\Delta T \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
+U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i\,\Delta t \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
 \]</div>
-<p>where each <span class="arithmatex">\(H_g = \sum_k \phi_{g,k}\,G_k\)</span> is a linear combination of basis generators on segment <span class="arithmatex">\(g\)</span>, and <span class="arithmatex">\(\Delta T\)</span> (<code>Parameters.delta_t</code>) is the segment duration, defaulting to 1. The minus sign is the physical convention and lives in <code>Parameters</code>: it hands the chart the generators <span class="arithmatex">\(-\Delta T\,G_k\)</span>, and the chart and <code>geope.jax</code> primitives compute <span class="arithmatex">\(\exp(i\sum_k c_k G_k)\)</span> with them unchanged.</p>
+<p>where each <span class="arithmatex">\(H_g = \sum_k \phi_{g,k}\,G_k\)</span> is a linear combination of basis generators on segment <span class="arithmatex">\(g\)</span> and <span class="arithmatex">\(\Delta t\)</span> is the segment duration. Only the product <span class="arithmatex">\(\Delta t \cdot \phi\)</span> enters the exponent, so at the default <code>delta_t = 1.0</code> each parameter is the whole product amplitude × duration — a rotation angle per segment — and time never needs thinking about. A non-default <code>delta_t</code> separates the two: <span class="arithmatex">\(\phi_{g,k}\)</span> then reads as an amplitude (a rate) and <span class="arithmatex">\(\Delta t\)</span> as the time it acts for.</p>
 <p>The core algorithm is the <strong>geodesic method</strong>: at each step it computes the shortest path on <span class="arithmatex">\(U(d)\)</span> from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.</p>
 <p>The entry point is <code>Parameters</code> — a state object that bundles every input the optimiser needs (basis, control, drift, target, constraints, pulse constraints, <code>param_transform</code>, bounds, init values, seed, manifold). Pass it to <code>Geope</code> and call <code>.optimize(max_steps=...)</code>. The returned <code>Parameters</code> carries the live/final <code>parameters</code> and <code>fidelity</code> (and <code>to_dict()</code>); the full run trajectory and <code>best_*</code> helpers live on an opt-in <code>History</code> logger (<code>geope.history</code>).</p>
 <p>The mathematics lives in the <code>geometry/</code> package, split along one line: <strong>every
@@ -2162,7 +2180,7 @@ mathematics the geometry layer now owns, and were removed. Their replacements:</
 <p><code>Parameters</code> is the recommended entry point.</p>
 <div class="highlight"><pre><span></span><code><span class="n">Parameters</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-           <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+           <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
            <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -2206,7 +2224,7 @@ mathematics the geometry layer now owns, and were removed. Their replacements:</
 </tr>
 <tr>
 <td><code>delta_t</code></td>
-<td>duration <span class="arithmatex">\(\Delta T\)</span> of each segment, so <span class="arithmatex">\(U_g = \exp(-i\,\Delta T\,H_g)\)</span>; defaults to 1.0, where the duration is absorbed into the coefficients. Settable after construction — assigning it re-binds <code>params.manifold</code> (and an optimiser rebuilds its compiled step on its next <code>optimize</code>). <code>params.total_time</code> is <code>piecewise_steps * delta_t</code></td>
+<td>segment duration <span class="arithmatex">\(\Delta t\)</span>, so <span class="arithmatex">\(U_g = \exp(-i\,\Delta t\,H_g)\)</span>; defaults to <code>1.0</code>.</td>
 </tr>
 <tr>
 <td><code>fixed_drift</code></td>
@@ -2548,14 +2566,14 @@ gone; each has a home on the manifold:</p>
 <p>The line searches are immutable config objects (frozen dataclasses):</p>
 <ul>
 <li><code>GoldenSection(tol=1e-5)</code> — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (<code>{"n_eval"}</code>).</li>
-<li><code>Armijo(c1=1e-4, beta=0.5, t_min=1e-8)</code> — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step <span class="arithmatex">\(t_{\max}\)</span> and backtracks, taking the slope from the objective value alone (<span class="arithmatex">\(s = -2F_0\)</span>, exact under the tangent matching <span class="arithmatex">\(\Omega = -A\)</span>), so it forms no derivative of the product unitary. Works in every mode, <code>param_transform</code> included.</li>
+<li><code>Armijo(c1=1e-4, beta=0.5, t_min=1e-8)</code> — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step <span class="arithmatex">\(-t_{\max}\)</span> and backtracks, taking the slope from the objective value alone (<span class="arithmatex">\(s = 2F_0\)</span>, exact under the tangent matching <span class="arithmatex">\(\Omega = -A\)</span>), so it forms no derivative of the product unitary. Works in every mode, <code>param_transform</code> included.</li>
 <li><code>QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)</code> — geometry-aware second-order line search: seeds the step from the SU(N) curvature (clipped to the bracket, falling back to the full step when the curvature is non-positive) and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).</li>
 <li>
 <p><code>ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)</code> — the same algorithm, but with the <em>exact</em> curvature. <code>QuadraticArmijo</code> builds <span class="arithmatex">\(\psi''(0)\)</span> using <span class="arithmatex">\(\lVert\Omega\rVert_F^2\)</span> for the intrinsic term <span class="arithmatex">\(\langle\Omega,\mathcal{K}_A\Omega\rangle_F\)</span>, which is only valid when the achieved tangent <span class="arithmatex">\(\Omega\)</span> is parallel to the geodesic tangent <span class="arithmatex">\(A\)</span> — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since <span class="arithmatex">\(\mathcal{K}_A\preceq I\)</span> it always seeds a <strong>longer</strong> step. Costs one extra <code>eigh</code> on a group or the state sphere, and one small operator exponential on <code>Stiefel</code> (standard mode only; on <code>Stiefel</code> it also needs <code>projective=False</code>, see below).</p>
 <p>Whether it changes anything is structural: the solve has <code>piecewise_steps × K_proj</code> unknowns against <code>K_basis</code> equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. <code>GeometricContext.xi_rel</code> reports the residual as the (scale-invariant) sine of the angle between <span class="arithmatex">\(\Omega\)</span> and <span class="arithmatex">\(A\)</span>, and tracks <code>ls_diagnostics["residual_rel"]</code> closely; it is <code>0</code> exactly when the two curvatures agree.</p>
 </li>
 </ul>
-<p>The three differ in what they evaluate per step, not just in flops: <code>GoldenSection</code> evaluates the cheap infidelity many times; <code>Armijo</code> evaluates the <code>logm</code>-bearing geodesic distance a few times; <code>QuadraticArmijo</code> adds one <code>logm</code> plus one directional HVP to seed its step. Note that a wider <code>max_step_size</code> is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside <span class="arithmatex">\([0, t_{\max}]\)</span> and is clipped to <span class="arithmatex">\(t_{\max}\)</span>, which is exactly where <code>Armijo</code> starts anyway.</p>
+<p>The three differ in what they evaluate per step, not just in flops: <code>GoldenSection</code> evaluates the cheap infidelity many times; <code>Armijo</code> evaluates the <code>logm</code>-bearing geodesic distance a few times; <code>QuadraticArmijo</code> adds one <code>logm</code> plus one directional HVP to seed its step. Note that a wider <code>max_step_size</code> is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside <span class="arithmatex">\([-t_{\max}, 0]\)</span> and is clipped to <span class="arithmatex">\(-t_{\max}\)</span>, which is exactly where <code>Armijo</code> starts anyway.</p>
 <p>The line-search object and <code>max_step_size</code> bake into JIT-compiled functions that <code>optimize</code> builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default <code>GoldenSection()</code>) reuse the compiled functions, while changing the object or <code>max_step_size</code> triggers a one-off recompile. <code>precision</code> and <code>gram_schmidt_step_size</code> are host-side only — changing them never recompiles.</p>
 <p>Live state and logging:</p>
 <ul>
@@ -2596,9 +2614,9 @@ gone; each has a home on the manifold:</p>
 </ul>
 <h3 id="choosing-a-grape-update-rule-optimizerspy">Choosing a GRAPE update rule (<code>optimizers.py</code>)<a class="headerlink" href="#choosing-a-grape-update-rule-optimizerspy" title="Permanent link">¤</a></h3>
 <p><code>Grape.optimize(optimizer=...)</code> takes a frozen config object rather than a method
-string. All six share one shape — a <strong>descent</strong> direction <code>coeffs</code> <span class="arithmatex">\(=-p\)</span> and a
-<strong>positive</strong> step <span class="arithmatex">\(\mathrm dt\)</span>, so <code>Grape</code> forms <code>free_params + dt * coeffs</code> — and
-they differ in how they build <span class="arithmatex">\(p\)</span> from the cost's derivatives.</p>
+string. All six share one shape — an <strong>uphill</strong> direction <span class="arithmatex">\(p\)</span> and a <strong>negative</strong> step
+<span class="arithmatex">\(\mathrm dt\)</span>, so <code>Grape</code> forms <code>free_params + dt * coeffs</code> — and they differ in how
+they build <span class="arithmatex">\(p\)</span> from the cost's derivatives.</p>
 <table>
 <thead>
 <tr>
@@ -2773,15 +2791,15 @@ a pair that fails the test is skipped either way, so <code>wolfe=False</code> is
        → residual / rank / condition number recorded in geope.ls_diagnostics
 
     5. Normalise and line-search:
-       coeffs = -sol · sqrt(N_g) / ||sol||
-       dt     = argmin infid(φ + t · coeffs)        # over t ∈ [0, t_max]
-       φ_new  = φ + dt · coeffs
+       coeffs = sol · sqrt(N_g) / ||sol||
+       eta    = argmin infid(φ + η · coeffs)        # over η ∈ [-η_max, 0]
+       φ_new  = φ + eta · coeffs
 
     6. If fidelity decreased, Gram–Schmidt fallback:
        proj_c = random_direction ⊥ coeffs
        try ±proj_c, keep the side with higher fidelity
 </code></pre></div>
-<p>The line search interval <span class="arithmatex">\([0, t_{\max}]\)</span> is the toward-target half-line: solving <span class="arithmatex">\(\omega^\top \cdot \mathrm{sol} = \gamma\)</span> matches the achieved velocity to <span class="arithmatex">\(A\)</span>, the geodesic tangent <em>pointing away from</em> the target (the gradient of the squared distance), so <code>coeffs</code> is the negated solution — a descent direction — and a positive <code>dt</code> approaches the target. This is the textbook convention, shared with <code>Grape</code>: the context's slopes <code>ctx.velocity</code> and <code>ctx.slope</code> are negative along <code>coeffs</code>. Zeroth-order searches minimise <code>ctx.infidelity_at</code>, which is non-negative in both <code>projective</code> modes; the Armijo family minimises <code>ctx.distance_at</code>, the squared geodesic distance. A step is kept when it reduced <strong>its own</strong> objective by more than <code>PROGRESS_RTOL</code> relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.</p>
+<p>The line search interval <span class="arithmatex">\([-\eta_{\max}, 0]\)</span> is the toward-target half-line under the algorithm's sign convention: solving <span class="arithmatex">\(\omega^\top \cdot \mathrm{sol} = \gamma\)</span> matches the achieved velocity <span class="arithmatex">\(\Omega\)</span> to <span class="arithmatex">\(A\)</span>, the geodesic tangent <em>pointing away from</em> the target, so negative <code>eta</code> is what approaches it. Zeroth-order searches minimise <code>ctx.infidelity_at</code>, which is non-negative in both <code>projective</code> modes; the Armijo family minimises <code>ctx.distance_at</code>, the squared geodesic distance. A step is kept when it reduced <strong>its own</strong> objective by more than <code>PROGRESS_RTOL</code> relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.</p>
 <h3 id="key-functions">Key functions<a class="headerlink" href="#key-functions" title="Permanent link">¤</a></h3>
 <ul>
 <li><strong><code>ctx.gammas</code> / <code>ctx.omegas</code></strong> — the least-squares operands, and the per-iteration core: one propagator, one Jacobian and one logarithm produce both. <strong>Tangent vectors are mapped into the manifold's own representation before being resolved into coefficients</strong> (on a group, left-trivialised by <span class="arithmatex">\(U^\dagger\)</span>), and this is load-bearing: the Pauli basis is Hermitian, so the projection keeps only the traceless-Hermitian part of what it is handed, while the raw geodesic tangent and Jacobian columns are <span class="arithmatex">\(U\cdot(\text{skew-Hermitian})\)</span> and mostly fall outside it. Left-trivialising first makes the projection lossless and the least squares an honest <span class="arithmatex">\(\langle\cdot,\cdot\rangle_F\)</span>-orthogonal projection of the geodesic tangent onto <span class="arithmatex">\(\mathrm{Im}(\mathrm{D}\Phi)\)</span> — which is what the second-order line searches assume. Left translation is itself an isometry; it is the projection <em>after</em> it that would be lossy, so the two cannot be commuted. Both operands go through the same coefficient map, so the residual compares like with like.</li>
@@ -2889,11 +2907,19 @@ a pair that fails the test is skipped either way, so <code>wolfe=False</code> is
 <h3 id="practical-implications">Practical implications<a class="headerlink" href="#practical-implications" title="Permanent link">¤</a></h3>
 <ul>
 <li><code>Gecko</code>'s null-space methods (<code>speed</code>, <code>length</code>, <code>robust</code>) must use <code>parameter_indices</code>, not <code>parameter_labels</code>, when <code>param_transform</code> is set — labels no longer correspond to optimised parameters. <code>Gecko</code> raises <code>ValueError</code> otherwise. (<code>Gecko</code> supports experimental parameters in every construction mode: when reusing a <code>Geope</code> the engine is already wrapped; when built from <code>params</code> it re-wraps a fresh engine.)</li>
+<li><code>Gecko.bound</code> likewise takes integer-indexed bounds under <code>param_transform</code> — <code>{index: (lo, hi)}</code>, the same convention as <code>pulse_constraints</code> — since interaction labels have no meaning in experimental space.</li>
 <li>Internally <code>param_transform</code> mode uses <code>float64</code>; basis-coefficient mode uses <code>complex128</code>. Tolerances and bounds you supply should match.</li>
-<li><code>Gecko.bound(...)</code> takes bounds keyed by integer parameter index here (<code>{0: (-1.0, 1.0)}</code>), not by interaction label; unlisted indices are unbounded.</li>
-<li>Every <code>Gecko</code> cost acts on <span class="arithmatex">\(\phi\)</span> — the experimental knobs — not on the induced coefficients <span class="arithmatex">\(\tau(\phi)\)</span>. Smoothing therefore produces a smooth <em>knob</em> trajectory, which is what hardware plays, but not necessarily a smooth field.</li>
-<li>Subdivision is what <code>delta_t</code> exists for. Because <span class="arithmatex">\(\tau\)</span> need not be linear, the coefficients cannot be rescaled by rescaling <span class="arithmatex">\(\phi\)</span>, so <code>Gecko</code> divides the segment duration instead and leaves <span class="arithmatex">\(\phi\)</span> untouched. This is exact for any <span class="arithmatex">\(\tau\)</span>; see the <code>Gecko</code> section below.</li>
+<li><code>Gecko</code> subdivision (<code>piecewise_steps_multiplier=m</code>) replicates each segment's parameters <strong>unchanged</strong> and divides <code>params.delta_t</code> by <code>m</code>, which is exact for <em>any</em> transform: <span class="arithmatex">\(\exp(\Delta t\,A) = \exp((\Delta t/m)A)^m\)</span>. <code>params.total_time</code> is invariant under subdivision.</li>
 </ul>
+<h3 id="an-optimisable-duration">An optimisable duration<a class="headerlink" href="#an-optimisable-duration" title="Permanent link">¤</a></h3>
+<p><code>delta_t</code> itself is a constant the optimisers never move. A <em>controllable</em> duration needs no library support: a multiplicative knob inside your own transform is an ordinary experimental parameter —</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">tau</span><span class="p">(</span><span class="n">phi</span><span class="p">):</span>                          <span class="c1"># n_experimental_params = n + 1</span>
+    <span class="k">return</span> <span class="n">phi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">f</span><span class="p">(</span><span class="n">phi</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>       <span class="c1"># phi[-1] is the duration knob</span>
+
+<span class="n">Parameters</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="n">tau</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+           <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">[</span><span class="n">n</span><span class="p">])</span>      <span class="c1"># optional: pin it uniform across segments</span>
+</code></pre></div>
+<p>It is optimised by both <code>Geope</code> and <code>Gecko</code>, boundable to <code>(0, inf)</code> via <code>Gecko.bound({n: (0.0, np.inf)})</code>, and survives subdivision unchanged while <code>delta_t</code> halves. One caveat: a multiplicative duration is rank-deficient against the amplitude inside <code>f</code> — scaling one up and the other down leaves the coefficients unchanged — so "optimise the duration" is only well-posed when the amplitude is pinned (bounded, normalised, or of fixed shape). The degeneracy is benign for the optimisers themselves: it merely widens the null space.</p>
 <h2 id="phase-sensitive-vs-projective">Phase-sensitive vs projective<a class="headerlink" href="#phase-sensitive-vs-projective" title="Permanent link">¤</a></h2>
 <p>The two fidelities differ in how the trace is taken:</p>
 <div class="arithmatex">\[
@@ -3006,7 +3032,7 @@ for <span class="arithmatex">\(m = 2\)</span> and 6 ms for <span class="arithmat
 <li><code>Gecko(g.params)</code> — post-process a <code>Geope</code> result straight after <code>g.optimize(...)</code>. Because the optimisation functions are cached on <code>params</code>, this reuses <code>Geope</code>'s already-compiled functions rather than recompiling.</li>
 </ul>
 <p><strong>The solution does not have to come from <code>Geope</code>.</strong> <code>Gecko</code> operates on the current <code>params.parameters</code> — that array can be a <code>Geope</code> result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a <code>Parameters</code> object describing the same system (<code>basis</code>, <code>projected_basis</code>/<code>drift_basis</code>, <code>target</code>, <code>piecewise_steps</code>, and any <code>param_transform</code>) and call <code>Gecko(p)</code>; it refines the imported solution while preserving its fidelity. (When <code>params</code> has never been evaluated, <code>Gecko</code> computes the baseline fidelity itself on construction.)</p>
-<p>When you pass a <code>Geope</code>'s <code>params</code>, the <code>Parameters</code> object is shared with that <code>Geope</code>, so a pass with <code>piecewise_steps_multiplier &gt; 1</code> advances the shared state forward (<code>params.parameters</code>, <code>params.piecewise_steps</code> and <code>params.delta_t</code> move together).</p>
+<p>When you pass a <code>Geope</code>'s <code>params</code>, the <code>Parameters</code> object is shared with that <code>Geope</code>, so a pass with <code>piecewise_steps_multiplier &gt; 1</code> advances the shared state forward (<code>params.parameters</code> and <code>params.piecewise_steps</code> move to the new count together).</p>
 <h3 id="available-objectives-methods-on-gecko">Available objectives (methods on <code>Gecko</code>)<a class="headerlink" href="#available-objectives-methods-on-gecko" title="Permanent link">¤</a></h3>
 <table>
 <thead>
@@ -3054,9 +3080,7 @@ for <span class="arithmatex">\(m = 2\)</span> and 6 ms for <span class="arithmat
 </tr>
 </tbody>
 </table>
-<p>Each returns <code>(success, iters)</code>. Pass <code>piecewise_steps_multiplier &gt; 1</code> to subdivide existing segments before the pass, giving more null-space degrees of freedom.</p>
-<p>Subdivision splits each segment into <span class="arithmatex">\(m\)</span> <strong>identical copies</strong> and divides <code>params.delta_t</code> by <span class="arithmatex">\(m\)</span>. That leaves the unitary exactly unchanged — <span class="arithmatex">\(\exp(-i\,\Delta T A) = [\exp(-i\,(\Delta T/m) A)]^m\)</span> — and keeps <code>params.total_time</code> invariant. It deliberately does <em>not</em> divide the parameters: that is only equivalent when the generator is linear in them, which fails for any nonlinear <code>param_transform</code>, where <span class="arithmatex">\(\tau(\phi/m) \ne \tau(\phi)/m\)</span> and the fidelity <code>Gecko</code> is meant to preserve is silently destroyed. Setting <code>delta_t</code> re-binds <code>params.manifold</code>, so read the manifold afresh after a subdivision rather than holding on to one from before it.</p>
-<p><code>bound(...)</code> takes label-keyed bounds in projected space; under <code>param_transform</code> labels do not name optimised quantities, so pass a dict keyed by integer parameter index instead (<code>{0: (-1.0, 1.0)}</code>), matching <code>pulse_constraints</code> and <code>parameter_indices</code>. Unlisted indices are unbounded.</p>
+<p>Each returns <code>(success, iters)</code>. Pass <code>piecewise_steps_multiplier &gt; 1</code> to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.</p>
 <h3 id="null-space-algorithm-gecko_null_space_optimisation">Null-space algorithm: <code>Gecko._null_space_optimisation()</code><a class="headerlink" href="#null-space-algorithm-gecko_null_space_optimisation" title="Permanent link">¤</a></h3>
 <div class="highlight"><pre><span></span><code>1. Optionally subdivide piecewise steps (piecewise_steps_multiplier)
 2. Build the combined expander (pulse × linear-equality)

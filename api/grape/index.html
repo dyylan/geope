@@ -1221,7 +1221,7 @@ run); <code>None</code> until :meth:<code>optimize</code> is first called.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Transient last accepted step, <code>dt</code>.</p>
+                <p>Transient last accepted step, <code>eta</code>.</p>
               </div>
             </td>
           </tr>
@@ -1607,8 +1607,8 @@ into <code>history</code> when one is attached.</p>
         <p>Build the JIT-compiled GRAPE update step.</p>
 <p>One jitted function per update rule, and one
 <code>geope.geometry.GeometricContext</code> per call of it. The step is: open the
-context, let the rule read the cost tier off it and choose a descent
-direction and a (positive) step, then move.</p>
+context, let the rule read the cost tier off it and choose an uphill
+direction and a (negative) step, then move.</p>
 <p>The context is built <em>inside</em> this function and never leaves it — it is a
 trace-time object, not a pytree. Everything the rule needs it reads off
 that one context, and everything it does <em>not</em> read costs nothing, which
@@ -1630,7 +1630,7 @@ is why no matrix logarithm and no Jacobian is traced here.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A JIT-compiled callable <code>update_step(free_params, opt_state)</code></p>
+                <p>A JIT-compiled callable <code>update_step(free_params, delta_t, opt_state)</code></p>
               </div>
             </td>
           </tr>
@@ -1640,7 +1640,7 @@ is why no matrix logarithm and no Jacobian is traced here.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>returning <code>(new_parameters, infidelity, dt, new_opt_state)</code>, where</p>
+                <p>returning <code>(new_parameters, infidelity, eta, new_opt_state)</code>, where</p>
               </div>
             </td>
           </tr>
@@ -1650,7 +1650,17 @@ is why no matrix logarithm and no Jacobian is traced here.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>infidelity</code> is measured <strong>at</strong> <code>new_parameters</code>.</p>
+                <p><code>infidelity</code> is measured <strong>at</strong> <code>new_parameters</code> and <code>eta</code> is</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[..., <span title="tuple">tuple</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>the accepted line-search step.</p>
               </div>
             </td>
           </tr>

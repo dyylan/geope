@@ -1427,8 +1427,8 @@ recursion (the left-multiply mirror of the note's convention)</p>
 <div class="arithmatex">\[X_g = U_g X_{g-1}, \qquad
   V_g = U_g V_{g-1} + E_g X_{g-1},$$
 $$W_g = U_g W_{g-1} + 2\,E_g V_{g-1} + G_g X_{g-1},\]</div>
-<p>with <span class="arithmatex">\(X_{-1} = I\)</span>, <span class="arithmatex">\(V_{-1} = W_{-1} = 0\)</span>, where <span class="arithmatex">\(U_g = \exp(iA_g)\)</span>,
-<span class="arithmatex">\(E_g = D\exp(iA_g)[iB_g]\)</span>, and <span class="arithmatex">\(G_g = D^2\exp(iA_g)[iB_g, iB_g]\)</span> are the
+<p>with <span class="arithmatex">\(X_{-1} = I\)</span>, <span class="arithmatex">\(V_{-1} = W_{-1} = 0\)</span>, where <span class="arithmatex">\(U_g = \exp(A_g)\)</span>,
+<span class="arithmatex">\(E_g = D\exp(A_g)[B_g]\)</span>, and <span class="arithmatex">\(G_g = D^2\exp(A_g)[B_g, B_g]\)</span> are the
 per-gate value and directional derivatives (<code>step_fn</code>). After all <span class="arithmatex">\(G\)</span> gates,
 <span class="arithmatex">\(X_{G-1} = \phi(\theta)\)</span>, <span class="arithmatex">\(V_{G-1} = D\phi_\theta[p]\)</span>, and
 <span class="arithmatex">\(W_{G-1} = D^2\phi_\theta[p, p]\)</span>. The cross term <span class="arithmatex">\(2\,E_g V_{g-1}\)</span> collects
@@ -1585,7 +1585,8 @@ wrapped in <code>jax.jit</code> so it compiles once and is reused across calls.<
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator <code>Array</code> of shape <code>(K, d, d)</code> — skew-Hermitian
+in the pipeline (<code>geope.geometry.basis.Basis.algebra</code>).</p>
               </div>
             </td>
             <td>
@@ -1950,7 +1951,8 @@ get to share their partial products.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator <code>Array</code> of shape <code>(K, d, d)</code> — skew-Hermitian
+in the pipeline (<code>geope.geometry.basis.Basis.algebra</code>).</p>
               </div>
             </td>
             <td>
@@ -1985,7 +1987,7 @@ the identity. See <code>hessian_vjp_propagator</code>.</p>
               <div class="doc-md-description">
                 <p>Per-gate derivative method. <code>"eig"</code> (default) uses the spectral
 <code>dexpm_eig</code> / <code>d2expm_eig</code>; <code>"block"</code> uses the block-exponential
-<code>dexpm</code> / <code>d2expm</code>, which handle non-Hermitian generators and ignore
+<code>dexpm</code> / <code>d2expm</code>, which assume no skew-Hermitian structure and ignore
 <code>hermitian</code>.</p>
               </div>
             </td>
@@ -2065,7 +2067,7 @@ complex-valued parameters. Only affects <code>method="eig"</code>.</p>
 
         <p>Compute the full Hessian propagator of the product unitary.</p>
 <p>Second-derivative analogue of <code>geope.jax.jacobian_propagator</code>. With the product
-convention <span class="arithmatex">\(U = U_{G-1} \cdots U_1 U_0\)</span>, <span class="arithmatex">\(U_i = \exp(i\sum_k x_{i,k} B_k)\)</span>
+convention <span class="arithmatex">\(U = U_{G-1} \cdots U_1 U_0\)</span>, <span class="arithmatex">\(U_i = \exp(\sum_k x_{i,k} E_k)\)</span>
 (each gate left-multiplied), the mixed derivative with respect to gates
 <span class="arithmatex">\(i\)</span> and <span class="arithmatex">\(j\)</span> leaves all other gates untouched:</p>
 <ul>
@@ -2245,7 +2247,8 @@ genuinely want the matrix-valued <span class="arithmatex">\(\mathrm D^2\Phi\)</s
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator <code>Array</code> of shape <code>(K, d, d)</code> — skew-Hermitian
+in the pipeline (<code>geope.geometry.basis.Basis.algebra</code>).</p>
               </div>
             </td>
             <td>
@@ -2264,7 +2267,7 @@ genuinely want the matrix-valued <span class="arithmatex">\(\mathrm D^2\Phi\)</s
                 <p>Per-step derivative method. <code>"eig"</code> (default) uses the
 spectral per-step derivatives (<code>dexpm_eig</code> / <code>d2expm_eig</code>);
 <code>"block"</code> uses the block-exponential derivatives (<code>dexpm</code> /
-<code>d2expm</code>), which handle non-Hermitian generators and ignore
+<code>d2expm</code>), which assume no skew-Hermitian structure and ignore
 <code>hermitian</code>.</p>
               </div>
             </td>

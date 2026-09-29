@@ -1325,7 +1325,7 @@ forward, in <span class="arithmatex">\(O(G)\)</span>, without either.</p>
 <p>The product unitary follows the convention of
 :func:<code>geope.geometry.chart.compute_matrices_params_list_fn</code>, where each gate is
 left-multiplied onto the accumulator,</p>
-<div class="arithmatex">\[U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(i \sum_k x_{i,k} G_k\Big).\]</div>
+<div class="arithmatex">\[U = U_{G-1} \cdots U_1 U_0, \qquad U_i = \exp\!\Big(\sum_k x_{i,k} E_k\Big).\]</div>
 <p>The derivative with respect to a parameter of gate <span class="arithmatex">\(i\)</span> leaves every other
 gate untouched, so it is a product with a single factor replaced by the
 per-gate derivative:</p>
@@ -1468,7 +1468,8 @@ reused across calls.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator <code>Array</code> of shape <code>(K, d, d)</code> — skew-Hermitian
+in the pipeline (<code>geope.geometry.basis.Basis.algebra</code>).</p>
               </div>
             </td>
             <td>
@@ -1486,8 +1487,8 @@ reused across calls.</p>
               <div class="doc-md-description">
                 <p>Per-gate derivative method. <code>"eig"</code> (default) uses the
 spectral method (<code>geope.jax.dexpm_eig</code>); <code>"block"</code> uses the
-block-exponential method (<code>geope.jax.dexpm</code>), which handles
-non-Hermitian generators and ignores <code>hermitian</code>.</p>
+block-exponential method (<code>geope.jax.dexpm</code>), which assumes no
+skew-Hermitian structure and ignores <code>hermitian</code>.</p>
               </div>
             </td>
             <td>
@@ -1764,7 +1765,8 @@ partial products.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator <code>Array</code> of shape <code>(K, d, d)</code> — skew-Hermitian
+in the pipeline (<code>geope.geometry.basis.Basis.algebra</code>).</p>
               </div>
             </td>
             <td>
@@ -1783,8 +1785,7 @@ partial products.</p>
                 <p>Per-gate adjoint method. <code>"eig"</code> (default) uses the spectral
 <code>geope.jax.adj_expm_eig</code>, which never forms the <code>(d, d, K)</code>
 per-gate derivative; <code>"block"</code> uses <code>geope.jax.adj_expm</code>, which
-does (it ignores <code>hermitian</code> and tolerates non-Hermitian
-generators).</p>
+does (it ignores <code>hermitian</code> and assumes no skew structure).</p>
               </div>
             </td>
             <td>
@@ -1873,8 +1874,8 @@ define the partial product <span class="arithmatex">\(X_g = U_g \cdots U_0\)</sp
 <span class="arithmatex">\(X_g(t) = U_g(t) X_{g-1}(t)\)</span>, the product rule gives the linear-time
 recursion</p>
 <div class="arithmatex">\[X_g = U_g X_{g-1}, \qquad V_g = U_g V_{g-1} + E_g X_{g-1},\]</div>
-<p>with <span class="arithmatex">\(X_{-1} = I\)</span>, <span class="arithmatex">\(V_{-1} = 0\)</span>, where <span class="arithmatex">\(U_g = \exp(iA_g)\)</span> and
-<span class="arithmatex">\(E_g = D\exp(iA_g)[iB_g]\)</span> are the per-gate value and directional derivative
+<p>with <span class="arithmatex">\(X_{-1} = I\)</span>, <span class="arithmatex">\(V_{-1} = 0\)</span>, where <span class="arithmatex">\(U_g = \exp(A_g)\)</span> and
+<span class="arithmatex">\(E_g = D\exp(A_g)[B_g]\)</span> are the per-gate value and directional derivative
 (<code>step_fn</code>). After all <span class="arithmatex">\(G\)</span> gates, <span class="arithmatex">\(X_{G-1} = \phi(\theta)\)</span> and
 <span class="arithmatex">\(V_{G-1} = D\phi_\theta[p]\)</span>. The recursion is a single <code>jax.lax.scan</code>; this
 is the forward-mode (JVP) analogue of <code>jacobian_propagator</code>, and the
@@ -2019,7 +2020,8 @@ wrapped in <code>jax.jit</code> so it compiles once and is reused across calls.<
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>Array</code> of Hermitian basis matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator <code>Array</code> of shape <code>(K, d, d)</code> — skew-Hermitian
+in the pipeline (<code>geope.geometry.basis.Basis.algebra</code>).</p>
               </div>
             </td>
             <td>

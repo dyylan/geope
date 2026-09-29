@@ -1282,8 +1282,11 @@ manual propagator derivatives.</p>
 
         <p>A compact matrix Lie group with a bi-invariant metric.</p>
 <p>Elements of the Lie algebra are <strong>skew-Hermitian</strong> throughout — the generator
-of <span class="arithmatex">\(U = e^{iH}\)</span> is <span class="arithmatex">\(iH\)</span>, not <span class="arithmatex">\(H\)</span>. The single factor of <span class="arithmatex">\(i\)</span> that turns one into
-a Hermitian matrix the basis can resolve lives in <code>coefficients</code>.</p>
+of <span class="arithmatex">\(U = e^{-iH}\)</span> is <span class="arithmatex">\(-iH\)</span>, not <span class="arithmatex">\(H\)</span>. The single factor of <span class="arithmatex">\(\pm i\)</span> between the
+Hermitian frame and the algebra is
+<code>geope.geometry.basis.Basis.ALGEBRA_CONVENTION</code>, applied by
+<code>geope.geometry.basis.Basis.algebra</code> going in and (conjugated) by
+<code>coefficients</code> coming out.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1994,21 +1997,17 @@ induced by the embedding in <span class="arithmatex">\(\mathbb C^{d\times d}\)</
     <div class="doc doc-contents ">
 
         <p>Resolve skew-Hermitian algebra elements against the ambient frame.</p>
-<p>Computes <span class="arithmatex">\(c_k = \mathrm{Tr}(B_k\,iX)/d\)</span>, i.e. the real coefficients with
-<span class="arithmatex">\(iX = \sum_k c_k B_k\)</span> (equivalently <span class="arithmatex">\(X = -i\sum_k c_k B_k\)</span>), so the metric
-constant of the <code>Manifold.coefficients</code> contract is <span class="arithmatex">\(c = 1/d\)</span>.
-<code>point</code> is unused: one frame serves every fibre.</p>
-<p><strong>The factor of <span class="arithmatex">\(i\)</span> is the whole story of the frame.</strong> The Paulis span
-<span class="arithmatex">\(\mathbb C^{d\times d}\)</span> over <span class="arithmatex">\(\mathbb C\)</span> and the <em>Hermitian</em> matrices over
-<span class="arithmatex">\(\mathbb R\)</span>; multiplied by <span class="arithmatex">\(i\)</span> they span <span class="arithmatex">\(\mathfrak u(d)\)</span> over <span class="arithmatex">\(\mathbb R\)</span>.
-Algebra elements are skew-Hermitian throughout the library, so this is
-the one place that <span class="arithmatex">\(i\)</span> appears.</p>
-<p><strong>What this assumes of the frame.</strong> Hermitian elements, orthogonal under
-the trace inner product and normalised to
-<span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> — which every basis
-<code>geope.utils</code> constructs satisfies. Completeness is explicitly <em>not</em>
-assumed: a frame with fewer than <span class="arithmatex">\(\dim\mathfrak g\)</span> elements simply
-projects onto a subspace, which the spin-boson bases rely on.</p>
+<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}
+\cdot B_k\)</span> the chart exponentiates:</p>
+<div class="arithmatex">\[c_k = \mathrm{Tr}(E_k^\dagger X)/d
+      = \overline{\mathrm{ALGEBRA\_CONVENTION}}\,\mathrm{Tr}(B_k X)/d,\]</div>
+<p>the real coefficients with <span class="arithmatex">\(X = \sum_k c_k E_k\)</span> (metric constant
+<span class="arithmatex">\(c = 1/d\)</span>). This is the outbound half of the sign convention; both
+halves read <code>geope.geometry.basis.Basis.ALGEBRA_CONVENTION</code>, so they
+cannot disagree. <code>point</code> is unused: one frame serves every fibre.</p>
+<p>The frame must be Hermitian and trace-orthogonal with
+<span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> (every <code>geope.utils</code> basis is);
+an incomplete frame simply projects onto its subspace.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2483,7 +2482,7 @@ not of shape <code>ambient_shape</code>.</p>
 
 
 <h5 id="geope.geometry.lie.groups.MatrixLieGroup.context" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.lie.groups.MatrixLieGroup.context" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -2494,6 +2493,54 @@ not of shape <code>ambient_shape</code>.</p>
 <p>Cheap: every quantity on the returned context is lazy, so this on its own
 evaluates nothing. Build one per optimisation step, <em>inside</em> the jitted
 update — see <code>GeometricContext</code> for why it must not leave that trace.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>free_params</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The pulse, shape <code>(G, K_free)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta_t</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The segment duration, threaded (as a traced scalar) into
+every chart evaluation the context performs. Defaults to 1.0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -3595,21 +3642,17 @@ not of shape <code>ambient_shape</code>.</p>
     <div class="doc doc-contents ">
 
         <p>Resolve skew-Hermitian algebra elements against the ambient frame.</p>
-<p>Computes <span class="arithmatex">\(c_k = \mathrm{Tr}(B_k\,iX)/d\)</span>, i.e. the real coefficients with
-<span class="arithmatex">\(iX = \sum_k c_k B_k\)</span> (equivalently <span class="arithmatex">\(X = -i\sum_k c_k B_k\)</span>), so the metric
-constant of the <code>Manifold.coefficients</code> contract is <span class="arithmatex">\(c = 1/d\)</span>.
-<code>point</code> is unused: one frame serves every fibre.</p>
-<p><strong>The factor of <span class="arithmatex">\(i\)</span> is the whole story of the frame.</strong> The Paulis span
-<span class="arithmatex">\(\mathbb C^{d\times d}\)</span> over <span class="arithmatex">\(\mathbb C\)</span> and the <em>Hermitian</em> matrices over
-<span class="arithmatex">\(\mathbb R\)</span>; multiplied by <span class="arithmatex">\(i\)</span> they span <span class="arithmatex">\(\mathfrak u(d)\)</span> over <span class="arithmatex">\(\mathbb R\)</span>.
-Algebra elements are skew-Hermitian throughout the library, so this is
-the one place that <span class="arithmatex">\(i\)</span> appears.</p>
-<p><strong>What this assumes of the frame.</strong> Hermitian elements, orthogonal under
-the trace inner product and normalised to
-<span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> — which every basis
-<code>geope.utils</code> constructs satisfies. Completeness is explicitly <em>not</em>
-assumed: a frame with fewer than <span class="arithmatex">\(\dim\mathfrak g\)</span> elements simply
-projects onto a subspace, which the spin-boson bases rely on.</p>
+<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}
+\cdot B_k\)</span> the chart exponentiates:</p>
+<div class="arithmatex">\[c_k = \mathrm{Tr}(E_k^\dagger X)/d
+      = \overline{\mathrm{ALGEBRA\_CONVENTION}}\,\mathrm{Tr}(B_k X)/d,\]</div>
+<p>the real coefficients with <span class="arithmatex">\(X = \sum_k c_k E_k\)</span> (metric constant
+<span class="arithmatex">\(c = 1/d\)</span>). This is the outbound half of the sign convention; both
+halves read <code>geope.geometry.basis.Basis.ALGEBRA_CONVENTION</code>, so they
+cannot disagree. <code>point</code> is unused: one frame serves every fibre.</p>
+<p>The frame must be Hermitian and trace-orthogonal with
+<span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> (every <code>geope.utils</code> basis is);
+an incomplete frame simply projects onto its subspace.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3690,7 +3733,7 @@ projects onto a subspace, which the spin-boson bases rely on.</p>
 
 
 <h5 id="geope.geometry.lie.groups.SpecialUnitaryGroup.context" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.lie.groups.SpecialUnitaryGroup.context" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -3701,6 +3744,54 @@ projects onto a subspace, which the spin-boson bases rely on.</p>
 <p>Cheap: every quantity on the returned context is lazy, so this on its own
 evaluates nothing. Build one per optimisation step, <em>inside</em> the jitted
 update — see <code>GeometricContext</code> for why it must not leave that trace.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>free_params</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The pulse, shape <code>(G, K_free)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta_t</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The segment duration, threaded (as a traced scalar) into
+every chart evaluation the context performs. Defaults to 1.0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -5002,21 +5093,17 @@ not of shape <code>ambient_shape</code>.</p>
     <div class="doc doc-contents ">
 
         <p>Resolve skew-Hermitian algebra elements against the ambient frame.</p>
-<p>Computes <span class="arithmatex">\(c_k = \mathrm{Tr}(B_k\,iX)/d\)</span>, i.e. the real coefficients with
-<span class="arithmatex">\(iX = \sum_k c_k B_k\)</span> (equivalently <span class="arithmatex">\(X = -i\sum_k c_k B_k\)</span>), so the metric
-constant of the <code>Manifold.coefficients</code> contract is <span class="arithmatex">\(c = 1/d\)</span>.
-<code>point</code> is unused: one frame serves every fibre.</p>
-<p><strong>The factor of <span class="arithmatex">\(i\)</span> is the whole story of the frame.</strong> The Paulis span
-<span class="arithmatex">\(\mathbb C^{d\times d}\)</span> over <span class="arithmatex">\(\mathbb C\)</span> and the <em>Hermitian</em> matrices over
-<span class="arithmatex">\(\mathbb R\)</span>; multiplied by <span class="arithmatex">\(i\)</span> they span <span class="arithmatex">\(\mathfrak u(d)\)</span> over <span class="arithmatex">\(\mathbb R\)</span>.
-Algebra elements are skew-Hermitian throughout the library, so this is
-the one place that <span class="arithmatex">\(i\)</span> appears.</p>
-<p><strong>What this assumes of the frame.</strong> Hermitian elements, orthogonal under
-the trace inner product and normalised to
-<span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> — which every basis
-<code>geope.utils</code> constructs satisfies. Completeness is explicitly <em>not</em>
-assumed: a frame with fewer than <span class="arithmatex">\(\dim\mathfrak g\)</span> elements simply
-projects onto a subspace, which the spin-boson bases rely on.</p>
+<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}
+\cdot B_k\)</span> the chart exponentiates:</p>
+<div class="arithmatex">\[c_k = \mathrm{Tr}(E_k^\dagger X)/d
+      = \overline{\mathrm{ALGEBRA\_CONVENTION}}\,\mathrm{Tr}(B_k X)/d,\]</div>
+<p>the real coefficients with <span class="arithmatex">\(X = \sum_k c_k E_k\)</span> (metric constant
+<span class="arithmatex">\(c = 1/d\)</span>). This is the outbound half of the sign convention; both
+halves read <code>geope.geometry.basis.Basis.ALGEBRA_CONVENTION</code>, so they
+cannot disagree. <code>point</code> is unused: one frame serves every fibre.</p>
+<p>The frame must be Hermitian and trace-orthogonal with
+<span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> (every <code>geope.utils</code> basis is);
+an incomplete frame simply projects onto its subspace.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5097,7 +5184,7 @@ projects onto a subspace, which the spin-boson bases rely on.</p>
 
 
 <h5 id="geope.geometry.lie.groups.UnitaryGroup.context" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.lie.groups.UnitaryGroup.context" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -5108,6 +5195,54 @@ projects onto a subspace, which the spin-boson bases rely on.</p>
 <p>Cheap: every quantity on the returned context is lazy, so this on its own
 evaluates nothing. Build one per optimisation step, <em>inside</em> the jitted
 update — see <code>GeometricContext</code> for why it must not leave that trace.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>free_params</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The pulse, shape <code>(G, K_free)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta_t</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The segment duration, threaded (as a traced scalar) into
+every chart evaluation the context performs. Defaults to 1.0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -6898,7 +7033,7 @@ not of shape <code>ambient_shape</code>.</p>
 
 
 <h5 id="geope.geometry.stiefel.stiefel.Stiefel.context" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.stiefel.stiefel.Stiefel.context" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -6909,6 +7044,54 @@ not of shape <code>ambient_shape</code>.</p>
 <p>Cheap: every quantity on the returned context is lazy, so this on its own
 evaluates nothing. Build one per optimisation step, <em>inside</em> the jitted
 update — see <code>GeometricContext</code> for why it must not leave that trace.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>free_params</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The pulse, shape <code>(G, K_free)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta_t</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The segment duration, threaded (as a traced scalar) into
+every chart evaluation the context performs. Defaults to 1.0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -8269,7 +8452,7 @@ not of shape <code>ambient_shape</code>.</p>
 
 
 <h5 id="geope.geometry.stiefel.sphere.StateSphere.context" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.stiefel.sphere.StateSphere.context" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -8280,6 +8463,54 @@ not of shape <code>ambient_shape</code>.</p>
 <p>Cheap: every quantity on the returned context is lazy, so this on its own
 evaluates nothing. Build one per optimisation step, <em>inside</em> the jitted
 update — see <code>GeometricContext</code> for why it must not leave that trace.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>free_params</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The pulse, shape <code>(G, K_free)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta_t</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The segment duration, threaded (as a traced scalar) into
+every chart evaluation the context performs. Defaults to 1.0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>

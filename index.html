@@ -1196,15 +1196,16 @@
 <h2 id="the-problem">The problem<a class="headerlink" href="#the-problem" title="Permanent link">¤</a></h2>
 <p>Designing multi-qubit quantum logic gates under experimental hardware constraints is a central challenge in quantum computing. Given a target unitary <span class="arithmatex">\(V\)</span> and a set of experimentally accessible Hamiltonian terms <span class="arithmatex">\(\mathcal{H}\)</span>, the goal is to find piecewise-constant control parameters <span class="arithmatex">\(\mathbf{\Phi} = (\phi_1, \dots, \phi_L)\)</span> such that</p>
 <div class="arithmatex">\[U_G(\mathbf{\Phi}) = U(\phi_L)\, U(\phi_{L-1})\, \cdots \, U(\phi_1) \approx V,\]</div>
-<p>where each <span class="arithmatex">\(U(\phi_l) = e^{-i \Delta T\, H(\phi_l)}\)</span> (with segment duration <span class="arithmatex">\(\Delta T\)</span>, <code>delta_t</code>, defaulting to 1) and <span class="arithmatex">\(H(\phi_l) = \sum_k \phi_{l,k}\, G_k\)</span> is a Hamiltonian restricted to the available interactions <span class="arithmatex">\(G_k \in \mathcal{H}\)</span>.</p>
+<p>where each <span class="arithmatex">\(U(\phi_l) = e^{-i H(\phi_l)}\)</span> and <span class="arithmatex">\(H(\phi_l) = \sum_k \phi_{l,k}\, G_k\)</span> is a Hamiltonian restricted to the available interactions <span class="arithmatex">\(G_k \in \mathcal{H}\)</span>.</p>
 <p>The standard approach is GRAPE (Gradient Ascent Pulse Engineering), which performs gradient ascent on the fidelity</p>
 <div class="arithmatex">\[F(\mathbf{\Phi}, V) = \frac{1}{N} \left| \mathrm{Tr}\left\{ U_G^\dagger(\mathbf{\Phi})\, V \right\} \right|.\]</div>
 <h2 id="the-geope-algorithm">The GEOPE algorithm<a class="headerlink" href="#the-geope-algorithm" title="Permanent link">¤</a></h2>
 <p>GEOPE takes a fundamentally different approach. Instead of following the gradient of the fidelity, it directly follows the <strong>geodesic</strong> — the shortest path on the <span class="arithmatex">\(SU(N)\)</span> manifold — from the current unitary <span class="arithmatex">\(U_G(\mathbf{\Phi})\)</span> to the target <span class="arithmatex">\(V\)</span>. </p>
 <p>The geodesic direction is given by:</p>
-<div class="arithmatex">\[\Gamma = -i \log\!\left(U_G(\mathbf{\Phi})^\dagger V\right) \in \mathfrak{su}(N).\]</div>
+<div class="arithmatex">\[\Gamma = i \log\!\left(U_G(\mathbf{\Phi})^\dagger V\right),\]</div>
+<p>a traceless Hermitian matrix — the Hamiltonian that would drive the current unitary to the target in unit time under <span class="arithmatex">\(U = e^{-iH}\)</span>.</p>
 <p>At each iteration, GEOPE solves a <strong>convex least-squares</strong> problem to find the parameter update <span class="arithmatex">\(\delta\mathbf{\Phi}\)</span> that best aligns the available control directions (the Jacobian) with the geodesic:</p>
-<div class="arithmatex">\[\mathcal{L}(\delta\mathbf{\Phi}) = \left\| \sum_{l,k} \mathbf{J}_{l,k}(\mathbf{\Phi})\, \delta\phi_{l,k} - i\, U_G(\mathbf{\Phi})\, \Gamma \right\|^2.\]</div>
+<div class="arithmatex">\[\mathcal{L}(\delta\mathbf{\Phi}) = \left\| \sum_{l,k} \mathbf{J}_{l,k}(\mathbf{\Phi})\, \delta\phi_{l,k} + i\, U_G(\mathbf{\Phi})\, \Gamma \right\|^2.\]</div>
 <p>A golden-section line search then determines the optimal step size along this direction. When the line search fails to improve fidelity (indicating a local minimum), a Gram-Schmidt procedure steps orthogonally to escape. This strategy gives GEOPE two key advantages over GRAPE:</p>
 <ul>
 <li><strong>Faster convergence</strong>: following the geodesic minimises the distance to the target at each step, rather than merely maximising a local fidelity gradient that may not align with the shortest path.</li>

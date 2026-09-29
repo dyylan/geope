@@ -1321,8 +1321,8 @@
 
     <div class="doc doc-contents first">
 
-        <p>Compute a unitary from a linear combination of Hermitian basis matrices.</p>
-<p>Constructs <span class="arithmatex">\(U = \exp(i \sum_k x_k B_k)\)</span>.</p>
+        <p>Compute a matrix from a linear combination of generators.</p>
+<p>Constructs <span class="arithmatex">\(U = \exp(\sum_k x_k E_k)\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1361,7 +1361,8 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code> (skew-Hermitian in the
+pipeline; see the module docstring).</p>
               </div>
             </td>
             <td>
@@ -1387,7 +1388,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A unitary matrix of shape <code>(d, d)</code>.</p>
+                <p>A matrix of shape <code>(d, d)</code>.</p>
               </div>
             </td>
           </tr>
@@ -1410,7 +1411,7 @@
 
     <div class="doc doc-contents first">
 
-        <p>Create a partial unitary function with a fixed basis.</p>
+        <p>Create a partial gate function with a fixed generator array.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1433,7 +1434,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -1459,7 +1460,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A callable that accepts a coefficient vector and returns</p>
+                <p>A callable that accepts a coefficient vector and returns the</p>
               </div>
             </td>
           </tr>
@@ -1469,7 +1470,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>the corresponding unitary matrix.</p>
+                <p>corresponding gate matrix.</p>
               </div>
             </td>
           </tr>
@@ -1495,8 +1496,8 @@
         <p>Compute the derivative of the matrix exponential via the block method.</p>
 <p>Implements the block-matrix approach of
 <code>Al-Mohy &amp; Higham (2009) &lt;https://arxiv.org/pdf/1506.00628&gt;</code>_,
-Eq. (31), extracting <span class="arithmatex">\(d\exp(iA)/dA \cdot x\)</span> from the upper-right
-block of <span class="arithmatex">\(\exp(i[[A, x], [0, A]])\)</span>.</p>
+Eq. (31), extracting <span class="arithmatex">\(d\exp(A)/dA \cdot x\)</span> from the upper-right
+block of <span class="arithmatex">\(\exp([[A, x], [0, A]])\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1519,7 +1520,7 @@ block of <span class="arithmatex">\(\exp(i[[A, x], [0, A]])\)</span>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The Hamiltonian matrix of shape <code>(d, d)</code>.</p>
+                <p>The generator combination <span class="arithmatex">\(\sum_k x_k E_k\)</span>, of shape <code>(d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -1584,9 +1585,9 @@ block of <span class="arithmatex">\(\exp(i[[A, x], [0, A]])\)</span>.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Compute the derivative of the exponential map for all basis directions.</p>
-<p>For each basis element <span class="arithmatex">\(B_k\)</span>, computes
-<span class="arithmatex">\(\partial \exp(i \sum_j x_j B_j) / \partial x_k\)</span>.</p>
+        <p>Compute the derivative of the exponential map for all generator directions.</p>
+<p>For each generator <span class="arithmatex">\(E_k\)</span>, computes
+<span class="arithmatex">\(\partial \exp(\sum_j x_j E_j) / \partial x_k\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1625,7 +1626,7 @@ block of <span class="arithmatex">\(\exp(i[[A, x], [0, A]])\)</span>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -1725,7 +1726,7 @@ block of <span class="arithmatex">\(\exp(i[[A, x], [0, A]])\)</span>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -1741,7 +1742,7 @@ block of <span class="arithmatex">\(\exp(i[[A, x], [0, A]])\)</span>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Number of basis elements to process per batch.</p>
+                <p>Number of generators to process per batch.</p>
               </div>
             </td>
             <td>
@@ -1813,7 +1814,7 @@ block of <span class="arithmatex">\(\exp(i[[A, x], [0, A]])\)</span>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -1897,14 +1898,14 @@ from.</p>
         <p>Adjoint of the exponential-map derivative: all <code>K</code> overlaps, no <code>(d, d, K)</code>.</p>
 <p>Returns the vector of Frobenius overlaps of a single covector <code>b</code> with every
 partial derivative of <code>Ui</code>,</p>
-<div class="arithmatex">\[t_k = \mathrm{Tr}\bigl(b^\dagger\,\partial_k \exp(i\textstyle\sum_j x_j B_j)\bigr),\]</div>
+<div class="arithmatex">\[t_k = \mathrm{Tr}\bigl(b^\dagger\,\partial_k \exp(\textstyle\sum_j x_j E_j)\bigr),\]</div>
 <p>which is what a chain rule through the exponential actually needs — the
 <code>(d, d, K)</code> tensor <code>dexpm_eig</code> builds is contracted away immediately, and
 building it first costs <span class="arithmatex">\(O(d^3 K)\)</span> where this costs <span class="arithmatex">\(O(d^3 + d^2 K)\)</span>.</p>
-<p>Writing <span class="arithmatex">\(M = i\sum_j x_j B_j = V\,\mathrm{diag}(\mu)\,V^{-1}\)</span> and <span class="arithmatex">\(\Delta\)</span> for
+<p>Writing <span class="arithmatex">\(M = \sum_j x_j E_j = V\,\mathrm{diag}(\mu)\,V^{-1}\)</span> and <span class="arithmatex">\(\Delta\)</span> for
 the divided differences of <span class="arithmatex">\(\exp\)</span>, <code>dexpm_eig</code> gives
-<span class="arithmatex">\(\partial_k e^M = V(\Delta \circ V^{-1}(iB_k)V)V^{-1}\)</span>, so</p>
-<div class="arithmatex">\[t_k = \mathrm{Tr}\bigl(\bar A\,(iB_k)\bigr),\qquad
+<span class="arithmatex">\(\partial_k e^M = V(\Delta \circ V^{-1}E_kV)V^{-1}\)</span>, so</p>
+<div class="arithmatex">\[t_k = \mathrm{Tr}\bigl(\bar A\,E_k\bigr),\qquad
   \bar A = V S^\intercal V^{-1},\quad
   S_{pq} = \Delta_{pq}\,\bigl(V^{-1} b^\dagger V\bigr)_{qp}.\]</div>
 <p>The <code>K</code> directions therefore cost one <span class="arithmatex">\((K, d, d)\)</span> tensordot against a single
@@ -1965,7 +1966,7 @@ the divided differences of <span class="arithmatex">\(\exp\)</span>, <code>dexpm
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -1981,8 +1982,9 @@ the divided differences of <span class="arithmatex">\(\exp\)</span>, <code>dexpm
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Assume real coefficients (skew-Hermitian <code>M</code>) and diagonalise
-via <code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for complex coefficients.</p>
+                <p>Assume a skew-Hermitian combination and diagonalise via
+<code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for complex coefficients or
+non-skew generators.</p>
               </div>
             </td>
             <td>
@@ -2052,7 +2054,7 @@ via <code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for comp
     <div class="doc doc-contents first">
 
         <p>Create a JIT-compiled spectral exponential-map adjoint.</p>
-<p>Wraps <code>adj_expm_eig</code> with a fixed basis. This is the per-gate step
+<p>Wraps <code>adj_expm_eig</code> with a fixed generator array. This is the per-gate step
 <code>geope.jax.get_vjp_propagator</code> is built from.</p>
 
 
@@ -2076,7 +2078,7 @@ via <code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for comp
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -2092,8 +2094,9 @@ via <code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for comp
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Assume real coefficients (skew-Hermitian <code>M</code>) and use
-<code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for complex coefficients.</p>
+                <p>Assume a skew-Hermitian combination and use <code>eigh</code> — see
+<code>_eig</code>. Set <code>False</code> for complex coefficients or non-skew
+generators.</p>
               </div>
             </td>
             <td>
@@ -2156,7 +2159,7 @@ via <code>eigh</code> — see <code>_eig</code>. Set <code>False</code> for comp
 <p>The auxiliary-matrix method has no spectral structure to exploit, so this
 genuinely does build <code>dexpm</code>'s <code>(d, d, K)</code> tensor and contract it. It exists
 for parity with <code>method="block"</code> elsewhere in this module, and because the
-block method tolerates non-Hermitian generators; prefer <code>adj_expm_eig</code>.</p>
+block method tolerates arbitrary generators; prefer <code>adj_expm_eig</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2211,7 +2214,7 @@ block method tolerates non-Hermitian generators; prefer <code>adj_expm_eig</code
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>
@@ -2261,8 +2264,8 @@ block method tolerates non-Hermitian generators; prefer <code>adj_expm_eig</code
     <div class="doc doc-contents first">
 
         <p>Create a JIT-compiled block-method exponential-map adjoint.</p>
-<p>Wraps <code>adj_expm</code> with a fixed basis — the slow path, kept for parity with
-<code>method="block"</code>.</p>
+<p>Wraps <code>adj_expm</code> with a fixed generator array — the slow path, kept for
+parity with <code>method="block"</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2285,7 +2288,7 @@ block method tolerates non-Hermitian generators; prefer <code>adj_expm_eig</code
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Array of Hermitian matrices of shape <code>(K, d, d)</code>.</p>
+                <p>Generator array of shape <code>(K, d, d)</code>.</p>
               </div>
             </td>
             <td>

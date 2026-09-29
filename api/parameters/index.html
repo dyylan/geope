@@ -1237,20 +1237,12 @@ such as <code>Geope</code> updates in place.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><a class="autorefs autorefs-internal" title="            delta_t
-
-  
-      property
-   (geope.parameters.Parameters.delta_t)" href="#geope.parameters.Parameters.delta_t">delta_t</a></code></td>
+            <td><code><span title="geope.parameters.Parameters.delta_t">delta_t</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Duration <span class="arithmatex">\(\Delta T\)</span> of each segment, so that
-<span class="arithmatex">\(U_g = \exp(-i\,\Delta T\sum_k \phi_{g,k}G_k)\)</span>. Settable:
-assigning it re-binds <code>manifold</code>, since the duration is baked
-into the chart's generators. <code>Gecko</code> subdivision divides it by the
-multiplier instead of rescaling <code>parameters</code>.</p>
+                <p>Duration of each segment.</p>
               </div>
             </td>
           </tr>
@@ -1264,8 +1256,7 @@ multiplier instead of rescaling <code>parameters</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>piecewise_steps * delta_t</code>. Read-only; invariant under
-<code>Gecko</code> subdivision.</p>
+                <p><code>piecewise_steps * delta_t</code> — invariant under subdivision.</p>
               </div>
             </td>
           </tr>
@@ -1326,9 +1317,7 @@ to basis coefficients.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The bound <code>geope.geometry.Manifold</code> this problem lives on.
-Replaced (never mutated) when <code>delta_t</code> changes, so a consumer
-that captured it holds the old duration's chart.</p>
+                <p>The <code>geope.geometry.Manifold</code> this problem lives on.</p>
               </div>
             </td>
           </tr>
@@ -1733,63 +1722,10 @@ errors defaults to 'strict'.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Hamiltonian amplitudes <span class="arithmatex">\(c\)</span> in <span class="arithmatex">\(H_g = \sum_k c_{g,k} G_k\)</span>.</p>
-<p>The current parameters mapped through <code>param_transform</code> when one is
-set, and the parameters themselves otherwise. These are amplitudes, not
-rotation angles: the segment is <span class="arithmatex">\(\exp(-i\,\Delta T\,H_g)\)</span>, so the
-duration :attr:<code>delta_t</code> is a separate quantity and is deliberately
-<em>not</em> folded in here.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.delta_t" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">delta_t</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.delta_t" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Duration <span class="arithmatex">\(\Delta T\)</span> of each piecewise-constant segment.</p>
-<p>Assigning it re-binds :attr:<code>manifold</code>: the duration is baked into the
-chart's generators (see <code>_bind</code>), so the new value takes effect for
-every consumer that reads <code>params.manifold</code> afresh. The optimisers'
-compile memos key on the manifold's identity, so a step compiled at the
-old duration is never reused. A live <code>fidelity</code> is recomputed at the
-new duration, so it keeps describing <code>parameters</code>.</p>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="ValueError">ValueError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>On assignment of a non-positive value.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <p>Current parameters mapped through <code>param_transform</code> if set.</p>
+<p>Returns the induced basis coefficients corresponding to the
+current <code>self.parameters</code>. If <code>param_transform</code> is <code>None</code>
+this is just the current parameters.</p>
 
     </div>
 
@@ -1857,8 +1793,6 @@ new duration, so it keeps describing <code>parameters</code>.</p>
     <div class="doc doc-contents ">
 
         <p>Total gate duration <code>piecewise_steps * delta_t</code>.</p>
-<p>Invariant under <code>Gecko</code> subdivision, which splits each segment into
-<code>m</code> copies and divides <code>delta_t</code> by <code>m</code>.</p>
 
     </div>
 
@@ -2055,11 +1989,8 @@ Defaults to 1.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Duration <span class="arithmatex">\(\Delta T\)</span> of each segment, so that
-<span class="arithmatex">\(U_g = \exp(-i\,\Delta T\sum_k \phi_{g,k}G_k)\)</span>. Defaults to
-1.0, where the duration is absorbed into the coefficients.
-Must be positive. <code>Gecko</code> subdivision rescales it rather than
-the parameters — see :attr:<code>delta_t</code>.</p>
+                <p>Duration <span class="arithmatex">\(\Delta t\)</span> of each segment, so that
+<span class="arithmatex">\(U_g = \exp(-i\,\Delta t\,H_g)\)</span>. Defaults to <code>1.0</code>.</p>
               </div>
             </td>
             <td>
@@ -2257,8 +2188,8 @@ choice is made.</p>
             <td>
               <div class="doc-md-description">
                 <p>If <code>control</code> and <code>projected_basis</code> (or <code>drift</code>
-and <code>drift_basis</code>) are both given, if the control and
-drift bases overlap, or if <code>delta_t</code> is not positive.</p>
+and <code>drift_basis</code>) are both given, or if the control and
+drift bases overlap.</p>
               </div>
             </td>
           </tr>

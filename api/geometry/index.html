@@ -3005,7 +3005,7 @@ cheaply decide membership simply does not override it.</p>
 
 
 <h5 id="geope.geometry.manifold.Manifold.context" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">free_params</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.manifold.Manifold.context" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -3016,6 +3016,54 @@ cheaply decide membership simply does not override it.</p>
 <p>Cheap: every quantity on the returned context is lazy, so this on its own
 evaluates nothing. Build one per optimisation step, <em>inside</em> the jitted
 update — see <code>GeometricContext</code> for why it must not leave that trace.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>free_params</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The pulse, shape <code>(G, K_free)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delta_t</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span> | <span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The segment duration, threaded (as a traced scalar) into
+every chart evaluation the context performs. Defaults to 1.0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -3115,6 +3163,10 @@ update — see <code>GeometricContext</code> for why it must not leave that trac
 <code>geope.geometry.manifold.Manifold</code>'s, because in general both depend on the
 base point; what is left here is what a chart and a coordinate choice are
 <em>made of</em>.</p>
+<p>Every callable field takes the segment duration <code>delta_t</code> (defaulting to
+<code>1.0</code>) as its final argument, threaded down from
+<code>geope.geometry.context.GeometricContext</code> — a traced scalar, never baked
+into the closures.</p>
 <p>The two <code>geope.geometry.lie.Basis</code> fields play different roles and are
 different sizes. <code>frame</code> is the <strong>ambient coefficient frame</strong>: the basis a
 manifold's <code>Manifold.coefficients</code> resolves a tangent vector against, i.e.
@@ -4273,6 +4325,18 @@ read <em>outside</em> any <code>lax</code> control flow you intend to read it fr
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="geope.geometry.context.GeometricContext.delta_t">delta_t</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The segment duration, threaded into every chart evaluation.
+A traced scalar at trace time — safe, because the context itself is
+trace-time-only. Defaults to <code>1.0</code>.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -4359,11 +4423,8 @@ read <em>outside</em> any <code>lax</code> control flow you intend to read it fr
 
         <p>The geodesic tangent <span class="arithmatex">\(A = -\mathrm{Log}_U(V)\)</span>. <strong>The only logarithm.</strong></p>
 <p>The minimal-geodesic tangent <strong>at the base point</strong>, negated so that it
-points <em>away</em> from the target: it is the Riemannian gradient of the
-squared distance <span class="arithmatex">\(\tfrac12 d_g(\cdot, V)^2\)</span>. The geodesic solve matches
-the tangent to it, so <code>geope.Geope</code> steps along the <em>negated</em> solution —
-a descent direction, on which <code>velocity</code> is negative and the line-search
-bracket is <span class="arithmatex">\([0, t_{\max}]\)</span>.</p>
+points <em>away</em> from the target: the slope <code>velocity</code> is then positive at a descent
+direction and the line-search bracket is <span class="arithmatex">\([-t_{\max}, 0]\)</span>.</p>
 <p>Taking it at <span class="arithmatex">\(U\)</span> rather than at the target is what makes it comparable
 with <code>Omega</code> on a general manifold — <span class="arithmatex">\(T_U\)</span> and <span class="arithmatex">\(T_V\)</span> are unrelated spaces
 unless a group's trivialisation identifies them.</p>
@@ -4681,8 +4742,7 @@ is what makes the slope available even where the HVP is not.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The slope <span class="arithmatex">\(\psi'(0) = \langle A, \Omega\rangle_F\)</span> of <code>distance_at</code>.</p>
-<p>Negative at a descent direction.</p>
+        <p>The slope <span class="arithmatex">\(\psi'(0) = \langle A, \Omega\rangle_F\)</span> of <code>distance_at</code></p>
 
     </div>
 
@@ -4737,11 +4797,10 @@ exists: one contraction, no propagator. Tier 1 for exactly the reason
 <code>param_transform</code>, where the curvature does not.</p>
 <p>The flat parameter-space pairing, <strong>not</strong> <code>Manifold.inner</code> — <code>gradient</code> is
 a covector in the same coordinates as <code>coeffs</code>, not a tangent vector.</p>
-<p><strong>Negative at a descent direction</strong>, matching <code>velocity</code>: <code>geope.Grape</code>
-and <code>geope.Geope</code> share the textbook convention, so <code>coeffs</code> points
-<em>downhill</em> and the accepted step is positive. That is what an Armijo test
-needs (<span class="arithmatex">\(t\,s &lt; 0\)</span>), and it is why
-<code>geope.line_searches._armijo_line_search</code> serves both objectives
+<p><strong>Positive at a descent direction</strong>, matching <code>velocity</code>: <code>geope.Grape</code>
+speaks GEOPE's convention, so <code>coeffs</code> points <em>uphill</em> and the accepted
+step is negative. That is what an Armijo test needs (<span class="arithmatex">\(t\,s &lt; 0\)</span>), and it is
+why <code>geope.line_searches._armijo_line_search</code> serves both objectives
 unchanged.</p>
 <p>Both operands are real-valued but carried in the pulse's dtype, so the real
 parts are taken explicitly rather than relying on a complex inner product.</p>
@@ -5106,7 +5165,7 @@ errors defaults to 'strict'.</p>
 
 
 <h5 id="geope.geometry.context.GeometricContext.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">manifold</span><span class="p">,</span> <span class="n">free_params</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">manifold</span><span class="p">,</span> <span class="n">free_params</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.context.GeometricContext.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -5198,14 +5257,14 @@ tier-1/2 values computed for the first.</p>
 
 
 <h5 id="geope.geometry.context.GeometricContext.point_at" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">point_at</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">point_at</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.context.GeometricContext.point_at" class="headerlink" title="Permanent link">¤</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>The point at <span class="arithmatex">\(\phi + t\,p\)</span> — the single gate for all of tier 3.</p>
+        <p>The point at <span class="arithmatex">\(\phi + \eta\,p\)</span> — the single gate for all of tier 3.</p>
 
 
     </div>
@@ -5216,7 +5275,7 @@ tier-1/2 values computed for the first.</p>
 
 
 <h5 id="geope.geometry.context.GeometricContext.infidelity_at" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">infidelity_at</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">infidelity_at</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.context.GeometricContext.infidelity_at" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -5234,7 +5293,7 @@ tier-1/2 values computed for the first.</p>
 
 
 <h5 id="geope.geometry.context.GeometricContext.fidelity_at" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">fidelity_at</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">fidelity_at</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.context.GeometricContext.fidelity_at" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -5252,7 +5311,7 @@ tier-1/2 values computed for the first.</p>
 
 
 <h5 id="geope.geometry.context.GeometricContext.distance_at" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">distance_at</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">distance_at</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span></code>
 
 <a href="#geope.geometry.context.GeometricContext.distance_at" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -5260,7 +5319,7 @@ tier-1/2 values computed for the first.</p>
     <div class="doc doc-contents ">
 
         <p>The squared-geodesic-distance objective <span class="arithmatex">\(\tfrac12 d_g(\cdot, V)^2\)</span>
-along the ray, whose derivatives <code>velocity</code>, <code>q</code> and <code>q_exact</code> describe.</p>
+along the ray, whose derivatives <code>s</code>, <code>q</code> and <code>q_exact</code> describe.</p>
 <p>One propagator plus one logarithm.</p>
 
 
