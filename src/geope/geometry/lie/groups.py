@@ -29,7 +29,7 @@ from jax import Array
 
 from ...jax.hessian import su_hessian_quadratic_form
 from ...jax.logm import logm_unitary
-from ..basis import get_project_omegas_fn, get_project_omegas_fn_otf
+from ..basis import Basis, get_project_omegas_fn, get_project_omegas_fn_otf
 from ..cost import trace_cost_gradient, trace_cost_hessian_form
 from ..manifold import Manifold
 
@@ -126,8 +126,11 @@ class MatrixLieGroup(Manifold):
     r"""A compact matrix Lie group with a bi-invariant metric.
 
     Elements of the Lie algebra are **skew-Hermitian** throughout — the generator
-    of $U = e^{iH}$ is $iH$, not $H$. The single factor of $i$ that turns one into
-    a Hermitian matrix the basis can resolve lives in `coefficients`.
+    of $U = e^{-iH}$ is $-iH$, not $H$. The single factor of $\pm i$ between the
+    Hermitian frame and the algebra is
+    `geope.geometry.basis.Basis.ALGEBRA_CONVENTION`, applied by
+    `geope.geometry.basis.Basis.algebra` going in and (conjugated) by
+    `coefficients` coming out.
 
     Attributes:
         dim: The Hilbert-space dimension $d$; a point is a $d\times d$ unitary.
@@ -227,23 +230,20 @@ class MatrixLieGroup(Manifold):
     def coefficients(self, point: Array, tangent: Array) -> Array:
         r"""Resolve skew-Hermitian algebra elements against the ambient frame.
 
-        Computes $c_k = \mathrm{Tr}(B_k\,iX)/d$, i.e. the real coefficients with
-        $iX = \sum_k c_k B_k$ (equivalently $X = -i\sum_k c_k B_k$), so the metric
-        constant of the `Manifold.coefficients` contract is $c = 1/d$.
-        ``point`` is unused: one frame serves every fibre.
+        Projection onto the generators $E_k = \mathrm{ALGEBRA\_CONVENTION}
+        \cdot B_k$ the chart exponentiates:
 
-        **The factor of $i$ is the whole story of the frame.** The Paulis span
-        $\mathbb C^{d\times d}$ over $\mathbb C$ and the *Hermitian* matrices over
-        $\mathbb R$; multiplied by $i$ they span $\mathfrak u(d)$ over $\mathbb R$.
-        Algebra elements are skew-Hermitian throughout the library, so this is
-        the one place that $i$ appears.
+        $$c_k = \mathrm{Tr}(E_k^\dagger X)/d
+              = \overline{\mathrm{ALGEBRA\_CONVENTION}}\,\mathrm{Tr}(B_k X)/d,$$
 
-        **What this assumes of the frame.** Hermitian elements, orthogonal under
-        the trace inner product and normalised to
-        $\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}$ — which every basis
-        `geope.utils` constructs satisfies. Completeness is explicitly *not*
-        assumed: a frame with fewer than $\dim\mathfrak g$ elements simply
-        projects onto a subspace, which the spin-boson bases rely on.
+        the real coefficients with $X = \sum_k c_k E_k$ (metric constant
+        $c = 1/d$). This is the outbound half of the sign convention; both
+        halves read `geope.geometry.basis.Basis.ALGEBRA_CONVENTION`, so they
+        cannot disagree. ``point`` is unused: one frame serves every fibre.
+
+        The frame must be Hermitian and trace-orthogonal with
+        $\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}$ (every `geope.utils` basis is);
+        an incomplete frame simply projects onto its subspace.
 
         Args:
             point: Unused.
@@ -252,7 +252,7 @@ class MatrixLieGroup(Manifold):
         Returns:
             A real ``Array`` of shape ``(..., K)``.
         """
-        tangent = 1.0j * jnp.asarray(tangent)
+        tangent = Basis.ALGEBRA_CONVENTION.conjugate() * jnp.asarray(tangent)
         flat = tangent.reshape((-1,) + tangent.shape[-2:])
         coeffs = self._project(flat)
         return coeffs.reshape(tangent.shape[:-2] + (coeffs.shape[-1],))

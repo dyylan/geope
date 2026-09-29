@@ -1,3 +1,23 @@
+r"""Per-gate exponentials of the chart generators, and their derivatives.
+
+**The contract of this module is sign-free.** Every function here works on a
+generator array ``basis`` of shape ``(K, d, d)`` and computes (derivatives of)
+
+$$U(x) = \exp\Bigl(\sum_k x_k E_k\Bigr),$$
+
+with derivative directions the generators $E_k$ themselves. No factor of $i$ is
+inserted or assumed anywhere: the physics convention — that the pipeline's
+generators are $E_k = -i\,G_k$ for a Hermitian basis $G_k$, i.e.
+$U = e^{-iH}$ — lives entirely in the one seam where
+`geope.geometry.manifold.Manifold.bind` builds the generator array, and these
+kernels inherit it through their input.
+
+In the pipeline the $E_k$ are **skew-Hermitian** and the coefficients real, so
+the combination $M = \sum_k x_k E_k$ is skew-Hermitian; the spectral variants'
+``hermitian=True`` fast path exploits that structure (see `_eig`). The block
+variants assume nothing.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -9,45 +29,46 @@ from jax import Array
 
 
 def Ui(x: Array, basis: Array) -> Array:
-    """Compute a unitary from a linear combination of Hermitian basis matrices.
+    r"""Compute a matrix from a linear combination of generators.
 
-    Constructs $U = \\exp(i \\sum_k x_k B_k)$.
+    Constructs $U = \exp(\sum_k x_k E_k)$.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)`` (skew-Hermitian in the
+            pipeline; see the module docstring).
 
     Returns:
-        A unitary matrix of shape ``(d, d)``.
+        A matrix of shape ``(d, d)``.
     """
-    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
-    return jax.scipy.linalg.expm(1j * A)
+    M = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    return jax.scipy.linalg.expm(M)
 
 
 def get_Ui_fn(basis: Array) -> Callable[[Array], Array]:
-    """Create a partial unitary function with a fixed basis.
+    """Create a partial gate function with a fixed generator array.
 
     Args:
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
 
     Returns:
-        A callable that accepts a coefficient vector and returns
-        the corresponding unitary matrix.
+        A callable that accepts a coefficient vector and returns the
+        corresponding gate matrix.
     """
     return partial(Ui, basis=basis)
 
 
 @jax.jit
 def dexpm_block(A: Array, x: Array) -> Array:
-    """Compute the derivative of the matrix exponential via the block method.
+    r"""Compute the derivative of the matrix exponential via the block method.
 
     Implements the block-matrix approach of
     `Al-Mohy & Higham (2009) <https://arxiv.org/pdf/1506.00628>`_,
-    Eq. (31), extracting $d\\exp(iA)/dA \\cdot x$ from the upper-right
-    block of $\\exp(i[[A, x], [0, A]])$.
+    Eq. (31), extracting $d\exp(A)/dA \cdot x$ from the upper-right
+    block of $\exp([[A, x], [0, A]])$.
 
     Args:
-        A: The Hamiltonian matrix of shape ``(d, d)``.
+        A: The generator combination $\sum_k x_k E_k$, of shape ``(d, d)``.
         x: The direction matrix of shape ``(d, d)``.
 
     Returns:
@@ -57,29 +78,29 @@ def dexpm_block(A: Array, x: Array) -> Array:
     # Create block matrix
     block_mat = jnp.block([[A, x], [jnp.zeros_like(A), A]])
     # Take matrix exponential
-    dblock_mat = jax.scipy.linalg.expm(1j * block_mat)
+    dblock_mat = jax.scipy.linalg.expm(block_mat)
     # Upper right block contains derivative
     return dblock_mat[:dim, dim:]
 
 
 def dexpm(x: Array, basis: Array) -> Array:
-    """Compute the derivative of the exponential map for all basis directions.
+    r"""Compute the derivative of the exponential map for all generator directions.
 
-    For each basis element $B_k$, computes
-    $\\partial \\exp(i \\sum_j x_j B_j) / \\partial x_k$.
+    For each generator $E_k$, computes
+    $\partial \exp(\sum_j x_j E_j) / \partial x_k$.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
 
     Returns:
         An array of shape ``(d, d, K)`` whose last axis indexes the
         partial derivatives with respect to each coefficient.
     """
     # Construct argument of exponential
-    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
-    # For each element in the basis, get the derivative. Stack in last axis.
-    return jax.vmap(lambda b: dexpm_block(A, b), out_axes=2)(basis)
+    M = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    # For each generator, get the derivative. Stack in last axis.
+    return jax.vmap(lambda e: dexpm_block(M, e), out_axes=2)(basis)
 
 
 def dexpm_batched(x: Array, basis: Array, batch_size: int) -> Array:
@@ -90,45 +111,49 @@ def dexpm_batched(x: Array, basis: Array, batch_size: int) -> Array:
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        batch_size: Number of basis elements to process per batch.
+        basis: Generator array of shape ``(K, d, d)``.
+        batch_size: Number of generators to process per batch.
 
     Returns:
         An array of shape ``(d, d, K)``.
     """
     # Construct argument of exponential
-    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
-    # For each element in the basis, get the derivative. Stack in last axis.
+    M = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    # For each generator, get the derivative. Stack in last axis.
     return jnp.transpose(
-        jax.lax.map(lambda b: dexpm_block(A, b), basis, batch_size=batch_size),
+        jax.lax.map(lambda e: dexpm_block(M, e), basis, batch_size=batch_size),
         axes=(1, 2, 0),
     )
 
 
 def _eig(x: Array, basis: Array, hermitian: bool = True) -> tuple[Array, Array, Array]:
-    r"""Diagonalise $M = i \sum_j x_j B_j = V \mathrm{diag}(\mu) V^{-1}$.
+    r"""Diagonalise $M = \sum_j x_j E_j = V \mathrm{diag}(\mu) V^{-1}$.
 
-    For real coefficients ``x`` the generator $A = \sum_j x_j B_j$ is Hermitian
-    and $M$ is skew-Hermitian, so the default ``hermitian=True`` path uses
-    ``jnp.linalg.eigh`` on $A$: this is faster, yields a *unitary* eigenvector
-    matrix (so $V^{-1} = V^\dagger$, avoiding an explicit inverse), and is
-    supported on GPU/TPU (unlike the general ``jnp.linalg.eig``). Set
-    ``hermitian=False`` to diagonalise the general (possibly non-normal) $M$ via
-    ``jnp.linalg.eig`` — required only when ``x`` has a non-zero imaginary part.
+    For real coefficients ``x`` and skew-Hermitian generators $M$ is
+    skew-Hermitian, so $-iM$ is Hermitian and the default ``hermitian=True``
+    path uses ``jnp.linalg.eigh`` on it: this is faster, yields a *unitary*
+    eigenvector matrix (so $V^{-1} = V^\dagger$, avoiding an explicit inverse),
+    and is supported on GPU/TPU (unlike the general ``jnp.linalg.eig``). The
+    internal rotation by $\mp i$ is a self-inverse **numerical device with no
+    convention content** — like `geope.jax.logm`'s branch-cut arithmetic — and
+    the eigenvalues returned are $M$'s own, $\mu = i\,\mathrm{eigh}(-iM)$. Set
+    ``hermitian=False`` to diagonalise a general (possibly non-normal) $M$ via
+    ``jnp.linalg.eig`` — required when ``x`` has a non-zero imaginary part or
+    the generators are not skew-Hermitian.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        hermitian: Assume real coefficients (Hermitian ``A``) and use ``eigh``.
+        basis: Generator array of shape ``(K, d, d)``.
+        hermitian: Assume a skew-Hermitian combination and use ``eigh``.
 
     Returns:
         Tuple ``(mu, V, Vinv)`` of shapes ``(d,)``, ``(d, d)``, ``(d, d)``.
     """
-    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    M = jnp.tensordot(x, basis, axes=[[-1], [0]])
     if hermitian:
-        w, V = jnp.linalg.eigh(A)
+        w, V = jnp.linalg.eigh(-1j * M)
         return 1j * w, V, jnp.conj(V).T
-    mu, V = jnp.linalg.eig(1j * A)
+    mu, V = jnp.linalg.eig(M)
     return mu, V, jnp.linalg.inv(V)
 
 
@@ -161,15 +186,15 @@ def _spectral_factors(
 ) -> tuple[Array, Array, Array]:
     r"""Eigendecomposition factors shared by the spectral derivative variants.
 
-    Diagonalises $M = i \sum_j x_j B_j = V \mathrm{diag}(\mu) V^{-1}$ and builds
+    Diagonalises $M = \sum_j x_j E_j = V \mathrm{diag}(\mu) V^{-1}$ and builds
     the divided-difference matrix $\Delta$ of $\exp$, using the diagonal limit
     $\Delta_{pp} = e^{\mu_p}$ where eigenvalues (nearly) coincide.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        hermitian: Assume real coefficients and diagonalise via ``eigh`` (see
-            `_eig`).
+        basis: Generator array of shape ``(K, d, d)``.
+        hermitian: Assume a skew-Hermitian combination and diagonalise via
+            ``eigh`` (see `_eig`).
 
     Returns:
         Tuple ``(V, Vinv, delta)`` of shapes ``(d, d)``, ``(d, d)``, ``(d, d)``.
@@ -233,32 +258,32 @@ def _second_divided_differences(mu: Array, tol: float = 1e-7) -> Array:
 def dexpm_eig(x: Array, basis: Array, hermitian: bool = True) -> Array:
     r"""Derivative of the exponential map via the spectral (Fréchet) method.
 
-    Computes the same quantity as `dexpm` — for each basis element $B_k$,
-    $\partial \exp(i \sum_j x_j B_j) / \partial x_k$ — but from a single
+    Computes the same quantity as `dexpm` — for each generator $E_k$,
+    $\partial \exp(\sum_j x_j E_j) / \partial x_k$ — but from a single
     eigendecomposition rather than ``K`` block-matrix exponentials, which is
     substantially faster for large ``K``.
 
-    Writing $M = i \sum_j x_j B_j = V \mathrm{diag}(\mu) V^{-1}$, the
+    Writing $M = \sum_j x_j E_j = V \mathrm{diag}(\mu) V^{-1}$, the
     directional derivative of $\exp(M)$ along $E$ is
     $V\,(\Delta \circ (V^{-1} E V))\,V^{-1}$, where $\Delta$ is the matrix of
     divided differences of $\exp$,
     $\Delta_{pq} = (e^{\mu_p} - e^{\mu_q}) / (\mu_p - \mu_q)$ with the limit
     $\Delta_{pp} = e^{\mu_p}$ on (near-)degenerate eigenvalues. The relevant
-    directions are $E_k = i B_k$.
+    directions are the generators $E_k$ themselves.
 
-    For real coefficients ``x`` the generator is Hermitian and $M$ is
-    anti-Hermitian, so ``V`` is well-conditioned; the method also handles
-    general (diagonalisable) complex ``x``.
+    For real coefficients ``x`` and skew-Hermitian generators $M$ is
+    skew-Hermitian, so ``V`` is well-conditioned; the method also handles
+    general (diagonalisable) $M$.
 
     See `dexpm_eig_batched` for a variant that chunks the ``K`` directions to
     bound peak memory.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        hermitian: Assume real coefficients (skew-Hermitian ``M``) and
-            diagonalise via ``eigh`` — see `_eig`. Set ``False`` for complex
-            coefficients.
+        basis: Generator array of shape ``(K, d, d)``.
+        hermitian: Assume a skew-Hermitian combination and diagonalise via
+            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients or
+            non-skew generators.
 
     Returns:
         An array of shape ``(d, d, K)`` whose last axis indexes the
@@ -266,8 +291,7 @@ def dexpm_eig(x: Array, basis: Array, hermitian: bool = True) -> Array:
     """
     V, Vinv, delta = _spectral_factors(x, basis, hermitian=hermitian)
 
-    E = 1j * basis  # directions dM/dx_k, shape (K, d, d)
-    C = jnp.einsum("pi,kij,jq->kpq", Vinv, E, V)  # V^{-1} E_k V
+    C = jnp.einsum("pi,kij,jq->kpq", Vinv, basis, V)  # V^{-1} E_k V
     D = delta[None] * C  # Delta o (V^{-1} E_k V)
     dexp_k = jnp.einsum("ip,kpq,qj->kij", V, D, Vinv)  # V (...) V^{-1}
     return jnp.moveaxis(dexp_k, 0, -1)
@@ -285,17 +309,17 @@ def dexpm_eig_batched(
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        batch_size: Number of basis directions to process per chunk.
+        basis: Generator array of shape ``(K, d, d)``.
+        batch_size: Number of generator directions to process per chunk.
 
     Returns:
         An array of shape ``(d, d, K)``.
     """
     V, Vinv, delta = _spectral_factors(x, basis, hermitian=hermitian)
 
-    def per_direction(b):
-        # b is a single basis matrix (d, d); E = i b is its direction.
-        C = Vinv @ (1j * b) @ V
+    def per_direction(e):
+        # e is a single generator (d, d), and its own direction.
+        C = Vinv @ e @ V
         return V @ (delta * C) @ Vinv
 
     return jnp.transpose(
@@ -310,17 +334,17 @@ def adj_expm_eig(x: Array, b: Array, basis: Array, hermitian: bool = True) -> Ar
     Returns the vector of Frobenius overlaps of a single covector ``b`` with every
     partial derivative of `Ui`,
 
-    $$t_k = \mathrm{Tr}\bigl(b^\dagger\,\partial_k \exp(i\textstyle\sum_j x_j B_j)\bigr),$$
+    $$t_k = \mathrm{Tr}\bigl(b^\dagger\,\partial_k \exp(\textstyle\sum_j x_j E_j)\bigr),$$
 
     which is what a chain rule through the exponential actually needs — the
     ``(d, d, K)`` tensor `dexpm_eig` builds is contracted away immediately, and
     building it first costs $O(d^3 K)$ where this costs $O(d^3 + d^2 K)$.
 
-    Writing $M = i\sum_j x_j B_j = V\,\mathrm{diag}(\mu)\,V^{-1}$ and $\Delta$ for
+    Writing $M = \sum_j x_j E_j = V\,\mathrm{diag}(\mu)\,V^{-1}$ and $\Delta$ for
     the divided differences of $\exp$, `dexpm_eig` gives
-    $\partial_k e^M = V(\Delta \circ V^{-1}(iB_k)V)V^{-1}$, so
+    $\partial_k e^M = V(\Delta \circ V^{-1}E_kV)V^{-1}$, so
 
-    $$t_k = \mathrm{Tr}\bigl(\bar A\,(iB_k)\bigr),\qquad
+    $$t_k = \mathrm{Tr}\bigl(\bar A\,E_k\bigr),\qquad
       \bar A = V S^\intercal V^{-1},\quad
       S_{pq} = \Delta_{pq}\,\bigl(V^{-1} b^\dagger V\bigr)_{qp}.$$
 
@@ -332,9 +356,10 @@ def adj_expm_eig(x: Array, b: Array, basis: Array, hermitian: bool = True) -> Ar
         b: The covector to contract against, of shape ``(d, d)``. Paired with
             $\partial_k e^M$ through $\mathrm{Tr}(b^\dagger \cdot)$, i.e. ``b`` is
             *conjugated*.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        hermitian: Assume real coefficients (skew-Hermitian ``M``) and diagonalise
-            via ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+        basis: Generator array of shape ``(K, d, d)``.
+        hermitian: Assume a skew-Hermitian combination and diagonalise via
+            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients or
+            non-skew generators.
 
     Returns:
         A complex ``Array`` of shape ``(K,)``. Real-valued cost gradients take
@@ -346,8 +371,8 @@ def adj_expm_eig(x: Array, b: Array, basis: Array, hermitian: bool = True) -> Ar
     # S[p, q] = delta[p, q] * (Vinv b^dagger V)[q, p]
     S = delta * (Vinv @ jnp.conj(b).T @ V).T
     A_bar = V @ S.T @ Vinv
-    # t_k = Tr(A_bar (i B_k)) = i sum_ij A_bar[i, j] B_k[j, i]
-    return 1j * jnp.einsum("ij,kji->k", A_bar, basis)
+    # t_k = Tr(A_bar E_k) = sum_ij A_bar[i, j] E_k[j, i]
+    return jnp.einsum("ij,kji->k", A_bar, basis)
 
 
 def adj_expm(x: Array, b: Array, basis: Array) -> Array:
@@ -356,12 +381,12 @@ def adj_expm(x: Array, b: Array, basis: Array) -> Array:
     The auxiliary-matrix method has no spectral structure to exploit, so this
     genuinely does build `dexpm`'s ``(d, d, K)`` tensor and contract it. It exists
     for parity with ``method="block"`` elsewhere in this module, and because the
-    block method tolerates non-Hermitian generators; prefer `adj_expm_eig`.
+    block method tolerates arbitrary generators; prefer `adj_expm_eig`.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
         b: The covector to contract against, of shape ``(d, d)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
 
     Returns:
         A complex ``Array`` of shape ``(K,)``.
@@ -373,32 +398,32 @@ def _expm_block13(A: Array, x_a: Array, x_b: Array) -> Array:
     r"""Top-right ``(1, 3)`` block of the ``3d x 3d`` auxiliary exponential.
 
     Returns the ``(1, 3)`` block of
-    $\exp\!\big(i [[A, x_a, 0], [0, A, x_b], [0, 0, A]]\big)$, i.e. the
+    $\exp\!\big([[A, x_a, 0], [0, A, x_b], [0, 0, A]]\big)$, i.e. the
     *ordered* second-derivative integral with ``x_a`` applied to the left of
     ``x_b`` (Van Loan / Goodwin & Kuprov).
     """
     dim = A.shape[0]
     Z = jnp.zeros_like(A)
     block_mat = jnp.block([[A, x_a, Z], [Z, A, x_b], [Z, Z, A]])
-    eblock = jax.scipy.linalg.expm(1j * block_mat)
+    eblock = jax.scipy.linalg.expm(block_mat)
     return eblock[:dim, 2 * dim : 3 * dim]
 
 
 def d2expm_block(A: Array, x_a: Array, x_b: Array) -> Array:
-    r"""Mixed second derivative of $\exp(iA)$ via the auxiliary-matrix method.
+    r"""Mixed second derivative of $\exp(A)$ via the auxiliary-matrix method.
 
     Goodwin & Kuprov's (and Van Loan's) extension of the 2x2 block trick to
     second order. The top-right ``(1, 3)`` block of the ``3d x 3d`` exponential
     gives only the *ordered* term (``x_a`` left of ``x_b``); the symmetric mixed
     derivative is the sum of both orderings,
 
-    $$\partial^2_{ab}\exp(iA)
+    $$\partial^2_{ab}\exp(A)
         = \mathrm{block}_{13}(A, x_a, x_b) + \mathrm{block}_{13}(A, x_b, x_a).$$
 
     (For ``x_a = x_b`` this reduces to twice the single block.)
 
     Args:
-        A: The Hamiltonian matrix of shape ``(d, d)``.
+        A: The generator combination $\sum_k x_k E_k$, of shape ``(d, d)``.
         x_a: First direction matrix of shape ``(d, d)``.
         x_b: Second direction matrix of shape ``(d, d)``.
 
@@ -409,23 +434,23 @@ def d2expm_block(A: Array, x_a: Array, x_b: Array) -> Array:
 
 
 def d2expm(x: Array, basis: Array) -> Array:
-    r"""Second derivative of the exponential map for all basis-direction pairs.
+    r"""Second derivative of the exponential map for all generator pairs.
 
-    For each pair $(B_k, B_l)$, computes
-    $\partial^2 \exp(i \sum_j x_j B_j) / \partial x_k \partial x_l$ via the
+    For each pair $(E_k, E_l)$, computes
+    $\partial^2 \exp(\sum_j x_j E_j) / \partial x_k \partial x_l$ via the
     auxiliary-matrix method. Only the ``K^2`` ordered blocks are exponentiated;
     the symmetric result is their transpose-sum.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
 
     Returns:
         An array of shape ``(d, d, K, K)`` whose last two axes index the pair
         of coefficients; symmetric under their exchange.
     """
-    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
-    ordered = jax.vmap(lambda Bk: jax.vmap(lambda Bl: _expm_block13(A, Bk, Bl))(basis))(
+    M = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    ordered = jax.vmap(lambda Ek: jax.vmap(lambda El: _expm_block13(M, Ek, El))(basis))(
         basis
     )  # (K, K, d, d), ordered (k left of l)
     pairs = ordered + jnp.swapaxes(ordered, 0, 1)  # symmetrise both orderings
@@ -437,7 +462,7 @@ def d2expm_eig(x: Array, basis: Array, hermitian: bool = True) -> Array:
 
     Computes the same ``(d, d, K, K)`` tensor as `d2expm` from a single
     eigendecomposition using the second-order Daleckii-Krein formula. Writing
-    $M = V \mathrm{diag}(\mu) V^{-1}$ and $\tilde{G}_k = V^{-1}(iB_k)V$,
+    $M = V \mathrm{diag}(\mu) V^{-1}$ and $\tilde{G}_k = V^{-1}E_kV$,
 
     $$(\partial^2\exp)_{pq}
         = \sum_r T_{prq}\,
@@ -450,10 +475,10 @@ def d2expm_eig(x: Array, basis: Array, hermitian: bool = True) -> Array:
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        hermitian: Assume real coefficients (skew-Hermitian ``M``) and
-            diagonalise via ``eigh`` — see `_eig`. Set ``False`` for complex
-            coefficients.
+        basis: Generator array of shape ``(K, d, d)``.
+        hermitian: Assume a skew-Hermitian combination and diagonalise via
+            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients or
+            non-skew generators.
 
     Returns:
         An array of shape ``(d, d, K, K)``; symmetric under exchange of the
@@ -462,8 +487,7 @@ def d2expm_eig(x: Array, basis: Array, hermitian: bool = True) -> Array:
     mu, V, Vinv = _eig(x, basis, hermitian=hermitian)
     T = _second_divided_differences(mu)  # (d, d, d) indexed [p, r, q]
 
-    E = 1j * basis  # directions, (K, d, d)
-    Gt = jnp.einsum("pi,kij,jq->kpq", Vinv, E, V)  # V^{-1} E_k V, [k, p, q]
+    Gt = jnp.einsum("pi,kij,jq->kpq", Vinv, basis, V)  # V^{-1} E_k V, [k, p, q]
 
     # term[k,l,p,q] = sum_r T[p,r,q] Gt[k,p,r] Gt[l,r,q]; symmetrise over (k,l).
     term = jnp.einsum("prq,kpr,lrq->klpq", T, Gt, Gt)
@@ -483,7 +507,7 @@ def d2expm_eig_batched(
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
         batch_size: Number of first-directions to process per chunk.
 
     Returns:
@@ -491,8 +515,7 @@ def d2expm_eig_batched(
     """
     mu, V, Vinv = _eig(x, basis, hermitian=hermitian)
     T = _second_divided_differences(mu)
-    E = 1j * basis
-    Gt = jnp.einsum("pi,kij,jq->kpq", Vinv, E, V)  # [k, p, q]
+    Gt = jnp.einsum("pi,kij,jq->kpq", Vinv, basis, V)  # [k, p, q]
 
     def per_first_direction(Gk):
         # Gk = V^{-1} E_k V, shape (d, d). Returns the (K, d, d) slab for this k.
@@ -507,29 +530,29 @@ def d2expm_eig_batched(
 def expm_jvp(x: Array, p: Array, basis: Array) -> tuple[Array, Array]:
     r"""Directional first derivative of the exponential map (block method).
 
-    For $A = \sum_k x_k B_k$ and direction $B = \sum_k p_k B_k$, returns the
+    For $M = \sum_k x_k E_k$ and direction $B = \sum_k p_k E_k$, returns the
     pair
 
-    $$U = \exp(iA), \qquad E = D\exp(iA)[iB],$$
+    $$U = \exp(M), \qquad E = D\exp(M)[B],$$
 
     i.e. the value and the single-direction (JVP) derivative, rather than the
     full per-parameter stack of `dexpm`. Both are read off the upper blocks of a
     single ``2d x 2d`` block exponential (Al-Mohy & Higham):
-    $\exp(i[[A, B], [0, A]]) = [[U, E], [0, U]]$.
+    $\exp([[M, B], [0, M]]) = [[U, E], [0, U]]$.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
         p: Direction-coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
 
     Returns:
         Tuple ``(U, E)`` of matrices of shape ``(d, d)``.
     """
-    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    M = jnp.tensordot(x, basis, axes=[[-1], [0]])
     B = jnp.tensordot(p, basis, axes=[[-1], [0]])
-    dim = A.shape[0]
-    block_mat = jnp.block([[A, B], [jnp.zeros_like(A), A]])
-    e = jax.scipy.linalg.expm(1j * block_mat)
+    dim = M.shape[0]
+    block_mat = jnp.block([[M, B], [jnp.zeros_like(M), M]])
+    e = jax.scipy.linalg.expm(block_mat)
     return e[:dim, :dim], e[:dim, dim:]
 
 
@@ -540,8 +563,8 @@ def expm_jvp_eig(
 
     Same result as `expm_jvp` but from a single eigendecomposition, the
     single-direction specialisation of `dexpm_eig`. Writing
-    $M = i\sum_k x_k B_k = V \mathrm{diag}(\mu) V^{-1}$ and
-    $\tilde{B} = V^{-1}(iB)V$ for $B = \sum_k p_k B_k$,
+    $M = \sum_k x_k E_k = V \mathrm{diag}(\mu) V^{-1}$ and
+    $\tilde{B} = V^{-1}BV$ for $B = \sum_k p_k E_k$,
 
     $$U = V \mathrm{diag}(e^\mu) V^{-1}, \qquad
       E = V\,(\Delta \circ \tilde{B})\,V^{-1},$$
@@ -552,9 +575,10 @@ def expm_jvp_eig(
     Args:
         x: Coefficient vector of shape ``(K,)``.
         p: Direction-coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        hermitian: Assume real coefficients (skew-Hermitian ``M``) and use
-            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+        basis: Generator array of shape ``(K, d, d)``.
+        hermitian: Assume a skew-Hermitian combination and use ``eigh`` — see
+            `_eig`. Set ``False`` for complex coefficients or non-skew
+            generators.
 
     Returns:
         Tuple ``(U, E)`` of matrices of shape ``(d, d)``.
@@ -563,7 +587,7 @@ def expm_jvp_eig(
     delta = _first_divided_differences(mu)
 
     B = jnp.tensordot(p, basis, axes=[[-1], [0]])
-    Bt = Vinv @ (1j * B) @ V  # V^{-1} (iB) V
+    Bt = Vinv @ B @ V  # V^{-1} B V
 
     U = (V * jnp.exp(mu)[None, :]) @ Vinv
     E = V @ (delta * Bt) @ Vinv
@@ -573,30 +597,30 @@ def expm_jvp_eig(
 def expm_hvp(x: Array, p: Array, basis: Array) -> tuple[Array, Array, Array]:
     r"""Directional first and second derivatives of the exponential map (block).
 
-    For $A = \sum_k x_k B_k$ and direction $B = \sum_k p_k B_k$, returns
+    For $M = \sum_k x_k E_k$ and direction $B = \sum_k p_k E_k$, returns
 
-    $$U = \exp(iA), \quad E = D\exp(iA)[iB], \quad G = D^2\exp(iA)[iB, iB],$$
+    $$U = \exp(M), \quad E = D\exp(M)[B], \quad G = D^2\exp(M)[B, B],$$
 
     all read off a single ``3d x 3d`` block exponential (Van Loan / Goodwin &
-    Kuprov). With the upper-triangular block $[[A, B, 0], [0, A, B], [0, 0, A]]$,
-    the top row of $\exp(i\cdot\text{block})$ gives $U$, $E$, and the *ordered*
+    Kuprov). With the upper-triangular block $[[M, B, 0], [0, M, B], [0, 0, M]]$,
+    the top row of its exponential gives $U$, $E$, and the *ordered*
     second-derivative integral; the symmetric $G$ is twice that block. This is
     the per-gate step used by `geope.jax.hessian.hvp_propagator`.
 
     Args:
         x: Coefficient vector of shape ``(K,)``.
         p: Direction-coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
 
     Returns:
         Tuple ``(U, E, G)`` of matrices of shape ``(d, d)``.
     """
-    A = jnp.tensordot(x, basis, axes=[[-1], [0]])
+    M = jnp.tensordot(x, basis, axes=[[-1], [0]])
     B = jnp.tensordot(p, basis, axes=[[-1], [0]])
-    dim = A.shape[0]
-    Z = jnp.zeros_like(A)
-    block_mat = jnp.block([[A, B, Z], [Z, A, B], [Z, Z, A]])
-    e = jax.scipy.linalg.expm(1j * block_mat)
+    dim = M.shape[0]
+    Z = jnp.zeros_like(M)
+    block_mat = jnp.block([[M, B, Z], [Z, M, B], [Z, Z, M]])
+    e = jax.scipy.linalg.expm(block_mat)
     U = e[:dim, :dim]
     E = e[:dim, dim : 2 * dim]
     G = 2.0 * e[:dim, 2 * dim : 3 * dim]
@@ -610,8 +634,8 @@ def expm_hvp_eig(
 
     Same result as `expm_hvp` but from a single eigendecomposition, the
     single-direction specialisation of `dexpm_eig` / `d2expm_eig`. With
-    $M = i\sum_k x_k B_k = V \mathrm{diag}(\mu) V^{-1}$ and
-    $\tilde{B} = V^{-1}(iB)V$ for $B = \sum_k p_k B_k$,
+    $M = \sum_k x_k E_k = V \mathrm{diag}(\mu) V^{-1}$ and
+    $\tilde{B} = V^{-1}BV$ for $B = \sum_k p_k E_k$,
 
     $$U = V \mathrm{diag}(e^\mu) V^{-1}, \qquad
       E = V\,(\Delta \circ \tilde{B})\,V^{-1},$$
@@ -623,9 +647,10 @@ def expm_hvp_eig(
     Args:
         x: Coefficient vector of shape ``(K,)``.
         p: Direction-coefficient vector of shape ``(K,)``.
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        hermitian: Assume real coefficients (skew-Hermitian ``M``) and use
-            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+        basis: Generator array of shape ``(K, d, d)``.
+        hermitian: Assume a skew-Hermitian combination and use ``eigh`` — see
+            `_eig`. Set ``False`` for complex coefficients or non-skew
+            generators.
 
     Returns:
         Tuple ``(U, E, G)`` of matrices of shape ``(d, d)``.
@@ -635,7 +660,7 @@ def expm_hvp_eig(
     T = _second_divided_differences(mu)  # (d, d, d) indexed [p, r, q]
 
     B = jnp.tensordot(p, basis, axes=[[-1], [0]])
-    Bt = Vinv @ (1j * B) @ V  # V^{-1} (iB) V
+    Bt = Vinv @ B @ V  # V^{-1} B V
 
     U = (V * jnp.exp(mu)[None, :]) @ Vinv
     E = V @ (delta * Bt) @ Vinv
@@ -649,7 +674,7 @@ def get_dexpm(basis: Array, batch_size: int | None = None) -> Callable[[Array], 
     """Create a JIT-compiled exponential-map derivative function.
 
     Args:
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
         batch_size: Optional batch size. If ``None``, the full vmap
             variant is used; otherwise the batched variant.
 
@@ -668,16 +693,17 @@ def get_dexpm_eig(
 ) -> Callable[[Array], Array]:
     """Create a JIT-compiled spectral exponential-map derivative function.
 
-    Wraps `dexpm_eig` (or `dexpm_eig_batched`) with a fixed basis. The
+    Wraps `dexpm_eig` (or `dexpm_eig_batched`) with a fixed generator array. The
     full-``vmap`` variant is the fast default used by
     `geope.jax.get_jacobian_propagator`.
 
     Args:
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
         batch_size: Optional batch size. If ``None``, the full variant is used;
             otherwise the directions are chunked to bound peak memory.
-        hermitian: Assume real coefficients (skew-Hermitian ``M``) and use
-            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+        hermitian: Assume a skew-Hermitian combination and use ``eigh`` — see
+            `_eig`. Set ``False`` for complex coefficients or non-skew
+            generators.
 
     Returns:
         A callable that accepts a coefficient vector and returns
@@ -701,13 +727,14 @@ def get_adj_expm_eig(
 ) -> Callable[[Array, Array], Array]:
     """Create a JIT-compiled spectral exponential-map adjoint.
 
-    Wraps `adj_expm_eig` with a fixed basis. This is the per-gate step
+    Wraps `adj_expm_eig` with a fixed generator array. This is the per-gate step
     `geope.jax.get_vjp_propagator` is built from.
 
     Args:
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
-        hermitian: Assume real coefficients (skew-Hermitian ``M``) and use
-            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+        basis: Generator array of shape ``(K, d, d)``.
+        hermitian: Assume a skew-Hermitian combination and use ``eigh`` — see
+            `_eig`. Set ``False`` for complex coefficients or non-skew
+            generators.
 
     Returns:
         A callable accepting a coefficient vector ``(K,)`` and a covector
@@ -719,11 +746,11 @@ def get_adj_expm_eig(
 def get_adj_expm(basis: Array) -> Callable[[Array, Array], Array]:
     """Create a JIT-compiled block-method exponential-map adjoint.
 
-    Wraps `adj_expm` with a fixed basis — the slow path, kept for parity with
-    ``method="block"``.
+    Wraps `adj_expm` with a fixed generator array — the slow path, kept for
+    parity with ``method="block"``.
 
     Args:
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
 
     Returns:
         A callable accepting a coefficient vector ``(K,)`` and a covector
@@ -735,10 +762,10 @@ def get_adj_expm(basis: Array) -> Callable[[Array, Array], Array]:
 def get_d2expm(basis: Array, batch_size: int | None = None) -> Callable[[Array], Array]:
     """Create a JIT-compiled block second-derivative function.
 
-    Wraps `d2expm` with a fixed basis (the auxiliary-matrix method).
+    Wraps `d2expm` with a fixed generator array (the auxiliary-matrix method).
 
     Args:
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
         batch_size: Currently only the full variant is provided; kept for
             signature parity with `get_d2expm_eig`.
 
@@ -754,15 +781,17 @@ def get_d2expm_eig(
 ) -> Callable[[Array], Array]:
     """Create a JIT-compiled spectral second-derivative function.
 
-    Wraps `d2expm_eig` (or `d2expm_eig_batched`) with a fixed basis. The full
-    variant is the fast default used by `geope.jax.get_hessian_propagator`.
+    Wraps `d2expm_eig` (or `d2expm_eig_batched`) with a fixed generator array.
+    The full variant is the fast default used by
+    `geope.jax.get_hessian_propagator`.
 
     Args:
-        basis: Array of Hermitian matrices of shape ``(K, d, d)``.
+        basis: Generator array of shape ``(K, d, d)``.
         batch_size: Optional batch size. If ``None``, the full variant is used;
             otherwise the first direction is chunked to bound peak memory.
-        hermitian: Assume real coefficients (skew-Hermitian ``M``) and use
-            ``eigh`` — see `_eig`. Set ``False`` for complex coefficients.
+        hermitian: Assume a skew-Hermitian combination and use ``eigh`` — see
+            `_eig`. Set ``False`` for complex coefficients or non-skew
+            generators.
 
     Returns:
         A callable that accepts a coefficient vector and returns the

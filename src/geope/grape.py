@@ -42,7 +42,7 @@ class Grape:
         optimizer_state: The current optimiser state pytree (re-``init()``d per
             run); ``None`` until :meth:`optimize` is first called.
         method: The active rule's ``name`` (e.g. ``'newton_trm'``), or ``None``.
-        step_size: Transient last accepted step, ``dt``.
+        step_size: Transient last accepted step, ``eta``.
         history: Optional `History` logger (``None`` unless supplied).
     """
 
@@ -227,7 +227,9 @@ class Grape:
             self.drift_parameters = None
 
         self.params.parameters = np.array(self.init_parameters)
-        self.params.fidelity = self.params.manifold.fidelity_at(self.params.free())
+        self.params.fidelity = self.params.manifold.fidelity_at(
+            self.params.free(), self._delta_t()
+        )
         self.step_size = 0
         # A change of parameters invalidates any optimiser state (Adam's moments
         # are shaped like them); optimize() re-init()s it per run regardless, but
@@ -236,6 +238,10 @@ class Grape:
         if self.history is not None:
             self.history.reset()
             self.history.record(self)  # step 0
+
+    def _delta_t(self) -> jax.Array:
+        """``params.delta_t`` as a JAX array, ready for the jitted callables."""
+        return jnp.asarray(self.params.delta_t, dtype=jnp.float64)
 
     def _configure_optimizer(self, optimizer: Optimizer) -> None:
         """Select the update rule and (re)build its jitted update function.
@@ -283,9 +289,10 @@ class Grape:
         is why no matrix logarithm and no Jacobian is traced here.
 
         Returns:
-            A JIT-compiled callable ``update_step(free_params, opt_state)``
-            returning ``(new_parameters, infidelity, dt, new_opt_state)``, where
-            ``infidelity`` is measured **at** ``new_parameters``.
+            A JIT-compiled callable ``update_step(free_params, delta_t, opt_state)``
+            returning ``(new_parameters, infidelity, eta, new_opt_state)``, where
+            ``infidelity`` is measured **at** ``new_parameters`` and ``eta`` is
+            the accepted line-search step.
         """
         manifold = self.params.manifold
         optimizer = self.optimizer
@@ -293,10 +300,10 @@ class Grape:
         lie_algebra_dim = len(proj_drift_mask)
 
         @jax.jit
-        def update_step(free_params, opt_state):
-            ctx = manifold.context(free_params)
+        def update_step(free_params, delta_t, opt_state):
+            ctx = manifold.context(free_params, delta_t)
             result = optimizer(ctx, opt_state)
-            new_free = free_params + result.dt * result.coeffs
+            new_free = free_params + result.eta * result.coeffs
 
             # Scatter the moved columns back over the full basis.
             new_parameters = jnp.zeros(
@@ -304,7 +311,7 @@ class Grape:
                 dtype=free_params.real.dtype,
             )
             new_parameters = new_parameters.at[:, proj_drift_mask].set(new_free.real)
-            return new_parameters, result.value, result.dt, result.state
+            return new_parameters, result.value, result.eta, result.state
 
         return update_step
 
@@ -372,7 +379,9 @@ class Grape:
                 infidelity,
                 step_size,
                 self.optimizer_state,
-            ) = self.update_step(self.params.free(), self.optimizer_state)
+            ) = self.update_step(
+                self.params.free(), self._delta_t(), self.optimizer_state
+            )
             if self.verbose:
                 if infidelity < 1 - self.precision:
                     print(

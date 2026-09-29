@@ -372,3 +372,131 @@ class TestGecko:
         # labels are not allowed under param_transform
         with pytest.raises(ValueError):
             gk.speed(parameter_labels=["XX"], max_optimization_steps=5)
+
+
+# ---------------------------------------------------------------------------
+# Tests — delta_t: subdivision divides the duration, not the parameters (#25)
+# ---------------------------------------------------------------------------
+
+
+class TestDeltaT:
+    """Subdivision must be exact for any parametrisation.
+
+    ``expm(dt A) == expm((dt/m) A)^m``, so replicating the segments and
+    dividing ``delta_t`` preserves the pulse exactly — including under a
+    nonlinear ``param_transform``, where dividing the parameter values is
+    wrong (``tau(phi/m) != tau(phi)/m``).
+    """
+
+    def _nonlinear_params(self, cnot, full_basis_2q, projected_basis_2q, **kw):
+        n_proj = projected_basis_2q.lie_algebra_dim
+
+        def transform(phi):
+            # Genuinely nonlinear: tau(phi/m) != tau(phi)/m.
+            return 1.5 * jnp.sin(phi)
+
+        return _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=4,
+            param_transform=transform,
+            n_experimental_params=n_proj,
+            **kw,
+        )
+
+    def _fresh_fidelity(self, params):
+        return float(
+            params.manifold.fidelity_at(
+                params.free(), jnp.asarray(params.delta_t, jnp.float64)
+            )
+        )
+
+    def test_subdivision_is_exact_under_a_nonlinear_transform(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        params = self._nonlinear_params(cnot, full_basis_2q, projected_basis_2q)
+        Geope(params).optimize(max_steps=200, precision=0.999)
+        f0 = self._fresh_fidelity(params)
+        total0 = params.total_time
+
+        gk = Gecko(params)
+        gk.smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        assert params.delta_t == pytest.approx(0.5)
+        assert abs(self._fresh_fidelity(params) - f0) < 1e-10
+
+        # Chained subdivisions stay exact and keep the total time invariant.
+        gk.smooth(piecewise_steps_multiplier=3, max_smoothing_steps=0)
+        assert params.delta_t == pytest.approx(1.0 / 6.0)
+        assert params.total_time == pytest.approx(total0)
+        assert abs(self._fresh_fidelity(params) - f0) < 1e-10
+
+    def test_subdivision_with_drift_is_exact(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        from geope.utils import construct_restricted_pauli_basis
+
+        # Disjoint from the Heisenberg projected basis, which owns IZ/ZI/ZZ.
+        drift_basis = construct_restricted_pauli_basis(2, {(1, 2): ["xy", "yx"]})
+        params = self._nonlinear_params(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            drift_basis=drift_basis,
+            drift_values=[0.7, -0.3],
+        )
+        Geope(params).optimize(max_steps=200, precision=0.999)
+        f0 = self._fresh_fidelity(params)
+        Gecko(params).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        # The drift row is scaled by delta_t along with everything else, so a
+        # run *with* drift subdivides exactly too.
+        assert abs(self._fresh_fidelity(params) - f0) < 1e-10
+
+    def test_smoothing_still_runs_on_the_subdivided_pulse(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        params = self._nonlinear_params(cnot, full_basis_2q, projected_basis_2q)
+        Geope(params).optimize(max_steps=200, precision=0.999)
+        f0 = self._fresh_fidelity(params)
+        Gecko(params).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=20)
+        # Null-space smoothing is first order, so allow the usual slow drift.
+        assert abs(float(params.fidelity) - f0) < 5e-3
+
+    def test_zero_step_pass_reports_the_true_fidelity(self, params_2q):
+        g = Geope(params_2q)
+        g.optimize(max_steps=200, precision=0.999)
+        f0 = float(params_2q.fidelity)
+        Gecko(params_2q).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        # Previously a subdivide-only pass overwrote the fidelity with 0.0.
+        assert float(params_2q.fidelity) == pytest.approx(f0)
+        assert params_2q.delta_t == pytest.approx(0.5)
+
+    def test_bound_experimental_space_is_index_keyed(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        n_proj = projected_basis_2q.lie_algebra_dim
+        params = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=4,
+            param_transform=lambda phi: phi,
+            n_experimental_params=n_proj,
+        )
+        Geope(params).optimize(max_steps=200, precision=0.999)
+        f0 = float(params.fidelity)
+        gk = Gecko(params)
+        with pytest.raises(ValueError, match="integer-indexed"):
+            gk.bound({"XX": (-0.5, 0.5)}, max_bounding_steps=5)
+        bound_value = 0.9 * float(jnp.max(jnp.abs(jnp.real(params.parameters[:, 0]))))
+
+        def violation():
+            column = jnp.abs(jnp.real(params.parameters[:, 0]))
+            return float(jnp.max(jnp.clip(column - bound_value, 0.0)))
+
+        before = violation()
+        gk.bound({0: (-bound_value, bound_value)}, max_bounding_steps=50)
+        # Null-space bounding is first order and fidelity-preserving, so it
+        # reduces the violation rather than hard-clamping it.
+        assert violation() < before
+        assert abs(float(params.fidelity) - f0) < 5e-3
