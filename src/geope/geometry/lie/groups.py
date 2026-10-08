@@ -128,7 +128,7 @@ class MatrixLieGroup(Manifold):
     Elements of the Lie algebra are **skew-Hermitian** throughout — the generator
     of $U = e^{-iH}$ is $-iH$, not $H$. The single factor of $\pm i$ between the
     Hermitian frame and the algebra is
-    `geope.geometry.basis.Basis.ALGEBRA_CONVENTION`, applied by
+    `geope.geometry.basis.Basis.basis_convention`, applied by
     `geope.geometry.basis.Basis.algebra` going in and (conjugated) by
     `coefficients` coming out.
 
@@ -230,15 +230,15 @@ class MatrixLieGroup(Manifold):
     def coefficients(self, point: Array, tangent: Array) -> Array:
         r"""Resolve skew-Hermitian algebra elements against the ambient frame.
 
-        Projection onto the generators $E_k = \mathrm{ALGEBRA\_CONVENTION}
+        Projection onto the generators $E_k = \mathrm{basis\_convention}
         \cdot B_k$ the chart exponentiates:
 
         $$c_k = \mathrm{Tr}(E_k^\dagger X)/d
-              = \overline{\mathrm{ALGEBRA\_CONVENTION}}\,\mathrm{Tr}(B_k X)/d,$$
+              = \overline{\mathrm{basis\_convention}}\,\mathrm{Tr}(B_k X)/d,$$
 
         the real coefficients with $X = \sum_k c_k E_k$ (metric constant
         $c = 1/d$). This is the outbound half of the sign convention; both
-        halves read `geope.geometry.basis.Basis.ALGEBRA_CONVENTION`, so they
+        halves read `geope.geometry.basis.Basis.basis_convention`, so they
         cannot disagree. ``point`` is unused: one frame serves every fibre.
 
         The frame must be Hermitian and trace-orthogonal with
@@ -252,7 +252,7 @@ class MatrixLieGroup(Manifold):
         Returns:
             A real ``Array`` of shape ``(..., K)``.
         """
-        tangent = Basis.ALGEBRA_CONVENTION.conjugate() * jnp.asarray(tangent)
+        tangent = Basis.basis_convention.conjugate() * jnp.asarray(tangent)
         flat = tangent.reshape((-1,) + tangent.shape[-2:])
         coeffs = self._project(flat)
         return coeffs.reshape(tangent.shape[:-2] + (coeffs.shape[-1],))

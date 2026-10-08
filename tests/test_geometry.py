@@ -847,10 +847,10 @@ class TestAlgebraConvention:
     """U = exp(-i H): one constant, two seams, and they cannot disagree."""
 
     def test_the_convention_is_minus_i(self):
-        assert Basis.ALGEBRA_CONVENTION == -1j
+        assert Basis.basis_convention == -1j
 
     def test_algebra_is_the_convention_times_the_basis(self, basis_2q):
-        expected = Basis.ALGEBRA_CONVENTION * np.asarray(basis_2q.basis)
+        expected = Basis.basis_convention * np.asarray(basis_2q.basis)
         assert basis_2q.algebra.dtype == np.complex128
         assert np.array_equal(basis_2q.algebra, expected)
 

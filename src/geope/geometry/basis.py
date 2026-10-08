@@ -38,7 +38,7 @@ class Basis:
     **Two roles, one class.** A `Basis` is a real-orthogonal frame for the
     Hermitian matrices in the ambient space $\mathbb C^{d\times d}$ — the Paulis
     span that space over $\mathbb C$, the Hermitian matrices in it over
-    $\mathbb R$, and, multiplied by `ALGEBRA_CONVENTION`, the algebra
+    $\mathbb R$, and, multiplied by `basis_convention`, the algebra
     $\mathfrak u(d)$ over $\mathbb R$. The pipeline uses that in two different
     places and at two different sizes:
 
@@ -57,14 +57,16 @@ class Basis:
     manifolds use a real/imaginary split of the ambient array instead.
 
     Attributes:
-        ALGEBRA_CONVENTION: The library's sign convention — its single factor
-            of $\pm i$ — as a **class** attribute, so the chart's generator
-            sub-basis and the ambient coefficient frame can never disagree.
-            The user-facing frame is Hermitian; the library's internal
-            currency is skew-Hermitian algebra elements; the dictionary
-            between the two is $E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k$
+        basis_convention: The sign convention relating the Hermitian frame
+            to the algebra generators — one of ``1``, ``-1``, ``1j`` or
+            ``-1j`` (default ``-1j``, so $U(\phi) = \exp(-i\sum_k\phi_kB_k)$,
+            the physical $U = e^{-iHt}$). A **class** attribute, so the
+            chart's generator sub-basis and the ambient coefficient frame can
+            never disagree. The user-facing frame is Hermitian; the library's
+            internal currency is the algebra elements; the dictionary between
+            the two is $E_k = \mathrm{basis\_convention}\cdot B_k$
             going in (`algebra`, which the chart exponentiates, so
-            $U(\phi) = \exp(\mathrm{ALGEBRA\_CONVENTION}\sum_k\phi_kB_k)$)
+            $U(\phi) = \exp(\mathrm{basis\_convention}\sum_k\phi_kB_k)$)
             and its conjugate coming out
             (`geope.geometry.lie.groups.MatrixLieGroup.coefficients`).
             Everything between the two — `geope.geometry.chart` and the
@@ -73,7 +75,7 @@ class Basis:
             invariant: those modules contain no imaginary-unit literal tied
             to the convention.
         algebra: The skew-Hermitian generator array
-            $E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k$ this frame induces.
+            $E_k = \mathrm{basis\_convention}\cdot B_k$ this frame induces.
         basis: Array of shape ``(K, d, d)`` containing the basis matrices.
         labels: List of Pauli-string labels, e.g. ``['XI', 'ZZ']``.
         plot_labels: LaTeX-formatted labels for plotting.
@@ -88,7 +90,7 @@ class Basis:
         shape: Shape of the underlying basis tensor ``(K, d, d)``.
     """
 
-    ALGEBRA_CONVENTION: complex = -1j
+    basis_convention: complex = -1j
 
     def __init__(
         self,
@@ -313,8 +315,8 @@ class Basis:
 
     @property
     def algebra(self) -> np.ndarray:
-        r"""The algebra generators this frame induces: $E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k$."""
-        return np.asarray(type(self).ALGEBRA_CONVENTION * self._basis, np.complex128)
+        r"""The algebra generators this frame induces: $E_k = \mathrm{basis\_convention}\cdot B_k$."""
+        return np.asarray(type(self).basis_convention * self._basis, np.complex128)
 
     @property
     def labels(self) -> list[str] | None:
