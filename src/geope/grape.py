@@ -42,7 +42,8 @@ class Grape:
         optimizer_state: The current optimiser state pytree (re-``init()``d per
             run); ``None`` until :meth:`optimize` is first called.
         method: The active rule's ``name`` (e.g. ``'newton_trm'``), or ``None``.
-        step_size: Transient last accepted step, ``eta``.
+        step_size: Transient last accepted step (the optimiser result's
+            ``step_size``).
         history: Optional `History` logger (``None`` unless supplied).
     """
 
@@ -290,9 +291,9 @@ class Grape:
 
         Returns:
             A JIT-compiled callable ``update_step(free_params, delta_t, opt_state)``
-            returning ``(new_parameters, infidelity, eta, new_opt_state)``, where
-            ``infidelity`` is measured **at** ``new_parameters`` and ``eta`` is
-            the accepted line-search step.
+            returning ``(new_parameters, infidelity, step_size, new_opt_state)``,
+            where ``infidelity`` is measured **at** ``new_parameters`` and
+            ``step_size`` is the accepted line-search step.
         """
         manifold = self.params.manifold
         optimizer = self.optimizer
@@ -303,7 +304,7 @@ class Grape:
         def update_step(free_params, delta_t, opt_state):
             ctx = manifold.context(free_params, delta_t)
             result = optimizer(ctx, opt_state)
-            new_free = free_params + result.eta * result.coeffs
+            new_free = free_params + result.step_size * result.coeffs
 
             # Scatter the moved columns back over the full basis.
             new_parameters = jnp.zeros(
@@ -311,7 +312,7 @@ class Grape:
                 dtype=free_params.real.dtype,
             )
             new_parameters = new_parameters.at[:, proj_drift_mask].set(new_free.real)
-            return new_parameters, result.value, result.eta, result.state
+            return new_parameters, result.value, result.step_size, result.state
 
         return update_step
 

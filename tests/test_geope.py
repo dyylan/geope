@@ -1218,7 +1218,7 @@ class _CountingLineSearch(GoldenSection):
     def __call__(self, ctx, a, b, state):
         res = super().__call__(ctx, a, b, state)
         return LineSearchResult(
-            res.eta, res.value, {"n_step": state["n_step"] + 1, **res.state}
+            res.step_size, res.value, {"n_step": state["n_step"] + 1, **res.state}
         )
 
 
@@ -1470,8 +1470,8 @@ class TestGeope:
             gram_schmidt_step_size=0,
         )
         a = -max_step_size / steps
-        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert a - 1e-12 <= dt <= 0.0
+        for step in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert a - 1e-12 <= step <= 0.0
 
     def test_armijo_works_under_param_transform(
         self, cnot, full_basis_2q, projected_basis_2q
@@ -1612,8 +1612,8 @@ class TestGeope:
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
         g = Geope(p, history=History())
         g.optimize(max_steps=3, line_search=_ReportingSearch(factor=1.0))
-        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert np.isclose(abs(dt), DEFAULT_GRAM_SCHMIDT_STEP_SIZE)
+        for step in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert np.isclose(abs(step), DEFAULT_GRAM_SCHMIDT_STEP_SIZE)
 
     def test_a_stalled_step_without_the_fallback_does_not_move(
         self, cnot, full_basis_2q, projected_basis_2q
@@ -1637,8 +1637,8 @@ class TestGeope:
         g.optimize(
             max_steps=2, line_search=_ReportingSearch(factor=1.0 - PROGRESS_RTOL / 100)
         )
-        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert np.isclose(abs(dt), DEFAULT_GRAM_SCHMIDT_STEP_SIZE)
+        for step in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert np.isclose(abs(step), DEFAULT_GRAM_SCHMIDT_STEP_SIZE)
 
     def test_progress_above_the_threshold_keeps_the_step(
         self, cnot, full_basis_2q, projected_basis_2q
@@ -1648,23 +1648,23 @@ class TestGeope:
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
         g = Geope(p, history=History())
         g.optimize(max_steps=2, line_search=_ReportingSearch(factor=0.5))
-        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert np.isclose(dt, 0.0)
+        for step in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert np.isclose(step, 0.0)
 
     def test_a_distance_objective_step_is_judged_on_the_distance(
         self, cnot, full_basis_2q, projected_basis_2q
     ):
         # The regression the rule exists for: a search minimising the geodesic
         # distance is judged on the distance. Reporting a halved distance keeps
-        # the step even though the fidelity did not move at all (dt = 0).
+        # the step even though the fidelity did not move at all (step size 0).
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
         g = Geope(p, history=History())
         g.optimize(
             max_steps=2, line_search=_ReportingSearch(factor=0.5, objective="distance")
         )
         assert g.line_search.objective == "distance"
-        for dt in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert np.isclose(dt, 0.0)
+        for step in np.asarray(g.history.step_sizes[1:], dtype=float):
+            assert np.isclose(step, 0.0)
 
     # --- run-control knobs (optimize() arguments) ------------------------
 

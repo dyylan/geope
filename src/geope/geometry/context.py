@@ -410,25 +410,25 @@ class GeometricContext:
 
     # --- tier 3: the ray ----------------------------------------------------
 
-    def point_at(self, eta: Array) -> Array:
-        r"""The point at $\phi + \eta\,p$ — the single gate for all of tier 3."""
+    def point_at(self, step_size: Array) -> Array:
+        r"""The point at $\phi + t\,p$ for ``t = step_size`` — the single gate for all of tier 3."""
         self._require_direction("point_at")
         return self.manifold.compute_point(
-            self.free_params + eta * self.coeffs, self.delta_t
+            self.free_params + step_size * self.coeffs, self.delta_t
         )
 
-    def infidelity_at(self, eta: Array) -> Array:
+    def infidelity_at(self, step_size: Array) -> Array:
         """The infidelity along the ray. One propagator."""
-        return self.manifold.infidelity(self.point_at(eta), self.target)
+        return self.manifold.infidelity(self.point_at(step_size), self.target)
 
-    def fidelity_at(self, eta: Array) -> Array:
+    def fidelity_at(self, step_size: Array) -> Array:
         """The fidelity along the ray. One propagator."""
-        return self.manifold.fidelity(self.point_at(eta), self.target)
+        return self.manifold.fidelity(self.point_at(step_size), self.target)
 
-    def distance_at(self, eta: Array) -> Array:
+    def distance_at(self, step_size: Array) -> Array:
         r"""The squared-geodesic-distance objective $\tfrac12 d_g(\cdot, V)^2$
         along the ray, whose derivatives `s`, `q` and `q_exact` describe.
 
         One propagator plus one logarithm.
         """
-        return self.manifold.distance2(self.point_at(eta), self.target)
+        return self.manifold.distance2(self.point_at(step_size), self.target)

@@ -449,8 +449,8 @@ Live state and logging:
 
 `Grape.optimize(optimizer=...)` takes a frozen config object rather than a method
 string. All six share one shape — an **uphill** direction $p$ and a **negative** step
-$\mathrm dt$, so `Grape` forms `free_params + dt * coeffs` — and they differ in how
-they build $p$ from the cost's derivatives.
+`step_size`, so `Grape` forms `free_params + step_size * coeffs` — and they differ in
+how they build $p$ from the cost's derivatives.
 
 | rule | direction $p$ | extra cost per step, beyond one gradient |
 |---|---|---|
@@ -576,16 +576,16 @@ for each step:
        → residual / rank / condition number recorded in geope.ls_diagnostics
 
     5. Normalise and line-search:
-       coeffs = sol · sqrt(N_g) / ||sol||
-       eta    = argmin infid(φ + η · coeffs)        # over η ∈ [-η_max, 0]
-       φ_new  = φ + eta · coeffs
+       coeffs    = sol · sqrt(N_g) / ||sol||
+       step_size = argmin infid(φ + t · coeffs)     # over t ∈ [-t_max, 0]
+       φ_new     = φ + step_size · coeffs
 
     6. If fidelity decreased, Gram–Schmidt fallback:
        proj_c = random_direction ⊥ coeffs
        try ±proj_c, keep the side with higher fidelity
 ```
 
-The line search interval $[-\eta_{\max}, 0]$ is the toward-target half-line under the algorithm's sign convention: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity $\Omega$ to $A$, the geodesic tangent *pointing away from* the target, so negative `eta` is what approaches it. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
+The line search interval $[-\eta_{\max}, 0]$ is the toward-target half-line under the algorithm's sign convention: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity $\Omega$ to $A$, the geodesic tangent *pointing away from* the target, so a negative `step_size` is what approaches it. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
 
 ### Key functions
 

@@ -836,7 +836,7 @@ class Geope:
             # and t = 0 is "don't move".
             a = -max_step_size / free_params.shape[0]
             result = line_search(ctx, a, jnp.asarray(0.0, jnp.float64), ls_state)
-            new_params = free_params + result.eta * coeffs
+            new_params = free_params + result.step_size * coeffs
 
             if line_search.objective == "infidelity":
                 # The search already evaluated the infidelity at the accepted
@@ -853,7 +853,7 @@ class Geope:
                 fidelity,
                 value0,
                 result.value,
-                result.eta,
+                result.step_size,
                 result.state,
                 ls_diagnostics,
             )
