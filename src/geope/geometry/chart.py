@@ -80,7 +80,7 @@ def compute_matrices_params_list_fn(
     """
 
     def step(U, params):
-        A = jnp.tensordot(params, basis, axes=[[-1], [0]])
+        A = jnp.tensordot(params.astype(basis.dtype), basis, axes=[[-1], [0]])
         Ui = jax.scipy.linalg.expm(delta_t * A)
         U_new = jnp.matmul(Ui, U)
         return U_new, None
