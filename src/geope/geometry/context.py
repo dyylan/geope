@@ -148,8 +148,11 @@ class GeometricContext:
         r"""The geodesic tangent $A = -\mathrm{Log}_U(V)$. **The only logarithm.**
 
         The minimal-geodesic tangent **at the base point**, negated so that it
-        points *away* from the target: the slope `velocity` is then positive at a descent
-        direction and the line-search bracket is $[-t_{\max}, 0]$.
+        points *away* from the target: it is the Riemannian gradient of the
+        squared distance $\tfrac{1}{2} d_g(\cdot, V)^2$. The geodesic solve matches
+        the tangent to it, so `geope.Geope` steps along the *negated* solution —
+        a descent direction, on which `velocity` is negative and the line-search
+        bracket is $[0, \alpha_{\max}]$.
 
         Taking it at $U$ rather than at the target is what makes it comparable
         with `Omega` on a general manifold — $T_U$ and $T_V$ are unrelated spaces
@@ -281,7 +284,10 @@ class GeometricContext:
 
     @cached_property
     def velocity(self) -> Array:
-        r"""The slope $\psi'(0) = \langle A, \Omega\rangle_F$ of `distance_at`"""
+        r"""The slope $\psi'(0) = \langle A, \Omega\rangle_F$ of `distance_at`.
+
+        Negative at a descent direction.
+        """
         return self.manifold.inner(self.point, self.A, self.Omega)
 
     @cached_property
@@ -298,7 +304,7 @@ class GeometricContext:
 
     @cached_property
     def slope(self) -> Array:
-        r"""The slope $\langle\nabla C, p\rangle$ of `infidelity_at` at $t = 0$.
+        r"""The slope $\langle\nabla C, p\rangle$ of `infidelity_at` at $\alpha = 0$.
 
         The infidelity's counterpart to `velocity`, which is the slope of
         `distance_at` — the two objectives have different derivatives and a
@@ -310,11 +316,9 @@ class GeometricContext:
         The flat parameter-space pairing, **not** `Manifold.inner` — `gradient` is
         a covector in the same coordinates as `coeffs`, not a tangent vector.
 
-        **Positive at a descent direction**, matching `velocity`: `geope.Grape`
-        speaks GEOPE's convention, so `coeffs` points *uphill* and the accepted
-        step is negative. That is what an Armijo test needs ($t\,s < 0$), and it is
-        why `geope.line_searches._armijo_line_search` serves both objectives
-        unchanged.
+        **Negative at a descent direction**, matching `velocity`: `geope.Grape`
+        and `geope.Geope` share the textbook convention, so `coeffs` points
+        *downhill* and the accepted step is positive.
 
         Both operands are real-valued but carried in the pulse's dtype, so the real
         parts are taken explicitly rather than relying on a complex inner product.
@@ -411,7 +415,7 @@ class GeometricContext:
     # --- tier 3: the ray ----------------------------------------------------
 
     def point_at(self, step_size: Array) -> Array:
-        r"""The point at $\phi + t\,p$ for ``t = step_size`` — the single gate for all of tier 3."""
+        r"""The point at $\phi + \alpha\,p$, $\alpha$ = ``step_size`` — the single gate for all of tier 3."""
         self._require_direction("point_at")
         return self.manifold.compute_point(
             self.free_params + step_size * self.coeffs, self.delta_t
@@ -427,7 +431,7 @@ class GeometricContext:
 
     def distance_at(self, step_size: Array) -> Array:
         r"""The squared-geodesic-distance objective $\tfrac12 d_g(\cdot, V)^2$
-        along the ray, whose derivatives `s`, `q` and `q_exact` describe.
+        along the ray, whose derivatives `velocity`, `q` and `q_exact` describe.
 
         One propagator plus one logarithm.
         """

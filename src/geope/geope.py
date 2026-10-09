@@ -827,15 +827,16 @@ class Geope:
             # no-op under param_transform, where every column is solvable), then
             # fix the direction's norm so the bracket means the same thing at
             # every step.
-            coeffs = manifold.tangent.embed(sol)
+            coeffs = -manifold.tangent.embed(sol)
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
             ctx.set_direction(coeffs)
 
-            # One-sided bracket on the descent side: a useful step is negative
-            # because ctx.A points *away* from the target (see `GeometricContext.A`),
-            # and t = 0 is "don't move".
-            a = -max_step_size / free_params.shape[0]
-            result = line_search(ctx, a, jnp.asarray(0.0, jnp.float64), ls_state)
+            # One-sided bracket on the descent side: alpha = 0 is "don't move" and
+            # a useful step is positive (see `GeometricContext.A`).
+            alpha_max = max_step_size / free_params.shape[0]
+            result = line_search(
+                ctx, jnp.asarray(0.0, jnp.float64), alpha_max, ls_state
+            )
             new_params = free_params + result.step_size * coeffs
 
             if line_search.objective == "infidelity":
