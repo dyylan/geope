@@ -1247,7 +1247,7 @@ for building and manipulating Lie-algebraic decompositions.</p>
 <p><strong>Two roles, one class.</strong> A <code>Basis</code> is a real-orthogonal frame for the
 Hermitian matrices in the ambient space <span class="arithmatex">\(\mathbb C^{d\times d}\)</span> — the Paulis
 span that space over <span class="arithmatex">\(\mathbb C\)</span>, the Hermitian matrices in it over
-<span class="arithmatex">\(\mathbb R\)</span>, and, multiplied by <code>ALGEBRA_CONVENTION</code>, the algebra
+<span class="arithmatex">\(\mathbb R\)</span>, and, multiplied by <code>basis_convention</code>, the algebra
 <span class="arithmatex">\(\mathfrak u(d)\)</span> over <span class="arithmatex">\(\mathbb R\)</span>. The pipeline uses that in two different
 places and at two different sizes:</p>
 <ul>
@@ -1277,23 +1277,25 @@ manifolds use a real/imaginary split of the ambient array instead.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code><a class="autorefs autorefs-internal" title="            ALGEBRA_CONVENTION
+            <td><code><a class="autorefs autorefs-internal" title="            basis_convention
 
   
       class-attribute
-   (geope.geometry.basis.Basis.ALGEBRA_CONVENTION)" href="#geope.geometry.basis.Basis.ALGEBRA_CONVENTION">ALGEBRA_CONVENTION</a></code></td>
+   (geope.geometry.basis.Basis.basis_convention)" href="#geope.geometry.basis.Basis.basis_convention">basis_convention</a></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The library's sign convention — its single factor
-of <span class="arithmatex">\(\pm i\)</span> — as a <strong>class</strong> attribute, so the chart's generator
-sub-basis and the ambient coefficient frame can never disagree.
-The user-facing frame is Hermitian; the library's internal
-currency is skew-Hermitian algebra elements; the dictionary
-between the two is <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k\)</span>
+                <p>The sign convention relating the Hermitian frame
+to the algebra generators — one of <code>1</code>, <code>-1</code>, <code>1j</code> or
+<code>-1j</code> (default <code>-1j</code>, so <span class="arithmatex">\(U(\phi) = \exp(-i\sum_k\phi_kB_k)\)</span>,
+the physical <span class="arithmatex">\(U = e^{-iHt}\)</span>). A <strong>class</strong> attribute, so the
+chart's generator sub-basis and the ambient coefficient frame can
+never disagree. The user-facing frame is Hermitian; the library's
+internal currency is the algebra elements; the dictionary between
+the two is <span class="arithmatex">\(E_k = \mathrm{basis\_convention}\cdot B_k\)</span>
 going in (<code>algebra</code>, which the chart exponentiates, so
-<span class="arithmatex">\(U(\phi) = \exp(\mathrm{ALGEBRA\_CONVENTION}\sum_k\phi_kB_k)\)</span>)
+<span class="arithmatex">\(U(\phi) = \exp(\mathrm{basis\_convention}\sum_k\phi_kB_k)\)</span>)
 and its conjugate coming out
 (<code>geope.geometry.lie.groups.MatrixLieGroup.coefficients</code>).
 Everything between the two — <code>geope.geometry.chart</code> and the
@@ -1315,7 +1317,7 @@ to the convention.</p>
             <td>
               <div class="doc-md-description">
                 <p>The skew-Hermitian generator array
-<span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k\)</span> this frame induces.</p>
+<span class="arithmatex">\(E_k = \mathrm{basis\_convention}\cdot B_k\)</span> this frame induces.</p>
               </div>
             </td>
           </tr>
@@ -1512,29 +1514,6 @@ to the convention.</p>
 
 
 
-<h5 id="geope.geometry.basis.Basis.ALGEBRA_CONVENTION" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">ALGEBRA_CONVENTION</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#geope.geometry.basis.Basis.ALGEBRA_CONVENTION" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Create a complex number from a real part and an optional imaginary part.</p>
-<p>This is equivalent to (real + imag*1j) where imag defaults to 0.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
 <h5 id="geope.geometry.basis.Basis.__annotations__" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="vm">__annotations__</span></code>
 
@@ -1679,7 +1658,7 @@ errors defaults to 'strict'.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The algebra generators this frame induces: <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}\cdot B_k\)</span>.</p>
+        <p>The algebra generators this frame induces: <span class="arithmatex">\(E_k = \mathrm{basis\_convention}\cdot B_k\)</span>.</p>
 
     </div>
 
@@ -1702,6 +1681,29 @@ errors defaults to 'strict'.</p>
     <div class="doc doc-contents ">
 
         <p>The rank-3 array of basis matrices.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="geope.geometry.basis.Basis.basis_convention" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">basis_convention</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#geope.geometry.basis.Basis.basis_convention" class="headerlink" title="Permanent link">¤</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a complex number from a real part and an optional imaginary part.</p>
+<p>This is equivalent to (real + imag*1j) where imag defaults to 0.</p>
 
     </div>
 

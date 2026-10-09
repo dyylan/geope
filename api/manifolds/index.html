@@ -1284,7 +1284,7 @@ manual propagator derivatives.</p>
 <p>Elements of the Lie algebra are <strong>skew-Hermitian</strong> throughout — the generator
 of <span class="arithmatex">\(U = e^{-iH}\)</span> is <span class="arithmatex">\(-iH\)</span>, not <span class="arithmatex">\(H\)</span>. The single factor of <span class="arithmatex">\(\pm i\)</span> between the
 Hermitian frame and the algebra is
-<code>geope.geometry.basis.Basis.ALGEBRA_CONVENTION</code>, applied by
+<code>geope.geometry.basis.Basis.basis_convention</code>, applied by
 <code>geope.geometry.basis.Basis.algebra</code> going in and (conjugated) by
 <code>coefficients</code> coming out.</p>
 
@@ -1997,13 +1997,13 @@ induced by the embedding in <span class="arithmatex">\(\mathbb C^{d\times d}\)</
     <div class="doc doc-contents ">
 
         <p>Resolve skew-Hermitian algebra elements against the ambient frame.</p>
-<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}
+<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{basis\_convention}
 \cdot B_k\)</span> the chart exponentiates:</p>
 <div class="arithmatex">\[c_k = \mathrm{Tr}(E_k^\dagger X)/d
-      = \overline{\mathrm{ALGEBRA\_CONVENTION}}\,\mathrm{Tr}(B_k X)/d,\]</div>
+      = \overline{\mathrm{basis\_convention}}\,\mathrm{Tr}(B_k X)/d,\]</div>
 <p>the real coefficients with <span class="arithmatex">\(X = \sum_k c_k E_k\)</span> (metric constant
 <span class="arithmatex">\(c = 1/d\)</span>). This is the outbound half of the sign convention; both
-halves read <code>geope.geometry.basis.Basis.ALGEBRA_CONVENTION</code>, so they
+halves read <code>geope.geometry.basis.Basis.basis_convention</code>, so they
 cannot disagree. <code>point</code> is unused: one frame serves every fibre.</p>
 <p>The frame must be Hermitian and trace-orthogonal with
 <span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> (every <code>geope.utils</code> basis is);
@@ -3642,13 +3642,13 @@ not of shape <code>ambient_shape</code>.</p>
     <div class="doc doc-contents ">
 
         <p>Resolve skew-Hermitian algebra elements against the ambient frame.</p>
-<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}
+<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{basis\_convention}
 \cdot B_k\)</span> the chart exponentiates:</p>
 <div class="arithmatex">\[c_k = \mathrm{Tr}(E_k^\dagger X)/d
-      = \overline{\mathrm{ALGEBRA\_CONVENTION}}\,\mathrm{Tr}(B_k X)/d,\]</div>
+      = \overline{\mathrm{basis\_convention}}\,\mathrm{Tr}(B_k X)/d,\]</div>
 <p>the real coefficients with <span class="arithmatex">\(X = \sum_k c_k E_k\)</span> (metric constant
 <span class="arithmatex">\(c = 1/d\)</span>). This is the outbound half of the sign convention; both
-halves read <code>geope.geometry.basis.Basis.ALGEBRA_CONVENTION</code>, so they
+halves read <code>geope.geometry.basis.Basis.basis_convention</code>, so they
 cannot disagree. <code>point</code> is unused: one frame serves every fibre.</p>
 <p>The frame must be Hermitian and trace-orthogonal with
 <span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> (every <code>geope.utils</code> basis is);
@@ -5093,13 +5093,13 @@ not of shape <code>ambient_shape</code>.</p>
     <div class="doc doc-contents ">
 
         <p>Resolve skew-Hermitian algebra elements against the ambient frame.</p>
-<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{ALGEBRA\_CONVENTION}
+<p>Projection onto the generators <span class="arithmatex">\(E_k = \mathrm{basis\_convention}
 \cdot B_k\)</span> the chart exponentiates:</p>
 <div class="arithmatex">\[c_k = \mathrm{Tr}(E_k^\dagger X)/d
-      = \overline{\mathrm{ALGEBRA\_CONVENTION}}\,\mathrm{Tr}(B_k X)/d,\]</div>
+      = \overline{\mathrm{basis\_convention}}\,\mathrm{Tr}(B_k X)/d,\]</div>
 <p>the real coefficients with <span class="arithmatex">\(X = \sum_k c_k E_k\)</span> (metric constant
 <span class="arithmatex">\(c = 1/d\)</span>). This is the outbound half of the sign convention; both
-halves read <code>geope.geometry.basis.Basis.ALGEBRA_CONVENTION</code>, so they
+halves read <code>geope.geometry.basis.Basis.basis_convention</code>, so they
 cannot disagree. <code>point</code> is unused: one frame serves every fibre.</p>
 <p>The frame must be Hermitian and trace-orthogonal with
 <span class="arithmatex">\(\mathrm{Tr}(B_j B_k) = d\,\delta_{jk}\)</span> (every <code>geope.utils</code> basis is);
