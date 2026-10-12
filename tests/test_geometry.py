@@ -32,7 +32,7 @@ from geope.geometry import (
     UnitaryGroup,
 )
 from geope.geometry.basis import Basis
-from geope.geope import linear_comb_projected_coeffs_multigate
+from geope.geope import least_squares
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -421,6 +421,51 @@ class TestContextCost:
 
         assert dict(counts) == {"compute_point": 1, "jacobian": 1, "log": 1}
 
+    def test_least_squares_shares_the_line_searchs_context(self, problem):
+        # `least_squares` takes the context the line search reads next: it only
+        # reads direction-free tier 0, so handing it the context costs nothing
+        # beyond the step's one propagator, one Jacobian and one logarithm.
+        p, free, _ = problem
+        spy, counts = _spy_manifold(p)
+        ctx = spy.context(free)
+
+        sol, _ = least_squares(ctx, None)
+        assert ctx.coeffs is None  # the solve never sets the direction
+        ctx.set_direction(-spy.tangent.embed(sol))
+        _ = ctx.F0, ctx.velocity, ctx.q, ctx.q_exact, ctx.xi_rel
+
+        assert dict(counts) == {"compute_point": 1, "jacobian": 1, "log": 1}
+
+    def test_levenberg_marquardt_adds_one_trial_evaluation_to_the_trace(self, problem):
+        # The LM loop body is traced once: one propagator and one logarithm for
+        # its trial point, and the base point is not re-traced inside it.
+        p, free, _ = problem
+        spy, counts = _spy_manifold(p)
+        ctx = spy.context(free)
+
+        sol, _ = least_squares(ctx, None, method="lm")
+        ctx.set_direction(-spy.tangent.embed(sol))
+        _ = ctx.F0, ctx.velocity, ctx.q, ctx.q_exact, ctx.xi_rel
+
+        assert dict(counts) == {"compute_point": 2, "jacobian": 1, "log": 2}
+
+    def test_levenberg_marquardt_composes_with_a_jitted_line_search(self, problem):
+        # The context's memo must not capture a tracer of the LM loop body: the
+        # line search reads F0 (first read by the solve) outside that loop.
+        p, free, _ = problem
+
+        @jax.jit
+        def step(fp):
+            ctx = p.manifold.context(fp)
+            sol, diag = least_squares(ctx, None, method="lm")
+            ctx.set_direction(-p.manifold.tangent.embed(sol))
+            return ctx.F0, ctx.velocity, ctx.distance_at(0.1), diag["lm_iter"]
+
+        F0, velocity, distance, lm_iter = step(free)
+        assert float(velocity) < 0
+        assert all(np.isfinite(float(x)) for x in (F0, distance))
+        assert int(lm_iter) >= 1
+
     def test_each_ray_point_costs_one_propagator(self, problem):
         p, free, coeffs = problem
         spy, counts = _spy_manifold(p)
@@ -622,7 +667,7 @@ class TestContextValues:
         # slope, positive useful step.
         p, free, _ = problem
         ctx = p.manifold.context(free)
-        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
+        sol, _ = least_squares(ctx, None)
         ctx.set_direction(-p.manifold.tangent.embed(sol))
         assert float(ctx.velocity) < 0
 
@@ -991,9 +1036,8 @@ class TestDeltaTThreading:
     def test_the_bracket_side_is_descent_at_any_delta_t(self, basis_2q, delta_t):
         params = self._params(basis_2q, delta_t=delta_t)
         ctx = params.manifold.context(params.free(), jnp.asarray(delta_t, jnp.float64))
-        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
-        coeffs = -params.manifold.tangent.embed(sol)
-        ctx.set_direction(coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs)))
+        sol, _ = least_squares(ctx, None)
+        ctx.set_direction(-params.manifold.tangent.embed(sol))
 
         assert float(ctx.velocity) < 0
         assert float(ctx.slope) < 0

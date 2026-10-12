@@ -40,7 +40,7 @@ from geope.geometry.lie.groups import (
     infidelity,
     infidelity_full,
 )
-from geope.geope import Geope, linear_comb_projected_coeffs_multigate
+from geope.geope import Geope, least_squares
 from geope.jax import su_hessian_quadratic_form
 from geope.line_searches import (
     ApproximateQuadraticArmijo,
@@ -591,7 +591,7 @@ class TestContextOnEveryManifold:
     def test_a_full_geodesic_step_runs(self, space):
         m = space.manifold
         ctx = m.context(space.free)
-        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
+        sol, _ = least_squares(ctx, None)
         ctx.set_direction(-m.tangent.embed(sol))
         exact = (ctx.q_exact, ctx.rho) if space.has_curvature else ()
         for value in (ctx.F0, ctx.velocity, ctx.q, ctx.xi_rel, *exact):
@@ -612,7 +612,7 @@ class TestContextOnEveryManifold:
         _skip_without_curvature(space)
         m = space.manifold
         ctx = m.context(space.free)
-        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
+        sol, _ = least_squares(ctx, None)
         ctx.set_direction(-m.tangent.embed(sol))
 
         h = 1e-4
@@ -631,10 +631,22 @@ class TestContextOnEveryManifold:
         # along it reduces the geodesic distance.
         m = space.manifold
         ctx = m.context(space.free)
-        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
+        sol, _ = least_squares(ctx, None)
         ctx.set_direction(-m.tangent.embed(sol))
         assert float(ctx.velocity) < 0
         assert float(ctx.distance_at(1e-3)) < float(ctx.F0)
+
+    def test_the_levenberg_marquardt_step_descends(self, space):
+        # LM reads only the chart, `distance2` and `embed`, so it is manifold
+        # generic: its accepted full step (alpha = 1 at the least-squares scale)
+        # lowers the geodesic distance it was accepted on.
+        m = space.manifold
+        ctx = m.context(space.free)
+        sol, diag = least_squares(ctx, None, method="lm")
+        ctx.set_direction(-m.tangent.embed(sol))
+        assert 1 <= int(diag["lm_iter"]) <= 10
+        assert float(ctx.velocity) < 0
+        assert float(ctx.distance_at(1.0)) < float(ctx.F0)
 
     def test_omegas_and_gammas_share_their_units(self, space):
         # Both operands go through the same `coefficients`, so the residual is a

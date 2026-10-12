@@ -108,7 +108,9 @@ class LineSearch:
                 direction already set.
             a: Near bracket endpoint, "don't move" (``Geope`` passes ``0.0``).
             b: Far bracket endpoint, the largest step (``Geope`` passes
-                ``max_step_size / (G * delta_t)``).
+                ``max_step_size / (sqrt(G) * ||coeffs|| * delta_t)``, or
+                ``max_step_size`` itself when its least squares is not
+                normalised).
             state: This search's threaded state from the previous step.
 
         Returns:
@@ -155,8 +157,9 @@ class Armijo(LineSearch):
     logarithm, and ``ctx.velocity`` is the exact slope $\langle A,\Omega\rangle$, one
     contraction of tier 0's Jacobian. So this search spends no propagator and no
     logarithm of its own before its first trial, and it uses the exact slope
-    rather than the radial $s=-2F_0$ of the note's §11 — which held only under
-    perfect tangent matching, and not once ``coeffs`` has been renormalised.
+    rather than the radial $s=-2F_0$ of the note's §11 — which holds only under
+    perfect tangent matching, i.e. not once the least-squares solve leaves a
+    residual.
 
     Because it never reads the *curvature*, this line search still works under
     ``param_transform`` (where the chart has no analytic second differential and
@@ -214,8 +217,8 @@ class QuadraticArmijo(LineSearch):
         concave_guard: When the curvature is negative, seed at
             $\min(\alpha_{\max}, 2|s|/|q|)$ instead of at $\alpha_{\max}$.
             Defaults to ``True``. Without it a concave step starts at the end of
-            the bracket, which is a sensible scale only when the direction has a
-            fixed norm, as `geope.Geope`'s renormalised one does; see
+            the bracket, which is a sensible scale only when that end is a step
+            of fixed length, as `geope.Geope`'s normalised bracket is; see
             :func:`_quadratic_armijo_line_search`.
     """
 
@@ -576,9 +579,9 @@ def _armijo_line_search(
       the tangent matching $\Omega=-A$ that GEOPE's geodesic step targets,
       $s=-\|A\|_F^2=-2F_0$, and the Armijo test collapses to
       $F(\alpha)\le F_0\,(1-2c_1\alpha)$ — current and trial objective values only.
-      It is an approximation once ``coeffs`` has been renormalised to
-      $\|p\|_F=\sqrt{G}$ (so $\|\Omega\|_F\neq\|A\|_F$), but the test is scaled by
-      ``c1``, which is tiny by default. Pass ``s`` explicitly (e.g. the exact
+      It is an approximation once $\Omega\neq-A$ — a least-squares residual, or
+      a direction rescaled away from its least-squares scale — but the test is
+      scaled by ``c1``, which is tiny by default. Pass ``s`` explicitly (e.g. the exact
       $\langle A,\Omega\rangle_F$) to override.
     - **Seed.** ``alpha0 = alpha_max``, the full bracket step.
     - **Armijo.** Accept ``alpha`` when ``fF(alpha) <= F0 + c1 * alpha * s`` (the

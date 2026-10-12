@@ -6,7 +6,7 @@ The Gecko tests live in ``test_gecko.py`` and the History tests in
 
 Tested items:
   Functions (geope.geometry):
-    - linear_comb_projected_coeffs_multigate
+    - least_squares (SVD and Levenberg-Marquardt)
     - hvp_forward_over_reverse
   Classes:
     - Geope
@@ -30,6 +30,8 @@ Tested items:
 import dataclasses
 from dataclasses import FrozenInstanceError
 from functools import partial
+from itertools import pairwise
+from types import SimpleNamespace
 
 import jax
 import jax.numpy as jnp
@@ -51,10 +53,11 @@ from geope.geope import (
     DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
     DEFAULT_MAX_STEP_SIZE,
     DEFAULT_PRECISION,
+    LM_LAMBDA_FACTOR,
     PROGRESS_RTOL,
     Geope,
     build_pulse_expander,
-    linear_comb_projected_coeffs_multigate,
+    least_squares,
 )
 from geope.jax.hessian import hvp_forward_over_reverse
 from geope.line_searches import (
@@ -840,11 +843,51 @@ class TestVjpPropagator:
 # (``Manifold.log``); its tests live in tests/test_geometry.py.
 
 # ---------------------------------------------------------------------------
-# Tests — linear_comb_projected_coeffs_multigate
+# Tests — least_squares
 # ---------------------------------------------------------------------------
 
 
-class TestLinearCombProjectedCoeffsMultigate:
+def _stub_ctx(comb_vecs, target):
+    """The two tier-0 operands ``least_squares`` reads, without a manifold.
+
+    Enough for the ``"svd"`` method, which touches nothing else on the context.
+    """
+    return SimpleNamespace(omegas=comb_vecs, gammas=target)
+
+
+def _solve(comb_vecs, target, expander=None, **kwargs):
+    """``least_squares`` on raw operands."""
+    return least_squares(_stub_ctx(comb_vecs, target), expander, **kwargs)
+
+
+@dataclasses.dataclass(frozen=True)
+class _BracketProbe(LineSearch):
+    """Records the bracket ``b`` and its far end's length ``b * ||coeffs||``.
+
+    Takes no step, so a run with it is a Gram-Schmidt fallback every step; the
+    tests read only the threaded state.
+    """
+
+    name = "bracket_probe"
+
+    def init(self):
+        return {
+            "n_eval": jnp.asarray(0, jnp.int32),
+            "b": jnp.asarray(0.0, jnp.float64),
+            "reach": jnp.asarray(0.0, jnp.float64),
+        }
+
+    def __call__(self, ctx, a, b, state):
+        b = jnp.asarray(b, jnp.float64)
+        reach = b * jnp.linalg.norm(ctx.coeffs)
+        return LineSearchResult(
+            jnp.asarray(0.0, jnp.float64),
+            ctx.infidelity,
+            {"n_eval": state["n_eval"], "b": b, "reach": reach},
+        )
+
+
+class TestLeastSquares:
     def test_identity_system_no_expander(self):
         """With identity-like combo vectors, lstsq should recover the target."""
         comb_vecs = jnp.array(
@@ -853,7 +896,7 @@ class TestLinearCombProjectedCoeffsMultigate:
             ]
         )
         target = jnp.array([0.5, 0.3, 0.1, 0.0])
-        result = linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
+        result, _ = _solve(comb_vecs, target)
         assert result.shape == (1, 3)
         assert jnp.allclose(result[0], jnp.array([0.5, 0.3, 0.1]), atol=1e-10)
 
@@ -865,14 +908,14 @@ class TestLinearCombProjectedCoeffsMultigate:
         )
         target = jnp.array([0.5, 0.3, 0.0])
         expander = jnp.eye(2, dtype=float)
-        result = linear_comb_projected_coeffs_multigate(comb_vecs, target, expander)
+        result, _ = _solve(comb_vecs, target, expander)
         assert result.shape == (1, 2)
 
     def test_output_shape_multigate(self):
         n_gates, n_params, n_elements = 3, 4, 5
         comb_vecs = jnp.ones((n_gates, n_params, n_elements))
         target = jnp.ones(n_elements)
-        result = linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
+        result, _ = _solve(comb_vecs, target)
         assert result.shape == (n_gates, n_params)
 
     def test_zero_target(self):
@@ -882,42 +925,48 @@ class TestLinearCombProjectedCoeffsMultigate:
             ]
         )
         target = jnp.zeros(2)
-        result = linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
+        result, _ = _solve(comb_vecs, target)
         assert jnp.allclose(result, 0, atol=1e-10)
 
+    def test_svd_cutoff_caps_the_condition_number(self):
+        comb_vecs = jnp.array(
+            [
+                [[1.0, 0.0, 0.0], [0.0, 1e-6, 0.0]],
+            ]
+        )
+        target = jnp.array([1.0, 1.0, 0.0])
+        sol, diag = _solve(comb_vecs, target)
+        assert int(diag["rank"]) == 2
+        assert diag["cond"] > 1e5
+        # A cap below 1e6 discards the small singular value, and its column.
+        sol, diag = _solve(comb_vecs, target, svd_cutoff=1e4)
+        assert int(diag["rank"]) == 1
+        assert diag["cond"] == pytest.approx(1.0)
+        assert sol[0, 1] == 0.0
+
+    def test_unknown_method_raises(self):
+        comb_vecs = jnp.ones((1, 2, 3))
+        with pytest.raises(ValueError, match="method"):
+            _solve(comb_vecs, jnp.ones(3), method="qr")
+
 
 # ---------------------------------------------------------------------------
-# Tests — linear_comb_projected_coeffs_multigate diagnostics
+# Tests — least_squares diagnostics
 # ---------------------------------------------------------------------------
 
-_LS_DIAGNOSTIC_KEYS = {"residual", "residual_rel", "rank", "cond"}
+_LS_DIAGNOSTIC_KEYS = {"residual", "residual_rel", "rank", "cond", "damping", "lm_iter"}
 
 
-class TestLinearCombProjectedCoeffsDiagnostics:
-    def test_default_returns_bare_array(self):
-        """Without the flag the return value stays a plain array.
-
-        Regression guard for existing callers (the exploration notebooks call
-        this positionally and index the result directly).
-        """
-        comb_vecs = jnp.ones((2, 3, 4))
-        target = jnp.ones(4)
-        result = linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
-        assert isinstance(result, jnp.ndarray)
-        assert result.shape == (2, 3)
-
+class TestLeastSquaresDiagnostics:
     def test_returns_solution_and_diagnostics(self):
         comb_vecs = jnp.ones((2, 3, 4))
         target = jnp.ones(4)
-        sol, diag = linear_comb_projected_coeffs_multigate(
-            comb_vecs, target, None, return_diagnostics=True
-        )
+        sol, diag = _solve(comb_vecs, target)
         assert sol.shape == (2, 3)
         assert set(diag) == _LS_DIAGNOSTIC_KEYS
-        # The solution must be identical to the no-diagnostics call.
-        assert jnp.allclose(
-            sol, linear_comb_projected_coeffs_multigate(comb_vecs, target, None)
-        )
+        # The SVD method neither damps nor iterates.
+        assert diag["damping"] == 0.0
+        assert diag["lm_iter"] == 0
 
     def test_exactly_solvable_system(self):
         """A consistent system has ~zero residual and full rank."""
@@ -927,9 +976,7 @@ class TestLinearCombProjectedCoeffsDiagnostics:
             ]
         )
         target = jnp.array([0.5, 0.3, 0.1, 0.0])
-        sol, diag = linear_comb_projected_coeffs_multigate(
-            comb_vecs, target, None, return_diagnostics=True
-        )
+        sol, diag = _solve(comb_vecs, target)
         assert jnp.allclose(sol[0], jnp.array([0.5, 0.3, 0.1]), atol=1e-10)
         assert diag["residual"] < 1e-10
         assert diag["residual_rel"] < 1e-10
@@ -944,9 +991,7 @@ class TestLinearCombProjectedCoeffsDiagnostics:
             ]
         )
         target = jnp.array([0.5, 0.3, 0.4])
-        sol, diag = linear_comb_projected_coeffs_multigate(
-            comb_vecs, target, None, return_diagnostics=True
-        )
+        sol, diag = _solve(comb_vecs, target)
         A = jnp.concatenate(comb_vecs, axis=0).T
         expected = jnp.linalg.norm(A @ sol.reshape(-1) - target)
         assert jnp.allclose(diag["residual"], expected, atol=1e-10)
@@ -968,9 +1013,7 @@ class TestLinearCombProjectedCoeffsDiagnostics:
             ]
         )
         target = jnp.zeros(2)
-        sol, diag = linear_comb_projected_coeffs_multigate(
-            comb_vecs, target, None, return_diagnostics=True
-        )
+        sol, diag = _solve(comb_vecs, target)
         assert jnp.allclose(sol, 0, atol=1e-10)
         assert not jnp.isnan(diag["residual_rel"])
         assert diag["residual_rel"] == 0.0
@@ -985,9 +1028,7 @@ class TestLinearCombProjectedCoeffsDiagnostics:
             ]
         )
         target = jnp.array([1.0, 1.0, 0.0])
-        _, diag = linear_comb_projected_coeffs_multigate(
-            comb_vecs, target, None, return_diagnostics=True
-        )
+        _, diag = _solve(comb_vecs, target)
         assert int(diag["rank"]) < 2
         assert jnp.isfinite(diag["cond"])
 
@@ -998,9 +1039,7 @@ class TestLinearCombProjectedCoeffsDiagnostics:
             ]
         )
         target = jnp.array([1.0, 1.0, 0.0])
-        _, diag = linear_comb_projected_coeffs_multigate(
-            comb_vecs, target, None, return_diagnostics=True
-        )
+        _, diag = _solve(comb_vecs, target)
         assert diag["cond"] > 1e6
 
     def test_with_expander(self):
@@ -1014,9 +1053,7 @@ class TestLinearCombProjectedCoeffsDiagnostics:
         # Expander tying the two coefficients together: only the symmetric
         # combination is reachable, so the fit cannot be exact.
         expander = jnp.array([[1.0], [1.0]])
-        sol, diag = linear_comb_projected_coeffs_multigate(
-            comb_vecs, target, expander, return_diagnostics=True
-        )
+        sol, diag = _solve(comb_vecs, target, expander)
         A = jnp.concatenate(comb_vecs, axis=0).T
         expected = jnp.linalg.norm(A @ sol.reshape(-1) - target)
         assert jnp.allclose(diag["residual"], expected, atol=1e-10)
@@ -1029,9 +1066,7 @@ class TestLinearCombProjectedCoeffsDiagnostics:
 
         @jax.jit
         def solve(cv, t):
-            return linear_comb_projected_coeffs_multigate(
-                cv, t, None, return_diagnostics=True
-            )
+            return _solve(cv, t)
 
         sol, diag = solve(comb_vecs, target)
         assert sol.shape == (2, 3)
@@ -1042,12 +1077,84 @@ class TestLinearCombProjectedCoeffsDiagnostics:
         """The standard (non-param_transform) path runs in complex128."""
         comb_vecs = jnp.ones((2, 3, 4), dtype=jnp.complex128)
         target = jnp.array([1.0, 1.0j, 0.5, 0.0], dtype=jnp.complex128)
-        _, diag = linear_comb_projected_coeffs_multigate(
-            comb_vecs, target, None, return_diagnostics=True
-        )
+        _, diag = _solve(comb_vecs, target)
         for key in ("residual", "residual_rel", "cond"):
             assert not jnp.iscomplexobj(diag[key]), key
             assert jnp.isfinite(diag[key]), key
+
+
+# ---------------------------------------------------------------------------
+# Tests — least_squares, Levenberg-Marquardt
+# ---------------------------------------------------------------------------
+
+
+class TestLevenbergMarquardt:
+    @pytest.fixture
+    def lm_params(self, cnot, full_basis_2q, projected_basis_2q):
+        return _params_2q(
+            cnot, full_basis_2q, projected_basis_2q, piecewise_steps=2, seed=3
+        )
+
+    @staticmethod
+    def _sigma_max(ctx):
+        lhs = jnp.concatenate(ctx.omegas, axis=0).T
+        return jnp.linalg.svd(lhs, compute_uv=False)[0]
+
+    def test_accepted_step_lowers_the_distance(self, lm_params):
+        m = lm_params.manifold
+        ctx = m.context(lm_params.free())
+        sol, diag = least_squares(ctx, None, method="lm")
+        trial = m.distance2(
+            m.compute_point(ctx.free_params - m.tangent.embed(sol)), m.target
+        )
+        assert float(trial) < float(ctx.F0)
+        assert 1 <= int(diag["lm_iter"]) <= 10
+
+    def test_damping_starts_relative_to_the_largest_singular_value(self, lm_params):
+        # lambda_k = lm_lambda_init * sigma_max^2 * 10^(k - 1) on trial k.
+        ctx = lm_params.manifold.context(lm_params.free())
+        _, diag = least_squares(ctx, None, method="lm", lm_lambda_init=1e-2)
+        expected = (
+            1e-2 * self._sigma_max(ctx) ** 2 * LM_LAMBDA_FACTOR ** (diag["lm_iter"] - 1)
+        )
+        assert float(diag["damping"]) == pytest.approx(float(expected), rel=1e-12)
+
+    def test_vanishing_damping_is_the_svd_solution(self, lm_params):
+        # One trial at a negligible lambda returns it whether or not it was
+        # accepted, and the filter factors then reduce to 1 / sigma.
+        ctx = lm_params.manifold.context(lm_params.free())
+        lm, _ = least_squares(
+            ctx, None, method="lm", lm_maxiter=1, lm_lambda_init=1e-20
+        )
+        svd, _ = least_squares(ctx, None)
+        np.testing.assert_allclose(lm, svd, rtol=1e-8, atol=1e-12)
+
+    def test_lm_maxiter_caps_the_trials(self, lm_params):
+        ctx = lm_params.manifold.context(lm_params.free())
+        _, diag = least_squares(
+            ctx, None, method="lm", lm_maxiter=2, lm_lambda_init=1e6
+        )
+        assert 1 <= int(diag["lm_iter"]) <= 2
+
+    def test_damping_shortens_the_step(self, lm_params):
+        ctx = lm_params.manifold.context(lm_params.free())
+        light, _ = least_squares(
+            ctx, None, method="lm", lm_maxiter=1, lm_lambda_init=1e-6
+        )
+        heavy, _ = least_squares(
+            ctx, None, method="lm", lm_maxiter=1, lm_lambda_init=1e2
+        )
+        assert float(jnp.linalg.norm(heavy)) < float(jnp.linalg.norm(light))
+
+    def test_with_expander_returns_expanded_solution(self, lm_params):
+        ctx = lm_params.manifold.context(lm_params.free())
+        n = ctx.omegas.shape[0] * ctx.omegas.shape[1]
+        # Tie every coefficient to one amplitude: a single free variable.
+        expander = jnp.ones((n, 1))
+        sol, diag = least_squares(ctx, expander, method="lm")
+        assert sol.shape == ctx.omegas.shape[:2]
+        assert jnp.allclose(sol, sol.reshape(-1)[0])
+        assert int(diag["rank"]) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1456,8 +1563,10 @@ class TestGeope:
         assert g.history.best_fidelity > 0.999
 
     def test_armijo_steps_within_bracket(self, cnot, full_basis_2q, projected_basis_2q):
-        # Every line-search step must land in [0, max_step_size / (G * delta_t)].
-        # The Gram-Schmidt fallback is disabled so that every recorded step size
+        # Every line-search step must be non-negative and move the pulse by at
+        # most max_step_size / (sqrt(G) * delta_t) in parameter space — the far
+        # end of the normalised bracket, whatever the scale of the direction.
+        # The Gram-Schmidt fallback is disabled so that every recorded step
         # really is one the line search chose (the fallback steps by
         # +/- gram_schmidt_step_size / total_time, either sign).
         max_step_size, steps = 0.9, 6
@@ -1469,9 +1578,12 @@ class TestGeope:
             max_step_size=max_step_size,
             gram_schmidt_step_size=0,
         )
-        alpha_max = max_step_size / p.total_time
+        reach = max_step_size / (np.sqrt(steps) * p.delta_t)
         for step in np.asarray(g.history.step_sizes[1:], dtype=float):
-            assert 0.0 <= step <= alpha_max + 1e-12
+            assert step >= 0.0
+        pulses = np.asarray(g.history.parameters, dtype=float)
+        for before, after in pairwise(pulses):
+            assert np.linalg.norm(after - before) <= reach * (1 + 1e-12)
 
     def test_armijo_works_under_param_transform(
         self, cnot, full_basis_2q, projected_basis_2q
@@ -1695,6 +1807,131 @@ class TestGeope:
         g.optimize(max_steps=0, max_step_size=0.5)
         assert g.update_step is not first
 
+    # --- least_squares_args ----------------------------------------------
+
+    def test_least_squares_args_default_before_optimize(self, params_2q):
+        g = Geope(params_2q)
+        assert g.least_squares_args == {
+            "method": "svd",
+            "svd_cutoff": None,
+            "lm_maxiter": 10,
+            "lm_lambda_init": 1e-3,
+            "normalized": True,
+        }
+
+    @pytest.mark.parametrize(
+        ("args", "error"),
+        [
+            ({"metod": "lm"}, TypeError),
+            ({"method": "qr"}, ValueError),
+            ({"svd_cutoff": 0.0}, ValueError),
+            ({"lm_maxiter": 0}, ValueError),
+            ({"lm_lambda_init": -1.0}, ValueError),
+        ],
+    )
+    def test_bad_least_squares_args_raise_before_compiling(
+        self, params_2q, args, error
+    ):
+        g = Geope(params_2q)
+        with pytest.raises(error):
+            g.optimize(max_steps=1, least_squares_args=args)
+        assert g.update_step is None
+
+    def test_least_squares_args_are_memo_keyed(self, params_2q):
+        g = Geope(params_2q)
+        args = {"method": "svd"}
+        g.optimize(max_steps=0, least_squares_args=args)
+        first = g.update_step
+        g.optimize(max_steps=0, least_squares_args={"method": "svd"})
+        assert g.update_step is first
+        # The memo holds a frozen copy: mutating the caller's dict in place and
+        # passing it again must not reuse the step compiled for the old value.
+        args["method"] = "lm"
+        g.optimize(max_steps=0, least_squares_args=args)
+        assert g.update_step is not first
+        assert g.least_squares_args["method"] == "lm"
+
+    def test_levenberg_marquardt_run_converges(self, params_2q):
+        g = Geope(params_2q)
+        g.optimize(max_steps=300, least_squares_args={"method": "lm"})
+        assert g.params.fidelity > 0.999
+        assert g.ls_diagnostics["lm_iter"] >= 1
+        assert g.ls_diagnostics["damping"] > 0
+
+    @pytest.mark.parametrize("method", ["svd", "lm"])
+    def test_unnormalized_run_converges(self, params_2q, method):
+        # alpha = 1 is the full Gauss-Newton (or LM) step, so the bracket is
+        # max_step_size itself rather than max_step_size / (G * delta_t).
+        g = Geope(params_2q)
+        g.optimize(
+            max_steps=300,
+            line_search=Armijo(),
+            least_squares_args={"method": method, "normalized": False},
+        )
+        assert g.params.fidelity > 0.999
+
+    # --- the bracket -------------------------------------------------------
+
+    @pytest.mark.parametrize("delta_t", [1.0, 0.5])
+    def test_normalized_bracket_ends_at_a_fixed_length_step(
+        self, cnot, full_basis_2q, projected_basis_2q, delta_t
+    ):
+        """The direction keeps its least-squares scale; the bracket normalises.
+
+        Its far end is a step of length max_step_size / (sqrt(G) * delta_t) in
+        parameter space whatever ||sol|| is — the step the pre-bracket
+        renormalisation (norm sqrt(G), bracket max_step_size / (G * delta_t))
+        also reached.
+        """
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=4)
+        p.delta_t = delta_t
+        g = Geope(p)
+        g.optimize(max_steps=1, line_search=_BracketProbe(), max_step_size=0.7)
+        reach = g.line_search_state["reach"]
+        assert float(reach) == pytest.approx(0.7 / (np.sqrt(4) * delta_t), rel=1e-12)
+
+    def test_unnormalized_bracket_is_max_step_size(self, params_2q):
+        g = Geope(params_2q)
+        g.optimize(
+            max_steps=1,
+            line_search=_BracketProbe(),
+            max_step_size=0.7,
+            least_squares_args={"normalized": False},
+        )
+        assert float(g.line_search_state["b"]) == 0.7
+
+    @pytest.mark.parametrize("line_search", [Armijo(), GoldenSection()])
+    def test_vanishing_solution_gets_an_empty_bracket(
+        self, full_basis_2q, projected_basis_2q, line_search
+    ):
+        """At an exactly reached target the solve returns zero: don't move.
+
+        An infinite bracket would put ``inf * 0`` on the ray and NaN parameters
+        into the update.
+        """
+        p = _params_2q(
+            np.eye(4, dtype=complex),
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=2,
+            init_values=np.zeros((2, projected_basis_2q.lie_algebra_dim)),
+        )
+        g = Geope(p)
+        free = g.params.free()
+        g.optimize(max_steps=0, line_search=_BracketProbe())
+        state = g.line_search.init()
+        coeffs, *_, state, _ = g.update_step(free, g._delta_t(), state)
+        assert not np.any(coeffs)
+        assert float(state["b"]) == 0.0
+
+        g.optimize(max_steps=0, line_search=line_search)
+        _, new_params, fidelity, _, _, step_size, *_ = g.update_step(
+            free, g._delta_t(), g.line_search.init()
+        )
+        assert float(step_size) == 0.0
+        assert np.all(np.isfinite(np.asarray(new_params)))
+        assert np.isfinite(float(fidelity))
+
     def test_precision_from_optimize_controls_stopping(self, params_2q):
         # precision=0.0 → fidelity < 0.0 is never true → the loop runs 0 steps.
         g = Geope(params_2q, history=History())
@@ -1792,6 +2029,8 @@ class TestGeope:
         assert np.isnan(g.ls_diagnostics["residual_rel"])
         assert np.isnan(g.ls_diagnostics["cond"])
         assert g.ls_diagnostics["rank"] == -1
+        assert np.isnan(g.ls_diagnostics["damping"])
+        assert g.ls_diagnostics["lm_iter"] == -1
 
     def test_ls_diagnostics_populated_after_optimize(self, params_2q):
         g = Geope(params_2q)

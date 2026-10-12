@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import inspect
+from typing import TYPE_CHECKING
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -23,6 +26,9 @@ from .utils import (
 from .utils.callbacks import normalize_callbacks, run_callbacks
 from .utils.history import History
 
+if TYPE_CHECKING:
+    from .geometry.context import GeometricContext
+
 # Default settings.
 DEFAULT_PRECISION = 0.9999999
 DEFAULT_MAX_STEP_SIZE = 1.0
@@ -30,6 +36,11 @@ DEFAULT_GRAM_SCHMIDT_STEP_SIZE = 1.3
 
 # Relative threshold to assert if step made progress.
 PROGRESS_RTOL = 1e-5
+
+# The least-squares methods `least_squares` accepts.
+LEAST_SQUARES_METHODS = ("svd", "lm")
+# Factor the Levenberg-Marquardt damping grows by on a rejected trial.
+LM_LAMBDA_FACTOR = 10.0
 
 
 class Geope:
@@ -61,11 +72,13 @@ class Geope:
             per run); ``None`` until :meth:`optimize` is first called.
         #TODO: do we need this to be public? Only used in optimize
         step_size: Transient last line-search step size.
+        least_squares_args: The resolved :func:`least_squares` configuration
+            from the most recent :meth:`optimize` call (its defaults before
+            then).
         ls_diagnostics: Diagnostics of the *most recent* geodesic least-squares
             solve, as a dict of host-side scalars with keys ``residual``,
-            ``residual_rel``, ``rank`` and ``cond`` (see
-            :func:`linear_comb_projected_coeffs_multigate`). Seeded with
-            ``nan`` / ``-1``
+            ``residual_rel``, ``rank``, ``cond``, ``damping`` and ``lm_iter``
+            (see :func:`least_squares`). Seeded with ``nan`` / ``-1``
             sentinels before the first solve of a run. Not logged by default —
             pass a ``logging_fn`` to `History` (or read it from a callback) to
             record it.
@@ -152,6 +165,7 @@ class Geope:
         # the first optimize() call.
         self.line_search = None
         self.line_search_state = None
+        self.least_squares_args = _check_least_squares_args(None)
         self._linesearch_config = None
         self.update_step = None
 
@@ -314,12 +328,14 @@ class Geope:
             self.params.free(), self._delta_t()
         )
         self.step_size = 0
-        # line search diagnostics
+        # least-squares diagnostics
         self.ls_diagnostics = {
             "residual": float("nan"),
             "residual_rel": float("nan"),
             "rank": -1,
             "cond": float("nan"),
+            "damping": float("nan"),
+            "lm_iter": -1,
         }
 
         if self.history is not None:
@@ -330,15 +346,20 @@ class Geope:
         self,
         line_search: LineSearch,
         max_step_size: float,
+        least_squares_args: dict | None = None,
     ) -> None:
-        """Select the line search and (re)build its update functions.
-        If line_search or max_step changes, we have to rebuild these object
-        to force retracing.
+        """Select the line search and least squares and (re)build the update.
+        If line_search, max_step or the least-squares configuration changes, we
+        have to rebuild these object to force retracing.
 
         Args:
             line_search: The :class:`~geope.line_searches.LineSearch` object.
             max_step_size: Maximum line-search step; baked into the jitted
                 closure, so it is part of the compile memo key.
+            least_squares_args: Keyword arguments of :func:`least_squares`
+                (``None`` for its defaults). Baked into the jitted closure, so
+                part of the compile memo key — as a frozen copy, so mutating the
+                caller's dict later cannot reuse a stale compiled step.
 
         Raises:
             TypeError: If ``line_search`` is not a
@@ -346,6 +367,10 @@ class Geope:
                 `geope.optimizers` is a second family of frozen dataclasses
                 passed to an ``optimize`` keyword, and one of them is called
                 ``Adam`` — as a line search of that name once was.
+            TypeError: If ``least_squares_args`` has a key :func:`least_squares`
+                does not take.
+            ValueError: If ``least_squares_args`` holds an invalid value (see
+                :func:`least_squares`).
         """
         if not isinstance(line_search, LineSearch):
             raise TypeError(
@@ -354,12 +379,18 @@ class Geope:
                 "QuadraticArmijo or ApproximateQuadraticArmijo — not "
                 f"{type(line_search).__name__}."
             )
-        config = (line_search, max_step_size)
+        least_squares_args = _check_least_squares_args(least_squares_args)
+        config = (
+            line_search,
+            max_step_size,
+            tuple(sorted(least_squares_args.items())),
+        )
         # Set the instance attributes before the memo check so self.<attr>
         # always tracks the latest values — safe because an equal config means
         # identical trace-time behaviour.
         self.line_search = line_search
         self.max_step_size = max_step_size
+        self.least_squares_args = least_squares_args
         # TODO: Can we do this without the extra self._linsearch_config?
         if self._linesearch_config == config:
             return
@@ -374,6 +405,7 @@ class Geope:
         max_step_size: float = DEFAULT_MAX_STEP_SIZE,
         gram_schmidt_step_size: float = DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
         callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
+        least_squares_args: dict | None = None,
     ) -> Parameters:
         """Run the GEOPE optimisation loop.
 
@@ -387,10 +419,14 @@ class Geope:
                 Defaults to :class:`~geope.line_searches.Armijo`.
             precision: Target fidelity threshold. Defaults to 0.9999999.
                 Host-side only (loop control) — zero compile impact.
-            max_step_size: Maximum line-search step, per unit of total duration
-                (the bracket is ``max_step_size / total_time``). Defaults to 1.0.
-                Baked into the jitted update, so changing it triggers a one-off
-                recompile.
+            max_step_size: Maximum line-search step. Normalised (the default),
+                the longest step has length ``max_step_size / (sqrt(G) *
+                delta_t)`` in parameter space, i.e. it is per unit of total
+                duration, whatever the scale of the least-squares solution; with
+                ``least_squares_args={"normalized": False}`` the bracket is
+                ``max_step_size`` itself, where ``1`` is the full Gauss-Newton
+                (or LM) step. Defaults to 1.0. Baked into the jitted update, so
+                changing it triggers a one-off recompile.
             gram_schmidt_step_size: Step size for the Gram-Schmidt fallback, per
                 unit of total duration like ``max_step_size``. Defaults to 1.3.
                 Host-side only — zero compile impact. A falsy value disables the
@@ -403,6 +439,15 @@ class Geope:
                 the 1-based index of the step just completed, ``history`` is
                 ``geope.history`` (may be ``None``), and ``geope`` is this
                 optimiser.
+            least_squares_args: Keyword arguments of :func:`least_squares`,
+                which solves for the search direction each step: ``method``
+                (``"svd"``, the default, or ``"lm"``), ``svd_cutoff``,
+                ``lm_maxiter`` and ``lm_lambda_init``, plus ``normalized``
+                (default ``True``), which picks the bracket described under
+                ``max_step_size``. ``None`` (default) uses the defaults. Baked
+                into the jitted update, so changing it triggers a one-off
+                recompile. ``step_size`` is in units of the least-squares
+                solution either way.
 
         A step is kept when it reduced the line search's own objective by more
         than ``PROGRESS_RTOL`` relatively (`GoldenSection` minimises
@@ -428,7 +473,7 @@ class Geope:
         # by the compile memo (it must not just be set as self.max_step_size
         # after a memo hit, or a reused closure would keep the old value).
         line_search = line_search or Armijo()
-        self._configure_line_search(line_search, max_step_size)
+        self._configure_line_search(line_search, max_step_size, least_squares_args)
 
         # Reset the per-run line-search state. Doing this here — not inside
         # _configure_line_search — decouples fresh run state from compile reuse:
@@ -461,10 +506,8 @@ class Geope:
             ) = update_step(self.params.free(), self._delta_t(), self.line_search_state)
             # Pull the diagnostics to the host
             self.ls_diagnostics = {
-                "residual": float(ls_diagnostics["residual"]),
-                "residual_rel": float(ls_diagnostics["residual_rel"]),
-                "rank": int(ls_diagnostics["rank"]),
-                "cond": float(ls_diagnostics["cond"]),
+                key: int(value) if key in ("rank", "lm_iter") else float(value)
+                for key, value in ls_diagnostics.items()
             }
 
             # Accept on the objective the line search actually minimised
@@ -772,17 +815,20 @@ class Geope:
     ) -> Callable[..., tuple]:
         r"""Build the JIT-compiled geodesic update step.
 
-        One jitted function per line-search configuration, and one
-        `geope.geometry.GeometricContext` per call of it. The step is: open the
-        context, solve the least-squares problem for the linear combination of
-        omegas that best matches the geodesic direction, renormalise it, attach
-        it to the context, and line-search along it.
+        One jitted function per line-search and least-squares configuration, and
+        one `geope.geometry.GeometricContext` per call of it. The step is: open
+        the context, solve the least-squares problem for the linear combination
+        of omegas that best matches the geodesic direction (:func:`least_squares`),
+        attach its negation to the context, and line-search along it. The
+        direction keeps its least-squares scale; ``normalized`` acts on the
+        bracket instead.
 
         The context is built *inside* this function and never leaves it — it is a
-        trace-time object, not a pytree. Everything the line search needs (the
-        ray, the slope, the curvature) it reads off that one context, so the base
-        point's propagator, Jacobian and matrix logarithm are each evaluated
-        once per step however geometry-hungry the line search is.
+        trace-time object, not a pytree. The solve and the line search read the
+        same context, so the base point's propagator, Jacobian and matrix
+        logarithm are each evaluated once per step however geometry-hungry the
+        line search is. (``method="lm"`` adds its own trial evaluations, one
+        propagator and one logarithm each, at points off the ray.)
 
         Args:
             expander_override: Optional constraint expander to use in
@@ -797,16 +843,26 @@ class Geope:
             ``value`` is the line search's own objective at the accepted step and
             ``value0`` the same objective at ``t = 0``, which is what
             :meth:`optimize` tests for progress. ``ls_diagnostics`` describes the
-            least-squares solve for this step (see
-            :func:`linear_comb_projected_coeffs_multigate`). Note ``coeffs`` is
-            renormalised to fixed norm $\sqrt{N_g}$ *after* the solve, so the
-            diagnostics rate the quality of the geodesic *direction* fit, not
-            the error of the step actually taken.
+            least-squares solve for this step (see :func:`least_squares`).
+
+            ``coeffs`` is the negated least-squares solution at its own scale.
+            With ``normalized=True`` the bracket is
+            $[0, \texttt{max\_step\_size}/(\sqrt{N_g}\,\lVert\text{sol}\rVert\,
+            \Delta t)]$, so its far end is a step of fixed length
+            $\texttt{max\_step\_size}/(\sqrt{N_g}\,\Delta t)$ in parameter space
+            (an empty bracket if the solution vanishes); otherwise it is
+            $[0, \texttt{max\_step\_size}]$, where a unit step is the full
+            Gauss-Newton (or LM) step. ``step_size`` is in units of ``coeffs``
+            either way.
         """
         manifold = self.params.manifold
         line_search = self.line_search
-        # Bracket half-width: baked in, so it joins the compile memo.
+        # Bracket half-width and the solve's configuration: baked in, so they
+        # join the compile memo.
         max_step_size = self.max_step_size
+        least_squares_args = dict(self.least_squares_args)
+        # Not the solve's but the bracket's: see below.
+        normalized = least_squares_args.pop("normalized")
 
         @jax.jit
         def update_step(free_params, delta_t, ls_state):
@@ -821,27 +877,45 @@ class Geope:
             else:
                 expander_gates = None
 
-            sol, ls_diagnostics = linear_comb_projected_coeffs_multigate(
-                ctx.omegas,
-                ctx.gammas,
-                expander_gates,
-                return_diagnostics=True,
+            # The solve reads only the context's direction-free tier 0, which the
+            # line search below reuses from the same memo.
+            sol, ls_diagnostics = least_squares(
+                ctx, expander_gates, **least_squares_args
             )
 
             # Scatter the solved columns back over the chart's parameters (a
-            # no-op under param_transform, where every column is solvable), then
-            # fix the direction's norm so the bracket means the same thing at
-            # every step.
+            # no-op under param_transform, where every column is solvable) and
+            # negate: the solve matches the tangent to A, which points uphill.
             coeffs = -manifold.tangent.embed(sol)
-            coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
             ctx.set_direction(coeffs)
 
             # One-sided bracket on the descent side: alpha = 0 is "don't move" and
-            # a useful step is positive (see `GeometricContext.A`). Scaled per
-            # unit of total duration G * delta_t: the chart scales the pulse by
-            # delta_t, so this keeps the step's effect on the unitary independent
-            # of how the duration is split into segments.
-            alpha_max = max_step_size / (free_params.shape[0] * delta_t)
+            # a useful step is positive (see `GeometricContext.A`).
+            if normalized:
+                # Normalised through the bracket rather than the direction: its
+                # far end is a step of length max_step_size / (sqrt(G) * delta_t)
+                # in parameter space, whatever the least-squares scale of `sol`.
+                # The 1 / (sqrt(G) * delta_t) keeps the step's effect on the
+                # unitary independent of how the duration is split into
+                # segments (the chart scales the pulse by delta_t). A vanishing
+                # solution gets an empty bracket rather than an infinite one.
+                norm = jnp.linalg.norm(sol)
+                nonzero = norm > 0
+                alpha_max = jnp.where(
+                    nonzero,
+                    max_step_size
+                    / (
+                        jnp.sqrt(free_params.shape[0])
+                        * jnp.where(nonzero, norm, 1.0)
+                        * delta_t
+                    ),
+                    0.0,
+                )
+            else:
+                # The solution keeps its least-squares scale, which already
+                # carries that factor (the omegas contain the chart's -delta_t),
+                # so alpha = 1 is the full Gauss-Newton (or LM) step.
+                alpha_max = jnp.asarray(max_step_size, jnp.float64)
             result = line_search(
                 ctx, jnp.asarray(0.0, jnp.float64), alpha_max, ls_state
             )
@@ -944,88 +1018,234 @@ def build_pulse_expander(
     return E, templates
 
 
-def linear_comb_projected_coeffs_multigate(
-    combination_vectors: Array,
-    target_vector: Array,
+def least_squares(
+    ctx: GeometricContext,
     expander: Array | None,
     *,
-    return_diagnostics: bool = False,
-) -> Array | tuple[Array, dict[str, Array]]:
-    """Solve for the linear combination of omegas matching a target vector.
+    method: str = "svd",
+    svd_cutoff: float | None = None,
+    lm_maxiter: int = 10,
+    lm_lambda_init: float = 1e-3,
+) -> tuple[Array, dict[str, Array]]:
+    r"""Solve the geodesic least-squares problem off a step's context.
 
-    Uses least-squares to find coefficients that best reproduce
-    `target_vector` from the columns of the concatenated
-    `combination_vectors`, optionally expanded by a constraint matrix. Writing
-    $A=\\omega^T E$ (or $\\omega^T$ when there is no expander) and
-    $b=\\gamma$, this solves
+    Finds the linear combination of the context's omegas that best reproduces
+    its gammas, optionally through a constraint expander. Writing
+    $A=\omega^\intercal E$ (or $\omega^\intercal$ when there is no expander) and
+    $b=\gamma$, the two methods solve
 
-    $$\\text{sol} = \\arg\\min_x \\lVert A x - b\\rVert_2 .$$
+    $$x_{\text{svd}} = \arg\min_x \lVert A x - b\rVert_2, \qquad
+      x_{\text{lm}}(\lambda) = \arg\min_x \lVert A x - b\rVert_2^2
+        + \lambda\lVert x\rVert_2^2 .$$
+
+    ``"lm"`` is Levenberg damping of that solve, read as a Gauss-Newton step on
+    the squared geodesic distance $F_0$: one SVD of $A$ gives $x(\lambda)$ for
+    every $\lambda$ through the filter factors $\sigma_i/(\sigma_i^2+\lambda)$.
+    Starting from $\lambda_0 = \texttt{lm\_lambda\_init}\cdot\sigma_0^2$ (scaled
+    by the largest singular value, so the setting is scale-free), it accepts the
+    first $\lambda$ whose full step $\phi - x(\lambda)$ lowers the distance below
+    the context's own `F0`, and multiplies $\lambda$ by `LM_LAMBDA_FACTOR`
+    otherwise. $\lambda$ restarts at $\lambda_0$ on every call.
+
+    **Context discipline.** ``ctx`` is the same object the line search receives
+    next, so this function only *reads* its direction-free tier 0 (``omegas``,
+    ``gammas`` and, for ``"lm"``, ``F0``), all of which the line search reuses
+    from the memo. It never calls ``ctx.set_direction`` (a context takes one
+    direction, and the caller sets it), and the ``"lm"`` loop touches the
+    context only through values read *before* the loop, because a
+    ``cached_property`` first read inside ``lax`` control flow would memoise a
+    tracer of the loop body.
 
     Args:
-        combination_vectors: ``Array`` of omega vectors with shape
-            ``(piecewise_steps, K_proj, K_full)``.
-        target_vector: The target geodesic direction ``Array``.
+        ctx: The step's :class:`~geope.geometry.GeometricContext`, with no
+            direction set.
         expander: Optional constraint expansion ``Array``, or ``None``.
-        return_diagnostics: When ``True``, also return a dict of scalar
-            diagnostics for the solve. They come for free from the same
-            ``jnp.linalg.lstsq`` call, which computes its residual
-            unconditionally, so this adds no work.
+        method: ``"svd"`` (default) for ``jnp.linalg.lstsq``, ``"lm"`` for
+            Levenberg damping with accept/reject on the geodesic distance.
+        svd_cutoff: Condition-number cap of the SVD: singular values below
+            ``s[0] / svd_cutoff`` are discarded. ``None`` keeps the
+            ``jnp.linalg.lstsq`` default, $\varepsilon\max(M, N)$ relative.
+        lm_maxiter: Maximum number of trial $\lambda$ values for ``"lm"``,
+            each costing one propagator and one logarithm. If none lowers the
+            distance, the last (most damped) solution is returned.
+        lm_lambda_init: Initial damping for ``"lm"``, relative to $\sigma_0^2$.
 
     Returns:
-        Solution ``Array`` of shape ``(piecewise_steps, K_proj)``. When
-        ``return_diagnostics`` is ``True``, a tuple ``(sol, diagnostics)``
-        where ``diagnostics`` holds real scalars
+        A tuple ``(sol, diagnostics)``. ``sol`` has shape
+        ``(piecewise_steps, K_solvable)``, in the solvable columns (scatter it
+        with ``manifold.tangent.embed``), pointing *uphill* — the caller
+        negates it — and at its least-squares scale, where a unit step is the
+        full Gauss-Newton (or LM) step. ``Geope`` normalises through the
+        line-search bracket rather than by rescaling it. ``diagnostics`` holds
+        scalars
 
-        * ``residual`` — $\\lVert A\\,\\text{sol} - b\\rVert_2$.
-        * ``residual_rel`` — $\\lVert A\\,\\text{sol}-b\\rVert_2/\\lVert
-          b\\rVert_2$, in $[0, 1]$; ``0.0`` when $\\lVert b\\rVert_2$
-          vanishes. This is the headline number: it measures how much of the
-          geodesic direction lies outside the controllable subspace, and is
-          comparable across steps and across problems.
-        * ``rank`` — the numerical rank of $A$.
-        * ``cond`` — $\\sigma_0/\\sigma_{\\text{rank}-1}$, the condition
-          number over the singular values retained above the ``rcond``
-          cutoff, i.e. the effective conditioning of the solve.
+        * ``residual`` — $\lVert A x - b\rVert_2$.
+        * ``residual_rel`` — $\lVert A x-b\rVert_2/\lVert b\rVert_2$, in
+          $[0, 1]$; ``0.0`` when $\lVert b\rVert_2$ vanishes. This is the
+          headline number: it measures how much of the geodesic direction lies
+          outside the controllable subspace, and is comparable across steps and
+          across problems.
+        * ``rank`` — the numerical rank of $A$ under the cutoff.
+        * ``cond`` — $\sigma_0/\sigma_{\text{rank}-1}$, the condition number
+          over the singular values retained above the cutoff, i.e. the
+          effective conditioning of the solve.
+        * ``damping`` — the $\lambda$ that produced $x$; ``0.0`` for ``"svd"``.
+        * ``lm_iter`` — the number of trial $\lambda$ evaluated; ``0`` for
+          ``"svd"``.
 
-        Note the residual describes the fit of the *unnormalised* solution:
-        the caller rescales it to a fixed norm before stepping, so these are
-        direction-quality diagnostics, not the error of the step taken.
+    Raises:
+        ValueError: If ``method`` is not ``"svd"`` or ``"lm"``.
     """
-    comb_vecs = jnp.concatenate(combination_vectors, axis=0)
+    omegas = ctx.omegas
+    gammas = ctx.gammas
+    sol_shape = omegas.shape[:2]
+
+    comb_vecs = jnp.concatenate(omegas, axis=0)
     comb_vecs_T = comb_vecs.T @ expander if expander is not None else comb_vecs.T
+    rcond = None if svd_cutoff is None else 1.0 / svd_cutoff
+    diagnostics = {}
 
-    # ``lstsq`` returns (x, squared residual, rank, singular values); JAX
-    # computes the residual unconditionally (``numpy_resid=False``) so that it
-    # stays jit-safe, which makes the diagnostics below free.
-    res = jnp.linalg.lstsq(comb_vecs_T, target_vector)
+    if method == "svd":
+        x, residual2, rank, singular_values = jnp.linalg.lstsq(
+            comb_vecs_T, gammas, rcond=rcond
+        )
+        residual = jnp.sqrt(residual2)
+    elif method == "lm":
+        x, rank, singular_values, damping, lm_iter = _levenberg_marquardt(
+            ctx,
+            comb_vecs_T,
+            gammas,
+            expander,
+            sol_shape,
+            lm_maxiter,
+            lm_lambda_init,
+        )
+        residual = jnp.linalg.norm(comb_vecs_T @ x - gammas)
+        diagnostics["damping"] = damping
+        diagnostics["lm_iter"] = lm_iter
+    else:
+        raise ValueError(
+            f"Unknown least-squares method {method!r}; expected one of "
+            f"{LEAST_SQUARES_METHODS}."
+        )
 
-    sol = expander @ res[0] if expander is not None else res[0]
-    sol = sol.reshape(combination_vectors.shape[0], combination_vectors.shape[1])
-    if not return_diagnostics:
-        return sol
-
-    # ``res[1]`` is the squared 2-norm, shaped (1,) because the target is 1-D.
-    residual = jnp.sqrt(res[1][0])
-    target_norm = jnp.linalg.norm(target_vector)
-    # Near convergence the geodesic tangent vanishes, so the relative residual
-    # is a genuine 0/0; define it as 0 there (the residual vanishes with it).
-    nonzero = target_norm > 0
-    safe_norm = jnp.where(nonzero, target_norm, 1.0)
-    residual_rel = jnp.where(nonzero, residual / safe_norm, 0.0)
-
-    rank = res[2]
-    singular_values = res[3]
-    # Singular values are descending, so index ``rank - 1`` is the smallest one
-    # retained above the rcond cutoff (JAX clamps the traced index).
+    sol = expander @ x if expander is not None else x
+    sol = sol.reshape(sol_shape)
+    # residual and relative residual
+    diagnostics["residual"] = residual
+    residual_rel = residual / jnp.linalg.norm(gammas)
+    diagnostics["residual_rel"] = residual_rel
+    # Smallest singular value
     smallest_kept = singular_values[rank - 1]
     positive = smallest_kept > 0
     safe_smallest: Array = jnp.where(positive, smallest_kept, 1.0)
-    cond = jnp.where(positive, singular_values[0] / safe_smallest, jnp.inf)
+    # Add diagnostics
+    diagnostics["cond"] = jnp.where(
+        positive, singular_values[0] / safe_smallest, jnp.inf
+    )
+    diagnostics["rank"] = rank
 
-    diagnostics = {
-        "residual": residual,
-        "residual_rel": residual_rel,
-        "rank": rank,
-        "cond": cond,
-    }
     return sol, diagnostics
+
+
+def _levenberg_marquardt(
+    ctx: GeometricContext,
+    lhs: Array,
+    rhs: Array,
+    expander: Array | None,
+    sol_shape: tuple[int, int],
+    maxiter: int,
+    lambda_init: float,
+) -> tuple[Array, Array, Array, Array, Array]:
+    """Levenberg-damped solve of ``lhs @ x = rhs``, accepting on the distance.
+
+    See :func:`least_squares`. Returns ``(x, rank, singular_values, damping,
+    n_trials)``, where ``damping`` is the $\\lambda$ that produced ``x``.
+    """
+    # Every context read happens here, before the loop.
+    F0 = ctx.F0
+    manifold = ctx.manifold
+    free_params = ctx.free_params
+    delta_t = ctx.delta_t
+    target = ctx.target
+
+    u, s, vh = jnp.linalg.svd(lhs, full_matrices=False)
+    rcond = float(jnp.finfo(jnp.result_type(lhs, rhs)).eps) * max(lhs.shape)
+    keep = s >= rcond * s[0]
+    rank = keep.sum()
+    v = vh.conj().T
+    u_b = u.conj().T @ rhs
+
+    def solve(lam):
+        denom = jnp.where(keep, s**2 + lam, 1.0)
+        return v @ (jnp.where(keep, s / denom, 0.0) * u_b)
+
+    def distance(x):
+        sol = (expander @ x if expander is not None else x).reshape(sol_shape)
+        point = manifold.compute_point(
+            free_params - manifold.tangent.embed(sol), delta_t
+        )
+        return manifold.distance2(point, target)
+
+    def cond(carry):
+        n_trials, _, _, _, accepted = carry
+        return (~accepted) & (n_trials < maxiter)
+
+    def body(carry):
+        n_trials, lam, _, _, _ = carry
+        x = solve(lam)
+        # A NaN distance compares False, so it is rejected like an increase.
+        accepted = distance(x) < F0
+        return n_trials + 1, lam * LM_LAMBDA_FACTOR, lam, x, accepted
+
+    lam0 = jnp.asarray(lambda_init * s[0] ** 2, jnp.float64)
+    x0 = jnp.zeros(v.shape[0], jnp.result_type(v, u_b))
+    n_trials, _, damping, x, _ = jax.lax.while_loop(
+        cond,
+        body,
+        (jnp.asarray(0, jnp.int32), lam0, lam0, x0, jnp.asarray(False)),
+    )
+    return x, rank, s, damping, n_trials
+
+
+def _check_least_squares_args(args: dict | None) -> dict:
+    """Fill ``least_squares_args`` with the defaults of :func:`least_squares`.
+
+    Host-side, so a bad configuration fails in ``optimize`` before anything is
+    compiled. Returns a fresh dict, never the caller's. Besides the keyword
+    arguments of :func:`least_squares` it carries ``normalized``, which is not
+    the solve's but the bracket's: ``Geope``'s update step takes it off before
+    calling the solve.
+
+    Raises:
+        TypeError: On a key that is neither a keyword of :func:`least_squares`
+            nor ``normalized``.
+        ValueError: On an unknown ``method``, a non-positive ``svd_cutoff`` or
+            ``lm_lambda_init``, or ``lm_maxiter < 1``.
+    """
+    defaults = {
+        name: p.default
+        for name, p in inspect.signature(least_squares).parameters.items()
+        if p.kind is inspect.Parameter.KEYWORD_ONLY
+    }
+    defaults["normalized"] = True
+    args = dict(args or {})
+    unknown = set(args) - set(defaults)
+    if unknown:
+        raise TypeError(
+            f"Unknown least_squares_args {sorted(unknown)}; expected a subset "
+            f"of {sorted(defaults)}."
+        )
+    resolved = {**defaults, **args}
+    if resolved["method"] not in LEAST_SQUARES_METHODS:
+        raise ValueError(
+            f"Unknown least-squares method {resolved['method']!r}; expected one "
+            f"of {LEAST_SQUARES_METHODS}."
+        )
+    if resolved["svd_cutoff"] is not None and not resolved["svd_cutoff"] > 0:
+        raise ValueError("svd_cutoff must be positive (a condition-number cap).")
+    if not resolved["lm_maxiter"] >= 1:
+        raise ValueError("lm_maxiter must be at least 1.")
+    if not resolved["lm_lambda_init"] > 0:
+        raise ValueError("lm_lambda_init must be positive.")
+    return resolved
