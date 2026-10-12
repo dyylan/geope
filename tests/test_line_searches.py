@@ -10,6 +10,7 @@ Tested items:
 
 import jax
 import jax.numpy as jnp
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -77,14 +78,56 @@ class TestQuadraticArmijoLineSearch:
         assert int(n) == 1
 
     def test_nonpositive_curvature_falls_back_to_full_step(self):
-        # q <= 0: the model is concave, so it has no minimiser -> full step
-        # t0 = t_max, accepted on a purely linear (descent) objective.
+        # q <= 0 without the guard: the model is concave, so it has no minimiser
+        # -> full step t0 = t_max, accepted on a purely linear (descent) objective.
         s, F0 = -1.0, 1.0
         fF = lambda t: F0 + s * t  # linear, min on [0, 1] at t = 1
-        t, F, n = _quadratic_armijo_line_search(fF, 1.0, s, -1.0, F0)
+        t, F, n = _quadratic_armijo_line_search(
+            fF, 1.0, s, -1.0, F0, concave_guard=False
+        )
         assert jnp.isclose(t, 1.0)
         assert int(n) == 1
         assert jnp.isclose(F, fF(1.0))
+
+    def test_concave_guard_seeds_where_the_quadratic_term_takes_over(self):
+        # q < 0 with the guard: the seed is min(t_max, 2|s|/|q|) = 2 * 1 / 4 = 0.5,
+        # where |q| t^2 / 2 = |s| t, instead of the bracket end t_max = 1.
+        s, q, F0 = -1.0, -4.0, 1.0
+        fF = lambda t: F0 + s * t
+        t, _, n = _quadratic_armijo_line_search(fF, 1.0, s, q, F0)
+        t_off, _, _ = _quadratic_armijo_line_search(
+            fF, 1.0, s, q, F0, concave_guard=False
+        )
+        assert jnp.isclose(t, 0.5) and int(n) == 1
+        assert jnp.isclose(t_off, 1.0)
+
+    def test_concave_guard_never_seeds_past_the_bracket(self):
+        # 2|s|/|q| = 2 > t_max = 1, so the guard leaves the full step alone.
+        s, q, F0 = -1.0, -1.0, 1.0
+        fF = lambda t: F0 + s * t
+        t, _, n = _quadratic_armijo_line_search(fF, 1.0, s, q, F0)
+        assert jnp.isclose(t, 1.0) and int(n) == 1
+
+    def test_concave_guard_bounds_an_unbounded_bracket(self):
+        # With t_max = inf a concave step no longer seeds at inf: the guard gives a
+        # finite seed, so the search is an ordinary one-evaluation accept.
+        s, q, F0 = -1.0, -4.0, 1.0
+        fF = lambda t: F0 + s * t
+        t, F, n = jax.jit(
+            lambda: _quadratic_armijo_line_search(fF, jnp.inf, s, q, F0)
+        )()
+        assert jnp.isclose(t, 0.5) and int(n) == 1
+        assert bool(jnp.isfinite(F))
+
+    def test_zero_curvature_takes_the_full_step_either_way(self):
+        # q == 0 gives no scale (2|s|/|q| = inf), so both settings seed at t_max.
+        s, F0 = -1.0, 1.0
+        fF = lambda t: F0 + s * t
+        for guard in (True, False):
+            t, _, n = _quadratic_armijo_line_search(
+                fF, 1.0, s, 0.0, F0, concave_guard=guard
+            )
+            assert jnp.isclose(t, 1.0) and int(n) == 1
 
     def test_backtracks_when_seed_overshoots(self):
         # True objective is far steeper than the model (q=4) used for the seed, so
@@ -102,6 +145,33 @@ class TestQuadraticArmijoLineSearch:
         fF = lambda t: F0 + s * t + 0.5 * q * t**2
         t, F, _ = jax.jit(lambda: _quadratic_armijo_line_search(fF, 1.0, s, q, F0))()
         assert bool(jnp.isfinite(t)) and bool(jnp.isfinite(F))
+
+    def test_unbounded_bracket_terminates(self):
+        # t_max = inf with q == 0 (which the concave guard cannot bound) seeds
+        # t0 = inf, a fixed point of t <- beta * t: fF is NaN there (as the
+        # propagator is), the Armijo bound is -inf, and |beta * t| >= t_min never
+        # fails. Only the default budget ends the loop, after the 52 contractions
+        # that take beta = 0.5 to machine precision.
+        fF = lambda t: 1.0 + 0.0 * t  # NaN at t = inf
+        t, _, n = jax.jit(
+            lambda: _quadratic_armijo_line_search(fF, jnp.inf, -1.0, 0.0, 1.0)
+        )()
+        assert int(n) == 1 + 52
+        assert bool(jnp.isinf(t))
+
+    def test_max_iter_caps_the_contractions(self):
+        # A non-decreasing objective fails Armijo at every trial; an explicit
+        # max_iter stops it after that many contractions, far above t_min.
+        fF = lambda t: 1.0 + t
+        t, F, n = _quadratic_armijo_line_search(fF, 1.0, -1.0, -1.0, 1.0, max_iter=3)
+        assert int(n) == 1 + 3
+        assert jnp.isclose(t, 0.5**3)
+        assert jnp.isclose(F, fF(t))
+
+    def test_default_budget_rejects_beta_outside_unit_interval(self):
+        fF = lambda t: 1.0 - t
+        with pytest.raises(ValueError, match="beta"):
+            _quadratic_armijo_line_search(fF, 1.0, -1.0, 4.0, 1.0, beta=1.0)
 
 
 # ===================================================================
@@ -185,3 +255,24 @@ class TestArmijoLineSearch:
         fF = lambda t: 1.0 - 2.0 * t
         t, F, _ = jax.jit(lambda: _armijo_line_search(fF, 1.0))()
         assert bool(jnp.isfinite(t)) and bool(jnp.isfinite(F))
+
+    def test_unbounded_bracket_terminates(self):
+        # The seed is t_max itself, so t_max = inf is the fixed point outright;
+        # see the quadratic sibling. F0 and s are supplied, so there is no probe.
+        fF = lambda t: 1.0 + 0.0 * t  # NaN at t = inf
+        t, _, n = jax.jit(lambda: _armijo_line_search(fF, jnp.inf, F0=1.0, s=-2.0))()
+        assert int(n) == 1 + 52
+        assert bool(jnp.isinf(t))
+
+    def test_max_iter_caps_the_contractions(self):
+        # The F0 probe and the seed, then exactly max_iter contractions.
+        fF = lambda t: 1.0 + 2.0 * t
+        t, F, n = _armijo_line_search(fF, 1.0, max_iter=3)
+        assert int(n) == 2 + 3
+        assert jnp.isclose(t, 0.5**3)
+        assert jnp.isclose(F, fF(t))
+
+    def test_default_budget_rejects_beta_outside_unit_interval(self):
+        fF = lambda t: 1.0 - 2.0 * t
+        with pytest.raises(ValueError, match="beta"):
+            _armijo_line_search(fF, 1.0, beta=1.0)

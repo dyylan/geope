@@ -50,6 +50,7 @@ state is line-search-owned and opaque to GEOPE — every search carries
 ``Geope.optimize`` re-``init()``s the state at the start of every run.
 """
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import NamedTuple
@@ -194,8 +195,9 @@ class QuadraticArmijo(LineSearch):
     $\mathrm{SU}(N)$*: it reads the exact slope $s=\psi'(0)$ and curvature
     $q=\psi''(0)$ of the squared-geodesic-distance objective off the context
     (``ctx.velocity`` and ``ctx.q``), seeds the trial step at the local quadratic minimiser
-    $-s/q$ (clipped to the bracket, with a full-bracket fallback when the
-    curvature is non-positive), and enforces sufficient decrease with Armijo
+    $-s/q$ (clipped to the bracket; when the curvature is negative, at the step
+    $2|s|/|q|$ where the quadratic term overtakes the linear one, see
+    ``concave_guard``), and enforces sufficient decrease with Armijo
     backtracking on ``ctx.distance_at``. The per-step evaluation count is recorded
     in the state as ``n_eval``.
 
@@ -208,6 +210,12 @@ class QuadraticArmijo(LineSearch):
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum step magnitude before the search gives up. Defaults to 1e-8.
+        concave_guard: When the curvature is negative, seed at
+            $\min(t_{\max}, 2|s|/|q|)$ instead of at $t_{\max}$. Defaults to
+            ``True``. Without it a concave step starts at the end of the bracket,
+            which is a sensible scale only when the direction has a fixed norm,
+            as `geope.Geope`'s renormalised one does; see
+            :func:`_quadratic_armijo_line_search`.
     """
 
     name = "quadratic_armijo"
@@ -215,6 +223,7 @@ class QuadraticArmijo(LineSearch):
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
+    concave_guard: bool = True
 
     def __call__(self, ctx, a, b, state):
         dt, value, n_eval = _quadratic_armijo_line_search(
@@ -226,6 +235,7 @@ class QuadraticArmijo(LineSearch):
             c1=self.c1,
             beta=self.beta,
             t_min=self.t_min,
+            concave_guard=self.concave_guard,
         )
         return LineSearchResult(dt, value, {"n_eval": n_eval})
 
@@ -272,6 +282,9 @@ class ApproximateQuadraticArmijo(LineSearch):
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum step magnitude before the search gives up. Defaults to 1e-8.
+        concave_guard: When the curvature is negative, seed at
+            $\min(t_{\max}, 2|s|/|q|)$ instead of at $t_{\max}$, as in
+            :class:`QuadraticArmijo`. Defaults to ``True``.
     """
 
     name = "approximate_quadratic_armijo"
@@ -279,6 +292,7 @@ class ApproximateQuadraticArmijo(LineSearch):
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
+    concave_guard: bool = True
 
     def __call__(self, ctx, a, b, state):
         dt, value, n_eval = _quadratic_armijo_line_search(
@@ -290,6 +304,7 @@ class ApproximateQuadraticArmijo(LineSearch):
             c1=self.c1,
             beta=self.beta,
             t_min=self.t_min,
+            concave_guard=self.concave_guard,
         )
         return LineSearchResult(dt, value, {"n_eval": n_eval})
 
@@ -390,6 +405,27 @@ def _golden_section_search(
     return t_best, f_best, n_eval
 
 
+def _backtracking_max_iter(beta: float, max_iter: int | None) -> int:
+    r"""The contraction budget of the two Armijo backtrackers.
+
+    ``max_iter`` when given; otherwise the fewest contractions that shrink the
+    seed by a factor of float64 machine epsilon,
+    $\lceil\log\varepsilon/\log\beta\rceil$ (52 at ``beta = 0.5``). For any seed
+    below ``t_min / eps`` the ``t_min`` floor is reached first, so this default
+    never binds on a finite seed of sensible size; it exists for the seeds that
+    do not shrink at all.
+
+    Raises:
+        ValueError: If the default is requested and ``beta`` is not in
+            ``(0, 1)``, where the formula has no meaning.
+    """
+    if max_iter is not None:
+        return max_iter
+    if not 0.0 < beta < 1.0:
+        raise ValueError(f"beta must be in (0, 1), got {beta}")
+    return math.ceil(math.log(jnp.finfo(jnp.float64).eps) / math.log(beta))
+
+
 def _quadratic_armijo_line_search(
     fF: Callable[[Array], Array],
     t_max: float | Array,
@@ -399,6 +435,8 @@ def _quadratic_armijo_line_search(
     c1: float = 1e-4,
     beta: float = 0.5,
     t_min: float = 1e-8,
+    max_iter: int | None = None,
+    concave_guard: bool = True,
 ) -> tuple[Array, Array, Array]:
     r"""JIT-compatible quadratic-seeded Armijo line search using JAX.
 
@@ -419,14 +457,27 @@ def _quadratic_armijo_line_search(
 
     - **Seed.** If ``q > 0`` (the local model has a minimiser), start at
       ``t0 = clip(-s / q, 0, t_max)`` — the model minimiser, clipped to the
-      bracket. Otherwise (``q <= 0``: the model is concave, so it has no
-      minimiser at all) fall back to the full step ``t0 = t_max``. A non-positive
-      ``q`` never invalidates the *direction* — descent is guaranteed by
-      ``s < 0`` — only its *scale*, which the backtracking then fixes.
+      bracket. If ``q < 0`` the model is concave and has no minimiser, but $|q|$
+      still sets the scale at which the model stops being linear: the quadratic
+      term $\tfrac12|q|t^2$ overtakes the linear one $|s|t$ at $t=2|s|/|q|$. With
+      ``concave_guard`` (the default) the seed is ``t0 = min(t_max, 2|s|/|q|)``;
+      without it, the full step ``t0 = t_max``. ``q == 0`` gives no scale either
+      way and seeds at ``t_max``. A non-positive ``q`` never invalidates the
+      *direction* — descent is guaranteed by ``s < 0`` — only its *scale*.
+      Leaving that scale to the backtracking alone is safe only when ``t_max``
+      is itself sensible: on an unnormalised direction such as the raw
+      Gauss–Newton step $-J^+\gamma$, whose norm grows with the conditioning of
+      $J$, ``t_max`` can lie orders of magnitude past where the model holds, and
+      the weak Armijo test accepts the first lower point it finds out there.
     - **Armijo.** Accept ``t`` when ``fF(t) <= F0 + c1 * t * s`` (sufficient
       decrease; the right-hand side is below ``F0`` since ``t * s < 0``).
     - **Backtrack.** Otherwise ``t <- beta * t`` (shrinking toward 0) until the
-      test passes or the next step would fall below ``t_min``.
+      test passes, the next step would fall below ``t_min``, or ``max_iter``
+      contractions have been spent. The last exit is the only one that is
+      guaranteed: ``t0 = inf`` (an unbounded ``t_max`` with ``q == 0``, or with
+      ``q < 0`` and no guard) is a fixed point of the contraction, and there the
+      other two stay shut — the Armijo bound is ``-inf`` and
+      ``|beta * t| >= t_min`` holds forever.
 
     Args:
         fF: Scalar-valued objective along the ray, ``fF(t) -> value``. This is
@@ -441,10 +492,19 @@ def _quadratic_armijo_line_search(
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum allowed step magnitude before the search gives up.
             Defaults to 1e-8.
+        max_iter: Maximum number of contractions after the seed. Defaults to
+            ``None``: enough to shrink the seed to machine precision,
+            $\lceil\log\varepsilon/\log\beta\rceil$ (52 at ``beta = 0.5``).
+        concave_guard: When ``q < 0``, seed at ``min(t_max, 2|s|/|q|)`` rather
+            than at ``t_max``. Defaults to ``True``.
 
     Returns:
         A tuple ``(t_best, F_best, n_eval)``: the accepted step, ``fF`` at that
-        step, and the number of ``fF`` evaluations spent.
+        step, and the number of ``fF`` evaluations spent. When a cap stops the
+        search instead of the Armijo test, it is the last trial.
+
+    Raises:
+        ValueError: If ``max_iter`` is ``None`` and ``beta`` is not in ``(0, 1)``.
     """
     f64 = lambda x: jnp.asarray(x, dtype=jnp.float64)
     t_max = f64(t_max)
@@ -453,17 +513,25 @@ def _quadratic_armijo_line_search(
     F0 = f64(F0)
     # TODO: cut locus boundary.
     # With s < 0, a concave model (q < 0) puts -s/q on the *negative* side, which
-    # the clip would collapse to t = 0 (a stalled step); take the full bracket
-    # step instead. q == 0 reaches the same place via +inf, so branch on q > 0.
-    t0 = jnp.where(q > 0.0, jnp.clip(-s / q, 0.0, t_max), t_max)
+    # the clip would collapse to t = 0. concave_guard prevents stalls.
+    if concave_guard:
+        t_concave = jnp.where(
+            q < 0.0, jnp.minimum(t_max, 2.0 * jnp.abs(s) / jnp.abs(q)), t_max
+        )
+    else:
+        t_concave = t_max
+    t0 = jnp.where(q > 0.0, jnp.clip(-s / q, 0.0, t_max), t_concave)
+    max_iter = _backtracking_max_iter(beta, max_iter)
 
     state0 = (t0, f64(fF(t0)), jnp.array(1, dtype=jnp.int32))
 
     def cond_fun(state):
-        t, Ft, _ = state
+        t, Ft, n_eval = state
         armijo_ok = Ft <= F0 + c1 * t * s
         step_ok = jnp.abs(beta * t) >= t_min
-        return jnp.logical_and(jnp.logical_not(armijo_ok), step_ok)
+        # n_eval counts the seed, so n_eval - 1 contractions have been spent.
+        budget_ok = n_eval - 1 < max_iter
+        return jnp.logical_not(armijo_ok) & step_ok & budget_ok
 
     def body_fun(state):
         t, _, i = state
@@ -482,6 +550,7 @@ def _armijo_line_search(
     c1: float = 1e-4,
     beta: float = 0.5,
     t_min: float = 1e-8,
+    max_iter: int | None = None,
 ) -> tuple[Array, Array, Array]:
     r"""JIT-compatible backtracking Armijo line search using JAX.
 
@@ -513,8 +582,11 @@ def _armijo_line_search(
       converged iterate, where the test is vacuous — also accepts, so the loop
       cannot grind through $\log_\beta(t_{\min}/t_{\max})$ evaluations at the end of a
       run.
-    - **Backtrack.** Otherwise ``t <- beta * t`` until the test passes or the next
-      step would fall below ``t_min``.
+    - **Backtrack.** Otherwise ``t <- beta * t`` until the test passes, the next
+      step would fall below ``t_min``, or ``max_iter`` contractions have been
+      spent. As in :func:`_quadratic_armijo_line_search`, only the last exit is
+      guaranteed: an unbounded ``t_max = inf`` is a fixed point of the
+      contraction that neither of the other two ever closes.
 
     Args:
         fF: Scalar-valued objective along the ray, ``fF(t) -> value`` (e.g. the
@@ -528,12 +600,19 @@ def _armijo_line_search(
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum allowed step magnitude before the search gives up.
             Defaults to 1e-8.
+        max_iter: Maximum number of contractions after the seed. Defaults to
+            ``None``: enough to shrink the seed to machine precision,
+            $\lceil\log\varepsilon/\log\beta\rceil$ (52 at ``beta = 0.5``).
 
     Returns:
         A tuple ``(t_best, F_best, n_eval)``: the accepted step, ``fF`` at that
         step, and the number of ``fF`` evaluations spent — matching the contract
         of :func:`_golden_section_search` and
-        :func:`_quadratic_armijo_line_search`.
+        :func:`_quadratic_armijo_line_search`. When a cap stops the search
+        instead of the Armijo test, it is the last trial.
+
+    Raises:
+        ValueError: If ``max_iter`` is ``None`` and ``beta`` is not in ``(0, 1)``.
     """
     f64 = lambda x: jnp.asarray(x, dtype=jnp.float64)
     t_max = f64(t_max)
@@ -546,15 +625,18 @@ def _armijo_line_search(
     s = f64(-2.0 * F0 if s is None else s)
 
     t0 = t_max  # the full bracket step, no curvature involved
+    max_iter = _backtracking_max_iter(beta, max_iter)
     state0 = (t0, f64(fF(t0)), jnp.array(1 + n_probe, dtype=jnp.int32))
 
     def cond_fun(state):
-        t, Ft, _ = state
+        t, Ft, n_eval = state
         armijo_ok = Ft <= F0 + c1 * t * s
         # F0 <= 0: converged, so the test can never pass — accept and stop.
         armijo_ok = jnp.logical_or(armijo_ok, F0 <= 0.0)
         step_ok = jnp.abs(beta * t) >= t_min
-        return jnp.logical_and(jnp.logical_not(armijo_ok), step_ok)
+        # n_eval counts the probe and the seed; the rest are contractions.
+        budget_ok = n_eval - (1 + n_probe) < max_iter
+        return jnp.logical_not(armijo_ok) & step_ok & budget_ok
 
     def body_fun(state):
         t, _, i = state
