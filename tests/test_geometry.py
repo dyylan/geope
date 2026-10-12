@@ -22,7 +22,6 @@ import jax.numpy as jnp
 import jax.scipy.linalg as jsla
 import numpy as np
 import pytest
-import scipy.linalg as spla
 
 jax.config.update("jax_enable_x64", True)
 
@@ -32,7 +31,7 @@ from geope.geometry import (
     TangentBundle,
     UnitaryGroup,
 )
-from geope.geometry.chart import get_compute_matrices_params_list_fn
+from geope.geometry.basis import Basis
 from geope.geope import linear_comb_projected_coeffs_multigate
 from geope.parameters import Parameters
 from geope.utils import (
@@ -696,10 +695,7 @@ class TestTangentBundleHvp:
     def test_built_from_the_generators(self, problem):
         p, free, coeffs = problem
         tangent = p.manifold.tangent
-        # The chart's generators carry the physical convention: -delta_t * G_k.
-        np.testing.assert_array_equal(
-            tangent.generators.basis, -p.delta_t * np.asarray(p.proj_drift_basis.basis)
-        )
+        assert tangent.generators is p.proj_drift_basis
         x, v, w = tangent.hvp(jnp.real(free), coeffs)
         assert x.shape == v.shape == w.shape == (4, 4)
 
@@ -787,81 +783,6 @@ _AUTODIFF_TRANSFORMS = (
 )
 
 
-# ---------------------------------------------------------------------------
-# The physical gate convention: U_g = exp(-i delta_t H_g)
-# ---------------------------------------------------------------------------
-
-
-class TestPhysicalConvention:
-    """The sign and the duration live in `Parameters`, and nowhere below it.
-
-    The chart primitives keep ``expm(+1j * A)``; `Parameters._bind` hands them
-    the generators ``-delta_t * G``. These tests pin the result against an
-    outside reference, pin that the primitive itself is untouched, and pin that
-    the rest of the step convention (the bracket side, the Hessian) survives.
-    """
-
-    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
-    def test_chart_is_the_physical_propagator(self, delta_t):
-        """Pinned against scipy, not against other geope code."""
-        p = _params(delta_t=delta_t)
-        free = np.asarray(p.free())
-        basis = np.asarray(p.proj_drift_basis.basis)
-        expected = np.eye(4, dtype=complex)
-        for row in free:
-            h = np.tensordot(row, basis, axes=1)
-            expected = spla.expm(-1j * delta_t * h) @ expected
-        np.testing.assert_allclose(
-            np.asarray(p.manifold.compute_point(p.free())), expected, atol=1e-13
-        )
-
-    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
-    def test_the_primitive_keeps_the_plus_sign(self, delta_t):
-        """``U_phys(phi) = U_prim(-delta_t * phi)``: a half-applied flip fails."""
-        p = _params(delta_t=delta_t)
-        primitive = get_compute_matrices_params_list_fn(p.proj_drift_basis.basis)
-        np.testing.assert_allclose(
-            np.asarray(p.manifold.compute_point(p.free())),
-            np.asarray(primitive(-delta_t * p.free())),
-            atol=1e-13,
-        )
-
-    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
-    def test_the_bracket_side_is_still_descent(self, delta_t):
-        """The solve absorbs the chart's sign, so ``[0, t_max]`` still descends.
-
-        Negating the generators negates the Jacobian, hence the omegas; ``ctx.A``
-        and the gammas do not depend on the chart, so the solved *parameter*
-        direction flips while its image in the tangent space still matches
-        ``A``. Stepping along its negation — what `geope.Geope` does — therefore
-        has negative slopes, and a positive step approaches the target.
-        """
-        p = _params(delta_t=delta_t)
-        ctx = p.manifold.context(p.free())
-        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
-        coeffs = -p.manifold.tangent.embed(sol)
-        ctx.set_direction(coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs)))
-
-        assert float(ctx.velocity) < 0
-        assert float(ctx.slope) < 0
-        eps = jnp.asarray(1e-2)
-        assert (
-            float(ctx.infidelity_at(eps))
-            < float(ctx.infidelity)
-            < float(ctx.infidelity_at(-eps))
-        )
-
-    def test_hessian_matches_autodiff_at_a_non_unit_duration(self):
-        """The analytic Hessian picks up delta_t**2 through the generators alone."""
-        p = _params(delta_t=0.7)
-        free = jnp.real(p.free()).astype(jnp.float64)
-        np.testing.assert_allclose(
-            np.asarray(p.manifold.hessian(free)),
-            np.asarray(p.manifold.hessian_autodiff(free)),
-            atol=1e-8,
-        )
-
-
 class _AutodiffTaken(AssertionError):
     """Raised in place of a JAX differentiation transform."""
 
@@ -916,3 +837,169 @@ class TestNoAutodiffInThePipeline:
         _ = ctx.gammas, ctx.omegas, ctx.fidelity
         ctx.set_direction(coeffs)
         _ = ctx.velocity, ctx.q, ctx.q_exact, ctx.infidelity_at(-0.1)
+
+
+# ---------------------------------------------------------------------------
+# Tests — the sign convention (issue #31)
+# ---------------------------------------------------------------------------
+
+
+class TestAlgebraConvention:
+    """U = exp(-i H): one constant, two seams, and they cannot disagree."""
+
+    def test_the_convention_is_minus_i(self):
+        assert Basis.basis_convention == -1j
+
+    def test_algebra_is_the_convention_times_the_basis(self, basis_2q):
+        expected = Basis.basis_convention * np.asarray(basis_2q.basis)
+        assert basis_2q.algebra.dtype == np.complex128
+        assert np.array_equal(basis_2q.algebra, expected)
+
+    def test_the_chart_computes_expm_minus_i_H(self, basis_2q):
+        """The forward map against a scipy reference, not other geope code."""
+        import scipy.linalg as sla
+
+        params = Parameters(
+            basis=basis_2q,
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+            piecewise_steps=3,
+            seed=1,
+        )
+        free = np.asarray(params.free())
+        gens = np.asarray(params.proj_drift_basis.basis)
+        expected = np.eye(4, dtype=complex)
+        for row in free:
+            H = np.tensordot(row, gens, axes=[[-1], [0]])
+            expected = sla.expm(-1j * H) @ expected
+        got = np.asarray(params.manifold.compute_point(params.free()))
+        np.testing.assert_allclose(got, expected, atol=1e-12)
+
+    def test_old_new_equivalence(self, basis_2q):
+        """U_new(phi) == U_old(-phi): the flip is the reparametrisation."""
+        import scipy.linalg as sla
+
+        params = Parameters(
+            basis=basis_2q,
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+            piecewise_steps=2,
+            seed=2,
+        )
+        free = np.asarray(params.free())
+        gens = np.asarray(params.proj_drift_basis.basis)
+        old = np.eye(4, dtype=complex)
+        for row in -free:
+            H = np.tensordot(row, gens, axes=[[-1], [0]])
+            old = sla.expm(+1j * H) @ old
+        got = np.asarray(params.manifold.compute_point(params.free()))
+        np.testing.assert_allclose(got, old, atol=1e-12)
+
+    def test_coefficients_invert_the_generators(self, basis_2q):
+        """The outbound seam: coefficients(sum_k c_k E_k) == c, exactly."""
+        m = UnitaryGroup(4)
+        bound = m.bind(target=jnp.asarray(CNOT), generators=basis_2q, frame=basis_2q)
+        rng = np.random.default_rng(3)
+        c = rng.normal(size=basis_2q.lie_algebra_dim)
+        element = jnp.asarray(np.tensordot(c, basis_2q.algebra, axes=[[-1], [0]]))
+        got = bound.coefficients(jnp.eye(4, dtype=jnp.complex128), element)
+        np.testing.assert_allclose(np.asarray(got), c, atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Tests — delta_t: threaded as a traced argument, never baked (#25)
+# ---------------------------------------------------------------------------
+
+
+class TestDeltaTThreading:
+    """The duration is an argument of the jitted callables, not a closure."""
+
+    def _params(self, basis_2q, **kw):
+        return Parameters(
+            basis=basis_2q,
+            projected_basis=construct_Heisenberg_pauli_basis(2),
+            target=CNOT,
+            piecewise_steps=2,
+            seed=5,
+            **kw,
+        )
+
+    def test_a_new_delta_t_value_reuses_the_compiled_trace(self, basis_2q):
+        params = self._params(basis_2q)
+        m = params.manifold
+        phi = params.free()
+        m.fidelity_at(phi, jnp.asarray(1.0, jnp.float64))
+        size = m.fidelity_at._cache_size()
+        f_half = m.fidelity_at(phi, jnp.asarray(0.5, jnp.float64))
+        # A duration change is a value, not a shape: no recompile.
+        assert m.fidelity_at._cache_size() == size
+        # exp(dt sum phi E) == exp(sum (dt phi) E): the scaled pulse at dt = 1.
+        f_ref = m.fidelity_at(0.5 * phi, jnp.asarray(1.0, jnp.float64))
+        np.testing.assert_allclose(float(f_half), float(f_ref), atol=1e-12)
+
+    def test_reassigning_delta_t_cannot_go_stale(self, basis_2q):
+        params = self._params(basis_2q)
+        params.delta_t = 0.5
+        got = params.manifold.fidelity_at(
+            params.free(), jnp.asarray(params.delta_t, jnp.float64)
+        )
+        fresh = self._params(basis_2q, delta_t=0.5)
+        expected = fresh.manifold.fidelity_at(
+            fresh.free(), jnp.asarray(fresh.delta_t, jnp.float64)
+        )
+        np.testing.assert_allclose(float(got), float(expected), atol=1e-14)
+
+    def test_parameters_validates_delta_t(self, basis_2q):
+        with pytest.raises(ValueError, match="delta_t"):
+            self._params(basis_2q, delta_t=0.0)
+        with pytest.raises(ValueError, match="delta_t"):
+            self._params(basis_2q, delta_t=-1.0)
+        params = self._params(basis_2q, delta_t=2.0)
+        assert params.total_time == pytest.approx(4.0)
+
+    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
+    def test_the_chart_is_the_physical_propagator_at_any_delta_t(
+        self, basis_2q, delta_t
+    ):
+        """``exp(-i dt H)`` per segment, pinned against scipy at a non-unit dt."""
+        import scipy.linalg as sla
+
+        params = self._params(basis_2q, delta_t=delta_t)
+        free = np.asarray(params.free())
+        gens = np.asarray(params.proj_drift_basis.basis)
+        expected = np.eye(4, dtype=complex)
+        for row in free:
+            H = np.tensordot(row, gens, axes=[[-1], [0]])
+            expected = sla.expm(-1j * delta_t * H) @ expected
+        got = params.manifold.compute_point(
+            params.free(), jnp.asarray(delta_t, jnp.float64)
+        )
+        np.testing.assert_allclose(np.asarray(got), expected, atol=1e-12)
+
+    def test_the_hessian_matches_autodiff_at_a_non_unit_delta_t(self, basis_2q):
+        """The analytic Hessian's chain-rule factor of dt**2, against autodiff."""
+        params = self._params(basis_2q, delta_t=0.7)
+        free = jnp.real(params.free()).astype(jnp.float64)
+        delta_t = jnp.asarray(0.7, jnp.float64)
+        np.testing.assert_allclose(
+            np.asarray(params.manifold.hessian(free, delta_t)),
+            np.asarray(params.manifold.hessian_autodiff(free, delta_t)),
+            atol=1e-8,
+        )
+
+    @pytest.mark.parametrize("delta_t", [1.0, 0.7])
+    def test_the_bracket_side_is_descent_at_any_delta_t(self, basis_2q, delta_t):
+        params = self._params(basis_2q, delta_t=delta_t)
+        ctx = params.manifold.context(params.free(), jnp.asarray(delta_t, jnp.float64))
+        sol = linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
+        coeffs = -params.manifold.tangent.embed(sol)
+        ctx.set_direction(coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs)))
+
+        assert float(ctx.velocity) < 0
+        assert float(ctx.slope) < 0
+        eps = jnp.asarray(1e-2)
+        assert (
+            float(ctx.infidelity_at(eps))
+            < float(ctx.infidelity)
+            < float(ctx.infidelity_at(-eps))
+        )

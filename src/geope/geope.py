@@ -153,11 +153,6 @@ class Geope:
         self.line_search = None
         self.line_search_state = None
         self._linesearch_config = None
-        # The bound manifold the compiled update_step closes over. Compared by
-        # identity, not by value: `Parameters` replaces the manifold whenever
-        # `delta_t` changes (a `Gecko` subdivision does), and a step compiled
-        # against the old chart would silently optimise the old duration.
-        self._compiled_manifold = None
         self.update_step = None
 
         self.verbose = verbose
@@ -315,7 +310,9 @@ class Geope:
         else:
             self.drift_parameters = None
         self.params.parameters = np.array(self.init_parameters)
-        self.params.fidelity = self.params.manifold.fidelity_at(self.params.free())
+        self.params.fidelity = self.params.manifold.fidelity_at(
+            self.params.free(), self._delta_t()
+        )
         self.step_size = 0
         # line search diagnostics
         self.ls_diagnostics = {
@@ -336,9 +333,7 @@ class Geope:
     ) -> None:
         """Select the line search and (re)build its update functions.
         If line_search or max_step changes, we have to rebuild these object
-        to force retracing. So too if ``params.manifold`` has been replaced
-        since the last build (a new ``delta_t`` re-binds it), since the
-        compiled step closes over the manifold it was built from.
+        to force retracing.
 
         Args:
             line_search: The :class:`~geope.line_searches.LineSearch` object.
@@ -366,14 +361,10 @@ class Geope:
         self.line_search = line_search
         self.max_step_size = max_step_size
         # TODO: Can we do this without the extra self._linsearch_config?
-        if (
-            self._linesearch_config == config
-            and self._compiled_manifold is self.params.manifold
-        ):
+        if self._linesearch_config == config:
             return
         self.update_step = self.get_update_step()
         self._linesearch_config = config
-        self._compiled_manifold = self.params.manifold
 
     def optimize(
         self,
@@ -393,14 +384,17 @@ class Geope:
             max_steps: Maximum number of optimisation steps. Defaults to 1000.
             line_search: The :class:`~geope.line_searches.LineSearch` object
                 tuning the geodesic step size each step (e.g. ``Armijo()``).
-                Defaults to :class:`~geope.line_searches.GoldenSection`.
+                Defaults to :class:`~geope.line_searches.Armijo`.
             precision: Target fidelity threshold. Defaults to 0.9999999.
                 Host-side only (loop control) — zero compile impact.
-            max_step_size: Maximum line-search step. Defaults to 0.9. Baked into
-                the jitted update, so changing it triggers a one-off recompile.
-            gram_schmidt_step_size: Step size for the Gram-Schmidt fallback.
-                Defaults to 1.3. Host-side only — zero compile impact. A falsy
-                value disables the fallback.
+            max_step_size: Maximum line-search step, per unit of total duration
+                (the bracket is ``max_step_size / total_time``). Defaults to 1.0.
+                Baked into the jitted update, so changing it triggers a one-off
+                recompile.
+            gram_schmidt_step_size: Step size for the Gram-Schmidt fallback, per
+                unit of total duration like ``max_step_size``. Defaults to 1.3.
+                Host-side only — zero compile impact. A falsy value disables the
+                fallback.
             callbacks: Optional callback, or list/tuple of callbacks, invoked at
                 the end of every step with the signature
                 ``callback(step, history, geope) -> bool``. All callbacks run
@@ -464,7 +458,7 @@ class Geope:
                 step_size,
                 self.line_search_state,
                 ls_diagnostics,
-            ) = update_step(self.params.free(), self.line_search_state)
+            ) = update_step(self.params.free(), self._delta_t(), self.line_search_state)
             # Pull the diagnostics to the host
             self.ls_diagnostics = {
                 "residual": float(ls_diagnostics["residual"]),
@@ -579,7 +573,9 @@ class Geope:
                 "Parameter shape does not match with full basis, projected & drift basis, or projected basis."
             )
         if fidelity is None:
-            fidelity = self.params.manifold.fidelity_at(self.params.free(new_params))
+            fidelity = self.params.manifold.fidelity_at(
+                self.params.free(new_params), self._delta_t()
+            )
         if step_size is None:
             step_size = self.max_step_size
         self.params.parameters = new_params
@@ -592,6 +588,10 @@ class Geope:
     def _split_key(self) -> jax.Array:
         self._key, subkey = jax.random.split(self._key)
         return subkey
+
+    def _delta_t(self) -> Array:
+        """``params.delta_t`` as a JAX array, ready for the jitted callables."""
+        return jnp.asarray(self.params.delta_t, dtype=jnp.float64)
 
     def gram_schmidt(self, coeffs: Array) -> tuple[Array, Array, float]:
         """Generate a Gram-Schmidt orthogonal fallback direction.
@@ -663,7 +663,7 @@ class Geope:
             for sign in [1, -1]:
                 new_exp = current_params + sign * scaled_gs_step * coeffs
                 fids[sign] = self.params.manifold.fidelity_at(
-                    jnp.asarray(new_exp, dtype=jnp.float64)
+                    jnp.asarray(new_exp, dtype=jnp.float64), self._delta_t()
                 )
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
@@ -684,7 +684,9 @@ class Geope:
             # is by construction the fidelity of the parameters returned.
             for sign in [1, -1]:
                 trial = current_params + sign * scaled_gs_step * direction
-                fids[sign] = self.params.manifold.fidelity_at(jnp.asarray(trial))
+                fids[sign] = self.params.manifold.fidelity_at(
+                    jnp.asarray(trial), self._delta_t()
+                )
             sign = 1 if fids[1] > fids[-1] else -1
             fidelity = fids[sign]
             new_parameters = current_params + sign * scaled_gs_step * direction
@@ -753,7 +755,9 @@ class Geope:
                 params[:, full_idx] = scale * tmpl
         self.params.parameters = params
         # Recompute fidelity after enforcement
-        fid = float(self.params.manifold.fidelity_at(self.params.free(params)))
+        fid = float(
+            self.params.manifold.fidelity_at(self.params.free(params), self._delta_t())
+        )
         self.params.fidelity = fid
         if self.history is not None:
             if "parameters" in self.history.logs:
@@ -786,7 +790,7 @@ class Geope:
                 version. Used by pulse-shape constraints.
 
         Returns:
-            A JIT-compiled callable ``update_step(free_params, ls_state)``
+            A JIT-compiled callable ``update_step(free_params, delta_t, ls_state)``
             returning ``(coeffs, new_params, fidelity, value0, value, step_size,
             new_ls_state, ls_diagnostics)``.
 
@@ -800,16 +804,13 @@ class Geope:
             the error of the step actually taken.
         """
         manifold = self.params.manifold
-        # Read together with the manifold it was bound into, so the two cannot
-        # disagree: a new delta_t is a new manifold, hence a rebuilt step.
-        delta_t = self.params.delta_t
         line_search = self.line_search
         # Bracket half-width: baked in, so it joins the compile memo.
         max_step_size = self.max_step_size
 
         @jax.jit
-        def update_step(free_params, ls_state):
-            ctx = manifold.context(free_params)
+        def update_step(free_params, delta_t, ls_state):
+            ctx = manifold.context(free_params, delta_t)
 
             if expander_override is not None:
                 expander_gates = expander_override
@@ -830,21 +831,21 @@ class Geope:
             # Scatter the solved columns back over the chart's parameters (a
             # no-op under param_transform, where every column is solvable), then
             # fix the direction's norm so the bracket means the same thing at
-            # every step. The solve matches the tangent to `ctx.A`, which points
-            # *away* from the target (it is the gradient of the squared geodesic
-            # distance), so the descent direction is its negative.
+            # every step.
             coeffs = -manifold.tangent.embed(sol)
             coeffs = coeffs * (jnp.sqrt(len(coeffs)) / jnp.linalg.norm(coeffs))
             ctx.set_direction(coeffs)
 
-            # One-sided bracket on the descent side: t = 0 is "don't move" and a
-            # useful step is positive. Scaled per unit of total duration
-            # G * delta_t: the chart's generators carry delta_t, so this keeps the
-            # step's effect on the unitary independent of how the duration is
-            # split into segments.
-            t_max = max_step_size / (free_params.shape[0] * delta_t)
-            result = line_search(ctx, jnp.asarray(0.0, jnp.float64), t_max, ls_state)
-            new_params = free_params + result.dt * coeffs
+            # One-sided bracket on the descent side: alpha = 0 is "don't move" and
+            # a useful step is positive (see `GeometricContext.A`). Scaled per
+            # unit of total duration G * delta_t: the chart scales the pulse by
+            # delta_t, so this keeps the step's effect on the unitary independent
+            # of how the duration is split into segments.
+            alpha_max = max_step_size / (free_params.shape[0] * delta_t)
+            result = line_search(
+                ctx, jnp.asarray(0.0, jnp.float64), alpha_max, ls_state
+            )
+            new_params = free_params + result.step_size * coeffs
 
             if line_search.objective == "infidelity":
                 # The search already evaluated the infidelity at the accepted
@@ -853,7 +854,7 @@ class Geope:
                 fidelity = 1.0 - result.value
             else:
                 value0 = ctx.F0
-                fidelity = manifold.fidelity_at(new_params)
+                fidelity = manifold.fidelity_at(new_params, delta_t)
 
             return (
                 coeffs,
@@ -861,7 +862,7 @@ class Geope:
                 fidelity,
                 value0,
                 result.value,
-                result.dt,
+                result.step_size,
                 result.state,
                 ls_diagnostics,
             )

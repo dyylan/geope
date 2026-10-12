@@ -492,10 +492,8 @@ class TestHookContracts:
         spells it.
         """
         m = space.manifold
-        # The physical segment is exp(-i dt H): `Parameters` hands the chart the
-        # generators -dt * G_k.
         propagator = get_compute_matrices_params_list_fn(
-            -space.params.delta_t * np.asarray(space.params.proj_drift_basis.basis)
+            space.params.proj_drift_basis.algebra
         )
         u = np.asarray(propagator(space.free))
         expected = u if m.base_point is None else u @ np.asarray(m.base_point)
@@ -622,7 +620,7 @@ class TestContextOnEveryManifold:
         slope = (f[0] - 8 * f[1] + 8 * f[3] - f[4]) / (12 * h)
         curvature = (-f[0] + 16 * f[1] - 30 * f[2] + 16 * f[3] - f[4]) / (12 * h * h)
         # `velocity` *is* psi'(0), negative on a descent direction — which is why
-        # the bracket is [0, t_max] and the accepted step comes out positive.
+        # the bracket is [0, alpha_max] and the accepted step comes out positive.
         assert float(ctx.velocity) == pytest.approx(slope, rel=1e-6, abs=1e-9)
         assert float(ctx.q_exact) == pytest.approx(curvature, rel=1e-5, abs=1e-8)
 

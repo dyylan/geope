@@ -5,12 +5,8 @@ ambient space $\mathcal A = \mathbb C^{N\times m}$, and the pulse acts on all of
 them the same way — by left multiplication with a product of piecewise-constant
 exponentials:
 
-$$U(\phi) = \prod_g \exp\Bigl(i\sum_k \phi_{g,k} G_k\Bigr),
+$$U(\phi) = \prod_g \exp\Bigl(\sum_k \phi_{g,k} E_k\Bigr), \qquad E_k = -i\,G_k,
 \qquad \Phi(\phi) = U(\phi)\,x_0 .$$
-
-That is the chart's own sign. The physical convention lives in `Parameters`,
-which hands the chart the generators $-\Delta T\,G_k$, so the pulse is
-$\prod_g \exp(-i\,\Delta T\sum_k \phi_{g,k} G_k)$.
 
 The chart is therefore the **orbit map** of that one action through a base point
 $x_0 = \Phi(0)$: the identity on a matrix group (where the propagator *is* the

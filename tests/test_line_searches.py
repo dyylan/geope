@@ -49,7 +49,7 @@ class TestGoldenSectionSearch:
 # ===================================================================
 #
 # The routine consumes the exact slope s = psi'(0) and curvature q = psi''(0)
-# supplied by the caller, on the one-sided descent bracket [0, t_max] with a
+# supplied by the caller, on the one-sided descent bracket [0, alpha_max] with a
 # descent direction (s < 0, so the model minimiser -s/q is positive).
 
 
@@ -70,7 +70,7 @@ class TestQuadraticArmijoLineSearch:
         assert jnp.isclose(F, fF(t))
 
     def test_seed_clipped_to_bracket(self):
-        # -s/q = 2.0 lies outside [0, 1]; the seed is clipped to t_max = 1.0.
+        # -s/q = 2.0 lies outside [0, 1]; the seed is clipped to alpha_max = 1.0.
         s, q, F0 = -1.0, 0.5, 1.0
         fF = lambda t: F0 + s * t + 0.5 * q * t**2
         t, _, n = _quadratic_armijo_line_search(fF, 1.0, s, q, F0)
@@ -79,7 +79,7 @@ class TestQuadraticArmijoLineSearch:
 
     def test_nonpositive_curvature_falls_back_to_full_step(self):
         # q <= 0 without the guard: the model is concave, so it has no minimiser
-        # -> full step t0 = t_max, accepted on a purely linear (descent) objective.
+        # -> full step alpha0 = alpha_max, accepted on a purely linear (descent) objective.
         s, F0 = -1.0, 1.0
         fF = lambda t: F0 + s * t  # linear, min on [0, 1] at t = 1
         t, F, n = _quadratic_armijo_line_search(
@@ -90,8 +90,8 @@ class TestQuadraticArmijoLineSearch:
         assert jnp.isclose(F, fF(1.0))
 
     def test_concave_guard_seeds_where_the_quadratic_term_takes_over(self):
-        # q < 0 with the guard: the seed is min(t_max, 2|s|/|q|) = 2 * 1 / 4 = 0.5,
-        # where |q| t^2 / 2 = |s| t, instead of the bracket end t_max = 1.
+        # q < 0 with the guard: the seed is min(alpha_max, 2|s|/|q|) = 2 * 1 / 4 = 0.5,
+        # where |q| t^2 / 2 = |s| t, instead of the bracket end alpha_max = 1.
         s, q, F0 = -1.0, -4.0, 1.0
         fF = lambda t: F0 + s * t
         t, _, n = _quadratic_armijo_line_search(fF, 1.0, s, q, F0)
@@ -102,14 +102,14 @@ class TestQuadraticArmijoLineSearch:
         assert jnp.isclose(t_off, 1.0)
 
     def test_concave_guard_never_seeds_past_the_bracket(self):
-        # 2|s|/|q| = 2 > t_max = 1, so the guard leaves the full step alone.
+        # 2|s|/|q| = 2 > alpha_max = 1, so the guard leaves the full step alone.
         s, q, F0 = -1.0, -1.0, 1.0
         fF = lambda t: F0 + s * t
         t, _, n = _quadratic_armijo_line_search(fF, 1.0, s, q, F0)
         assert jnp.isclose(t, 1.0) and int(n) == 1
 
     def test_concave_guard_bounds_an_unbounded_bracket(self):
-        # With t_max = inf a concave step no longer seeds at inf: the guard gives a
+        # With alpha_max = inf a concave step no longer seeds at inf: the guard gives a
         # finite seed, so the search is an ordinary one-evaluation accept.
         s, q, F0 = -1.0, -4.0, 1.0
         fF = lambda t: F0 + s * t
@@ -120,7 +120,7 @@ class TestQuadraticArmijoLineSearch:
         assert bool(jnp.isfinite(F))
 
     def test_zero_curvature_takes_the_full_step_either_way(self):
-        # q == 0 gives no scale (2|s|/|q| = inf), so both settings seed at t_max.
+        # q == 0 gives no scale (2|s|/|q| = inf), so both settings seed at alpha_max.
         s, F0 = -1.0, 1.0
         fF = lambda t: F0 + s * t
         for guard in (True, False):
@@ -147,8 +147,8 @@ class TestQuadraticArmijoLineSearch:
         assert bool(jnp.isfinite(t)) and bool(jnp.isfinite(F))
 
     def test_unbounded_bracket_terminates(self):
-        # t_max = inf with q == 0 (which the concave guard cannot bound) seeds
-        # t0 = inf, a fixed point of t <- beta * t: fF is NaN there (as the
+        # alpha_max = inf with q == 0 (which the concave guard cannot bound) seeds
+        # alpha0 = inf, a fixed point of t <- beta * t: fF is NaN there (as the
         # propagator is), the Armijo bound is -inf, and |beta * t| >= t_min never
         # fails. Only the default budget ends the loop, after the 52 contractions
         # that take beta = 0.5 to machine precision.
@@ -178,10 +178,11 @@ class TestQuadraticArmijoLineSearch:
 # Tests — _armijo_line_search
 # ===================================================================
 #
-# The non-quadratic sibling: same one-sided bracket [0, t_max] with s < 0, but
-# the seed is the full bracket step t0 = t_max and no curvature is consumed. With
-# s omitted it defaults to the radial slope s = -2 * F0, so the objectives below
-# use F0 = 1.0 and a true slope of -2.0 to be consistent with that.
+# The non-quadratic sibling: same one-sided bracket [0, alpha_max] with s < 0,
+# but the seed is the full bracket step alpha0 = alpha_max and no curvature is
+# consumed. With s omitted it defaults to the radial slope s = -2 * F0, so the
+# objectives below use F0 = 1.0 and a true slope of -2.0 to be consistent with
+# that.
 
 
 class TestArmijoLineSearch:
@@ -257,7 +258,7 @@ class TestArmijoLineSearch:
         assert bool(jnp.isfinite(t)) and bool(jnp.isfinite(F))
 
     def test_unbounded_bracket_terminates(self):
-        # The seed is t_max itself, so t_max = inf is the fixed point outright;
+        # The seed is alpha_max itself, so alpha_max = inf is the fixed point outright;
         # see the quadratic sibling. F0 and s are supplied, so there is no probe.
         fF = lambda t: 1.0 + 0.0 * t  # NaN at t = inf
         t, _, n = jax.jit(lambda: _armijo_line_search(fF, jnp.inf, F0=1.0, s=-2.0))()

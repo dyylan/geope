@@ -5,10 +5,10 @@
 `geope` finds piecewise-constant control pulses that implement a target quantum gate on an $n$-qubit system. Given a target unitary $U_T$, a set of available control generators (the projected basis), and optionally fixed drift generators, the optimiser searches for real-valued parameters $\phi$ such that
 
 $$
-U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i\,\Delta T \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
+U(\phi) \;=\; \prod_{g=1}^{N_g} \exp\!\Bigl(-i\,\Delta t \sum_{k}\phi_{g,k}\,G_k\Bigr) \;\approx\; U_T,
 $$
 
-where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$, and $\Delta T$ (`Parameters.delta_t`) is the segment duration, defaulting to 1. The minus sign is the physical convention and lives in `Parameters`: it hands the chart the generators $-\Delta T\,G_k$, and the chart and `geope.jax` primitives compute $\exp(i\sum_k c_k G_k)$ with them unchanged.
+where each $H_g = \sum_k \phi_{g,k}\,G_k$ is a linear combination of basis generators on segment $g$ and $\Delta t$ is the segment duration. Only the product $\Delta t \cdot \phi$ enters the exponent, so at the default `delta_t = 1.0` each parameter is the whole product amplitude × duration — a rotation angle per segment — and time never needs thinking about. A non-default `delta_t` separates the two: $\phi_{g,k}$ then reads as an amplitude (a rate) and $\Delta t$ as the time it acts for.
 
 The core algorithm is the **geodesic method**: at each step it computes the shortest path on $U(d)$ from the current unitary to the target, projects that direction onto the controllable subspace, then solves a convex least-squares problem and a one-dimensional line search to take a parameter step. This is distinct from gradient-based methods like GRAPE that follow the fidelity gradient directly.
 
@@ -239,7 +239,7 @@ Parameters(basis=None, control=None, drift=None,
 | `drift_values` | dict, `ndarray`, or `None` (ones) |
 | `target` | target unitary as `ndarray` |
 | `piecewise_steps` | number of gate segments $N_g$ |
-| `delta_t` | duration $\Delta T$ of each segment, so $U_g = \exp(-i\,\Delta T\,H_g)$; defaults to 1.0, where the duration is absorbed into the coefficients. Settable after construction — assigning it re-binds `params.manifold` (and an optimiser rebuilds its compiled step on its next `optimize`). `params.total_time` is `piecewise_steps * delta_t` |
+| `delta_t` | segment duration $\Delta t$, so $U_g = \exp(-i\,\Delta t\,H_g)$; defaults to `1.0`. Settable after construction, which recomputes a live `params.fidelity` at the new duration (no recompile: the optimisers pass it as a traced argument). `params.total_time` is `piecewise_steps * delta_t`. |
 | `fixed_drift` | whether drift is held fixed during optimisation |
 | `constraints` | list of constraint vectors / dicts |
 | `pulse_constraints` | control-format dict `{site: [ops]}` (same format as `control`) of projected terms whose time-shape is fixed |
@@ -401,31 +401,31 @@ The iteration cap, the line search, and the three run-control knobs are argument
 from geope import ApproximateQuadraticArmijo, Armijo, GoldenSection, QuadraticArmijo
 
 optimize(max_steps=1000,
-         line_search=GoldenSection(),        # default; or Armijo(), QuadraticArmijo()
+         line_search=Armijo(),               # default; or GoldenSection(), QuadraticArmijo()
          precision=0.9999999,
-         max_step_size=0.9, gram_schmidt_step_size=1.3)
+         max_step_size=1.0, gram_schmidt_step_size=1.3)
 ```
 
 | `optimize` argument | Description |
 |---------------------|-------------|
 | `max_steps` | maximum number of optimisation steps |
-| `line_search` | a `LineSearch` object tuning the geodesic step size; defaults to `GoldenSection()` |
+| `line_search` | a `LineSearch` object tuning the geodesic step size; defaults to `Armijo()` |
 | `precision` | target fidelity threshold (host-side; no recompile) |
-| `max_step_size` | maximum line-search step (baked into the JIT; changing it recompiles) |
-| `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback (host-side; a falsy value disables it) |
+| `max_step_size` | maximum line-search step per unit of total duration, so $\alpha_{\max} = $ `max_step_size / total_time` (baked into the JIT; changing it recompiles) |
+| `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback, also per unit of total duration (host-side; a falsy value disables it) |
 
 The line searches are immutable config objects (frozen dataclasses):
 
-- `GoldenSection(tol=1e-5)` — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
-- `Armijo(c1=1e-4, beta=0.5, t_min=1e-8)` — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step $t_{\max}$ and backtracks, taking the slope from the objective value alone ($s = -2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
-- `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8, concave_guard=True)` — geometry-aware second-order line search: seeds the step at the minimiser $-s/q$ of the local quadratic model built from the SU(N) curvature, clipped to the bracket, and enforces sufficient decrease with Armijo backtracking (standard/projective mode only). A negative curvature leaves the model without a minimiser; `concave_guard` then seeds at $\min(t_{\max}, 2|s|/|q|)$, the step at which the quadratic term overtakes the linear one, and `concave_guard=False` restores the full bracket step $t_{\max}$. The guard matters when $t_{\max}$ is not itself a sensible scale, e.g. for a search direction whose norm is not fixed.
+- `GoldenSection(tol=1e-5)` — golden-section search. Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
+- `Armijo(c1=1e-4, beta=0.5, t_min=1e-8)` — first-order backtracking Armijo on the squared geodesic distance (the default). It seeds at the full bracket step $\alpha_{\max}$ and backtracks, taking the slope from the objective value alone ($s = -2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
+- `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8, concave_guard=True)` — geometry-aware second-order line search: seeds the step at the minimiser $-s/q$ of the local quadratic model built from the SU(N) curvature, clipped to the bracket, and enforces sufficient decrease with Armijo backtracking (standard/projective mode only). A negative curvature leaves the model without a minimiser; `concave_guard` then seeds at $\min(\alpha_{\max}, 2|s|/|q|)$, the step at which the quadratic term overtakes the linear one, and `concave_guard=False` restores the full bracket step $\alpha_{\max}$. The guard matters when $\alpha_{\max}$ is not itself a sensible scale, e.g. for a search direction whose norm is not fixed.
 - `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8, concave_guard=True)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` on a group or the state sphere, and one small operator exponential on `Stiefel` (standard mode only; on `Stiefel` it also needs `projective=False`, see below).
 
     Whether it changes anything is structural: the solve has `piecewise_steps × K_proj` unknowns against `K_basis` equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. `GeometricContext.xi_rel` reports the residual as the (scale-invariant) sine of the angle between $\Omega$ and $A$, and tracks `ls_diagnostics["residual_rel"]` closely; it is `0` exactly when the two curvatures agree.
 
-The three differ in what they evaluate per step, not just in flops: `GoldenSection` evaluates the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[0, t_{\max}]$ and is clipped to $t_{\max}$, which is exactly where `Armijo` starts anyway.
+The three differ in what they evaluate per step, not just in flops: `GoldenSection` evaluates the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[0, \alpha_{\max}]$ and is clipped to $\alpha_{\max}$, which is exactly where `Armijo` starts anyway.
 
-The line-search object and `max_step_size` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `GoldenSection()`) reuse the compiled functions, while changing the object or `max_step_size` triggers a one-off recompile. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
+The line-search object and `max_step_size` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `Armijo()`) reuse the compiled functions, while changing the object or `max_step_size` triggers a one-off recompile. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
 
 Live state and logging:
 
@@ -449,8 +449,8 @@ Live state and logging:
 
 `Grape.optimize(optimizer=...)` takes a frozen config object rather than a method
 string. All six share one shape — a **descent** direction `coeffs` $=-p$ and a
-**positive** step $\mathrm dt$, so `Grape` forms `free_params + dt * coeffs` — and
-they differ in how they build $p$ from the cost's derivatives.
+**positive** step `step_size`, so `Grape` forms `free_params + step_size * coeffs` —
+and they differ in how they build $p$ from the cost's derivatives.
 
 | rule | direction $p$ | extra cost per step, beyond one gradient |
 |---|---|---|
@@ -576,22 +576,23 @@ for each step:
        → residual / rank / condition number recorded in geope.ls_diagnostics
 
     5. Normalise and line-search:
-       coeffs = -sol · sqrt(N_g) / ||sol||
-       dt     = argmin infid(φ + t · coeffs)        # over t ∈ [0, t_max]
-       φ_new  = φ + dt · coeffs
+       coeffs    = -sol · sqrt(N_g) / ||sol||
+       α_max     = max_step_size / (N_g · Δt)
+       step_size = argmin infid(φ + α · coeffs)     # over α ∈ [0, α_max]
+       φ_new     = φ + step_size · coeffs
 
     6. If fidelity decreased, Gram–Schmidt fallback:
        proj_c = random_direction ⊥ coeffs
        try ±proj_c, keep the side with higher fidelity
 ```
 
-The line search interval $[0, t_{\max}]$ is the toward-target half-line: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity to $A$, the geodesic tangent *pointing away from* the target (the gradient of the squared distance), so `coeffs` is the negated solution — a descent direction — and a positive `dt` approaches the target. This is the textbook convention, shared with `Grape`: the context's slopes `ctx.velocity` and `ctx.slope` are negative along `coeffs`. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
+The line search interval $[0, \alpha_{\max}]$ is the toward-target half-line: solving $\omega^\top \cdot \mathrm{sol} = \gamma$ matches the achieved velocity $\Omega$ to $A$, the geodesic tangent *pointing away from* the target (the gradient of the squared distance), so `coeffs` is the negated solution — a descent direction — and a positive `step_size` approaches the target. This is the textbook convention, shared with `Grape`: the context's slopes `ctx.velocity` and `ctx.slope` are negative along `coeffs`. Zeroth-order searches minimise `ctx.infidelity_at`, which is non-negative in both `projective` modes; the Armijo family minimises `ctx.distance_at`, the squared geodesic distance. A step is kept when it reduced **its own** objective by more than `PROGRESS_RTOL` relatively; otherwise the Gram-Schmidt fallback replaces it. Convergence is always tested on the fidelity.
 
 ### Key functions
 
 - **`ctx.gammas` / `ctx.omegas`** — the least-squares operands, and the per-iteration core: one propagator, one Jacobian and one logarithm produce both. **Tangent vectors are mapped into the manifold's own representation before being resolved into coefficients** (on a group, left-trivialised by $U^\dagger$), and this is load-bearing: the Pauli basis is Hermitian, so the projection keeps only the traceless-Hermitian part of what it is handed, while the raw geodesic tangent and Jacobian columns are $U\cdot(\text{skew-Hermitian})$ and mostly fall outside it. Left-trivialising first makes the projection lossless and the least squares an honest $\langle\cdot,\cdot\rangle_F$-orthogonal projection of the geodesic tangent onto $\mathrm{Im}(\mathrm{D}\Phi)$ — which is what the second-order line searches assume. Left translation is itself an isometry; it is the projection *after* it that would be lossy, so the two cannot be commuted. Both operands go through the same coefficient map, so the residual compares like with like.
 - **`linear_comb_projected_coeffs_multigate(ω, γ, E, *, return_diagnostics=False)`** — least-squares solve, optionally through a constraint expander $E$. With `return_diagnostics=True` it returns `(sol, diagnostics)`, the second a dict of `residual` / `residual_rel` / `rank` / `cond` scalars; these come free from the same `lstsq` call and are what `Geope` surfaces as `ls_diagnostics`.
-- **`Geope.update_step(free_params, ls_state)`** — the whole step, in one jitted function: open the context, solve, renormalise the direction, attach it, line-search. It returns the accepted step alongside the line search's objective at $t=0$ and at the accepted step, which is what the loop tests for progress (see below).
+- **`Geope.update_step(free_params, delta_t, ls_state)`** — the whole step, in one jitted function: open the context, solve, renormalise the direction, attach it, line-search. It returns the accepted step alongside the line search's objective at $\alpha=0$ and at the accepted step, which is what the loop tests for progress (see below).
 
 ## Callbacks
 
@@ -723,10 +724,24 @@ print(g.history.best_fidelity)         # best fidelity over the trajectory
 ### Practical implications
 
 - `Gecko`'s null-space methods (`speed`, `length`, `robust`) must use `parameter_indices`, not `parameter_labels`, when `param_transform` is set — labels no longer correspond to optimised parameters. `Gecko` raises `ValueError` otherwise. (`Gecko` supports experimental parameters in every construction mode: when reusing a `Geope` the engine is already wrapped; when built from `params` it re-wraps a fresh engine.)
+- `Gecko.bound` likewise takes integer-indexed bounds under `param_transform` — `{index: (lo, hi)}`, the same convention as `pulse_constraints` — since interaction labels have no meaning in experimental space.
 - Internally `param_transform` mode uses `float64`; basis-coefficient mode uses `complex128`. Tolerances and bounds you supply should match.
-- `Gecko.bound(...)` takes bounds keyed by integer parameter index here (`{0: (-1.0, 1.0)}`), not by interaction label; unlisted indices are unbounded.
 - Every `Gecko` cost acts on $\phi$ — the experimental knobs — not on the induced coefficients $\tau(\phi)$. Smoothing therefore produces a smooth *knob* trajectory, which is what hardware plays, but not necessarily a smooth field.
-- Subdivision is what `delta_t` exists for. Because $\tau$ need not be linear, the coefficients cannot be rescaled by rescaling $\phi$, so `Gecko` divides the segment duration instead and leaves $\phi$ untouched. This is exact for any $\tau$; see the `Gecko` section below.
+- `Gecko` subdivision (`piecewise_steps_multiplier=m`) replicates each segment's parameters **unchanged** and divides `params.delta_t` by `m`, which is exact for *any* transform: $\exp(\Delta t\,A) = \exp((\Delta t/m)A)^m$. `params.total_time` is invariant under subdivision.
+
+### An optimisable duration
+
+`delta_t` itself is a constant the optimisers never move. A *controllable* duration needs no library support: a multiplicative knob inside your own transform is an ordinary experimental parameter —
+
+```python
+def tau(phi):                          # n_experimental_params = n + 1
+    return phi[-1] * f(phi[:-1])       # phi[-1] is the duration knob
+
+Parameters(..., param_transform=tau, n_experimental_params=n + 1,
+           pulse_constraints=[n])      # optional: pin it uniform across segments
+```
+
+It is optimised by both `Geope` and `Gecko`, boundable to `(0, inf)` via `Gecko.bound({n: (0.0, np.inf)})`, and survives subdivision unchanged while `delta_t` halves. One caveat: a multiplicative duration is rank-deficient against the amplitude inside `f` — scaling one up and the other down leaves the coefficients unchanged — so "optimise the duration" is only well-posed when the amplitude is pinned (bounded, normalised, or of fixed shape). The degeneracy is benign for the optimisers themselves: it merely widens the null space.
 
 ## Phase-sensitive vs projective
 
@@ -849,7 +864,7 @@ When you pass a `Geope`'s `params`, the `Parameters` object is shared with that 
 
 Each returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass, giving more null-space degrees of freedom.
 
-Subdivision splits each segment into $m$ **identical copies** and divides `params.delta_t` by $m$. That leaves the unitary exactly unchanged — $\exp(-i\,\Delta T A) = [\exp(-i\,(\Delta T/m) A)]^m$ — and keeps `params.total_time` invariant. It deliberately does *not* divide the parameters: that is only equivalent when the generator is linear in them, which fails for any nonlinear `param_transform`, where $\tau(\phi/m) \ne \tau(\phi)/m$ and the fidelity `Gecko` is meant to preserve is silently destroyed. Setting `delta_t` re-binds `params.manifold`, so read the manifold afresh after a subdivision rather than holding on to one from before it.
+Subdivision splits each segment into $m$ **identical copies** and divides `params.delta_t` by $m$. That leaves the unitary exactly unchanged — $\exp(-i\,\Delta t A) = [\exp(-i\,(\Delta t/m) A)]^m$ — and keeps `params.total_time` invariant. It deliberately does *not* divide the parameters: that is only equivalent when the generator is linear in them, which fails for any nonlinear `param_transform`, where $\tau(\phi/m) \ne \tau(\phi)/m$ and the fidelity `Gecko` is meant to preserve is silently destroyed. The line-search bracket and the Gram–Schmidt step are both per unit of `total_time`, so a later `geope.optimize()` on the subdivided pulse takes the same steps.
 
 `bound(...)` takes label-keyed bounds in projected space; under `param_transform` labels do not name optimised quantities, so pass a dict keyed by integer parameter index instead (`{0: (-1.0, 1.0)}`), matching `pulse_constraints` and `parameter_indices`. Unlisted indices are unbounded.
 
