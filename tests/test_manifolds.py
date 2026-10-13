@@ -591,7 +591,7 @@ class TestContextOnEveryManifold:
     def test_a_full_geodesic_step_runs(self, space):
         m = space.manifold
         ctx = m.context(space.free)
-        sol, _ = least_squares(ctx, None)
+        sol, _, _ = least_squares(ctx, None)
         ctx.set_direction(-m.tangent.embed(sol))
         exact = (ctx.q_exact, ctx.rho) if space.has_curvature else ()
         for value in (ctx.F0, ctx.velocity, ctx.q, ctx.xi_rel, *exact):
@@ -612,7 +612,7 @@ class TestContextOnEveryManifold:
         _skip_without_curvature(space)
         m = space.manifold
         ctx = m.context(space.free)
-        sol, _ = least_squares(ctx, None)
+        sol, _, _ = least_squares(ctx, None)
         ctx.set_direction(-m.tangent.embed(sol))
 
         h = 1e-4
@@ -631,7 +631,7 @@ class TestContextOnEveryManifold:
         # along it reduces the geodesic distance.
         m = space.manifold
         ctx = m.context(space.free)
-        sol, _ = least_squares(ctx, None)
+        sol, _, _ = least_squares(ctx, None)
         ctx.set_direction(-m.tangent.embed(sol))
         assert float(ctx.velocity) < 0
         assert float(ctx.distance_at(1e-3)) < float(ctx.F0)
@@ -642,7 +642,7 @@ class TestContextOnEveryManifold:
         # lowers the geodesic distance it was accepted on.
         m = space.manifold
         ctx = m.context(space.free)
-        sol, diag = least_squares(ctx, None, method="lm")
+        sol, diag, _ = least_squares(ctx, None, method="lm")
         ctx.set_direction(-m.tangent.embed(sol))
         assert 1 <= int(diag["lm_iter"]) <= 10
         assert float(ctx.velocity) < 0

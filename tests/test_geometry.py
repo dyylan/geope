@@ -429,7 +429,7 @@ class TestContextCost:
         spy, counts = _spy_manifold(p)
         ctx = spy.context(free)
 
-        sol, _ = least_squares(ctx, None)
+        sol, _, _ = least_squares(ctx, None)
         assert ctx.coeffs is None  # the solve never sets the direction
         ctx.set_direction(-spy.tangent.embed(sol))
         _ = ctx.F0, ctx.velocity, ctx.q, ctx.q_exact, ctx.xi_rel
@@ -443,7 +443,7 @@ class TestContextCost:
         spy, counts = _spy_manifold(p)
         ctx = spy.context(free)
 
-        sol, _ = least_squares(ctx, None, method="lm")
+        sol, _, _ = least_squares(ctx, None, method="lm")
         ctx.set_direction(-spy.tangent.embed(sol))
         _ = ctx.F0, ctx.velocity, ctx.q, ctx.q_exact, ctx.xi_rel
 
@@ -457,7 +457,7 @@ class TestContextCost:
         @jax.jit
         def step(fp):
             ctx = p.manifold.context(fp)
-            sol, diag = least_squares(ctx, None, method="lm")
+            sol, diag, _ = least_squares(ctx, None, method="lm")
             ctx.set_direction(-p.manifold.tangent.embed(sol))
             return ctx.F0, ctx.velocity, ctx.distance_at(0.1), diag["lm_iter"]
 
@@ -667,7 +667,7 @@ class TestContextValues:
         # slope, positive useful step.
         p, free, _ = problem
         ctx = p.manifold.context(free)
-        sol, _ = least_squares(ctx, None)
+        sol, _, _ = least_squares(ctx, None)
         ctx.set_direction(-p.manifold.tangent.embed(sol))
         assert float(ctx.velocity) < 0
 
@@ -1036,7 +1036,7 @@ class TestDeltaTThreading:
     def test_the_bracket_side_is_descent_at_any_delta_t(self, basis_2q, delta_t):
         params = self._params(basis_2q, delta_t=delta_t)
         ctx = params.manifold.context(params.free(), jnp.asarray(delta_t, jnp.float64))
-        sol, _ = least_squares(ctx, None)
+        sol, _, _ = least_squares(ctx, None)
         ctx.set_direction(-params.manifold.tangent.embed(sol))
 
         assert float(ctx.velocity) < 0

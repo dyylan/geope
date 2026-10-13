@@ -37,6 +37,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from scipy.stats import unitary_group
 
 jax.config.update("jax_enable_x64", True)
 
@@ -53,7 +54,12 @@ from geope.geope import (
     DEFAULT_GRAM_SCHMIDT_STEP_SIZE,
     DEFAULT_MAX_STEP_SIZE,
     DEFAULT_PRECISION,
-    LM_LAMBDA_FACTOR,
+    LM_ACCEPT_RHO,
+    LM_GROW_RHO,
+    LM_MU_MAX,
+    LM_MU_MIN,
+    LM_SHRINK_RHO,
+    LM_SIGMA,
     PROGRESS_RTOL,
     Geope,
     build_pulse_expander,
@@ -63,6 +69,7 @@ from geope.jax.hessian import hvp_forward_over_reverse
 from geope.line_searches import (
     ApproximateQuadraticArmijo,
     Armijo,
+    Constant,
     GoldenSection,
     LineSearch,
     LineSearchResult,
@@ -856,8 +863,11 @@ def _stub_ctx(comb_vecs, target):
 
 
 def _solve(comb_vecs, target, expander=None, **kwargs):
-    """``least_squares`` on raw operands."""
-    return least_squares(_stub_ctx(comb_vecs, target), expander, **kwargs)
+    """``least_squares`` on raw operands: ``(sol, diagnostics)``, no state."""
+    sol, diagnostics, _ = least_squares(
+        _stub_ctx(comb_vecs, target), expander, **kwargs
+    )
+    return sol, diagnostics
 
 
 @dataclasses.dataclass(frozen=True)
@@ -954,7 +964,9 @@ class TestLeastSquares:
 # Tests — least_squares diagnostics
 # ---------------------------------------------------------------------------
 
-_LS_DIAGNOSTIC_KEYS = {"residual", "residual_rel", "rank", "cond", "damping", "lm_iter"}
+_LS_DIAGNOSTIC_KEYS = {"residual", "residual_rel", "rank", "cond"}
+# Reported by method="lm" only, on top of the common keys.
+_LM_DIAGNOSTIC_KEYS = {"damping", "lm_iter", "lm_rho", "lm_radius", "lm_hit"}
 
 
 class TestLeastSquaresDiagnostics:
@@ -963,10 +975,17 @@ class TestLeastSquaresDiagnostics:
         target = jnp.ones(4)
         sol, diag = _solve(comb_vecs, target)
         assert sol.shape == (2, 3)
+        # The SVD method neither damps nor iterates nor has a trust region, so
+        # it reports none of the LM keys.
         assert set(diag) == _LS_DIAGNOSTIC_KEYS
-        # The SVD method neither damps nor iterates.
-        assert diag["damping"] == 0.0
-        assert diag["lm_iter"] == 0
+
+    def test_svd_passes_the_state_through_unchanged(self):
+        state = {"n_eval": jnp.asarray(3, jnp.int32)}
+        _, _, new_state = least_squares(
+            _stub_ctx(jnp.ones((2, 3, 4)), jnp.ones(4)), None, state
+        )
+        assert new_state == state
+        assert new_state is not state  # a copy: the caller's dict is untouched
 
     def test_exactly_solvable_system(self):
         """A consistent system has ~zero residual and full rank."""
@@ -1096,62 +1115,258 @@ class TestLevenbergMarquardt:
         )
 
     @staticmethod
-    def _sigma_max(ctx):
-        lhs = jnp.concatenate(ctx.omegas, axis=0).T
-        return jnp.linalg.svd(lhs, compute_uv=False)[0]
+    def _scaled_gauss_newton(params):
+        """Moré's undamped step, independently: the least-``||Dx||`` solution.
+
+        Returns ``(x, scale, ||D x||)`` with ``D`` the current column norms —
+        what a first ``"lm"`` solve, with no scaling history, uses.
+        """
+        ctx = params.manifold.context(params.free())
+        lhs = np.asarray(jnp.concatenate(ctx.omegas, axis=0).T)
+        scale = np.linalg.norm(lhs, axis=0)
+        x = np.linalg.pinv(lhs / scale) @ np.asarray(ctx.gammas) / scale
+        shape = ctx.omegas.shape[:2]
+        return x.reshape(shape), scale.reshape(shape), float(np.linalg.norm(scale * x))
+
+    @staticmethod
+    def _lm(params, radius=None, expander=None, **kwargs):
+        """One ``"lm"`` solve at the base point, handed ``radius`` via the state."""
+        state = None if radius is None else {"lm_radius": jnp.asarray(radius)}
+        ctx = params.manifold.context(params.free())
+        return least_squares(ctx, expander, state, method="lm", **kwargs)
+
+    @staticmethod
+    def _scaled_norm(sol, state):
+        """``||D x||`` with the ``D`` the solve used, from its returned state."""
+        return float(jnp.linalg.norm(state["lm_scale"].reshape(sol.shape) * sol))
+
+    @staticmethod
+    def _pulse_size(params, scale):
+        """``||D x0||``: the pulse's solvable columns, scaled by ``D``."""
+        pulse = np.asarray(params.free())[:, params.manifold.tangent.columns]
+        return float(np.linalg.norm(scale * pulse))
 
     def test_accepted_step_lowers_the_distance(self, lm_params):
         m = lm_params.manifold
         ctx = m.context(lm_params.free())
-        sol, diag = least_squares(ctx, None, method="lm")
+        sol, diag, _ = least_squares(ctx, None, method="lm")
         trial = m.distance2(
             m.compute_point(ctx.free_params - m.tangent.embed(sol)), m.target
         )
         assert float(trial) < float(ctx.F0)
         assert 1 <= int(diag["lm_iter"]) <= 10
+        assert float(diag["lm_rho"]) > LM_ACCEPT_RHO
+        assert set(diag) == _LS_DIAGNOSTIC_KEYS | _LM_DIAGNOSTIC_KEYS
 
-    def test_damping_starts_relative_to_the_largest_singular_value(self, lm_params):
-        # lambda_k = lm_lambda_init * sigma_max^2 * 10^(k - 1) on trial k.
+    def test_the_next_radius_is_written_to_the_state(self, lm_params):
+        state = {"n_eval": jnp.asarray(3, jnp.int32), "lm_radius": jnp.asarray(0.5)}
         ctx = lm_params.manifold.context(lm_params.free())
-        _, diag = least_squares(ctx, None, method="lm", lm_lambda_init=1e-2)
-        expected = (
-            1e-2 * self._sigma_max(ctx) ** 2 * LM_LAMBDA_FACTOR ** (diag["lm_iter"] - 1)
-        )
-        assert float(diag["damping"]) == pytest.approx(float(expected), rel=1e-12)
+        _, diag, new_state = least_squares(ctx, None, state, method="lm")
+        assert set(new_state) == {"n_eval", "lm_radius", "lm_scale"}
+        assert new_state["n_eval"] == 3  # another owner's key: left alone
+        assert new_state["lm_radius"] == diag["lm_radius"]
+        assert float(state["lm_radius"]) == 0.5  # the caller's dict untouched
 
-    def test_vanishing_damping_is_the_svd_solution(self, lm_params):
-        # One trial at a negligible lambda returns it whether or not it was
-        # accepted, and the filter factors then reduce to 1 / sigma.
-        ctx = lm_params.manifold.context(lm_params.free())
-        lm, _ = least_squares(
-            ctx, None, method="lm", lm_maxiter=1, lm_lambda_init=1e-20
+    def test_a_first_radius_the_gauss_newton_step_fits_takes_it(self, lm_params):
+        # A first radius beyond the undamped step's scaled length: that step
+        # fits and is tried undamped — and with an underdetermined A it is the
+        # one of least ||Dx||.
+        gauss_newton, scale, gn_norm = self._scaled_gauss_newton(lm_params)
+        factor = 2.0 * gn_norm / self._pulse_size(lm_params, scale)
+        lm, diag, _ = self._lm(lm_params, lm_maxiter=1, lm_radius_init=factor)
+        assert float(diag["damping"]) == 0.0
+        np.testing.assert_allclose(lm, gauss_newton, rtol=1e-8, atol=1e-12)
+
+    @pytest.mark.parametrize("fraction", [0.5, 0.1, 0.01])
+    def test_damping_fits_the_step_to_the_radius(self, lm_params, fraction):
+        # Moré's Hebden iteration: | ||Dx|| - radius | <= sigma * radius.
+        _, _, gn_norm = self._scaled_gauss_newton(lm_params)
+        radius = fraction * gn_norm
+        sol, diag, state = self._lm(lm_params, radius, lm_maxiter=1)
+        assert float(diag["damping"]) > 0.0
+        assert abs(self._scaled_norm(sol, state) - radius) <= LM_SIGMA * radius
+
+    def test_lm_radius_init_is_relative_to_the_pulse(self, lm_params):
+        # MINPACK's first radius, factor * ||D x0||, with x0 the pulse itself;
+        # a factor that puts it inside the undamped step, so the step is damped
+        # onto it.
+        _, scale, gn_norm = self._scaled_gauss_newton(lm_params)
+        size = self._pulse_size(lm_params, scale)
+        factor = 0.2 * gn_norm / size
+        sol, diag, state = self._lm(lm_params, lm_maxiter=1, lm_radius_init=factor)
+        radius = factor * size
+        assert float(diag["damping"]) > 0.0
+        assert abs(self._scaled_norm(sol, state) - radius) <= LM_SIGMA * radius
+
+    def test_a_zero_pulse_starts_at_lm_radius_init_itself(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        p = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=2,
+            init_values=np.zeros((2, projected_basis_2q.lie_algebra_dim)),
         )
-        svd, _ = least_squares(ctx, None)
-        np.testing.assert_allclose(lm, svd, rtol=1e-8, atol=1e-12)
+        Geope(p)  # expands the projected init_values over the full basis
+        _, _, gn_norm = self._scaled_gauss_newton(p)
+        radius = 0.2 * gn_norm
+        sol, diag, state = self._lm(p, lm_maxiter=1, lm_radius_init=radius)
+        assert float(diag["damping"]) > 0.0
+        assert abs(self._scaled_norm(sol, state) - radius) <= LM_SIGMA * radius
+
+    def test_through_an_expander_the_pulse_is_measured_in_its_unknowns(self, lm_params):
+        # Tie every coefficient to one amplitude: the pulse's coordinate is the
+        # least-squares fit of that amplitude, its mean.
+        ctx = lm_params.manifold.context(lm_params.free())
+        pulse = np.asarray(ctx.free_params)[:, lm_params.manifold.tangent.columns]
+        expander = jnp.ones((pulse.size, 1))
+        sol, diag, state = least_squares(
+            ctx, expander, method="lm", lm_maxiter=1, lm_radius_init=1e-3
+        )
+        d = float(state["lm_scale"][0])
+        radius = 1e-3 * abs(d * pulse.mean())
+        # One unknown, damped: its ||Dx|| is fitted to that radius.
+        assert float(diag["damping"]) > 0.0
+        step = abs(d * complex(sol.reshape(-1)[0]))
+        assert abs(step - radius) <= LM_SIGMA * radius
+
+    @pytest.mark.parametrize("radius", [None, 0.0, float("nan"), -1.0])
+    def test_an_unset_radius_starts_from_lm_radius_init(self, lm_params, radius):
+        reference, _, _ = self._lm(lm_params, lm_maxiter=1)
+        sol, _, _ = self._lm(lm_params, radius, lm_maxiter=1)
+        np.testing.assert_allclose(sol, reference)
+
+    @pytest.mark.parametrize("fraction", [2.0, 0.5, 0.1, 0.01])
+    def test_radius_update_follows_more(self, lm_params, fraction):
+        """The next radius obeys Algorithm (7.1) for whichever branch rho hits.
+
+        One trial each, at radii from beyond the Gauss-Newton step (undamped)
+        down to a hundredth of it, so the branches are visited by the data.
+        """
+        _, _, gn_norm = self._scaled_gauss_newton(lm_params)
+        radius = fraction * gn_norm
+        sol, diag, state = self._lm(lm_params, radius, lm_maxiter=1)
+        rho, damping = float(diag["lm_rho"]), float(diag["damping"])
+        step, nxt = self._scaled_norm(sol, state), float(diag["lm_radius"])
+        if rho <= LM_SHRINK_RHO:
+            assert LM_MU_MIN * radius * (1 - 1e-12) <= nxt
+            assert nxt <= LM_MU_MAX * radius * (1 + 1e-12)
+        elif rho >= LM_GROW_RHO or damping == 0.0:
+            assert nxt == pytest.approx(2 * step, rel=1e-10)
+        else:
+            assert nxt == pytest.approx(radius, rel=1e-12)
+
+    @pytest.mark.parametrize("fraction", [2.0, 0.5, 0.1])
+    def test_lm_hit_is_a_step_damped_onto_the_boundary(self, lm_params, fraction):
+        # Beyond the undamped step it fits inside the radius: no hit. Inside it,
+        # the step is damped onto the boundary: a hit.
+        _, _, gn_norm = self._scaled_gauss_newton(lm_params)
+        radius = fraction * gn_norm
+        sol, diag, state = self._lm(lm_params, radius, lm_maxiter=1)
+        assert bool(diag["lm_hit"]) == (fraction < 1.0)
+        assert bool(diag["lm_hit"]) == (float(diag["damping"]) > 0.0)
+        if diag["lm_hit"]:
+            assert abs(self._scaled_norm(sol, state) - radius) <= LM_SIGMA * radius
 
     def test_lm_maxiter_caps_the_trials(self, lm_params):
-        ctx = lm_params.manifold.context(lm_params.free())
-        _, diag = least_squares(
-            ctx, None, method="lm", lm_maxiter=2, lm_lambda_init=1e6
-        )
+        _, _, gn_norm = self._scaled_gauss_newton(lm_params)
+        _, diag, _ = self._lm(lm_params, 1e3 * gn_norm, lm_maxiter=2)
         assert 1 <= int(diag["lm_iter"]) <= 2
 
-    def test_damping_shortens_the_step(self, lm_params):
+    # --- Moré's scaling (§6) ----------------------------------------------
+
+    def test_scale_starts_at_the_column_norms(self, lm_params):
+        _, scale, _ = self._scaled_gauss_newton(lm_params)
+        _, _, state = self._lm(lm_params, lm_maxiter=1)
+        np.testing.assert_allclose(state["lm_scale"], scale.reshape(-1), rtol=1e-12)
+
+    def test_scale_is_the_running_maximum_of_the_column_norms(self, lm_params):
+        # Entries above the current norms are kept; those below are raised.
+        _, scale, _ = self._scaled_gauss_newton(lm_params)
+        norms = scale.reshape(-1)
+        previous = np.where(np.arange(norms.size) % 2 == 0, 2.0 * norms, 0.5 * norms)
         ctx = lm_params.manifold.context(lm_params.free())
-        light, _ = least_squares(
-            ctx, None, method="lm", lm_maxiter=1, lm_lambda_init=1e-6
+        state = {"lm_scale": jnp.asarray(previous)}
+        _, _, new_state = least_squares(ctx, None, state, method="lm", lm_maxiter=1)
+        np.testing.assert_allclose(
+            new_state["lm_scale"], np.maximum(previous, norms), rtol=1e-12
         )
-        heavy, _ = least_squares(
-            ctx, None, method="lm", lm_maxiter=1, lm_lambda_init=1e2
+
+    def test_a_column_that_never_moved_is_scaled_by_one(self, lm_params):
+        # MINPACK's floor: a zero column norm would make D singular.
+        ctx = lm_params.manifold.context(lm_params.free())
+        n = ctx.omegas.shape[0] * ctx.omegas.shape[1]
+        expander = jnp.concatenate([jnp.eye(n), jnp.zeros((n, 1))], axis=1)
+        _, _, state = least_squares(ctx, expander, method="lm", lm_maxiter=1)
+        assert float(state["lm_scale"][-1]) == 1.0
+        assert np.all(np.isfinite(np.asarray(state["lm_scale"])))
+
+    def test_scaling_makes_the_step_invariant_to_rescaled_unknowns(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        """Moré's point: rescale an unknown and the physical step is unchanged.
+
+        Two ``param_transform`` charts of the same pulse, one weighting its
+        unknowns by ``w``: A picks up the factor column by column, D with it,
+        so A D^-1 — and the step in the pulse's own units — is the same, as
+        is the first radius, ``||D x0||`` with ``x0`` the pulse. A damped step
+        is where D = I would differ.
+        """
+        weights = jnp.asarray([0.1, 1.0, 10.0])
+        # IX, XX, ZZ: in the Heisenberg control set, so every column of A is
+        # nonzero. A dead column is floored at d = 1 rather than scaled with
+        # its unknown, and would leak the weight into the first radius.
+        slots = jnp.asarray([0, 4, 14])
+
+        def chart(w):
+            def transform(phi):
+                return jnp.zeros(full_basis_2q.lie_algebra_dim).at[slots].set(w * phi)
+
+            return _params_2q(
+                cnot,
+                full_basis_2q,
+                projected_basis_2q,
+                piecewise_steps=2,
+                param_transform=transform,
+                n_experimental_params=3,
+            )
+
+        pulse = jnp.asarray([[0.3, -0.2, 0.4], [0.1, 0.5, -0.3]])
+        plain, weighted = chart(jnp.ones(3)), chart(weights)
+        steps = []
+        for params, free in ((plain, pulse), (weighted, pulse / weights)):
+            ctx = params.manifold.context(free)
+            sol, diag, _ = least_squares(
+                ctx, None, method="lm", lm_maxiter=1, lm_radius_init=0.2
+            )
+            assert float(diag["damping"]) > 0.0
+            steps.append(np.asarray(sol))
+        np.testing.assert_allclose(steps[1] * np.asarray(weights), steps[0], rtol=1e-8)
+
+    def test_stationary_point_takes_no_trial(self, full_basis_2q, projected_basis_2q):
+        # An exactly reached target leaves nothing to solve: no trial, no move,
+        # and no NaN from the 0/0 the gain ratio would otherwise be.
+        p = _params_2q(
+            np.eye(4, dtype=complex),
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=2,
+            init_values=np.zeros((2, projected_basis_2q.lie_algebra_dim)),
         )
-        assert float(jnp.linalg.norm(heavy)) < float(jnp.linalg.norm(light))
+        Geope(p)  # expands the projected init_values over the full basis
+        sol, diag, _ = self._lm(p)
+        assert not np.any(np.asarray(sol))
+        assert int(diag["lm_iter"]) == 0
+        assert float(diag["damping"]) == 0.0
+        assert not bool(diag["lm_hit"])
 
     def test_with_expander_returns_expanded_solution(self, lm_params):
         ctx = lm_params.manifold.context(lm_params.free())
         n = ctx.omegas.shape[0] * ctx.omegas.shape[1]
         # Tie every coefficient to one amplitude: a single free variable.
         expander = jnp.ones((n, 1))
-        sol, diag = least_squares(ctx, expander, method="lm")
+        sol, diag, _ = least_squares(ctx, expander, method="lm")
         assert sol.shape == ctx.omegas.shape[:2]
         assert jnp.allclose(sol, sol.reshape(-1)[0])
         assert int(diag["rank"]) == 1
@@ -1311,9 +1526,9 @@ class TestParametersPulseConstraintsValidation:
 class _CountingLineSearch(GoldenSection):
     """A stateful line search, for the state-threading tests only.
 
-    Every shipped line search carries just the per-step ``{"n_eval"}``, which is
-    rewritten from scratch each step and so cannot show that the state pytree
-    *threads* through the jitted update. This one adds ``n_step``, a counter
+    Every shipped line search carries only per-step entries (``"n_eval"``, and
+    the Armijo family's ``"radius_hit"``), rewritten from scratch each step, so
+    none can show that the state pytree *threads* through the jitted update. This one adds ``n_step``, a counter
     that accumulates across steps — the property the contract actually promises.
     """
 
@@ -1815,7 +2030,7 @@ class TestGeope:
             "method": "svd",
             "svd_cutoff": None,
             "lm_maxiter": 10,
-            "lm_lambda_init": 1e-3,
+            "lm_radius_init": 100.0,
             "normalized": True,
         }
 
@@ -1826,7 +2041,8 @@ class TestGeope:
             ({"method": "qr"}, ValueError),
             ({"svd_cutoff": 0.0}, ValueError),
             ({"lm_maxiter": 0}, ValueError),
-            ({"lm_lambda_init": -1.0}, ValueError),
+            ({"lm_radius_init": -1.0}, ValueError),
+            ({"lm_lambda_init": 1e-3}, TypeError),
         ],
     )
     def test_bad_least_squares_args_raise_before_compiling(
@@ -1856,7 +2072,81 @@ class TestGeope:
         g.optimize(max_steps=300, least_squares_args={"method": "lm"})
         assert g.params.fidelity > 0.999
         assert g.ls_diagnostics["lm_iter"] >= 1
-        assert g.ls_diagnostics["damping"] > 0
+        assert np.isfinite(g.ls_diagnostics["lm_rho"])
+
+    def test_lm_state_rides_in_the_line_search_state(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # The radius and Moré's scaling persist across steps in the
+        # line-search state and reset with it on every optimize(); the scaling
+        # is a running maximum, so it never shrinks from one step to the next.
+        p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=3)
+        g = Geope(p)
+        radii, scales = [], []
+
+        def record(step, history, geope):
+            radii.append(float(geope.line_search_state["lm_radius"]))
+            scales.append(np.asarray(geope.line_search_state["lm_scale"]))
+            return True
+
+        g.optimize(
+            max_steps=4,
+            precision=1.1,
+            least_squares_args={"method": "lm"},
+            callbacks=record,
+        )
+        assert set(g.line_search_state) == {
+            "n_eval",
+            "radius_hit",
+            "lm_radius",
+            "lm_scale",
+        }
+        # Each step hands on the radius its solve chose.
+        assert radii[-1] == g.ls_diagnostics["lm_radius"]
+        assert all(np.isfinite(r) and r > 0 for r in radii)
+        assert scales[0].shape == (3 * p.projected_basis.lie_algebra_dim,)
+        for before, after in pairwise(scales):
+            assert np.all(after >= before)
+
+        g.optimize(max_steps=0, least_squares_args={"method": "lm"})
+        assert np.isnan(float(g.line_search_state["lm_radius"]))
+        assert not np.any(np.asarray(g.line_search_state["lm_scale"]))
+        g.optimize(max_steps=0)
+        assert "lm_radius" not in g.line_search_state
+        assert "lm_scale" not in g.line_search_state
+
+    def test_lm_state_is_sized_for_pulse_constraints(self):
+        # The pulse-constraint expander changes the solve's unknowns, so the
+        # seeded scaling must follow it or the first step cannot broadcast.
+        proj = construct_restricted_pauli_basis(3, ["x", "z", "zz"])
+        p = Parameters(
+            basis=construct_full_pauli_basis(3),
+            projected_basis=proj,
+            target=qft_unitary(3),
+            piecewise_steps=4,
+            pulse_constraints={(1, 2): ["zz"]},
+            seed=7,
+            init_spread=0.3,
+        )
+        g = Geope(p)
+        g.optimize(max_steps=2, least_squares_args={"method": "lm"})
+        n_free = g._build_optimize_expander()[0].shape[1]
+        assert n_free < 4 * proj.lie_algebra_dim  # the constraint did bind
+        assert g.line_search_state["lm_scale"].shape == (n_free,)
+        assert np.isfinite(g.ls_diagnostics["residual_rel"])
+
+    def test_lm_ignores_normalized(self, params_2q):
+        # An LM step's length is its trust region's: alpha = 1 takes it, so the
+        # bracket is max_step_size whatever `normalized` says.
+        g = Geope(params_2q)
+        g.optimize(
+            max_steps=1,
+            line_search=_BracketProbe(),
+            max_step_size=0.7,
+            least_squares_args={"method": "lm", "normalized": True},
+        )
+        assert float(g.line_search_state["b"]) == 0.7
+        assert "lm_radius" in g.line_search_state
 
     @pytest.mark.parametrize("method", ["svd", "lm"])
     def test_unnormalized_run_converges(self, params_2q, method):
@@ -1869,6 +2159,183 @@ class TestGeope:
             least_squares_args={"method": method, "normalized": False},
         )
         assert g.params.fidelity > 0.999
+
+    # --- the constant step -------------------------------------------------
+
+    def test_constant_value_semantics(self):
+        assert Constant() == Constant()
+        assert Constant() != Armijo()
+        # It reports what LM accepts on, so progress is tested on the same.
+        assert Constant.objective == "distance"
+
+    def test_constant_takes_the_far_end_of_the_bracket(self, params_2q):
+        # No search: alpha = b, with the distance there as its value and the
+        # one evaluation it spent on it.
+        ctx = params_2q.manifold.context(params_2q.free())
+        rng = np.random.default_rng(0)
+        ctx.set_direction(jnp.asarray(rng.normal(size=params_2q.free().shape)))
+        b = jnp.asarray(0.3, jnp.float64)
+        result = Constant()(ctx, jnp.asarray(0.0, jnp.float64), b, {})
+        assert float(result.step_size) == 0.3
+        assert float(result.value) == pytest.approx(float(ctx.distance_at(b)))
+        assert int(result.state["n_eval"]) == 1
+
+    def test_constant_takes_every_accepted_lm_step(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        # Armijo never backtracks from an LM step here, so dropping the search
+        # changes nothing: same steps, all of them the full accepted LM step.
+        # (Uncapped: the comparison is about backtracking, not the pulse cap.)
+        histories = {}
+        for line_search in (Armijo(radius_factor=None), Constant()):
+            p = _params_2q(cnot, full_basis_2q, projected_basis_2q, piecewise_steps=4)
+            g = Geope(p, history=History())
+            g.optimize(
+                max_steps=50,
+                line_search=line_search,
+                least_squares_args={"method": "lm"},
+            )
+            assert g.params.fidelity > g.precision
+            histories[line_search.name] = g.history
+        np.testing.assert_allclose(
+            histories["constant"].fidelities, histories["armijo"].fidelities
+        )
+        # [0] is the record made at construction, before any step.
+        assert all(float(t) == 1.0 for t in histories["constant"].step_sizes[1:])
+
+    def test_constant_step_that_does_not_decrease_falls_back(self, params_2q):
+        # Its value is honest, so an overshooting step (here 50 Gauss-Newton
+        # steps) fails the progress test and Gram-Schmidt replaces it.
+        g = Geope(params_2q)
+        fallbacks = []
+        gram_schmidt = g.gram_schmidt
+        g.gram_schmidt = lambda coeffs: fallbacks.append(1) or gram_schmidt(coeffs)
+        g.optimize(
+            max_steps=1,
+            line_search=Constant(),
+            max_step_size=50.0,
+            least_squares_args={"normalized": False},
+        )
+        assert fallbacks == [1]
+
+    # --- the Armijo family's pulse cap -------------------------------------
+
+    @staticmethod
+    def _gauss_newton_context(params):
+        """A context with the raw Gauss-Newton direction set, and its sizes.
+
+        Returns ``(ctx, ||pulse||, ||coeffs||)``, the pulse being its solvable
+        columns: a cap of ``radius_factor * ||pulse||`` is the bracket end
+        ``radius_factor * ||pulse|| / ||coeffs||``.
+        """
+        ctx = params.manifold.context(params.free())
+        sol, _, _ = least_squares(ctx, None)
+        ctx.set_direction(-params.manifold.tangent.embed(sol))
+        columns = params.manifold.tangent.columns
+        size = float(jnp.linalg.norm(params.free()[:, columns]))
+        return ctx, size, float(jnp.linalg.norm(ctx.coeffs))
+
+    @staticmethod
+    def _search(line_search, ctx, b):
+        zero = jnp.asarray(0.0, jnp.float64)
+        return line_search(ctx, zero, jnp.asarray(b, jnp.float64), line_search.init())
+
+    def test_radius_factor_is_a_validated_value(self):
+        assert Armijo(radius_factor=10.0) != Armijo()
+        assert Armijo().radius_factor == 100.0
+        assert set(Armijo().init()) == {"n_eval", "radius_hit"}
+        for cls in (Armijo, QuadraticArmijo, ApproximateQuadraticArmijo):
+            for bad in (0.0, -1.0):
+                with pytest.raises(ValueError, match="radius_factor"):
+                    cls(radius_factor=bad)
+
+    def test_a_binding_cap_shortens_the_bracket_and_is_hit(self, params_2q):
+        # A cap at a hundredth of the Gauss-Newton step, short enough to be
+        # accepted outright: the step is the cap, and it bound the step.
+        ctx, size, norm = self._gauss_newton_context(params_2q)
+        factor = 0.01 * norm / size
+        result = self._search(Armijo(radius_factor=factor), ctx, 1.0)
+        assert float(result.step_size) == pytest.approx(0.01, rel=1e-12)
+        assert int(result.state["n_eval"]) == 1
+        assert bool(result.state["radius_hit"])
+
+    def test_a_cap_beyond_the_bracket_changes_nothing(self, params_2q):
+        ctx, size, norm = self._gauss_newton_context(params_2q)
+        capped = self._search(Armijo(radius_factor=100 * norm / size), ctx, 1.0)
+        free = self._search(Armijo(radius_factor=None), ctx, 1.0)
+        assert float(capped.step_size) == float(free.step_size)
+        assert float(capped.value) == float(free.value)
+        assert not bool(capped.state["radius_hit"])
+        assert not bool(free.state["radius_hit"])
+
+    def test_backtracking_from_an_active_cap_is_still_a_hit(self, params_2q):
+        # The cap binds (50 Gauss-Newton steps, inside a bracket of 1000), and
+        # that far out the distance has not decreased: the search backtracks.
+        # The flag reports the cap, not where the search ended.
+        ctx, size, norm = self._gauss_newton_context(params_2q)
+        result = self._search(Armijo(radius_factor=50 * norm / size), ctx, 1e3)
+        assert float(result.step_size) < 50.0
+        assert bool(result.state["radius_hit"])
+
+    def test_a_zero_pulse_caps_at_radius_factor_itself(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        p = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=2,
+            init_values=np.zeros((2, projected_basis_2q.lie_algebra_dim)),
+        )
+        Geope(p)  # expands the projected init_values over the full basis
+        ctx, size, norm = self._gauss_newton_context(p)
+        assert size == 0.0
+        result = self._search(Armijo(radius_factor=0.01 * norm), ctx, 1.0)
+        assert float(result.step_size) == pytest.approx(0.01, rel=1e-12)
+        assert bool(result.state["radius_hit"])
+
+    def test_a_quadratic_seed_inside_an_active_cap_is_still_a_hit(self, params_2q):
+        # QuadraticArmijo seeds at the model minimiser, about the Gauss-Newton
+        # step; with the cap at ten of them and the bracket at a thousand, the
+        # cap shortens the bracket though the step stops short of it.
+        ctx, size, norm = self._gauss_newton_context(params_2q)
+        result = self._search(QuadraticArmijo(radius_factor=10 * norm / size), ctx, 1e3)
+        assert float(result.step_size) < 10.0
+        assert bool(result.state["radius_hit"])
+
+    def test_the_cap_rescues_the_raw_step_from_a_near_zero_pulse(self):
+        """The case the cap exists for (2 qubits, x and y on qubit 1, Heisenberg).
+
+        From ``init_spread=0.01`` the solve has cond ~1e5 and the raw
+        Gauss-Newton step is ~3e4 long; uncapped, Armijo's halving lands the
+        pulse hundreds of radians out and the run does not converge in 500
+        steps. Capped at 100 times the pulse, the cap is active on the first
+        step and the run converges quickly.
+        """
+        p = Parameters(
+            basis=construct_full_pauli_basis(2),
+            control={1: ["x", "y"]},
+            drift={(1, 2): ["xx", "yy", "zz"]},
+            target=unitary_group.rvs(4, random_state=24),
+            piecewise_steps=75,
+            init_spread=0.01,
+        )
+        g = Geope(p)
+        g.init(seed=4)
+        hits = []
+
+        def record(step, history, geope):
+            hits.append(bool(geope.line_search_state["radius_hit"]))
+            return True
+
+        g.optimize(
+            max_steps=50,
+            line_search=Armijo(),
+            least_squares_args={"normalized": False},
+            callbacks=record,
+        )
+        assert g.params.fidelity > g.precision
+        assert hits[0]
 
     # --- the bracket -------------------------------------------------------
 
@@ -2029,8 +2496,22 @@ class TestGeope:
         assert np.isnan(g.ls_diagnostics["residual_rel"])
         assert np.isnan(g.ls_diagnostics["cond"])
         assert g.ls_diagnostics["rank"] == -1
-        assert np.isnan(g.ls_diagnostics["damping"])
-        assert g.ls_diagnostics["lm_iter"] == -1
+
+    def test_ls_diagnostics_keys_follow_the_method(self, params_2q):
+        """ "lm" adds its keys (seeded, then filled); "svd" drops them again."""
+        g = Geope(params_2q)
+        g.optimize(max_steps=0, least_squares_args={"method": "lm"})
+        assert set(g.ls_diagnostics) == _LS_DIAGNOSTIC_KEYS | _LM_DIAGNOSTIC_KEYS
+        assert g.ls_diagnostics["lm_iter"] == -1  # seeded: no solve yet
+        assert g.ls_diagnostics["lm_hit"] is False
+        g.optimize(max_steps=2, precision=1.1, least_squares_args={"method": "lm"})
+        assert g.ls_diagnostics["lm_iter"] >= 1
+        assert isinstance(g.ls_diagnostics["lm_hit"], bool)  # pulled to the host
+        residual = g.ls_diagnostics["residual"]
+
+        g.optimize(max_steps=0)
+        assert set(g.ls_diagnostics) == _LS_DIAGNOSTIC_KEYS
+        assert g.ls_diagnostics["residual"] == residual  # shared keys are kept
 
     def test_ls_diagnostics_populated_after_optimize(self, params_2q):
         g = Geope(params_2q)
@@ -2119,10 +2600,14 @@ class TestGeope:
         assert np.isfinite(g.ls_diagnostics["residual_rel"])
         assert g.ls_diagnostics["rank"] > 0
 
+    @pytest.mark.parametrize("method", ["svd", "lm"])
     def test_ls_diagnostics_with_param_transform(
-        self, cnot, full_basis_2q, projected_basis_2q
+        self, cnot, full_basis_2q, projected_basis_2q, method
     ):
-        """The float64 (param_transform) path yields real, finite diagnostics."""
+        """The float64 (param_transform) path yields real, finite diagnostics.
+
+        Under ``"lm"`` it also sizes the scaling by the experimental unknowns.
+        """
         n_exp = 3
 
         def transform(phi):
@@ -2141,10 +2626,12 @@ class TestGeope:
             n_experimental_params=n_exp,
         )
         g = Geope(p)
-        g.optimize(max_steps=3)
+        g.optimize(max_steps=3, least_squares_args={"method": method})
         assert np.isfinite(g.ls_diagnostics["residual"])
         assert np.isfinite(g.ls_diagnostics["residual_rel"])
         assert g.ls_diagnostics["rank"] > 0
+        if method == "lm":
+            assert g.line_search_state["lm_scale"].shape == (2 * n_exp,)
 
     def test_optimize_verbose(self, cnot, full_basis_2q, projected_basis_2q, capsys):
         p = _params_2q(cnot, full_basis_2q, projected_basis_2q)

@@ -39,8 +39,21 @@ PROGRESS_RTOL = 1e-5
 
 # The least-squares methods `least_squares` accepts.
 LEAST_SQUARES_METHODS = ("svd", "lm")
-# Factor the Levenberg-Marquardt damping grows by on a rejected trial.
-LM_LAMBDA_FACTOR = 10.0
+
+# Levenberg-Marquardt trust-region controller, Moré (1978), Algorithm (7.1).
+# Relative tolerance on matching the step length to the radius:
+# | ||h|| - radius | <= LM_SIGMA * radius.
+LM_SIGMA = 0.1
+# Gain ratio above which a trial step is accepted.
+LM_ACCEPT_RHO = 1e-4
+# Gain ratios at or below / at or above which the radius shrinks / grows.
+LM_SHRINK_RHO = 0.25
+LM_GROW_RHO = 0.75
+# Bounds on the radius contraction factor mu.
+LM_MU_MIN = 0.1
+LM_MU_MAX = 0.5
+# Iteration cap on the Hebden iteration matching the damping to the radius.
+LM_HEBDEN_MAXITER = 10
 
 
 class Geope:
@@ -77,8 +90,10 @@ class Geope:
             then).
         ls_diagnostics: Diagnostics of the *most recent* geodesic least-squares
             solve, as a dict of host-side scalars with keys ``residual``,
-            ``residual_rel``, ``rank``, ``cond``, ``damping`` and ``lm_iter``
-            (see :func:`least_squares`). Seeded with ``nan`` / ``-1``
+            ``residual_rel``, ``rank`` and ``cond``, plus ``damping``,
+            ``lm_iter``, ``lm_rho``, ``lm_radius`` and ``lm_hit`` for
+            ``method="lm"`` only (see :func:`least_squares`); :meth:`optimize`
+            re-keys it for its method. Seeded with ``nan`` / ``-1`` / ``False``
             sentinels before the first solve of a run. Not logged by default —
             pass a ``logging_fn`` to `History` (or read it from a callback) to
             record it.
@@ -328,15 +343,10 @@ class Geope:
             self.params.free(), self._delta_t()
         )
         self.step_size = 0
-        # least-squares diagnostics
-        self.ls_diagnostics = {
-            "residual": float("nan"),
-            "residual_rel": float("nan"),
-            "rank": -1,
-            "cond": float("nan"),
-            "damping": float("nan"),
-            "lm_iter": -1,
-        }
+        # least-squares diagnostics, keyed for the configured method
+        self.ls_diagnostics = _ls_diagnostic_sentinels(
+            self.least_squares_args["method"]
+        )
 
         if self.history is not None:
             self.history.reset()
@@ -419,14 +429,15 @@ class Geope:
                 Defaults to :class:`~geope.line_searches.Armijo`.
             precision: Target fidelity threshold. Defaults to 0.9999999.
                 Host-side only (loop control) — zero compile impact.
-            max_step_size: Maximum line-search step. Normalised (the default),
-                the longest step has length ``max_step_size / (sqrt(G) *
-                delta_t)`` in parameter space, i.e. it is per unit of total
-                duration, whatever the scale of the least-squares solution; with
-                ``least_squares_args={"normalized": False}`` the bracket is
-                ``max_step_size`` itself, where ``1`` is the full Gauss-Newton
-                (or LM) step. Defaults to 1.0. Baked into the jitted update, so
-                changing it triggers a one-off recompile.
+            max_step_size: Maximum line-search step. For the normalised
+                ``"svd"`` solve (the default), the longest step has length
+                ``max_step_size / (sqrt(G) * delta_t)`` in parameter space, i.e.
+                it is per unit of total duration, whatever the scale of the
+                least-squares solution. With ``"normalized": False``, and always
+                for ``"lm"``, the bracket is ``max_step_size`` itself, where
+                ``1`` is the full Gauss-Newton step (for ``"lm"``, the accepted
+                trust-region step). Defaults to 1.0. Baked into the jitted
+                update, so changing it triggers a one-off recompile.
             gram_schmidt_step_size: Step size for the Gram-Schmidt fallback, per
                 unit of total duration like ``max_step_size``. Defaults to 1.3.
                 Host-side only — zero compile impact. A falsy value disables the
@@ -442,12 +453,15 @@ class Geope:
             least_squares_args: Keyword arguments of :func:`least_squares`,
                 which solves for the search direction each step: ``method``
                 (``"svd"``, the default, or ``"lm"``), ``svd_cutoff``,
-                ``lm_maxiter`` and ``lm_lambda_init``, plus ``normalized``
-                (default ``True``), which picks the bracket described under
-                ``max_step_size``. ``None`` (default) uses the defaults. Baked
-                into the jitted update, so changing it triggers a one-off
-                recompile. ``step_size`` is in units of the least-squares
-                solution either way.
+                ``lm_maxiter`` and ``lm_radius_init``, plus ``normalized``
+                (default ``True``), which picks the ``"svd"`` bracket described
+                under ``max_step_size`` and is ignored by ``"lm"``. ``None``
+                (default) uses the defaults. Baked into the jitted update, so
+                changing it triggers a one-off recompile. ``step_size`` is in
+                units of the least-squares solution either way. The ``"lm"``
+                trust-region radius is carried across steps in
+                :attr:`line_search_state` (``"lm_radius"``) and restarts with it
+                on every call.
 
         A step is kept when it reduced the line search's own objective by more
         than ``PROGRESS_RTOL`` relatively (`GoldenSection` minimises
@@ -481,13 +495,29 @@ class Geope:
         # carries across steps still restarts on every optimize() call.
         self.line_search_state = self.line_search.init()
 
+        # The diagnostics' keys follow the method: "lm" reports its trust-region
+        # keys and "svd" none of them. Keep what the keys both share, seed the
+        # new ones, and drop the other method's.
+        self.ls_diagnostics = {
+            key: self.ls_diagnostics.get(key, sentinel)
+            for key, sentinel in _ls_diagnostic_sentinels(
+                self.least_squares_args["method"]
+            ).items()
+        }
+
         # Build pulse-constrained update step if needed
         pulse_templates = None
+        combined_expander = None
         if self.pulse_constraints is not None and self.params.piecewise_steps > 1:
             combined_expander, pulse_templates = self._build_optimize_expander()
             update_step = self.get_update_step(expander_override=combined_expander)
         else:
             update_step = self.update_step
+
+        # The solve's own state ("lm": its trust-region radius and Moré
+        # scaling) rides in the same pytree and restarts with it. It is sized
+        # by the solve's unknowns, hence after the expander is known.
+        self.line_search_state |= self._least_squares_state(combined_expander)
 
         cbs = normalize_callbacks(callbacks)
 
@@ -506,7 +536,7 @@ class Geope:
             ) = update_step(self.params.free(), self._delta_t(), self.line_search_state)
             # Pull the diagnostics to the host
             self.ls_diagnostics = {
-                key: int(value) if key in ("rank", "lm_iter") else float(value)
+                key: _DIAGNOSTIC_CASTS.get(key, float)(value)
                 for key, value in ls_diagnostics.items()
             }
 
@@ -810,6 +840,45 @@ class Geope:
             if "infidelities" in self.history.logs:
                 self.history.logs["infidelities"][-1] = 1 - fid
 
+    def _solve_expander(self, expander_override: Array | None = None) -> Array | None:
+        """The least-squares solve's constraint expander, or ``None``.
+
+        ``expander_override`` (the pulse-constraint path's) when given, else the
+        per-gate Kronecker'd ``constraint_expander``, else no expander.
+        """
+        if expander_override is not None:
+            return expander_override
+        if self.constraint_expander is not None:
+            return jnp.kron(
+                jnp.eye(self.params.piecewise_steps), self.constraint_expander
+            )
+        return None
+
+    def _least_squares_state(self, expander_override: Array | None = None) -> dict:
+        """The solve's own entries of the threaded state, fresh for a run.
+
+        Empty for ``"svd"``. For ``"lm"``: an unset trust-region radius
+        ``"lm_radius"`` (NaN, so the first step sizes it from the pulse it
+        starts at) and Moré's scaling ``"lm_scale"``, the running
+        maximum of the column norms of the solve's matrix — one entry per
+        unknown, starting at zero so the first step's norms become it.
+        """
+        if self.least_squares_args["method"] != "lm":
+            return {}
+        expander = self._solve_expander(expander_override)
+        if expander is not None:
+            n_unknowns = expander.shape[1]
+        else:
+            columns = self.params.manifold.tangent.columns
+            per_gate = (
+                self.params.free().shape[1] if columns is None else int(columns.sum())
+            )
+            n_unknowns = self.params.piecewise_steps * per_gate
+        return {
+            "lm_radius": jnp.asarray(jnp.nan, jnp.float64),
+            "lm_scale": jnp.zeros(n_unknowns, jnp.float64),
+        }
+
     def get_update_step(
         self, expander_override: Array | None = None
     ) -> Callable[..., tuple]:
@@ -821,7 +890,10 @@ class Geope:
         of omegas that best matches the geodesic direction (:func:`least_squares`),
         attach its negation to the context, and line-search along it. The
         direction keeps its least-squares scale; ``normalized`` acts on the
-        bracket instead.
+        bracket instead, and only for ``"svd"``. The ``"lm"`` trust-region
+        radius is threaded through ``ls_state`` under ``"lm_radius"``: the
+        solve takes the state and returns it updated, and the line search's own
+        state is laid over it, since a search rebuilds only its own keys.
 
         The context is built *inside* this function and never leaves it — it is a
         trace-time object, not a pytree. The solve and the line search read the
@@ -846,14 +918,14 @@ class Geope:
             least-squares solve for this step (see :func:`least_squares`).
 
             ``coeffs`` is the negated least-squares solution at its own scale.
-            With ``normalized=True`` the bracket is
+            For ``"svd"`` with ``normalized=True`` the bracket is
             $[0, \texttt{max\_step\_size}/(\sqrt{N_g}\,\lVert\text{sol}\rVert\,
             \Delta t)]$, so its far end is a step of fixed length
             $\texttt{max\_step\_size}/(\sqrt{N_g}\,\Delta t)$ in parameter space
             (an empty bracket if the solution vanishes); otherwise it is
             $[0, \texttt{max\_step\_size}]$, where a unit step is the full
-            Gauss-Newton (or LM) step. ``step_size`` is in units of ``coeffs``
-            either way.
+            Gauss-Newton step, or for ``"lm"`` the accepted trust-region step.
+            ``step_size`` is in units of ``coeffs`` either way.
         """
         manifold = self.params.manifold
         line_search = self.line_search
@@ -861,26 +933,22 @@ class Geope:
         # join the compile memo.
         max_step_size = self.max_step_size
         least_squares_args = dict(self.least_squares_args)
-        # Not the solve's but the bracket's: see below.
+        # Not the solve's but the bracket's, and only the plain SVD solve's: an
+        # LM step's length is its trust region's, which alpha = 1 takes.
         normalized = least_squares_args.pop("normalized")
+        normalized = normalized and least_squares_args["method"] == "svd"
+        expander_gates = self._solve_expander(expander_override)
 
         @jax.jit
         def update_step(free_params, delta_t, ls_state):
             ctx = manifold.context(free_params, delta_t)
 
-            if expander_override is not None:
-                expander_gates = expander_override
-            elif self.constraint_expander is not None:
-                expander_gates = jnp.kron(
-                    jnp.eye(self.params.piecewise_steps), self.constraint_expander
-                )
-            else:
-                expander_gates = None
-
             # The solve reads only the context's direction-free tier 0, which the
-            # line search below reuses from the same memo.
-            sol, ls_diagnostics = least_squares(
-                ctx, expander_gates, **least_squares_args
+            # line search below reuses from the same memo. It shares the threaded
+            # state with the line search, keeping its own keys in it ("lm" its
+            # trust-region radius and scaling).
+            sol, ls_diagnostics, ls_state = least_squares(
+                ctx, expander_gates, ls_state, **least_squares_args
             )
 
             # Scatter the solved columns back over the chart's parameters (a
@@ -919,6 +987,9 @@ class Geope:
             result = line_search(
                 ctx, jnp.asarray(0.0, jnp.float64), alpha_max, ls_state
             )
+            # A line search rebuilds its state from its own keys only, so lay it
+            # over the solve's rather than replacing it.
+            new_ls_state = {**ls_state, **result.state}
             new_params = free_params + result.step_size * coeffs
 
             if line_search.objective == "infidelity":
@@ -937,7 +1008,7 @@ class Geope:
                 value0,
                 result.value,
                 result.step_size,
-                result.state,
+                new_ls_state,
                 ls_diagnostics,
             )
 
@@ -1021,12 +1092,13 @@ def build_pulse_expander(
 def least_squares(
     ctx: GeometricContext,
     expander: Array | None,
+    ls_state: dict | None = None,
     *,
     method: str = "svd",
     svd_cutoff: float | None = None,
     lm_maxiter: int = 10,
-    lm_lambda_init: float = 1e-3,
-) -> tuple[Array, dict[str, Array]]:
+    lm_radius_init: float = 100.0,
+) -> tuple[Array, dict[str, Array], dict]:
     r"""Solve the geodesic least-squares problem off a step's context.
 
     Finds the linear combination of the context's omegas that best reproduces
@@ -1035,17 +1107,37 @@ def least_squares(
     $b=\gamma$, the two methods solve
 
     $$x_{\text{svd}} = \arg\min_x \lVert A x - b\rVert_2, \qquad
-      x_{\text{lm}}(\lambda) = \arg\min_x \lVert A x - b\rVert_2^2
-        + \lambda\lVert x\rVert_2^2 .$$
+      x_{\text{lm}} = \arg\min_{\lVert Dx\rVert_2\le\Delta}
+        \lVert A x - b\rVert_2 .$$
 
-    ``"lm"`` is Levenberg damping of that solve, read as a Gauss-Newton step on
-    the squared geodesic distance $F_0$: one SVD of $A$ gives $x(\lambda)$ for
-    every $\lambda$ through the filter factors $\sigma_i/(\sigma_i^2+\lambda)$.
-    Starting from $\lambda_0 = \texttt{lm\_lambda\_init}\cdot\sigma_0^2$ (scaled
-    by the largest singular value, so the setting is scale-free), it accepts the
-    first $\lambda$ whose full step $\phi - x(\lambda)$ lowers the distance below
-    the context's own `F0`, and multiplies $\lambda$ by `LM_LAMBDA_FACTOR`
-    otherwise. $\lambda$ restarts at $\lambda_0$ on every call.
+    ``"lm"`` is the trust-region Levenberg-Marquardt step of Moré (1978), read
+    as a Gauss-Newton step on the squared geodesic distance $F_0$. For a radius
+    $\Delta$ it takes the undamped step if that fits within $(1+\sigma)\Delta$,
+    and otherwise the damped step $x(\lambda)=(A^\dagger A+\lambda D^2)^{-1}
+    A^\dagger b$ whose scaled length $\lVert Dx\rVert$ matches $\Delta$ to
+    within $\sigma\Delta$, choosing $\lambda$ by Moré's safeguarded Hebden
+    iteration. One SVD of $AD^{-1}$ serves every $\lambda$, through the filter
+    factors $\sigma_i/(\sigma_i^2+\lambda)$, so this costs no propagator. Each
+    trial $\phi - x$ is then scored by the gain ratio of actual to predicted
+    reduction,
+
+    $$\rho = \frac{1 - F(x)/F_0}
+      {(\lVert Ax\rVert^2 + 2\lambda\lVert Dx\rVert^2)/\lVert b\rVert^2},$$
+
+    both relative, so the constant of `Manifold.coefficients` cancels between
+    the distance and the model. It is accepted when $\rho > 10^{-4}$; the
+    radius shrinks by Moré's quadratic-fit factor $\mu\in[0.1, 0.5]$ when
+    $\rho\le\tfrac14$, grows to $2\lVert Dx\rVert$ when $\rho\ge\tfrac34$ (or
+    the step was undamped), and stays put otherwise. Rejected trials retry at
+    the same base point with the shrunk radius, up to ``lm_maxiter`` of them.
+
+    The scaling $D=\mathrm{diag}(d)$ is Moré's (§6), in the solve's own
+    coordinates (after the expander): $d_i$ tracks the largest norm column $i$
+    of $A$ has had — the square root of the Gauss-Newton curvature
+    $(A^\dagger A)_{ii}$ along that unknown — and never shrinks, so a stiffer
+    unknown gets a shorter axis of the trust region. Like the radius it is
+    carried across steps in ``ls_state``. Only the numerical rank of $AD^{-1}$
+    is cut — the damping, not a spectral truncation, regularises the solve.
 
     **Context discipline.** ``ctx`` is the same object the line search receives
     next, so this function only *reads* its direction-free tier 0 (``omegas``,
@@ -1060,24 +1152,43 @@ def least_squares(
         ctx: The step's :class:`~geope.geometry.GeometricContext`, with no
             direction set.
         expander: Optional constraint expansion ``Array``, or ``None``.
-        method: ``"svd"`` (default) for ``jnp.linalg.lstsq``, ``"lm"`` for
-            Levenberg damping with accept/reject on the geodesic distance.
-        svd_cutoff: Condition-number cap of the SVD: singular values below
-            ``s[0] / svd_cutoff`` are discarded. ``None`` keeps the
+        ls_state: The step's threaded state, ``Geope.line_search_state``; ``None``
+            for an empty one. The solve reads and writes only its own keys,
+            which the previous ``"lm"`` step handed on: ``"lm_radius"``, the
+            trust-region radius (missing, NaN or non-positive means unset: the
+            first step of a run, which starts from ``lm_radius_init``), and
+            ``"lm_scale"``, the running
+            maximum of the column norms of $A$, one per unknown (missing means
+            none yet: the current norms). ``"svd"`` keeps no state.
+        method: ``"svd"`` (default) for ``jnp.linalg.lstsq``, ``"lm"`` for the
+            trust-region Levenberg-Marquardt step.
+        svd_cutoff: Condition-number cap of the ``"svd"`` solve: singular
+            values below ``s[0] / svd_cutoff`` are discarded. ``None`` keeps the
             ``jnp.linalg.lstsq`` default, $\varepsilon\max(M, N)$ relative.
-        lm_maxiter: Maximum number of trial $\lambda$ values for ``"lm"``,
-            each costing one propagator and one logarithm. If none lowers the
-            distance, the last (most damped) solution is returned.
-        lm_lambda_init: Initial damping for ``"lm"``, relative to $\sigma_0^2$.
+            ``"lm"`` always uses that default, for the numerical rank only.
+        lm_maxiter: Maximum number of trial steps for ``"lm"``, each costing
+            one propagator and one logarithm. If none is accepted, the last
+            (shortest) one is returned.
+        lm_radius_init: The first radius of a run for ``"lm"``, relative to
+            the scaled size $\lVert Dx_0\rVert$ of the pulse it starts from,
+            $x_0$ being the pulse's solvable columns in the solve's unknowns
+            (through the expander, by least squares, when there is one); for
+            a zero pulse, the radius itself. MINPACK's ``factor``, and its
+            default ``100``. Like MINPACK's, it counts an unknown whose column
+            of $A$ has never moved at $d_i = 1$. It is deliberately not relative to the undamped
+            step, which is longest where $A$ is worst conditioned: near a zero
+            pulse that step can be $10^4$ long and its model wrong at a
+            thousandth of it.
 
     Returns:
-        A tuple ``(sol, diagnostics)``. ``sol`` has shape
+        A tuple ``(sol, diagnostics, ls_state)``. ``sol`` has shape
         ``(piecewise_steps, K_solvable)``, in the solvable columns (scatter it
         with ``manifold.tangent.embed``), pointing *uphill* — the caller
         negates it — and at its least-squares scale, where a unit step is the
         full Gauss-Newton (or LM) step. ``Geope`` normalises through the
-        line-search bracket rather than by rescaling it. ``diagnostics`` holds
-        scalars
+        line-search bracket rather than by rescaling it. ``ls_state`` is a copy
+        of the input state, with ``"lm_radius"`` and ``"lm_scale"`` updated for
+        ``"lm"`` and otherwise unchanged. ``diagnostics`` holds scalars
 
         * ``residual`` — $\lVert A x - b\rVert_2$.
         * ``residual_rel`` — $\lVert A x-b\rVert_2/\lVert b\rVert_2$, in
@@ -1085,13 +1196,25 @@ def least_squares(
           headline number: it measures how much of the geodesic direction lies
           outside the controllable subspace, and is comparable across steps and
           across problems.
-        * ``rank`` — the numerical rank of $A$ under the cutoff.
+        * ``rank`` — the numerical rank of $A$ under the cutoff (for ``"lm"``,
+          of the scaled $AD^{-1}$ it factors).
         * ``cond`` — $\sigma_0/\sigma_{\text{rank}-1}$, the condition number
           over the singular values retained above the cutoff, i.e. the
-          effective conditioning of the solve.
-        * ``damping`` — the $\lambda$ that produced $x$; ``0.0`` for ``"svd"``.
-        * ``lm_iter`` — the number of trial $\lambda$ evaluated; ``0`` for
-          ``"svd"``.
+          effective conditioning of the solve (for ``"lm"``, of $AD^{-1}$).
+
+        and, for ``"lm"`` only,
+
+        * ``damping`` — the $\lambda$ that produced $x$; ``0.0`` for an
+          undamped step.
+        * ``lm_iter`` — the number of trial steps evaluated.
+        * ``lm_rho`` — the gain ratio of the returned trial.
+        * ``lm_radius`` — the radius for the next step's solve, in the scaled
+          norm $\lVert Dx\rVert$, also written to the returned ``ls_state``.
+        * ``lm_hit`` — whether the returned step lies on the trust-region
+          boundary, i.e. was damped onto it ($\lambda > 0$, so
+          $\lvert\lVert Dx\rVert-\Delta\rvert\le\sigma\Delta$); ``False`` when
+          the undamped step fitted inside the radius, or there was nothing to
+          solve.
 
     Raises:
         ValueError: If ``method`` is not ``"svd"`` or ``"lm"``.
@@ -1103,26 +1226,30 @@ def least_squares(
     comb_vecs = jnp.concatenate(omegas, axis=0)
     comb_vecs_T = comb_vecs.T @ expander if expander is not None else comb_vecs.T
     rcond = None if svd_cutoff is None else 1.0 / svd_cutoff
-    diagnostics = {}
+    ls_state = dict(ls_state or {})
 
     if method == "svd":
         x, residual2, rank, singular_values = jnp.linalg.lstsq(
             comb_vecs_T, gammas, rcond=rcond
         )
-        residual = jnp.sqrt(residual2)
+        # The squared residual is shaped (1,) because the target is 1-D.
+        residual = jnp.sqrt(residual2[0])
+        diagnostics = {}
     elif method == "lm":
-        x, rank, singular_values, damping, lm_iter = _levenberg_marquardt(
+        x, rank, singular_values, diagnostics, scale = _levenberg_marquardt(
             ctx,
             comb_vecs_T,
             gammas,
             expander,
             sol_shape,
+            ls_state.get("lm_radius"),
+            ls_state.get("lm_scale"),
             lm_maxiter,
-            lm_lambda_init,
+            lm_radius_init,
         )
+        ls_state["lm_radius"] = diagnostics["lm_radius"]
+        ls_state["lm_scale"] = scale
         residual = jnp.linalg.norm(comb_vecs_T @ x - gammas)
-        diagnostics["damping"] = damping
-        diagnostics["lm_iter"] = lm_iter
     else:
         raise ValueError(
             f"Unknown least-squares method {method!r}; expected one of "
@@ -1133,8 +1260,13 @@ def least_squares(
     sol = sol.reshape(sol_shape)
     # residual and relative residual
     diagnostics["residual"] = residual
-    residual_rel = residual / jnp.linalg.norm(gammas)
-    diagnostics["residual_rel"] = residual_rel
+    # Near convergence the geodesic tangent vanishes, so the relative residual
+    # is a genuine 0/0; define it as 0 there (the residual vanishes with it).
+    target_norm = jnp.linalg.norm(gammas)
+    nonzero = target_norm > 0
+    diagnostics["residual_rel"] = jnp.where(
+        nonzero, residual / jnp.where(nonzero, target_norm, 1.0), 0.0
+    )
     # Smallest singular value
     smallest_kept = singular_values[rank - 1]
     positive = smallest_kept > 0
@@ -1145,7 +1277,7 @@ def least_squares(
     )
     diagnostics["rank"] = rank
 
-    return sol, diagnostics
+    return sol, diagnostics, ls_state
 
 
 def _levenberg_marquardt(
@@ -1154,31 +1286,70 @@ def _levenberg_marquardt(
     rhs: Array,
     expander: Array | None,
     sol_shape: tuple[int, int],
+    radius: Array | None,
+    scale: Array | None,
     maxiter: int,
-    lambda_init: float,
-) -> tuple[Array, Array, Array, Array, Array]:
-    """Levenberg-damped solve of ``lhs @ x = rhs``, accepting on the distance.
+    radius_init: float,
+) -> tuple[Array, Array, Array, dict[str, Array], Array]:
+    r"""Moré's trust-region Levenberg-Marquardt step for ``lhs @ x = rhs``.
 
-    See :func:`least_squares`. Returns ``(x, rank, singular_values, damping,
-    n_trials)``, where ``damping`` is the $\\lambda$ that produced ``x``.
+    See :func:`least_squares`. Returns ``(x, rank, singular_values,
+    diagnostics, scale)``: ``diagnostics`` holds ``damping``, ``lm_iter``,
+    ``lm_rho``, ``lm_radius`` and ``lm_hit``, and ``scale`` is the updated
+    diagonal of $D$.
+
+    Two loops, as in Moré (1978): the outer one evaluates the distance at a
+    trial step and adapts the radius (Algorithm (7.1)); the inner one picks the
+    damping that fits the step to the radius (§5) from the SVD alone.
+
+    **Scaling (§6).** $D = \mathrm{diag}(d)$ tracks, per unknown, the largest
+    column norm of $A$ seen so far, $d_i \leftarrow \max(d_i,
+    \lVert A_{:,i}\rVert)$ — the square root of the Gauss-Newton curvature
+    $(A^\dagger A)_{ii}$ along that unknown — so it never shrinks; a column not
+    yet seen to move is floored at 1, as in MINPACK. A stiffer unknown thus gets
+    a shorter axis of the trust region $\lVert Dx\rVert\le\Delta$ and a heavier
+    penalty $\lambda\lVert Dx\rVert^2$. Everything below works in the scaled
+    unknowns $w = Dx$ on $\tilde A = AD^{-1} = U\Sigma V^\dagger$: with
+    $c_i = s_i^2\lvert z_i\rvert^2$, $z = U^\dagger b$, every quantity the loops
+    need is a spectral sum, $\lVert Dx(\lambda)\rVert^2 =
+    \sum_i c_i/(s_i^2+\lambda)^2$ and $\lVert Ax(\lambda)\rVert^2 =
+    \sum_i c_i s_i^2/(s_i^2+\lambda)^2$. The undamped step is accordingly the
+    least-squares solution of least $\lVert Dx\rVert$, and ``rank`` and the
+    singular values are those of $\tilde A$.
     """
-    # Every context read happens here, before the loop.
+    # Every context read happens here, before the loops.
     F0 = ctx.F0
     manifold = ctx.manifold
     free_params = ctx.free_params
     delta_t = ctx.delta_t
     target = ctx.target
 
-    u, s, vh = jnp.linalg.svd(lhs, full_matrices=False)
-    rcond = float(jnp.finfo(jnp.result_type(lhs, rhs)).eps) * max(lhs.shape)
-    keep = s >= rcond * s[0]
+    column_norms = jnp.linalg.norm(lhs, axis=0)
+    scale = column_norms if scale is None else jnp.maximum(scale, column_norms)
+    scale = jnp.where(scale > 0, scale, 1.0)
+
+    u, s, vh = jnp.linalg.svd(lhs / scale, full_matrices=False)
+    # Only the numerical rank is cut. On the kept directions the reduced problem
+    # has full rank, which Moré's lower bound on the damping assumes.
+    eps = float(jnp.finfo(jnp.result_type(lhs, rhs)).eps) * max(lhs.shape)
+    keep = s >= eps * s[0]
     rank = keep.sum()
+    s2 = jnp.where(keep, s**2, 1.0)
+    z = u.conj().T @ rhs
+    c = jnp.where(keep, s2 * jnp.abs(z) ** 2, 0.0)
     v = vh.conj().T
-    u_b = u.conj().T @ rhs
+    b_norm2 = jnp.sum(jnp.abs(rhs) ** 2)
+    # ||(A D^-1)^H b||: zero exactly when b has no component the controls reach.
+    gradient_norm = jnp.sqrt(jnp.sum(c))
+    stationary = gradient_norm == 0
 
     def solve(lam):
-        denom = jnp.where(keep, s**2 + lam, 1.0)
-        return v @ (jnp.where(keep, s / denom, 0.0) * u_b)
+        """The step x(lam), back from the scaled unknowns w = D x."""
+        return v @ (jnp.where(keep, s / (s2 + lam), 0.0) * z) / scale
+
+    def step_norm(lam):
+        """||D x(lam)||, the length the radius bounds."""
+        return jnp.sqrt(jnp.sum(c / (s2 + lam) ** 2))
 
     def distance(x):
         sol = (expander @ x if expander is not None else x).reshape(sol_shape)
@@ -1187,25 +1358,139 @@ def _levenberg_marquardt(
         )
         return manifold.distance2(point, target)
 
-    def cond(carry):
-        n_trials, _, _, _, accepted = carry
-        return (~accepted) & (n_trials < maxiter)
+    def damping_for(radius, lam):
+        """The damping fitting the step to ``radius`` (Moré §5), from ``lam``."""
 
-    def body(carry):
-        n_trials, lam, _, _, _ = carry
+        def phi_and_slope(lam):
+            norm = step_norm(lam)
+            slope = -jnp.sum(c / (s2 + lam) ** 3) / jnp.where(stationary, 1.0, norm)
+            return norm - radius, slope
+
+        phi0, slope0 = phi_and_slope(0.0)
+        # The undamped step is taken whenever it fits (Algorithm (7.1)(a)).
+        fits = phi0 <= LM_SIGMA * radius
+        upper = gradient_norm / radius
+        lower = -phi0 / slope0
+
+        def cond(carry):
+            j, _, _, _, _, done = carry
+            return (~done) & (j < LM_HEBDEN_MAXITER)
+
+        def body(carry):
+            j, lam, lower, upper, _, _ = carry
+            outside = (lam <= lower) | (lam >= upper)
+            lam = jnp.where(
+                outside, jnp.maximum(1e-3 * upper, jnp.sqrt(lower * upper)), lam
+            )
+            phi, slope = phi_and_slope(lam)
+            done = jnp.abs(phi) <= LM_SIGMA * radius
+            upper = jnp.where(phi < 0, lam, upper)
+            lower = jnp.maximum(lower, lam - phi / slope)
+            # Hebden's update: Newton on 1 / ||Dx(lam)||, not on ||Dx(lam)||.
+            lam_next = lam - (phi + radius) / radius * phi / slope
+            return j + 1, lam_next, lower, upper, lam, done
+
+        _, _, _, _, lam, _ = jax.lax.while_loop(
+            cond, body, (jnp.asarray(0, jnp.int32), lam, lower, upper, lam, fits)
+        )
+        return jnp.where(fits, 0.0, lam)
+
+    def outer_cond(carry):
+        n_trials, _, _, _, _, accepted = carry
+        return (~accepted) & (n_trials < maxiter) & (~stationary)
+
+    def outer_body(carry):
+        n_trials, radius, lam, _, _, _ = carry
+        lam = damping_for(radius, lam)
         x = solve(lam)
-        # A NaN distance compares False, so it is rejected like an increase.
-        accepted = distance(x) < F0
-        return n_trials + 1, lam * LM_LAMBDA_FACTOR, lam, x, accepted
+        norm2 = jnp.sum(c / (s2 + lam) ** 2)
+        model2 = jnp.sum(c * s2 / (s2 + lam) ** 2)
+        # Moré's (||f_+|| / ||f||)^2, and the gain ratio in his normalised form
+        # (4.4): relative actual over relative predicted reduction.
+        ratio = distance(x) / F0
+        predicted = (model2 + 2.0 * lam * norm2) / b_norm2
+        rho = (1.0 - ratio) / predicted
+        # A non-finite trial is rejected, and contracts the radius the most.
+        finite = jnp.isfinite(ratio)
+        rho = jnp.where(finite, rho, -jnp.inf)
+        # Contraction factor: minimiser of the quadratic through the distance
+        # at 0 and 1 and its slope at 0 (§4), clipped to [mu_min, mu_max].
+        gamma = -(model2 + lam * norm2) / b_norm2
+        mu = jnp.clip(0.5 * gamma / (gamma + 0.5 * (1.0 - ratio)), LM_MU_MIN, LM_MU_MAX)
+        mu = jnp.where(ratio <= 1.0, LM_MU_MAX, mu)
+        mu = jnp.where((ratio > 100.0) | ~finite, LM_MU_MIN, mu)
+        radius_next = jnp.where(
+            rho <= LM_SHRINK_RHO,
+            mu * radius,
+            jnp.where(
+                (rho >= LM_GROW_RHO) | (lam == 0.0), 2.0 * jnp.sqrt(norm2), radius
+            ),
+        )
+        accepted = rho > LM_ACCEPT_RHO
+        return n_trials + 1, radius_next, lam, x, rho, accepted
 
-    lam0 = jnp.asarray(lambda_init * s[0] ** 2, jnp.float64)
-    x0 = jnp.zeros(v.shape[0], jnp.result_type(v, u_b))
-    n_trials, _, damping, x, _ = jax.lax.while_loop(
-        cond,
-        body,
-        (jnp.asarray(0, jnp.int32), lam0, lam0, x0, jnp.asarray(False)),
+    # An unset radius (the first step of a run) starts at radius_init times the
+    # scaled size ||D x0|| of the pulse itself, x0 being its solvable part in
+    # the solve's unknowns (MINPACK's `factor`), or at radius_init for a zero
+    # pulse. Not relative to the undamped step: that is longest exactly where
+    # A is worst conditioned, which near a zero pulse is where it is least
+    # trustworthy. Behind a cond, so a set radius never pays for the mapping.
+    radius = jnp.asarray(jnp.nan if radius is None else radius, jnp.float64)
+    usable = jnp.isfinite(radius) & (radius > 0)
+    columns = manifold.tangent.columns
+    pulse = (free_params if columns is None else free_params[:, columns]).reshape(-1)
+
+    def initial_radius():
+        x0 = pulse if expander is None else jnp.linalg.lstsq(expander, pulse)[0]
+        size = jnp.linalg.norm(scale * x0)
+        return radius_init * jnp.where(size > 0, size, 1.0)
+
+    radius = jax.lax.cond(usable, lambda: radius, initial_radius)
+
+    init = (
+        jnp.asarray(0, jnp.int32),
+        radius,
+        jnp.asarray(0.0, jnp.float64),
+        jnp.zeros(v.shape[0], jnp.result_type(v, z)),
+        jnp.asarray(jnp.nan, jnp.float64),
+        jnp.asarray(False),
     )
-    return x, rank, s, damping, n_trials
+    n_trials, radius, damping, x, rho, _ = jax.lax.while_loop(
+        outer_cond, outer_body, init
+    )
+    diagnostics = {
+        "damping": damping,
+        "lm_iter": n_trials,
+        "lm_rho": rho,
+        "lm_radius": radius,
+        # Damped exactly when the undamped step overshot the radius, and then
+        # fitted onto its boundary.
+        "lm_hit": damping > 0.0,
+    }
+    return x, rank, s, diagnostics, scale
+
+
+# Host-side type of each least-squares diagnostic that is not a float.
+_DIAGNOSTIC_CASTS = {"rank": int, "lm_iter": int, "lm_hit": bool}
+
+
+def _ls_diagnostic_sentinels(method: str) -> dict:
+    """``nan`` / ``-1`` / ``False`` placeholders for ``method``'s diagnostics."""
+    sentinels = {
+        "residual": float("nan"),
+        "residual_rel": float("nan"),
+        "rank": -1,
+        "cond": float("nan"),
+    }
+    if method == "lm":
+        sentinels |= {
+            "damping": float("nan"),
+            "lm_iter": -1,
+            "lm_rho": float("nan"),
+            "lm_radius": float("nan"),
+            "lm_hit": False,
+        }
+    return sentinels
 
 
 def _check_least_squares_args(args: dict | None) -> dict:
@@ -1215,13 +1500,14 @@ def _check_least_squares_args(args: dict | None) -> dict:
     compiled. Returns a fresh dict, never the caller's. Besides the keyword
     arguments of :func:`least_squares` it carries ``normalized``, which is not
     the solve's but the bracket's: ``Geope``'s update step takes it off before
-    calling the solve.
+    calling the solve. (The ``ls_state`` argument is per-step state, not
+    configuration, which is why it precedes the keyword-only marker.)
 
     Raises:
         TypeError: On a key that is neither a keyword of :func:`least_squares`
             nor ``normalized``.
         ValueError: On an unknown ``method``, a non-positive ``svd_cutoff`` or
-            ``lm_lambda_init``, or ``lm_maxiter < 1``.
+            ``lm_radius_init``, or ``lm_maxiter < 1``.
     """
     defaults = {
         name: p.default
@@ -1246,6 +1532,6 @@ def _check_least_squares_args(args: dict | None) -> dict:
         raise ValueError("svd_cutoff must be positive (a condition-number cap).")
     if not resolved["lm_maxiter"] >= 1:
         raise ValueError("lm_maxiter must be at least 1.")
-    if not resolved["lm_lambda_init"] > 0:
-        raise ValueError("lm_lambda_init must be positive.")
+    if not resolved["lm_radius_init"] > 0:
+        raise ValueError("lm_radius_init must be positive.")
     return resolved

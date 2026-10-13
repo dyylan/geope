@@ -39,15 +39,23 @@ The three orders of information cost different things per GEOPE step:
 cheap ``ctx.infidelity_at``; :class:`Armijo` is first-order and evaluates the
 ``logm``-bearing ``ctx.distance_at`` a few times but forms no derivative;
 :class:`QuadraticArmijo` is second-order and additionally pays one directional
-HVP to seed its step from the exact curvature. None of them pays for a second
-matrix logarithm: the context's single ``ctx.A`` serves the geodesic step and the
-line search alike.
+HVP to seed its step from the exact curvature. :class:`Constant` is no search
+at all: it takes the far end of the bracket, for a solve (``"lm"``) whose step
+length is already its own. None of them pays for a second matrix logarithm: the
+context's single ``ctx.A`` serves the geodesic step and the line search alike.
 
 Cross-step state is a JAX pytree threaded through the jitted update (mirroring
 ``Grape.optimizer_state``): a jitted closure traces once, so persistent state
 must enter/leave as an argument/result rather than as a mutated attribute. The
 state is line-search-owned and opaque to GEOPE — every search carries
-``{"n_eval"}`` (the per-step count of 1-D-objective evaluations it spent).
+``{"n_eval"}`` (the per-step count of 1-D-objective evaluations it spent), and
+the Armijo family adds ``"radius_hit"``, whether its pulse-relative cap on the
+bracket (``radius_factor``, see :class:`Armijo`) was active this step.
+GEOPE threads entries of its own through the same pytree, the ``"lm"``
+least-squares trust-region radius ``"lm_radius"`` and scaling ``"lm_scale"``.
+A search may see them but must not rely on them; it need not preserve them
+either, since ``Geope`` lays the search's returned state over its own rather
+than replacing it.
 ``Geope.optimize`` re-``init()``s the state at the start of every run.
 """
 
@@ -166,10 +174,28 @@ class Armijo(LineSearch):
     :class:`QuadraticArmijo` raises): the slope comes from the Jacobian, not the
     HVP.
 
+    **The pulse-relative cap.** Before searching, the bracket is cut to
+    $[0, \min(b, r/\lVert\text{coeffs}\rVert)]$ with
+    $r = \texttt{radius\_factor}\cdot\lVert\phi\rVert$, the norm of the
+    pulse's solvable columns (the whole pulse under ``param_transform``; for a
+    zero pulse, $r = \texttt{radius\_factor}$): no step moves the pulse by more
+    than ``radius_factor`` times its own size. It is recomputed from the current
+    pulse every step and never adapted. It exists for the raw Gauss-Newton step
+    (``least_squares_args={"normalized": False}``): near a zero pulse the solve
+    is ill-conditioned and that step can be $10^4$ long, with a model already
+    wrong at a thousandth of it, and halving it a few times still lands the
+    pulse hundreds of radians out. The normalised bracket's fixed-length end is
+    far inside the cap unless the pulse is nearly zero. Whether the cap was
+    active (below $b$, so it shortened the bracket, whether or not the search
+    then backtracked from it) is reported in the state as ``radius_hit``.
+
     Args:
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum step magnitude before the search gives up. Defaults to 1e-8.
+        radius_factor: Cap on the step's length in parameter space, relative
+            to the pulse it starts from (see above). ``None`` disables it.
+            Defaults to 100.
     """
 
     name = "armijo"
@@ -177,8 +203,16 @@ class Armijo(LineSearch):
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
+    radius_factor: float | None = 100.0
+
+    def __post_init__(self):
+        _check_radius_factor(self.radius_factor)
+
+    def init(self):
+        return {**super().init(), "radius_hit": jnp.asarray(False)}
 
     def __call__(self, ctx, a, b, state):
+        b, capped = _pulse_capped_bracket(ctx, b, self.radius_factor)
         step_size, value, n_eval = _armijo_line_search(
             ctx.distance_at,
             b,
@@ -188,7 +222,9 @@ class Armijo(LineSearch):
             beta=self.beta,
             t_min=self.t_min,
         )
-        return LineSearchResult(step_size, value, {"n_eval": n_eval})
+        return LineSearchResult(
+            step_size, value, {"n_eval": n_eval, "radius_hit": capped}
+        )
 
 
 @dataclass(frozen=True)
@@ -220,6 +256,10 @@ class QuadraticArmijo(LineSearch):
             the bracket, which is a sensible scale only when that end is a step
             of fixed length, as `geope.Geope`'s normalised bracket is; see
             :func:`_quadratic_armijo_line_search`.
+        radius_factor: Cap on the step's length in parameter space, relative
+            to the pulse it starts from (see :class:`Armijo`). ``None``
+            disables it. Defaults to 100.
+            The model seed is clipped to the capped bracket.
     """
 
     name = "quadratic_armijo"
@@ -228,8 +268,16 @@ class QuadraticArmijo(LineSearch):
     beta: float = 0.5
     t_min: float = 1e-8
     concave_guard: bool = True
+    radius_factor: float | None = 100.0
+
+    def __post_init__(self):
+        _check_radius_factor(self.radius_factor)
+
+    def init(self):
+        return {**super().init(), "radius_hit": jnp.asarray(False)}
 
     def __call__(self, ctx, a, b, state):
+        b, capped = _pulse_capped_bracket(ctx, b, self.radius_factor)
         step_size, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
             b,
@@ -241,7 +289,9 @@ class QuadraticArmijo(LineSearch):
             t_min=self.t_min,
             concave_guard=self.concave_guard,
         )
-        return LineSearchResult(step_size, value, {"n_eval": n_eval})
+        return LineSearchResult(
+            step_size, value, {"n_eval": n_eval, "radius_hit": capped}
+        )
 
 
 @dataclass(frozen=True)
@@ -289,6 +339,9 @@ class ApproximateQuadraticArmijo(LineSearch):
         concave_guard: When the curvature is negative, seed at
             $\min(\alpha_{\max}, 2|s|/|q|)$ instead of at $\alpha_{\max}$, as in
             :class:`QuadraticArmijo`. Defaults to ``True``.
+        radius_factor: Cap on the step's length in parameter space, relative
+            to the pulse it starts from (see :class:`Armijo`). ``None``
+            disables it. Defaults to 100.
     """
 
     name = "approximate_quadratic_armijo"
@@ -297,8 +350,16 @@ class ApproximateQuadraticArmijo(LineSearch):
     beta: float = 0.5
     t_min: float = 1e-8
     concave_guard: bool = True
+    radius_factor: float | None = 100.0
+
+    def __post_init__(self):
+        _check_radius_factor(self.radius_factor)
+
+    def init(self):
+        return {**super().init(), "radius_hit": jnp.asarray(False)}
 
     def __call__(self, ctx, a, b, state):
+        b, capped = _pulse_capped_bracket(ctx, b, self.radius_factor)
         step_size, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
             b,
@@ -310,7 +371,83 @@ class ApproximateQuadraticArmijo(LineSearch):
             t_min=self.t_min,
             concave_guard=self.concave_guard,
         )
-        return LineSearchResult(step_size, value, {"n_eval": n_eval})
+        return LineSearchResult(
+            step_size, value, {"n_eval": n_eval, "radius_hit": capped}
+        )
+
+
+@dataclass(frozen=True)
+class Constant(LineSearch):
+    r"""No line search: always take the far end of the bracket, $\alpha=b$.
+
+    Meant for ``least_squares_args={"method": "lm"}``, whose trust region has
+    already chosen the step's length: the bracket there is
+    $[0, \texttt{max\_step\_size}]$, so the default takes the accepted LM step
+    exactly. Backtracking along it buys next to nothing: an accepted step has
+    gain ratio $\rho > 10^{-4}$ on the squared geodesic distance, and since the
+    slope there is at most twice the predicted reduction, it passes
+    :class:`Armijo`'s first trial unless $\rho < 2\cdot10^{-4}$.
+
+    It still evaluates ``ctx.distance_at`` once, at $b$, because ``value`` is
+    what ``Geope.optimize`` tests for progress: a step that did not decrease the
+    distance (LM ran out of ``lm_maxiter`` trials without accepting one) is
+    then discarded for the Gram-Schmidt fallback, as with any other search. The
+    distance, not the cheaper infidelity, because it is what the LM controller
+    accepts on; a step that decreased the one but not the other would otherwise
+    be thrown away. That one evaluation is the one :class:`Armijo` spends when
+    it does not backtrack, so on an LM run it takes the same steps as
+    ``Armijo(radius_factor=None)`` until that would backtrack (the default
+    ``Armijo`` also caps the step at 100 times the pulse).
+
+    With ``"svd"`` and the default normalised bracket it is a fixed-length step
+    in parameter space; with ``normalized=False`` it is the full Gauss-Newton
+    step (scaled by ``max_step_size``). Neither safeguards the decrease. It
+    reads nothing off the context but ``distance_at``, so it needs no slope or
+    curvature and runs under ``param_transform``.
+    """
+
+    name = "constant"
+    objective = "distance"
+
+    def __call__(self, ctx, a, b, state):
+        return LineSearchResult(
+            b, ctx.distance_at(b), {"n_eval": jnp.asarray(1, jnp.int32)}
+        )
+
+
+def _check_radius_factor(radius_factor: float | None) -> None:
+    """Reject a ``radius_factor`` that is neither ``None`` nor positive."""
+    if radius_factor is not None and not radius_factor > 0:
+        raise ValueError(
+            f"radius_factor must be positive or None, got {radius_factor!r}."
+        )
+
+
+def _pulse_capped_bracket(
+    ctx, b: float | Array, radius_factor: float | None
+) -> tuple[Array, Array]:
+    r"""Cut the bracket ``[0, b]`` at a step of length ``radius_factor * ||pulse||``.
+
+    The pulse is the context's solvable columns (every column under
+    ``param_transform``), the same coordinates as ``ctx.coeffs``, so the step
+    $\alpha\cdot$``coeffs`` is at most $r = \texttt{radius\_factor}\cdot
+    \lVert\phi\rVert$ long ($r = \texttt{radius\_factor}$ for a zero pulse).
+
+    Returns:
+        ``(b_eff, capped)``: the bracket end to search on, and whether the cap
+        was below ``b``. ``(b, False)`` when ``radius_factor`` is ``None`` or
+        the direction vanishes.
+    """
+    if radius_factor is None:
+        return b, jnp.asarray(False)
+    columns = ctx.manifold.tangent.columns
+    pulse = ctx.free_params if columns is None else ctx.free_params[:, columns]
+    size = jnp.linalg.norm(pulse)
+    radius = radius_factor * jnp.where(size > 0, size, 1.0)
+    norm = jnp.linalg.norm(ctx.coeffs)
+    cap = radius / jnp.where(norm > 0, norm, 1.0)
+    capped = (norm > 0) & (cap < b)
+    return jnp.where(capped, cap, b), capped
 
 
 # ---------------------------------------------------------------------------
