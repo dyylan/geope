@@ -15,6 +15,7 @@ from .line_searches import (
     LineSearch,
 )
 from .parameters import Parameters
+from .units import AMPLITUDE, convert_if_quantity
 from .utils import (
     control_to_indices,
     merge_constraints,
@@ -210,6 +211,14 @@ class Geope:
             self._key = seed  # already a jax.Array key
         # else: keep existing self._key unchanged
 
+        conversion = self.params.conversion
+        init_parameters = convert_if_quantity(
+            conversion, init_parameters, AMPLITUDE, "init_parameters"
+        )
+        drift_parameters = convert_if_quantity(
+            conversion, drift_parameters, AMPLITUDE, "drift_parameters"
+        )
+
         # Set constraints
         self.constraint_expander = None
         if constraints is not None:
@@ -291,8 +300,10 @@ class Geope:
                 )
             if self.params.drift_basis is not None:
                 if drift_parameters is None:
-                    self.drift_parameters = np.ones(
-                        self.params.drift_basis.lie_algebra_dim
+                    self.drift_parameters = (
+                        np.ones(self.params.drift_basis.lie_algebra_dim)
+                        if self.params.conversion is None
+                        else np.array(self.params.drift_parameters)
                     )
                 else:
                     self.drift_parameters = np.array(drift_parameters)
@@ -533,6 +544,9 @@ class Geope:
         # Parameters are real by construction; the update arrives in the
         # holomorphic-Jacobian dtype (complex128, imaginary part exactly zero),
         # so drop it here rather than letting numpy discard it with a warning.
+        params = convert_if_quantity(
+            self.params.conversion, params, AMPLITUDE, "params"
+        )
         params = np.real(np.asarray(params))
         if self._real_params:
             # Experimental space: only (piecewise_steps, n_exp) is valid

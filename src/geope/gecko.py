@@ -12,6 +12,7 @@ from functools import partial
 
 from .geope import build_pulse_expander
 from .parameters import Parameters
+from .units import AMPLITUDE, UnitsError, contains_quantity, reject_quantity
 from .utils.callbacks import normalize_callbacks, run_callbacks
 from .utils.history import History
 
@@ -405,6 +406,16 @@ class Gecko:
         )
         real = getattr(self, "_real_params", False)
         if real:
+            if contains_quantity(delta):
+                raise UnitsError(
+                    "`delta` in experimental space carries no unit in this "
+                    "release: pass it bare."
+                )
+        elif self.params.conversion is not None:
+            delta = self.params.conversion.to_internal(delta, AMPLITUDE, "delta")
+        else:
+            reject_quantity(delta, "delta")
+        if real:
             n_proj = self.params.n_experimental_params
             n_projdrift = n_proj
             drift_params = None
@@ -484,6 +495,18 @@ class Gecko:
             ValueError: If an unsupported `method` is provided, or if a
                 label-keyed dict is passed under ``param_transform``.
         """
+        if self._real_params:
+            if contains_quantity(parameter_bounds):
+                raise UnitsError(
+                    "Index-keyed `bound` takes experimental parameters, which "
+                    "carry no unit in this release: pass bare bounds."
+                )
+        elif self.params.conversion is not None:
+            parameter_bounds = self.params.conversion.to_internal(
+                parameter_bounds, AMPLITUDE, "parameter_bounds"
+            )
+        else:
+            reject_quantity(parameter_bounds, "parameter_bounds")
         self.parameter_bounds = parameter_bounds
         if self._real_params:
             if any(isinstance(key, str) for key in parameter_bounds):
@@ -619,7 +642,9 @@ class Gecko:
         # params.delta_t in sync.
         new_count = self.params.piecewise_steps * piecewise_steps_multiplier
         self.params.piecewise_steps = new_count
-        self.params.delta_t = self.params.delta_t / piecewise_steps_multiplier
+        # Written to the internal float directly: with units on the public
+        # setter expects a time quantity, and this is an internal rescaling.
+        self.params._delta_t = self.params.delta_t / piecewise_steps_multiplier
 
         new_parameters = [
             list(np.copy(self.params.parameters))
