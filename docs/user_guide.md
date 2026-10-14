@@ -223,10 +223,10 @@ Other utilities:
 ```python
 Parameters(basis=None, control=None, drift=None,
            init_values=None, drift_values=None,
-           target=None, piecewise_steps=1, fixed_drift=True,
+           target=None, piecewise_steps=1, delta_t=1.0, fixed_drift=True,
            constraints=None, pulse_constraints=None, bounds=None,
            init_spread=0.1, seed=None,
-           param_transform=None, n_experimental_params=None,
+           param_transform=None, transform_unit=None, n_experimental_params=None,
            manifold=None)
 ```
 
@@ -236,17 +236,18 @@ Parameters(basis=None, control=None, drift=None,
 | `control` | dict picking the projected (controllable) subset |
 | `drift` | dict picking the drift subset; must be disjoint from `control` (see below) |
 | `init_values` | dict in `control` format, or `ndarray` of full-basis shape, or `None` (random) |
-| `drift_values` | dict, `ndarray`, or `None` (ones) |
+| `drift_values` | dict, `ndarray`, or `None` (ones); required when units are on |
 | `target` | target unitary as `ndarray` |
 | `piecewise_steps` | number of gate segments $N_g$ |
-| `delta_t` | segment duration $\Delta t$, so $U_g = \exp(-i\,\Delta t\,H_g)$; defaults to `1.0`. |
+| `delta_t` | segment duration $\Delta t$, so $U_g = \exp(-i\,\Delta t\,H_g)$; defaults to `1.0`. A bare number is internal; a time quantity such as `25 * ns` turns [physical units](#physical-units) on |
 | `fixed_drift` | whether drift is held fixed during optimisation |
 | `constraints` | list of constraint vectors / dicts |
 | `pulse_constraints` | control-format dict `{site: [ops]}` (same format as `control`) of projected terms whose time-shape is fixed |
-| `bounds` | dict `{label: (lo, hi)}` — consumed by `Geope.bound(...)`, not by the main loop |
-| `init_spread` | half-width of uniform random init, in units of $\pi$ |
+| `bounds` | dict `{label: (lo, hi)}`, stored as `params.bounds`; the main loop does not read it (bounding is `Gecko.bound`) |
+| `init_spread` | half-width of the uniform random init: per coefficient in basis mode, times $\pi$ in experimental mode |
 | `seed` | random seed |
 | `param_transform` | callable mapping experimental params to basis coefficients |
+| `transform_unit` | unit of `param_transform`'s output, e.g. `MHz`; required with `param_transform` when units are on, disallowed otherwise |
 | `n_experimental_params` | length of the experimental input; defaults to `projected_basis.lie_algebra_dim` |
 | `manifold` | the `Manifold` to synthesise on; defaults to `SpecialUnitaryGroup(basis.dim)`. Pass `UnitaryGroup(d)` for the phase-sensitive fidelity, or a `StateSphere` / `Stiefel` for state and subspace problems |
 
@@ -275,6 +276,8 @@ Attributes populated after construction:
 | `drift_parameters` | drift coefficients (or `None`) |
 | `constraint_arrays`, `constraint_expander` | merged constraints and reduced-space mapping |
 | `bounds` | pre-built bounds tuple (or `None`) |
+| `conversion` | the `geope.units.Conversion` when units are on, else `None` |
+| `physical` | read-only view of `delta_t`, `total_time`, `basis_coefficients`, `drift_parameters` and `to_dict()` as quantities (units on only) |
 
 Live optimisation state — seeded at construction and updated in place by `Geope`:
 
@@ -740,6 +743,84 @@ Parameters(..., param_transform=tau, n_experimental_params=n + 1,
 ```
 
 It is optimised by both `Geope` and `Gecko`, boundable to `(0, inf)` via `Gecko.bound({n: (0.0, np.inf)})`, and survives subdivision unchanged while `delta_t` halves. One caveat: a multiplicative duration is rank-deficient against the amplitude inside `f` — scaling one up and the other down leaves the coefficients unchanged — so "optimise the duration" is only well-posed when the amplitude is pinned (bounded, normalised, or of fixed shape). The degeneracy is benign for the optimisers themselves: it merely widens the null space.
+
+## Physical units
+
+Everything above is dimensionless: a parameter is the rotation angle per segment and `delta_t` a bare multiplier. To work in physical units instead, pass `delta_t` as a time quantity. That is the only switch:
+
+```python
+from geope.units import MHz, ns, ueV
+
+params = geope.Parameters(
+    basis=geope.construct_full_pauli_basis(2),
+    control={1: ["x", "y"], 2: ["x", "y"]},
+    drift={(1, 2): ["zz"]},
+    drift_values={(1, 2): {"zz": 5 * MHz}},
+    target=CNOT,
+    piecewise_steps=20,
+    delta_t=25 * ns,                      # a quantity here turns units on
+)
+geope.Geope(params).optimize()
+
+params.physical.total_time                   # 500.0 ns
+params.physical.basis_coefficients.to(MHz)   # the pulse, in MHz
+params.physical.to_dict()[1]["x"].to(ueV)    # one coefficient, as an energy
+```
+
+A quantity is a number or array times a unit from `geope.units`: `25 * ns`, `5 * MHz`, `np.linspace(0, 1, 20) * MHz`, `(-20, 20) * MHz`. It converts with `.to(unit)` and does nothing else — no arithmetic, no derived dimensions — and it can never reach jitted code: `np.asarray(quantity)` raises. The worked example is [`physical_units.ipynb`](examples/physical_units.ipynb).
+
+### The rule: a bare number is internal, a physical number carries its unit
+
+With a bare `delta_t` (the default) nothing changes: no check is made and no unit object is built. With a quantity `delta_t`, `Parameters` is **strict**: every physical input must be a quantity of the right dimension, and each misuse raises `geope.UnitsError` naming the argument. Bare floats are never read "in some default unit".
+
+| Input | Strict-mode rule |
+|---|---|
+| `delta_t` (constructor and later assignment) | a time quantity; `params.delta_t = 30 * ns` works for a duration sweep |
+| `init_values` (basis mode) | an amplitude quantity: one unit on a whole array, or quantity leaves in the `control`-format dict |
+| `drift_values` | an amplitude quantity, and **required** whenever a drift basis exists — the all-ones default would be a drift of exactly $1/\Delta t$, a value invented by the library |
+| `bounds`, label-keyed `Gecko.bound` | `(lo, hi)` pairs of quantities, or one quantity holding both |
+| `param_transform` output | declared by `transform_unit`, **required** with a transform; there is no default |
+| `Gecko.robust(delta=...)` (basis mode) | an amplitude quantity |
+| experimental-space inputs: `init_values` under `param_transform`, index-keyed `Gecko.bound`, `delta` in experimental mode | bare; a quantity raises. Units for experimental parameters are a planned follow-up |
+
+What stays internal-valued, on purpose: `params.parameters`, the value `params.delta_t` returns (exactly `1.0` at construction, see below), the `History` columns, and every optimiser knob (`init_spread`, `max_step_size`, learning rates, `Gecko` rates and `diff_tol`). `Geope.init`, `Grape.init` and `Geope.add_parameters` take internal arrays because the optimiser loop calls them itself; hand them a quantity and it is converted.
+
+### Dimensions and conventions
+
+There are two dimensions: **time** (canonical s) and **amplitude** (canonical rad/s). GEOPE writes $H = \hbar\sum_k c_k G_k$, so an energy $E$ and an angular frequency $E/\hbar$ are the same quantity, and angular-frequency, cycle-frequency and energy units form one equivalence class that converts freely:
+
+- `Hz`, `kHz`, `MHz`, `GHz`, `THz` are *cyclic* and carry the $2\pi$: `(1 * MHz).to(rad_per_s)` is $2\pi\times10^6$.
+- `rad_per_s` … `rad_per_fs` are angular and carry none.
+- `J`, `eV`, `meV`, `ueV`, `neV` divide by $\hbar$: `(1.0 * ueV).to(MHz)` is $E/h = 241.799$ MHz and `.to(rad_per_ns)` is $E/\hbar = 1.5193$ rad/ns.
+
+Units may be mixed freely — a drift in `ueV`, bounds in `MHz`, a transform in `rad_per_ns` — because each value is converted on its own; what must match is the dimension. A time in an amplitude slot is an error.
+
+**The factor the tag cannot catch is generator normalisation.** The Pauli generators are unnormalised (`X = [[0, 1], [1, 0]]`), so $H = \hbar\,c\,X$ rotates at angular frequency $2c$: a coefficient of 5 MHz on `X` is a 10 MHz Rabi frequency, and a $\pi$ pulse takes $1/(4\cdot 5\,\text{MHz}) = 50$ ns. The convention is that *the coefficient multiplies $G_k$ as the basis defines it*; a custom `projected_basis` carries whatever normalisation it was built with.
+
+### The scale
+
+`Parameters` nondimensionalises with the reference angular frequency $\omega_0 = 1/\Delta t$, so the internal `delta_t` is exactly `1.0` and each internal coefficient is the rotation angle per segment — numerically the same problem as the default `delta_t = 1.0`, the regime the optimiser defaults are tuned in. The forward map is invariant under the scale; the optimisers' step sizes are not, which is why it is fixed rather than exposed.
+
+Consequences: with no `init_values`, the random start is $\pm$`init_spread` per coefficient *internal*, i.e. a physical amplitude of $\pm$`init_spread`$/\Delta t$. The scale is fixed at construction, so `params.delta_t = 30 * ns` and `Gecko` subdivision change the internal duration, not the scale; a sweep over more than a decade should construct a fresh `Parameters` per duration.
+
+### `param_transform` with units
+
+The transform runs inside jit, so its output cannot carry a tag. `transform_unit` declares it, and every constant inside the transform is read in that unit. Convert offsets outside the function:
+
+```python
+offset = (3.0 * ueV).to(MHz).value      # numpy, outside jit
+
+def tau(phi):
+    return phi.at[zi].add(offset)
+
+Parameters(..., delta_t=2 * ns, param_transform=tau, transform_unit=MHz)
+```
+
+`params.param_transform` then holds the internal wrapper (the user's function is `params.param_transform.physical_transform`), and `params.physical.basis_coefficients` reads the result back in physical units. Experimental-parameter *inputs* stay bare in this release.
+
+### Readouts
+
+`params.physical` is a read-only view: `delta_t`, `total_time`, `basis_coefficients`, `drift_parameters` and `to_dict()`, each a quantity. Times come back in the unit `delta_t` was given in, amplitudes in its angular partner (`rad/ns` for `ns`); `.to(MHz)` and `.to(ueV)` convert. Anything else — `History` columns, `Gecko` costs — is internal; `params.conversion.to_physical(x, "amplitude")` converts an internal array by hand.
 
 ## Phase-sensitive vs projective
 

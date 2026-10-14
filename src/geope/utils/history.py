@@ -132,10 +132,17 @@ class History:
                 "Parameters object (history.params); it is set automatically "
                 "when a History is passed to Geope."
             )
-        if self.params.param_transform is not None:
+        transform = self.params.param_transform
+        if transform is not None:
             import jax
+            import jax.numpy as jnp
 
-            return np.array(jax.vmap(self.params.param_transform)(bp))
+            from ..parameters import transform_is_step_dependent
+
+            bp = jnp.asarray(bp)
+            if transform_is_step_dependent(transform):
+                return np.array(jax.vmap(transform)(bp, jnp.arange(bp.shape[0])))
+            return np.array(jax.vmap(transform)(bp))
         return bp
 
     def to_dict(self) -> dict:

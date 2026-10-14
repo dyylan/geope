@@ -1,4 +1,4 @@
-from . import line_searches, optimizers
+from . import line_searches, optimizers, units
 from .gecko import (
     Gecko,
 )
@@ -48,6 +48,11 @@ from .optimizers import (
 )
 from .parameters import (
     Parameters,
+)
+from .units import (
+    Quantity,
+    Unit,
+    UnitsError,
 )
 from .utils import (
     History,
