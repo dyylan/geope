@@ -6,11 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "GEOPE"
 version = "0.0.5"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"  # numpy 1.26.x has no wheels for 3.13+
 
 dependencies = [
-    "jax==0.8.0",
-    "numpy==2.4.6",
+    "jax==0.7.1",
+    "numpy==1.26.4",
     "scipy==1.17.1",
     "pandas==2.3.3",
 ]
