@@ -11,6 +11,7 @@ jax.config.update("jax_enable_x64", True)
 from collections.abc import Callable
 
 from .optimizers import NewtonTRM, Optimizer
+from .units import AMPLITUDE, convert_if_quantity
 from .utils import prepare_random_parameters
 from .utils.callbacks import normalize_callbacks, run_callbacks
 from .utils.history import History
@@ -189,6 +190,15 @@ class Grape:
             self._key = seed  # already a jax.Array key
         # else: keep existing self._key unchanged
 
+        # A quantity is converted; a bare array is internal.
+        conversion = self.params.conversion
+        init_parameters = convert_if_quantity(
+            conversion, init_parameters, AMPLITUDE, "init_parameters"
+        )
+        drift_parameters = convert_if_quantity(
+            conversion, drift_parameters, AMPLITUDE, "drift_parameters"
+        )
+
         # Initialize variables
         if init_parameters is None:
             self.init_parameters = np.array(
@@ -211,7 +221,11 @@ class Grape:
                 self.init_parameters = np.array(init_parameters)
         if not self._real_params and self.params.drift_basis is not None:
             if drift_parameters is None:
-                self.drift_parameters = np.ones(self.params.drift_basis.lie_algebra_dim)
+                self.drift_parameters = (
+                    np.ones(self.params.drift_basis.lie_algebra_dim)
+                    if self.params.conversion is None
+                    else np.array(self.params.drift_parameters)
+                )
             else:
                 self.drift_parameters = np.array(drift_parameters)
                 assert (

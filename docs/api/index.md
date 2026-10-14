@@ -5,6 +5,7 @@ The GEOPE library is organised into the following modules:
 | Module | Description |
 | --- | --- |
 | [parameters](parameters.md) | The `Parameters` state object — the central hub of the Basis → Parameters → Optimizer pipeline, and the owner of the problem's (lazily built, cached) `Manifold`. |
+| [units](units.md) | Physical units: `Unit`, `Quantity` and the per-problem `Conversion` that turn on when `delta_t` is a time quantity. |
 | [geope](geope.md) | The top-level `Geope` optimiser for geodesic quantum gate synthesis. |
 | [gecko](gecko.md) | The `Gecko` null-space ("auxiliary cost") optimiser for refining GEOPE solutions. |
 | [geometry](geometry.md) | The geometry layer: the `Manifold` interface, its `TangentBundle`, and the per-step `GeometricContext` every optimisation step reads. |

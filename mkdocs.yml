@@ -100,9 +100,11 @@ nav:
         - "examples/getting_started.ipynb"
         - "examples/pulse_smoothing.ipynb"
         - "examples/stiefel_subspace.ipynb"
+        - "examples/physical_units.ipynb"
     - API Reference:
         - "api/index.md"
         - "api/parameters.md"
+        - "api/units.md"
         - "api/geope.md"
         - "api/gecko.md"
         - "api/grape.md"

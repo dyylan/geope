@@ -14,6 +14,16 @@ from .geometry import (
     SpecialUnitaryGroup,
 )
 from .geometry.basis import Basis
+from .units import (
+    AMPLITUDE,
+    TIME,
+    Conversion,
+    Quantity,
+    Unit,
+    UnitsError,
+    contains_quantity,
+    reject_quantity,
+)
 from .utils import (
     construct_restricted_pauli_basis,
     control_to_indices,
@@ -37,8 +47,16 @@ class Parameters:
         drift_basis: The drift sub-``Basis``, or ``None``.
         target: Target unitary as ``np.ndarray``.
         piecewise_steps: Number of piecewise-constant gate segments.
-        delta_t: Duration of each segment.
+        delta_t: Duration of each segment, as the internal (dimensionless)
+            float the optimisers consume. With units on it is ``1.0`` at
+            construction; assign a time quantity to change it.
         total_time: ``piecewise_steps * delta_t`` — invariant under subdivision.
+        conversion: The `geope.units.Conversion` between physical and
+            internal values when ``delta_t`` was given as a time quantity;
+            ``None`` when units are off.
+        physical: Read-only `PhysicalView` of ``delta_t``, ``total_time``,
+            ``basis_coefficients``, ``drift_parameters`` and ``to_dict()`` as
+            quantities. Raises `geope.units.UnitsError` when units are off.
         fixed_drift: Whether the drift contribution is held fixed.
         control: The control dict used to build ``projected_basis``.
         drift_config: The dict used to build ``drift_basis``.
@@ -75,7 +93,7 @@ class Parameters:
         drift_values: dict | np.ndarray | None = None,
         target: np.ndarray | None = None,
         piecewise_steps: int = 1,
-        delta_t: float = 1.0,
+        delta_t: float | Quantity = 1.0,
         fixed_drift: bool = True,
         constraints: list | None = None,
         pulse_constraints: dict | list | None = None,
@@ -83,6 +101,7 @@ class Parameters:
         init_spread: float = 0.1,
         seed: int | jax.Array | None = None,
         param_transform: Callable | None = None,
+        transform_unit: Unit | str | None = None,
         n_experimental_params: int | None = None,
         manifold: Manifold | None = None,
     ) -> None:
@@ -109,7 +128,13 @@ class Parameters:
             piecewise_steps: Number of piecewise-constant gate segments.
                 Defaults to 1.
             delta_t: Duration $\\Delta t$ of each segment, so that
-                $U_g = \\exp(-i\\,\\Delta t\\,H_g)$. Defaults to ``1.0``.
+                $U_g = \\exp(-i\\,\\Delta t\\,H_g)$. Defaults to ``1.0``. A
+                bare number is internal (dimensionless). A time quantity
+                such as ``25 * ns`` turns physical units on: ``init_values``,
+                ``drift_values``, ``bounds`` and (through ``transform_unit``)
+                the output of ``param_transform`` must then be quantities
+                too, and ``params.physical`` reads the results back in
+                physical units. See `geope.units`.
             fixed_drift: Whether the drift contribution is held fixed.
                 Defaults to ``True``.
             constraints: Optional list of linear-equality constraints,
@@ -134,6 +159,10 @@ class Parameters:
             param_transform: Optional callable mapping experimental
                 params to basis coefficients. May take
                 ``(phi,)`` or ``(phi, step_index)``.
+            transform_unit: The unit of ``param_transform``'s output, e.g.
+                ``MHz`` or ``"rad/ns"``. Required when ``param_transform``
+                is set and units are on; disallowed otherwise. Every
+                constant inside the transform is read in this unit.
             n_experimental_params: Number of experimental parameters
                 when ``param_transform`` is set. Defaults to
                 ``projected_basis.lie_algebra_dim``.
@@ -213,12 +242,68 @@ class Parameters:
                     "for a worked example."
                 )
 
+        # --- Physical units (see geope.units) ---
+        self.conversion = None
+        if isinstance(delta_t, Quantity):
+            if transform_unit is None and param_transform is not None:
+                raise UnitsError(
+                    "`transform_unit` is required when `param_transform` is set "
+                    "and units are on: it declares the unit of the transform's "
+                    "output, e.g. `transform_unit=MHz`. There is no default."
+                )
+            if transform_unit is not None and param_transform is None:
+                raise UnitsError(
+                    "`transform_unit` describes the output of `param_transform`, "
+                    "but no `param_transform` was given."
+                )
+            self.conversion = Conversion.from_delta_t(delta_t, transform_unit)
+            self._delta_t = 1.0
+            if bounds is not None:
+                bounds = self.conversion.to_internal(bounds, AMPLITUDE, "bounds")
+            if init_values is not None:
+                if param_transform is None:
+                    init_values = self.conversion.to_internal(
+                        init_values, AMPLITUDE, "init_values"
+                    )
+                elif contains_quantity(init_values):
+                    raise UnitsError(
+                        "`init_values` under `param_transform` are experimental "
+                        "parameters, which carry no unit in this release: pass "
+                        "them bare."
+                    )
+            if self.drift_basis is not None:
+                if drift_values is None:
+                    raise UnitsError(
+                        "`drift_values` is required when units are on and a drift "
+                        "basis is set: the all-ones default would be a drift of "
+                        "exactly 1 / delta_t, a physical value invented by the "
+                        "library. Give each drift coefficient as a quantity, e.g. "
+                        "`drift_values={(1, 2): {'zz': 5 * MHz}}`."
+                    )
+                drift_values = self.conversion.to_internal(
+                    drift_values, AMPLITUDE, "drift_values"
+                )
+            if param_transform is not None:
+                param_transform = _scale_transform_output(
+                    param_transform, self.conversion.transform_factor()
+                )
+        else:
+            for name, value in (
+                ("init_values", init_values),
+                ("drift_values", drift_values),
+                ("bounds", bounds),
+            ):
+                reject_quantity(value, name)
+            if transform_unit is not None:
+                raise UnitsError(
+                    "`transform_unit` was given but units are off: units are on "
+                    "only when `delta_t` is a time quantity, e.g. `delta_t=25 * ns`."
+                )
+            self.delta_t = delta_t
+
         # --- Immutable config ---
         self.target = np.array(target) if target is not None else None
         self.piecewise_steps = piecewise_steps
-        if not delta_t > 0:
-            raise ValueError(f"delta_t must be positive, got {delta_t}.")
-        self.delta_t = float(delta_t)
         self.fixed_drift = fixed_drift
         self.control = control
         self.drift_config = drift
@@ -359,6 +444,44 @@ class Parameters:
         return self.piecewise_steps * self.delta_t
 
     @property
+    def delta_t(self) -> float:
+        """Segment duration as the internal float the optimisers consume.
+
+        With units on this is the duration in units of the reference time
+        $1/\\omega_0$ — exactly ``1.0`` at construction — and the physical
+        value is ``params.physical.delta_t``. Assign to change the duration:
+        a positive float when units are off, a time quantity when they are on.
+        """
+        return self._delta_t
+
+    @delta_t.setter
+    def delta_t(self, value: float | Quantity) -> None:
+        if self.conversion is not None:
+            internal = self.conversion.to_internal(value, TIME, "delta_t")
+        else:
+            reject_quantity(value, "delta_t")
+            internal = value
+        if np.ndim(internal) != 0:
+            raise UnitsError(f"`delta_t` must be a scalar; got {value!r}.")
+        if not internal > 0:
+            raise ValueError(f"delta_t must be positive, got {value!r}.")
+        self._delta_t = float(internal)
+
+    @property
+    def physical(self) -> PhysicalView:
+        """Physical-unit readouts as quantities; see `PhysicalView`.
+
+        Raises:
+            UnitsError: If units are off.
+        """
+        if self.conversion is None:
+            raise UnitsError(
+                "Physical readouts need units on: pass `delta_t` as a time "
+                "quantity, e.g. `Parameters(..., delta_t=25 * ns)`."
+            )
+        return PhysicalView(self)
+
+    @property
     def projective(self) -> bool:
         """Whether the geometry is the projective (SU) one.
 
@@ -399,9 +522,11 @@ class Parameters:
         this is just the current parameters.
         """
         if self.param_transform is not None:
-            import jax
-
-            return np.array(jax.vmap(self.param_transform)(self.parameters))
+            parameters = jnp.asarray(self.parameters)
+            if transform_is_step_dependent(self.param_transform):
+                steps = jnp.arange(parameters.shape[0])
+                return np.array(jax.vmap(self.param_transform)(parameters, steps))
+            return np.array(jax.vmap(self.param_transform)(parameters))
         return self.parameters
 
     # --- Derived algebraic metadata -------------------------------------
@@ -476,6 +601,84 @@ class Parameters:
         return result
 
 
+class PhysicalView:
+    """Physical-unit readouts of a `Parameters`, as `geope.units.Quantity`.
+
+    Returned by ``params.physical`` when units are on. Each attribute converts
+    the corresponding internal value through ``params.conversion`` on access,
+    so the view is always current. Times come back in the unit ``delta_t`` was
+    given in, amplitudes in its angular partner (``rad/ns`` for ``ns``); use
+    ``.to(MHz)`` etc. to change that.
+    """
+
+    def __init__(self, params: Parameters) -> None:
+        self._params = params
+
+    @property
+    def delta_t(self) -> Quantity:
+        """Segment duration."""
+        p = self._params
+        return p.conversion.to_physical(p.delta_t, TIME)
+
+    @property
+    def total_time(self) -> Quantity:
+        """Total gate duration ``piecewise_steps * delta_t``."""
+        p = self._params
+        return p.conversion.to_physical(p.total_time, TIME)
+
+    @property
+    def basis_coefficients(self) -> Quantity:
+        """Current basis coefficients (through ``param_transform`` if set)."""
+        p = self._params
+        return p.conversion.to_physical(p.basis_coefficients, AMPLITUDE)
+
+    @property
+    def drift_parameters(self) -> Quantity | None:
+        """Drift coefficients, or ``None`` without a drift basis."""
+        p = self._params
+        if p.drift_parameters is None:
+            return None
+        return p.conversion.to_physical(p.drift_parameters, AMPLITUDE)
+
+    def to_dict(self) -> dict:
+        """`Parameters.to_dict` with every leaf a `geope.units.Quantity`."""
+        p = self._params
+        return {
+            site: {
+                label: p.conversion.to_physical(value, AMPLITUDE)
+                for label, value in ops.items()
+            }
+            for site, ops in p.to_dict().items()
+        }
+
+
+def transform_is_step_dependent(transform: Callable) -> bool:
+    """Whether ``transform`` takes ``(phi, step_index)`` rather than ``(phi,)``."""
+    return len(inspect.signature(transform).parameters) >= 2
+
+
+def _scale_transform_output(transform: Callable, factor: float) -> Callable:
+    """Wrap ``transform`` so its output is multiplied by ``factor``.
+
+    Used with units on to take the transform's output from ``transform_unit``
+    to internal values. The wrapper keeps the transform's arity, which
+    `wrap_compute_point_param_transform` reads off the signature, and inside
+    the traced graph adds one constant multiply that jit folds.
+    """
+    if transform_is_step_dependent(transform):
+
+        def internal_transform(phi, step_index):
+            return factor * transform(phi, step_index)
+
+    else:
+
+        def internal_transform(phi):
+            return factor * transform(phi)
+
+    internal_transform.physical_transform = transform
+    return internal_transform
+
+
 def wrap_compute_point_param_transform(
     params: Parameters, raw_compute_point: Callable[[Array], Array]
 ) -> Callable[[Array], Array]:
@@ -507,7 +710,7 @@ def wrap_compute_point_param_transform(
     drift_idx_pd = params.drift_indices_projdrift_basis
 
     # Detect step-dependence: tau(phi) vs tau(phi, step_index)
-    _step_dependent = len(inspect.signature(params.param_transform).parameters) >= 2
+    _step_dependent = transform_is_step_dependent(params.param_transform)
 
     # Detect whether transform outputs full-basis or projected-basis coefficients
     _test_out = (
