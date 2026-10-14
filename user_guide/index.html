@@ -846,6 +846,66 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#physical-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      Physical units
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Physical units">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-rule-a-bare-number-is-internal-a-physical-number-carries-its-unit" class="md-nav__link">
+    <span class="md-ellipsis">
+      The rule: a bare number is internal, a physical number carries its unit
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dimensions-and-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dimensions and conventions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-scale" class="md-nav__link">
+    <span class="md-ellipsis">
+      The scale
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#param_transform-with-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      param_transform with units
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#readouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Readouts
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#phase-sensitive-vs-projective" class="md-nav__link">
     <span class="md-ellipsis">
       Phase-sensitive vs projective
@@ -1066,6 +1126,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/physical_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Physical units: a CNOT in nanoseconds and megahertz
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1152,6 +1235,29 @@
   
   <span class="md-ellipsis">
     geope.parameters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    geope.units
     
   </span>
   
@@ -1769,6 +1875,66 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#physical-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      Physical units
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Physical units">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-rule-a-bare-number-is-internal-a-physical-number-carries-its-unit" class="md-nav__link">
+    <span class="md-ellipsis">
+      The rule: a bare number is internal, a physical number carries its unit
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dimensions-and-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dimensions and conventions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-scale" class="md-nav__link">
+    <span class="md-ellipsis">
+      The scale
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#param_transform-with-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      param_transform with units
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#readouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Readouts
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#phase-sensitive-vs-projective" class="md-nav__link">
     <span class="md-ellipsis">
       Phase-sensitive vs projective
@@ -2180,10 +2346,10 @@ mathematics the geometry layer now owns, and were removed. Their replacements:</
 <p><code>Parameters</code> is the recommended entry point.</p>
 <div class="highlight"><pre><span></span><code><span class="n">Parameters</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-           <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+           <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
            <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-           <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform_unit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">manifold</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 <table>
@@ -2212,7 +2378,7 @@ mathematics the geometry layer now owns, and were removed. Their replacements:</
 </tr>
 <tr>
 <td><code>drift_values</code></td>
-<td>dict, <code>ndarray</code>, or <code>None</code> (ones)</td>
+<td>dict, <code>ndarray</code>, or <code>None</code> (ones); required when units are on</td>
 </tr>
 <tr>
 <td><code>target</code></td>
@@ -2224,7 +2390,7 @@ mathematics the geometry layer now owns, and were removed. Their replacements:</
 </tr>
 <tr>
 <td><code>delta_t</code></td>
-<td>segment duration <span class="arithmatex">\(\Delta t\)</span>, so <span class="arithmatex">\(U_g = \exp(-i\,\Delta t\,H_g)\)</span>; defaults to <code>1.0</code>.</td>
+<td>segment duration <span class="arithmatex">\(\Delta t\)</span>, so <span class="arithmatex">\(U_g = \exp(-i\,\Delta t\,H_g)\)</span>; defaults to <code>1.0</code>. A bare number is internal; a time quantity such as <code>25 * ns</code> turns <a href="#physical-units">physical units</a> on</td>
 </tr>
 <tr>
 <td><code>fixed_drift</code></td>
@@ -2240,11 +2406,11 @@ mathematics the geometry layer now owns, and were removed. Their replacements:</
 </tr>
 <tr>
 <td><code>bounds</code></td>
-<td>dict <code>{label: (lo, hi)}</code> — consumed by <code>Geope.bound(...)</code>, not by the main loop</td>
+<td>dict <code>{label: (lo, hi)}</code>, stored as <code>params.bounds</code>; the main loop does not read it (bounding is <code>Gecko.bound</code>)</td>
 </tr>
 <tr>
 <td><code>init_spread</code></td>
-<td>half-width of uniform random init, in units of <span class="arithmatex">\(\pi\)</span></td>
+<td>half-width of the uniform random init: per coefficient in basis mode, times <span class="arithmatex">\(\pi\)</span> in experimental mode</td>
 </tr>
 <tr>
 <td><code>seed</code></td>
@@ -2253,6 +2419,10 @@ mathematics the geometry layer now owns, and were removed. Their replacements:</
 <tr>
 <td><code>param_transform</code></td>
 <td>callable mapping experimental params to basis coefficients</td>
+</tr>
+<tr>
+<td><code>transform_unit</code></td>
+<td>unit of <code>param_transform</code>'s output, e.g. <code>MHz</code>; required with <code>param_transform</code> when units are on, disallowed otherwise</td>
 </tr>
 <tr>
 <td><code>n_experimental_params</code></td>
@@ -2305,6 +2475,14 @@ constant through <code>param_transform</code>:</p>
 <tr>
 <td><code>bounds</code></td>
 <td>pre-built bounds tuple (or <code>None</code>)</td>
+</tr>
+<tr>
+<td><code>conversion</code></td>
+<td>the <code>geope.units.Conversion</code> when units are on, else <code>None</code></td>
+</tr>
+<tr>
+<td><code>physical</code></td>
+<td>read-only view of <code>delta_t</code>, <code>total_time</code>, <code>basis_coefficients</code>, <code>drift_parameters</code> and <code>to_dict()</code> as quantities (units on only)</td>
 </tr>
 </tbody>
 </table>
@@ -2920,6 +3098,91 @@ a pair that fails the test is skipped either way, so <code>wolfe=False</code> is
            <span class="n">pulse_constraints</span><span class="o">=</span><span class="p">[</span><span class="n">n</span><span class="p">])</span>      <span class="c1"># optional: pin it uniform across segments</span>
 </code></pre></div>
 <p>It is optimised by both <code>Geope</code> and <code>Gecko</code>, boundable to <code>(0, inf)</code> via <code>Gecko.bound({n: (0.0, np.inf)})</code>, and survives subdivision unchanged while <code>delta_t</code> halves. One caveat: a multiplicative duration is rank-deficient against the amplitude inside <code>f</code> — scaling one up and the other down leaves the coefficients unchanged — so "optimise the duration" is only well-posed when the amplitude is pinned (bounded, normalised, or of fixed shape). The degeneracy is benign for the optimisers themselves: it merely widens the null space.</p>
+<h2 id="physical-units">Physical units<a class="headerlink" href="#physical-units" title="Permanent link">¤</a></h2>
+<p>Everything above is dimensionless: a parameter is the rotation angle per segment and <code>delta_t</code> a bare multiplier. To work in physical units instead, pass <code>delta_t</code> as a time quantity. That is the only switch:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">geope.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">MHz</span><span class="p">,</span> <span class="n">ns</span><span class="p">,</span> <span class="n">ueV</span>
+
+<span class="n">params</span> <span class="o">=</span> <span class="n">geope</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span>
+    <span class="n">basis</span><span class="o">=</span><span class="n">geope</span><span class="o">.</span><span class="n">construct_full_pauli_basis</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">control</span><span class="o">=</span><span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">],</span> <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">]},</span>
+    <span class="n">drift</span><span class="o">=</span><span class="p">{(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">[</span><span class="s2">"zz"</span><span class="p">]},</span>
+    <span class="n">drift_values</span><span class="o">=</span><span class="p">{(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">{</span><span class="s2">"zz"</span><span class="p">:</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">MHz</span><span class="p">}},</span>
+    <span class="n">target</span><span class="o">=</span><span class="n">CNOT</span><span class="p">,</span>
+    <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">delta_t</span><span class="o">=</span><span class="mi">25</span> <span class="o">*</span> <span class="n">ns</span><span class="p">,</span>                      <span class="c1"># a quantity here turns units on</span>
+<span class="p">)</span>
+<span class="n">geope</span><span class="o">.</span><span class="n">Geope</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
+
+<span class="n">params</span><span class="o">.</span><span class="n">physical</span><span class="o">.</span><span class="n">total_time</span>                   <span class="c1"># 500.0 ns</span>
+<span class="n">params</span><span class="o">.</span><span class="n">physical</span><span class="o">.</span><span class="n">basis_coefficients</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">MHz</span><span class="p">)</span>   <span class="c1"># the pulse, in MHz</span>
+<span class="n">params</span><span class="o">.</span><span class="n">physical</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="mi">1</span><span class="p">][</span><span class="s2">"x"</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">ueV</span><span class="p">)</span>    <span class="c1"># one coefficient, as an energy</span>
+</code></pre></div>
+<p>A quantity is a number or array times a unit from <code>geope.units</code>: <code>25 * ns</code>, <code>5 * MHz</code>, <code>np.linspace(0, 1, 20) * MHz</code>, <code>(-20, 20) * MHz</code>. It converts with <code>.to(unit)</code> and does nothing else — no arithmetic, no derived dimensions — and it can never reach jitted code: <code>np.asarray(quantity)</code> raises. The worked example is <a href="../examples/physical_units/"><code>physical_units.ipynb</code></a>.</p>
+<h3 id="the-rule-a-bare-number-is-internal-a-physical-number-carries-its-unit">The rule: a bare number is internal, a physical number carries its unit<a class="headerlink" href="#the-rule-a-bare-number-is-internal-a-physical-number-carries-its-unit" title="Permanent link">¤</a></h3>
+<p>With a bare <code>delta_t</code> (the default) nothing changes: no check is made and no unit object is built. With a quantity <code>delta_t</code>, <code>Parameters</code> is <strong>strict</strong>: every physical input must be a quantity of the right dimension, and each misuse raises <code>geope.UnitsError</code> naming the argument. Bare floats are never read "in some default unit".</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Strict-mode rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>delta_t</code> (constructor and later assignment)</td>
+<td>a time quantity; <code>params.delta_t = 30 * ns</code> works for a duration sweep</td>
+</tr>
+<tr>
+<td><code>init_values</code> (basis mode)</td>
+<td>an amplitude quantity: one unit on a whole array, or quantity leaves in the <code>control</code>-format dict</td>
+</tr>
+<tr>
+<td><code>drift_values</code></td>
+<td>an amplitude quantity, and <strong>required</strong> whenever a drift basis exists — the all-ones default would be a drift of exactly <span class="arithmatex">\(1/\Delta t\)</span>, a value invented by the library</td>
+</tr>
+<tr>
+<td><code>bounds</code>, label-keyed <code>Gecko.bound</code></td>
+<td><code>(lo, hi)</code> pairs of quantities, or one quantity holding both</td>
+</tr>
+<tr>
+<td><code>param_transform</code> output</td>
+<td>declared by <code>transform_unit</code>, <strong>required</strong> with a transform; there is no default</td>
+</tr>
+<tr>
+<td><code>Gecko.robust(delta=...)</code> (basis mode)</td>
+<td>an amplitude quantity</td>
+</tr>
+<tr>
+<td>experimental-space inputs: <code>init_values</code> under <code>param_transform</code>, index-keyed <code>Gecko.bound</code>, <code>delta</code> in experimental mode</td>
+<td>bare; a quantity raises. Units for experimental parameters are a planned follow-up</td>
+</tr>
+</tbody>
+</table>
+<p>What stays internal-valued, on purpose: <code>params.parameters</code>, the value <code>params.delta_t</code> returns (exactly <code>1.0</code> at construction, see below), the <code>History</code> columns, and every optimiser knob (<code>init_spread</code>, <code>max_step_size</code>, learning rates, <code>Gecko</code> rates and <code>diff_tol</code>). <code>Geope.init</code>, <code>Grape.init</code> and <code>Geope.add_parameters</code> take internal arrays because the optimiser loop calls them itself; hand them a quantity and it is converted.</p>
+<h3 id="dimensions-and-conventions">Dimensions and conventions<a class="headerlink" href="#dimensions-and-conventions" title="Permanent link">¤</a></h3>
+<p>There are two dimensions: <strong>time</strong> (canonical s) and <strong>amplitude</strong> (canonical rad/s). GEOPE writes <span class="arithmatex">\(H = \hbar\sum_k c_k G_k\)</span>, so an energy <span class="arithmatex">\(E\)</span> and an angular frequency <span class="arithmatex">\(E/\hbar\)</span> are the same quantity, and angular-frequency, cycle-frequency and energy units form one equivalence class that converts freely:</p>
+<ul>
+<li><code>Hz</code>, <code>kHz</code>, <code>MHz</code>, <code>GHz</code>, <code>THz</code> are <em>cyclic</em> and carry the <span class="arithmatex">\(2\pi\)</span>: <code>(1 * MHz).to(rad_per_s)</code> is <span class="arithmatex">\(2\pi\times10^6\)</span>.</li>
+<li><code>rad_per_s</code> … <code>rad_per_fs</code> are angular and carry none.</li>
+<li><code>J</code>, <code>eV</code>, <code>meV</code>, <code>ueV</code>, <code>neV</code> divide by <span class="arithmatex">\(\hbar\)</span>: <code>(1.0 * ueV).to(MHz)</code> is <span class="arithmatex">\(E/h = 241.799\)</span> MHz and <code>.to(rad_per_ns)</code> is <span class="arithmatex">\(E/\hbar = 1.5193\)</span> rad/ns.</li>
+</ul>
+<p>Units may be mixed freely — a drift in <code>ueV</code>, bounds in <code>MHz</code>, a transform in <code>rad_per_ns</code> — because each value is converted on its own; what must match is the dimension. A time in an amplitude slot is an error.</p>
+<p><strong>The factor the tag cannot catch is generator normalisation.</strong> The Pauli generators are unnormalised (<code>X = [[0, 1], [1, 0]]</code>), so <span class="arithmatex">\(H = \hbar\,c\,X\)</span> rotates at angular frequency <span class="arithmatex">\(2c\)</span>: a coefficient of 5 MHz on <code>X</code> is a 10 MHz Rabi frequency, and a <span class="arithmatex">\(\pi\)</span> pulse takes <span class="arithmatex">\(1/(4\cdot 5\,\text{MHz}) = 50\)</span> ns. The convention is that <em>the coefficient multiplies <span class="arithmatex">\(G_k\)</span> as the basis defines it</em>; a custom <code>projected_basis</code> carries whatever normalisation it was built with.</p>
+<h3 id="the-scale">The scale<a class="headerlink" href="#the-scale" title="Permanent link">¤</a></h3>
+<p><code>Parameters</code> nondimensionalises with the reference angular frequency <span class="arithmatex">\(\omega_0 = 1/\Delta t\)</span>, so the internal <code>delta_t</code> is exactly <code>1.0</code> and each internal coefficient is the rotation angle per segment — numerically the same problem as the default <code>delta_t = 1.0</code>, the regime the optimiser defaults are tuned in. The forward map is invariant under the scale; the optimisers' step sizes are not, which is why it is fixed rather than exposed.</p>
+<p>Consequences: with no <code>init_values</code>, the random start is <span class="arithmatex">\(\pm\)</span><code>init_spread</code> per coefficient <em>internal</em>, i.e. a physical amplitude of <span class="arithmatex">\(\pm\)</span><code>init_spread</code><span class="arithmatex">\(/\Delta t\)</span>. The scale is fixed at construction, so <code>params.delta_t = 30 * ns</code> and <code>Gecko</code> subdivision change the internal duration, not the scale; a sweep over more than a decade should construct a fresh <code>Parameters</code> per duration.</p>
+<h3 id="param_transform-with-units"><code>param_transform</code> with units<a class="headerlink" href="#param_transform-with-units" title="Permanent link">¤</a></h3>
+<p>The transform runs inside jit, so its output cannot carry a tag. <code>transform_unit</code> declares it, and every constant inside the transform is read in that unit. Convert offsets outside the function:</p>
+<div class="highlight"><pre><span></span><code><span class="n">offset</span> <span class="o">=</span> <span class="p">(</span><span class="mf">3.0</span> <span class="o">*</span> <span class="n">ueV</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">MHz</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>      <span class="c1"># numpy, outside jit</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">tau</span><span class="p">(</span><span class="n">phi</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">phi</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zi</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+
+<span class="n">Parameters</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">ns</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="n">tau</span><span class="p">,</span> <span class="n">transform_unit</span><span class="o">=</span><span class="n">MHz</span><span class="p">)</span>
+</code></pre></div>
+<p><code>params.param_transform</code> then holds the internal wrapper (the user's function is <code>params.param_transform.physical_transform</code>), and <code>params.physical.basis_coefficients</code> reads the result back in physical units. Experimental-parameter <em>inputs</em> stay bare in this release.</p>
+<h3 id="readouts">Readouts<a class="headerlink" href="#readouts" title="Permanent link">¤</a></h3>
+<p><code>params.physical</code> is a read-only view: <code>delta_t</code>, <code>total_time</code>, <code>basis_coefficients</code>, <code>drift_parameters</code> and <code>to_dict()</code>, each a quantity. Times come back in the unit <code>delta_t</code> was given in, amplitudes in its angular partner (<code>rad/ns</code> for <code>ns</code>); <code>.to(MHz)</code> and <code>.to(ueV)</code> convert. Anything else — <code>History</code> columns, <code>Gecko</code> costs — is internal; <code>params.conversion.to_physical(x, "amplitude")</code> converts an internal array by hand.</p>
 <h2 id="phase-sensitive-vs-projective">Phase-sensitive vs projective<a class="headerlink" href="#phase-sensitive-vs-projective" title="Permanent link">¤</a></h2>
 <p>The two fidelities differ in how the trace is taken:</p>
 <div class="arithmatex">\[
