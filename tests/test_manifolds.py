@@ -13,6 +13,9 @@ Tested items:
     - UnitaryGroup / SpecialUnitaryGroup
     - StateSphere          (the non-group case, plus its own primitives and an
                             end-to-end state-preparation run)
+    - SpecialEuclideanGroup (not a U(N)-orbit, and driven through the autodiff
+                            ``param_transform`` chart, so the contracts that need
+                            the chart's second differential skip on capability)
 """
 
 import dataclasses
@@ -28,7 +31,9 @@ jax.config.update("jax_enable_x64", True)
 
 from geope.gecko import Gecko
 from geope.geometry import (
+    Basis,
     MatrixLieGroup,
+    SpecialEuclideanGroup,
     StateSphere,
     Stiefel,
     UnitaryGroup,
@@ -116,12 +121,52 @@ def _stiefel_phase_problem(target_scale=1.0):
     )
 
 
+def _se3_pose(rotation_vector, translation):
+    pose = np.eye(4)
+    pose[:3, :3] = spla.expm(
+        np.cross(np.eye(3), np.asarray(rotation_vector, dtype=float))
+    )
+    pose[:3, 3] = translation
+    return pose
+
+
+#: The six unit twists of se(3) as a chart basis, B_k = i [S_k]: the chart
+#: exponentiates -i B_k, so it lands on the twists themselves. None of them is
+#: Hermitian, and the three translations have Tr(B B') = 0 against everything —
+#: exactly what `Basis.overlap` must not drop.
+_SE3_TWISTS = np.zeros((6, 4, 4))
+_SE3_TWISTS[:3, :3, :3] = np.cross(np.eye(3)[:, None, :], np.eye(3)[None, :, :])
+_SE3_TWISTS[3:, :3, 3] = np.eye(3)
+SE3_BASE = _se3_pose([0.3, -0.2, 0.5], [0.1, 0.4, -0.3])
+SE3_TARGET = _se3_pose([-0.6, 0.9, 0.2], [0.5, -0.2, 0.8])
+
+
+def _se3_problem(target_scale=1.0):
+    """SE(3): a rigid body under piecewise twists — not a U(N)-orbit at all.
+
+    Its generators are not skew-Hermitian, so the analytic jet does not apply and
+    the problem runs on the ``param_transform`` (autodiff) chart.
+    """
+    twists = Basis(1j * _SE3_TWISTS, labels=list("ABCDEF"))
+    return Parameters(
+        basis=twists,
+        projected_basis=twists,
+        target=target_scale * SE3_TARGET,
+        piecewise_steps=PIECES,
+        seed=0,
+        manifold=SpecialEuclideanGroup(length_scale=0.7, base_point=SE3_BASE),
+        param_transform=lambda x: x,
+        n_experimental_params=6,
+    )
+
+
 PROBLEMS = {
     "SU(d)": _su_problem,
     "U(d)": _u_problem,
     "CP(n-1)": _sphere_problem,
     "St(4,2)": _stiefel_problem,
     "St(4,2) phase": _stiefel_phase_problem,
+    "SE(3)": _se3_problem,
 }
 
 
@@ -133,12 +178,17 @@ def space(request):
     """
     params = PROBLEMS[request.param]()
     manifold = params.manifold
-    k = params.proj_drift_basis.lie_algebra_dim
+    # The pulse's own shape and dtype: (G, K) complex on the analytic path, the
+    # experimental (G, n_exp) and real under param_transform, where every column
+    # is free.
+    template = params.free()
     free = (
-        jax.random.normal(jax.random.key(3), (PIECES, k)).astype(jnp.complex128) * 0.4
+        jax.random.normal(jax.random.key(3), template.shape).astype(template.dtype)
+        * 0.4
     )
-    coeffs = np.zeros((PIECES, k))
-    coeffs[:, params.proj_indices_projdrift_basis] = 0.35
+    coeffs = np.zeros(template.shape)
+    columns = manifold.tangent.columns
+    coeffs[:, slice(None) if columns is None else columns] = 0.35
     coeffs = jnp.asarray(coeffs)
 
     point = manifold.compute_point(free)
@@ -156,6 +206,9 @@ def space(request):
         has_curvature = False
     return SimpleNamespace(
         has_curvature=has_curvature,
+        # The chart's second differential is a capability too: the
+        # param_transform chart has none, which withdraws everything built on it.
+        has_hvp=manifold.tangent.hvp is not None,
         name=request.param,
         params=params,
         manifold=manifold,
@@ -174,6 +227,32 @@ def _skip_without_curvature(space):
     """Skip a contract that only applies where tier 2 exists."""
     if not space.has_curvature:
         pytest.skip(f"{space.name} does not supply a Riemannian Hessian")
+
+
+def _skip_without_hvp(space):
+    """Skip a contract on the chart's second differential where there is none."""
+    if not space.has_hvp:
+        pytest.skip(f"{space.name}'s chart has no second differential")
+
+
+def _ray_jet(manifold, free, coeffs):
+    """``(point, V, W)`` along the ray ``free + t * coeffs`` at ``t = 0``.
+
+    The chart's own HVP where it has one; nested forward-mode autodiff of the
+    chart where it does not (the param_transform chart), so the hook contracts
+    that only *consume* a second derivative still run there.
+    """
+    if manifold.tangent.hvp is not None:
+        return manifold.tangent.hvp(jnp.real(free), coeffs)
+
+    def ray(t):
+        return manifold.compute_point(free + t * coeffs)
+
+    def velocity(t):
+        return jax.jvp(ray, (t,), (1.0,))[1]
+
+    point, v = jax.jvp(ray, (0.0,), (1.0,))
+    return point, v, jax.jvp(velocity, (0.0,), (1.0,))[1]
 
 
 def _velocity(manifold, free, coeffs):
@@ -388,7 +467,7 @@ class TestHookContracts:
         h = 1e-5
         fd = (omega(h) - omega(-h)) / (2.0 * h)
 
-        _, v, w = m.tangent.hvp(jnp.real(space.free), space.coeffs)
+        _, v, w = _ray_jet(m, space.free, space.coeffs)
         exact = m.tangent_acceleration(space.point, v, w)
 
         scale = float(jnp.linalg.norm(jnp.ravel(jnp.asarray(fd))))
@@ -397,6 +476,7 @@ class TestHookContracts:
         )
 
     def test_hvp_velocity_matches_the_jacobian_contraction(self, space):
+        _skip_without_hvp(space)
         m = space.manifold
         _, v, _ = m.tangent.hvp(jnp.real(space.free), space.coeffs)
         np.testing.assert_allclose(
@@ -406,6 +486,7 @@ class TestHookContracts:
         )
 
     def test_hvp_point_matches_the_chart(self, space):
+        _skip_without_hvp(space)
         m = space.manifold
         x, _, _ = m.tangent.hvp(jnp.real(space.free), space.coeffs)
         np.testing.assert_allclose(np.asarray(x), np.asarray(space.point), atol=1e-10)
@@ -572,8 +653,11 @@ class TestHookContracts:
 
         A manifold may decline them — that is what makes them declinable — but
         then it silently falls back to autodiff, which is exactly the regression
-        this pins.
+        this pins. The param_transform chart is the exception by construction:
+        it has no exponential-product structure, so autodiff is its only path.
         """
+        if space.manifold.tangent.hessian_vjp is None:
+            pytest.skip(f"{space.name}'s chart is differentiated by autodiff")
         m = space.manifold
         assert m.has_cost_gradient
         assert m.has_cost_hessian_form
@@ -593,8 +677,9 @@ class TestContextOnEveryManifold:
         ctx = m.context(space.free)
         sol, _, _ = least_squares(ctx, None)
         ctx.set_direction(-m.tangent.embed(sol))
-        exact = (ctx.q_exact, ctx.rho) if space.has_curvature else ()
-        for value in (ctx.F0, ctx.velocity, ctx.q, ctx.xi_rel, *exact):
+        curvature = (ctx.q,) if space.has_hvp else ()
+        exact = (ctx.q_exact, ctx.rho) if space.has_curvature and space.has_hvp else ()
+        for value in (ctx.F0, ctx.velocity, ctx.xi_rel, *curvature, *exact):
             assert np.isfinite(float(value)), value
         for t in (0.0, 0.1):
             assert np.isfinite(float(ctx.distance_at(t)))
@@ -610,6 +695,7 @@ class TestContextOnEveryManifold:
         is exactly how a wrong closed form survives every algebraic contract.
         """
         _skip_without_curvature(space)
+        _skip_without_hvp(space)
         m = space.manifold
         ctx = m.context(space.free)
         sol, _, _ = least_squares(ctx, None)

@@ -78,6 +78,12 @@ Modules:
   canonical metric, with the iterative Zimmermann–Hüper logarithm) and
   `StateSphere` (state preparation, and
   the proof that this interface needs no group structure), frames later.
+* `euclidean` — `SpecialEuclideanGroup`, rigid transforms under the product
+  metric of $\mathrm{SO}(3)\times\mathbb R^3$: the one manifold here that is
+  *not* a $\mathrm U(N)$-orbit. Its chart is the same product of exponentials,
+  of real $\mathfrak{se}(3)$ generators, so a serial arm's forward kinematics is
+  a GEOPE chart; those generators are not skew-Hermitian, so it is driven
+  through the ``param_transform`` (autodiff) chart rather than the analytic jet.
 
 **Import invariant: nothing in this package may import `geope.utils` at module
 level.** `geope.utils` imports `geometry.basis` for its basis constructors,
@@ -88,6 +94,7 @@ deferred imports.
 
 from .basis import Basis, get_project_omegas_fn, get_project_omegas_fn_otf, traces
 from .context import GeometricContext
+from .euclidean.se3 import SpecialEuclideanGroup
 from .lie.groups import MatrixLieGroup, SpecialUnitaryGroup, UnitaryGroup
 from .manifold import Manifold
 from .stiefel.sphere import StateSphere

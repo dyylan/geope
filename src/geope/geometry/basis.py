@@ -157,10 +157,17 @@ class Basis:
         return np.einsum("nij,nij->ij", parameters, self._basis)
 
     def overlap(self, other: Basis) -> np.ndarray:
-        """Compute the overlap mask between this basis and another.
+        r"""Compute the overlap mask between this basis and another.
 
-        Uses trace inner products to determine which elements of
-        `other` have non-zero overlap with elements of this basis.
+        An element of `other` overlaps this basis when its Frobenius inner product
+        $\mathrm{Tr}(B_i^\dagger B'_j)$ with *some* element of this basis is
+        non-zero. On a Hermitian frame the dagger is immaterial, and on an
+        orthogonal one (the Paulis) at most one entry per column is non-zero, so
+        this agrees with the plain trace pairing there. Neither shortcut is taken:
+        a non-Hermitian generator (a translation in $\mathfrak{se}(3)$ is
+        nilpotent, so $\mathrm{Tr}(B^2) = 0$) or a non-orthogonal frame (a serial
+        arm's screw axes) would otherwise be dropped — by a vanishing trace in the
+        first case, by cancellation across a column sum in the second.
 
         Args:
             other: Another ``Basis`` instance.
@@ -169,8 +176,10 @@ class Basis:
             A boolean ``np.ndarray`` of length ``other.lie_algebra_dim``
             that is ``True`` where an overlap exists.
         """
-        out = traces(self.basis, other.basis)
-        return ~np.isclose(np.sum(out, axis=0), 0)
+        gram = np.einsum(
+            "ikl,jkl->ij", np.conj(np.asarray(self.basis)), np.asarray(other.basis)
+        )
+        return np.any(~np.isclose(gram, 0), axis=0)
 
     def verify(self) -> bool:
         """Verify that the basis elements are orthogonal under the trace inner product.

@@ -6,6 +6,7 @@ from .geometry import (
     GeometricContext,
     Manifold,
     MatrixLieGroup,
+    SpecialEuclideanGroup,
     SpecialUnitaryGroup,
     StateSphere,
     Stiefel,
