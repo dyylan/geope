@@ -74,6 +74,7 @@ class _QuadraticContext:
         self._offset = jnp.asarray(offset)
         self._shape = shape or (1, offset.size)
         self.free_params = jnp.asarray(x).reshape(self._shape)
+        self.delta_t = jnp.asarray(1.0, jnp.float64)
         self.coeffs = None
 
     def _cost(self, x_flat):
@@ -126,7 +127,7 @@ def _run(optimizer, ctx, state=None):
     """One step; returns ``(result, new_x_flat)``."""
     state = optimizer.init(ctx.free_params) if state is None else state
     result = optimizer(ctx, state)
-    new_x = ctx.free_params + result.dt * result.coeffs
+    new_x = ctx.free_params + result.step_size * result.coeffs
     return result, np.asarray(new_x).flatten()
 
 
@@ -162,7 +163,7 @@ class TestNewtonDirections:
         direction = np.asarray(
             newton_trm_step(jnp.asarray(matrix), jnp.asarray(gradient), 0.1)
         )
-        # `direction` is uphill, so <g, d> must be strictly positive.
+        # The unsigned p is uphill (the rule steps along -p), so <g, p> > 0.
         assert float(gradient @ direction) > 0
 
     def test_rfo_gives_an_uphill_direction(self):
@@ -212,7 +213,7 @@ class TestSaddleFreeDirection:
         # The whole reason the *magnitudes* are inverted rather than the signed
         # eigenvalues. With the gradient weighted onto the negative-curvature
         # directions, <g, pinv(H) g> = sum g_i^2 / lambda_i goes negative, which
-        # on GEOPE's convention is a non-descent direction the line search can
+        # makes the step direction -p a non-descent direction the line search can
         # never satisfy. Inverting |lambda| gives sum g_i^2 / |lambda_i| > 0
         # unconditionally.
         matrix, q = self._symmetric(np.array([-2.0, -1.0, 1.0, 3.0]), seed=0)
@@ -378,8 +379,8 @@ class TestAdam:
 
 class TestNewtonRules:
     def test_a_full_newton_step_lands_on_the_exact_minimiser(self):
-        # With delta below the spectrum the direction is A^-1 g, and the Armijo
-        # test accepts the full bracket step dt = -1 on the first trial, so one
+        # With delta below the spectrum the direction is -A^-1 g, and the Armijo
+        # test accepts the full bracket step step_size = 1 on the first trial, so one
         # step is exact. That it accepts immediately is itself the proof that the
         # slope is a genuine descent slope.
         matrix, eigenvalues = _spd(5, seed=13, shift=2.0)
@@ -389,25 +390,26 @@ class TestNewtonRules:
         assert eigenvalues.min() > 0.5
         result, new_x = _run(NewtonTRM(delta=0.5), ctx)
         assert np.allclose(new_x, np.linalg.solve(matrix, offset))
-        assert float(result.dt) == -1.0
+        assert float(result.step_size) == 1.0
         assert int(result.state["n_eval"]) == 1
 
     def test_the_slope_is_the_gradient_pairing_not_the_direction_norm(self):
         # The regression that matters. The bug this replaced paired the direction
-        # with *itself*, giving ||A^-1 g||^2 — which is also positive, so a sign
-        # check alone would not have caught it. Assert the value.
+        # with *itself*, giving ||A^-1 g||^2 — which is positive where the true
+        # slope is negative, so the sign check below now catches it too. Assert
+        # the value as well.
         matrix, _ = _spd(5, seed=14, shift=2.0)
         offset = np.arange(1.0, 6.0)
         ctx = _QuadraticContext(matrix, offset, np.full(5, 0.25))
         grad = np.asarray(ctx.gradient).flatten()
-        direction = np.asarray(
+        direction = -np.asarray(
             newton_trm_step(jnp.asarray(matrix), jnp.asarray(grad), 0.5)
         )
         ctx.set_direction(direction.reshape(ctx.free_params.shape))
 
         assert np.isclose(float(ctx.slope), float(grad @ direction))
         assert not np.isclose(float(ctx.slope), float(direction @ direction))
-        assert float(ctx.slope) > 0  # descent, on GEOPE's uphill-coeffs convention
+        assert float(ctx.slope) < 0  # a descent direction
 
     def test_backtracks_and_decreases_when_the_full_step_overshoots(self):
         # A quartic: the Newton direction is right but the full step overshoots,
@@ -444,10 +446,10 @@ class TestNewtonRules:
         matrix, _ = _spd(4, seed=16, shift=2.0)
         opt = NewtonTRM(delta=0.5)
         state = opt.init(jnp.zeros((1, 4)))
-        assert float(state["dt"]) == -opt.max_step
+        assert float(state["step_size"]) == opt.max_step
         ctx = _QuadraticContext(matrix, np.arange(1.0, 5.0), np.full(4, 0.25))
         result, _ = _run(opt, ctx, state)
-        assert float(result.state["dt"]) == float(result.dt)
+        assert float(result.state["step_size"]) == float(result.step_size)
 
 
 # ===================================================================
@@ -467,7 +469,7 @@ class _NoHessianContext(_QuadraticContext):
         def __init__(self, matrix, offset, shape):
             self._matrix, self._offset, self._shape = matrix, offset, shape
 
-        def value_and_grad(self, x):
+        def value_and_grad(self, x, delta_t=1.0):
             flat = x.flatten()
             value = 0.5 * flat @ self._matrix @ flat - self._offset @ flat
             return value, (self._matrix @ flat - self._offset).reshape(self._shape)
@@ -489,7 +491,7 @@ def _descend(optimizer, matrix, offset, x0, steps, context=_NoHessianContext):
     for _ in range(steps):
         ctx = context(matrix, offset, x)
         result = optimizer(ctx, state)
-        x = np.asarray(ctx.free_params + result.dt * result.coeffs).flatten()
+        x = np.asarray(ctx.free_params + result.step_size * result.coeffs).flatten()
         state = result.state
         per_step.append(result)
     return x, state, per_step
@@ -504,12 +506,12 @@ class TestLBFGS:
 
     def test_a_cold_start_is_exactly_steepest_descent(self):
         # An empty buffer means every rho is 0, so both loops are no-ops and
-        # gamma falls back to 1: the direction must be the gradient itself.
+        # gamma falls back to 1: the direction must be the negative gradient.
         matrix, _ = _spd(4, seed=31, shift=1.0)
         ctx = _NoHessianContext(matrix, np.ones(4), np.full(4, 0.3))
         opt = LBFGS(5)
         result = opt(ctx, opt.init(ctx.free_params))
-        assert np.allclose(np.asarray(result.coeffs), np.asarray(ctx.gradient))
+        assert np.allclose(np.asarray(result.coeffs), -np.asarray(ctx.gradient))
 
     def test_state_keys_and_shapes_are_pinned(self):
         # The state round-trips a jit boundary every step, so its structure must
@@ -518,7 +520,7 @@ class TestLBFGS:
         opt = LBFGS(3)
         ctx = _NoHessianContext(matrix, np.ones(4), np.full(4, 0.3))
         state = opt.init(ctx.free_params)
-        expected = {"s", "y", "rho", "prev_x", "prev_g", "count", "dt", "n_eval"}
+        expected = {"s", "y", "rho", "prev_x", "prev_g", "count", "step_size", "n_eval"}
         assert set(state) == expected
         result = opt(ctx, state)
         assert set(result.state) == expected
@@ -547,7 +549,7 @@ class TestLBFGS:
         for _ in range(6):
             ctx = _NoHessianContext(matrix, np.arange(1.0, 6.0), x)
             result = opt(ctx, state)
-            x = np.asarray(ctx.free_params + result.dt * result.coeffs).flatten()
+            x = np.asarray(ctx.free_params + result.step_size * result.coeffs).flatten()
             state = result.state
             counts.append(int(np.count_nonzero(np.asarray(state["rho"]))))
         # One pair per completed step, capped at `memory`; the newest is last.
@@ -566,13 +568,13 @@ class TestLBFGS:
         kept = opt._push(state, s_new, 2.0 * s_new, jnp.asarray(True))
         assert np.isclose(float(kept["rho"][-1]), 0.5)
 
-    def test_the_direction_is_uphill_and_the_step_negative(self):
+    def test_the_direction_is_downhill_and_the_step_positive(self):
         matrix, _ = _spd(5, seed=35, shift=1.0)
         _, _, per_step = _descend(
             LBFGS(4), matrix, np.arange(1.0, 6.0), np.full(5, 0.4), steps=5
         )
         for result in per_step:
-            assert float(result.dt) <= 0.0
+            assert float(result.step_size) >= 0.0
 
     def test_the_state_stays_real_on_a_complex_gradient(self):
         matrix, _ = _spd(3, seed=36, shift=1.0)
@@ -594,13 +596,13 @@ class TestLBFGS:
         ctx = _NoHessianContext(matrix, offset, np.full(5, 0.3))
         result = opt(ctx, opt.init(ctx.free_params))
 
-        alpha = -float(result.dt)
+        alpha = float(result.step_size)
         phi0 = float(ctx.value_and_grad[0])
-        d0 = -float(ctx.slope)  # phi'(0) < 0 at a descent direction
+        d0 = float(ctx.slope)  # phi'(0) < 0 at a descent direction
         phi_a = float(result.value)
-        flat = np.asarray(ctx.free_params + result.dt * result.coeffs).flatten()
+        flat = np.asarray(ctx.free_params + result.step_size * result.coeffs).flatten()
         grad_a = matrix @ flat - offset
-        d_a = -float(grad_a @ np.asarray(result.coeffs).flatten())
+        d_a = float(grad_a @ np.asarray(result.coeffs).flatten())
 
         assert phi_a <= phi0 + opt.c1 * alpha * d0 + 1e-12  # sufficient decrease
         assert abs(d_a) <= opt.c2 * abs(d0) + 1e-12  # curvature
@@ -608,7 +610,7 @@ class TestLBFGS:
     def test_it_stalls_gracefully_at_the_floating_point_floor(self):
         # Past the point where the achievable decrease falls below the
         # resolution of the cost itself, the strong-Wolfe search is testing
-        # rounding noise and returns dt = 0. It must stop *moving*, not
+        # rounding noise and returns step_size = 0. It must stop *moving*, not
         # diverge, and the zero-length pair must be rejected rather than
         # poisoning the memory with rho = inf.
         n = 6
@@ -623,7 +625,7 @@ class TestLBFGS:
         values = [float(r.value) for r in per_step]
         assert np.all(np.diff(values) <= 1e-12)  # never uphill
         # Whatever the tail does, it does not move.
-        assert float(per_step[-1].dt) == 0.0
+        assert float(per_step[-1].step_size) == 0.0
 
     def test_memory_participates_in_the_compile_memo(self):
         assert LBFGS(5) != LBFGS(10)
@@ -638,9 +640,11 @@ class TestLBFGS:
         state = opt.init(ctx.free_params)
 
         def one_step(st):
-            return opt(_NoHessianContext(matrix, np.ones(4), np.full(4, 0.3)), st).dt
+            return opt(
+                _NoHessianContext(matrix, np.ones(4), np.full(4, 0.3)), st
+            ).step_size
 
-        assert float(jax.jit(one_step)(state)) <= 0.0
+        assert float(jax.jit(one_step)(state)) >= 0.0
 
 
 # ===================================================================
@@ -660,7 +664,7 @@ class _WolfeContext(_QuadraticContext):
         def __init__(self, matrix, offset, shape):
             self._matrix, self._offset, self._shape = matrix, offset, shape
 
-        def value_and_grad(self, x):
+        def value_and_grad(self, x, delta_t=1.0):
             flat = x.flatten()
             value = 0.5 * flat @ self._matrix @ flat - self._offset @ flat
             return value, (self._matrix @ flat - self._offset).reshape(self._shape)
@@ -691,7 +695,7 @@ class TestStrongWolfe:
         result, new_x = _run(make(), ctx)
 
         assert np.allclose(new_x, np.linalg.solve(matrix, offset))
-        assert np.isclose(float(result.dt), -1.0)
+        assert np.isclose(float(result.step_size), 1.0)
         # One value and one gradient: the first trial is accepted.
         assert int(result.state["n_eval"]) == 2
 
@@ -720,15 +724,15 @@ class TestStrongWolfe:
         opt = NewtonSaddleFree(wolfe=True)
         result, _ = _run(opt, ctx)
 
-        alpha = -float(result.dt)
+        alpha = float(result.step_size)
         assert alpha > 0.0
         coeffs = ctx.coeffs
-        slope0 = float(jnp.sum(jnp.real(ctx.gradient) * jnp.real(coeffs)))
-        d0 = -slope0  # phi'(0) < 0 for a descent direction
+        d0 = float(jnp.sum(jnp.real(ctx.gradient) * jnp.real(coeffs)))
+        assert d0 < 0.0  # phi'(0) < 0 for a descent direction
 
         phi_alpha = float(result.value)
-        _f, grad_alpha = ctx.manifold.value_and_grad(ctx.free_params - alpha * coeffs)
-        d_alpha = -float(jnp.sum(jnp.real(grad_alpha) * jnp.real(coeffs)))
+        _f, grad_alpha = ctx.manifold.value_and_grad(ctx.free_params + alpha * coeffs)
+        d_alpha = float(jnp.sum(jnp.real(grad_alpha) * jnp.real(coeffs)))
 
         # Armijo (sufficient decrease) and the curvature condition.
         assert phi_alpha <= float(f0) + opt.c1 * alpha * d0
@@ -745,8 +749,8 @@ class TestStrongWolfe:
             NewtonSaddleFree(wolfe=True), _WolfeContext(matrix, offset, np.zeros(5))
         )
 
-        # Both keep "dt" in the state, which the warm start depends on.
-        assert "dt" in armijo.state and "dt" in wolfe.state
+        # Both keep "step_size" in the state, which the warm start depends on.
+        assert "step_size" in armijo.state and "step_size" in wolfe.state
         # Wolfe spends a gradient as well as a value on its accepted trial.
         assert int(wolfe.state["n_eval"]) > int(armijo.state["n_eval"])
 
@@ -836,8 +840,9 @@ class TestOptimizerValueSemantics:
             result, _ = _run(opt, ctx)
             assert isinstance(result, OptimizerResult)
             assert "n_eval" in result.state
-            # Uphill direction, negative step — GEOPE's convention.
-            assert float(result.dt) < 0
+            # Descent direction, positive step — the textbook convention.
+            assert float(result.step_size) > 0
+            assert float(ctx.slope) < 0
 
     def test_base_optimizer_declines(self):
         with pytest.raises(NotImplementedError):

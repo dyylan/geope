@@ -37,6 +37,8 @@ class Parameters:
         drift_basis: The drift sub-``Basis``, or ``None``.
         target: Target unitary as ``np.ndarray``.
         piecewise_steps: Number of piecewise-constant gate segments.
+        delta_t: Duration of each segment.
+        total_time: ``piecewise_steps * delta_t`` — invariant under subdivision.
         fixed_drift: Whether the drift contribution is held fixed.
         control: The control dict used to build ``projected_basis``.
         drift_config: The dict used to build ``drift_basis``.
@@ -73,6 +75,7 @@ class Parameters:
         drift_values: dict | np.ndarray | None = None,
         target: np.ndarray | None = None,
         piecewise_steps: int = 1,
+        delta_t: float = 1.0,
         fixed_drift: bool = True,
         constraints: list | None = None,
         pulse_constraints: dict | list | None = None,
@@ -105,6 +108,8 @@ class Parameters:
             target: Target unitary.
             piecewise_steps: Number of piecewise-constant gate segments.
                 Defaults to 1.
+            delta_t: Duration $\\Delta t$ of each segment, so that
+                $U_g = \\exp(-i\\,\\Delta t\\,H_g)$. Defaults to ``1.0``.
             fixed_drift: Whether the drift contribution is held fixed.
                 Defaults to ``True``.
             constraints: Optional list of linear-equality constraints,
@@ -211,6 +216,9 @@ class Parameters:
         # --- Immutable config ---
         self.target = np.array(target) if target is not None else None
         self.piecewise_steps = piecewise_steps
+        if not delta_t > 0:
+            raise ValueError(f"delta_t must be positive, got {delta_t}.")
+        self.delta_t = float(delta_t)
         self.fixed_drift = fixed_drift
         self.control = control
         self.drift_config = drift
@@ -344,6 +352,11 @@ class Parameters:
     def infidelity(self) -> float | None:
         """``1 - fidelity``, or ``None`` before a run has computed it."""
         return None if self.fidelity is None else 1 - self.fidelity
+
+    @property
+    def total_time(self) -> float:
+        """Total gate duration ``piecewise_steps * delta_t``."""
+        return self.piecewise_steps * self.delta_t
 
     @property
     def projective(self) -> bool:
@@ -518,6 +531,7 @@ def wrap_compute_point_param_transform(
 
     def _wrapped_compute_point(
         exp_params,
+        delta_t=1.0,
         _raw=raw_compute_point,
         _tf=params.param_transform,
         _pi=proj_idx_pd,
@@ -544,6 +558,6 @@ def wrap_compute_point_param_transform(
                     _dr.astype(_dtype), (exp_params.shape[0], _dr.shape[0])
                 )
             )
-        return _raw(full)
+        return _raw(full, delta_t)
 
     return _wrapped_compute_point

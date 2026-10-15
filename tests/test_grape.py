@@ -157,11 +157,11 @@ class TestGrapeOptimize:
 
     def test_step_sizes_are_logged(self, cnot, full_basis_2q, projected_basis_2q):
         # History's step_sizes column used to be all zeros for Grape; it now
-        # carries the accepted step, which is negative on GEOPE's convention.
+        # carries the accepted step, which is positive: coeffs point downhill.
         p = _params(cnot, full_basis_2q, projected_basis_2q)
         g = Grape(p, history=History())
         g.optimize(max_steps=5, optimizer=NewtonTRM(delta=0.1))
-        assert all(s < 0 for s in g.history.step_sizes[1:])
+        assert all(s > 0 for s in g.history.step_sizes[1:])
 
     @pytest.mark.parametrize(
         "optimizer",
