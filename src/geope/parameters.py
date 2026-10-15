@@ -37,7 +37,8 @@ class Parameters:
         drift_basis: The drift sub-``Basis``, or ``None``.
         target: Target unitary as ``np.ndarray``.
         piecewise_steps: Number of piecewise-constant gate segments.
-        delta_t: Duration of each segment.
+        delta_t: Duration of each segment. Settable; assignment recomputes a
+            live ``fidelity`` at the new duration.
         total_time: ``piecewise_steps * delta_t`` — invariant under subdivision.
         fixed_drift: Whether the drift contribution is held fixed.
         control: The control dict used to build ``projected_basis``.
@@ -216,9 +217,9 @@ class Parameters:
         # --- Immutable config ---
         self.target = np.array(target) if target is not None else None
         self.piecewise_steps = piecewise_steps
-        if not delta_t > 0:
-            raise ValueError(f"delta_t must be positive, got {delta_t}.")
-        self.delta_t = float(delta_t)
+        # The backing field, not the property: there is no live fidelity yet for
+        # the setter to refresh.
+        self._delta_t = self._validate_delta_t(delta_t)
         self.fixed_drift = fixed_drift
         self.control = control
         self.drift_config = drift
@@ -353,6 +354,38 @@ class Parameters:
         """``1 - fidelity``, or ``None`` before a run has computed it."""
         return None if self.fidelity is None else 1 - self.fidelity
 
+    @staticmethod
+    def _validate_delta_t(delta_t: float) -> float:
+        """Return ``delta_t`` as a float, raising unless it is positive."""
+        # `not x > 0` rather than `x <= 0`, so that NaN is rejected too.
+        if not delta_t > 0:
+            raise ValueError(f"delta_t must be positive, got {delta_t}.")
+        return float(delta_t)
+
+    @property
+    def delta_t(self) -> float:
+        r"""Duration $\Delta t$ of each piecewise-constant segment.
+
+        Settable. The optimisers pass it to their jitted steps as a traced
+        argument, so a new value needs no recompile; what assignment must keep in
+        step is the live ``fidelity``, which describes ``(parameters, delta_t)``
+        and is read by an optimiser's convergence test before it takes a step.
+        Left alone it would describe the old duration, so it is recomputed here
+        (one propagator).
+
+        Raises:
+            ValueError: On assignment of a non-positive value.
+        """
+        return self._delta_t
+
+    @delta_t.setter
+    def delta_t(self, value: float) -> None:
+        self._delta_t = self._validate_delta_t(value)
+        if self.fidelity is not None:
+            self.fidelity = self.manifold.fidelity_at(
+                self.free(), jnp.asarray(self._delta_t, jnp.float64)
+            )
+
     @property
     def total_time(self) -> float:
         """Total gate duration ``piecewise_steps * delta_t``."""
@@ -392,11 +425,13 @@ class Parameters:
 
     @property
     def basis_coefficients(self) -> np.ndarray | None:
-        """Current parameters mapped through ``param_transform`` if set.
+        r"""Hamiltonian amplitudes $c$ in $H_g = \sum_k c_{g,k} G_k$.
 
-        Returns the induced basis coefficients corresponding to the
-        current ``self.parameters``. If ``param_transform`` is ``None``
-        this is just the current parameters.
+        The current parameters mapped through ``param_transform`` when one is
+        set, and the parameters themselves otherwise. These are amplitudes, not
+        rotation angles: the segment is $\exp(-i\,\Delta t\,H_g)$, so the
+        duration :attr:`delta_t` is a separate quantity and is deliberately
+        *not* folded in here.
         """
         if self.param_transform is not None:
             import jax
