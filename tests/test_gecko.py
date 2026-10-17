@@ -7,27 +7,34 @@ Jacobian null space to improve a secondary objective while preserving fidelity.
 Tested items:
   Functions (geope.gecko):
     - find_null_space
-    - piecewise_smoothing
-    - piecewise_bounding_mp
-    - piecewise_bounding_pg
+    - _null_space_gradient_step
   Classes:
-    - Gecko
+    - Gecko (including ``optimize`` over weighted sums of objectives)
+
+The objectives' costs themselves are covered in ``test_objectives.py``.
 """
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import pytest
 
 jax.config.update("jax_enable_x64", True)
 
 from geope.gecko import (
     Gecko,
+    _null_space_gradient_step,
     find_null_space,
-    piecewise_bounding_mp,
-    piecewise_bounding_pg,
-    piecewise_smoothing,
 )
 from geope.geope import Geope
+from geope.objectives import (
+    BoundViolation,
+    CustomObjective,
+    PeakAmplitude,
+    PulseLength,
+    Smoothness,
+    as_weighted_sum,
+)
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -165,119 +172,60 @@ class TestFindNullSpace:
 
 
 # ---------------------------------------------------------------------------
-# Tests — piecewise_smoothing
+# Tests — the shared null-space gradient step
 # ---------------------------------------------------------------------------
 
 
-class TestPiecewiseSmoothing:
-    def test_output_shape(self):
-        phi = jnp.ones((2, 3), dtype=jnp.float64)
-        null_space = jnp.eye(6, 2, dtype=jnp.float64)
-        result, diff = piecewise_smoothing(phi, null_space, None, smoothing_rate=0.01)
-        assert result.shape == phi.shape
-        assert diff.shape == ()
+def _quartic(phi):
+    return jnp.sum(phi**4)
 
-    def test_diff_nonnegative(self):
-        phi = jnp.array([[0.5, 0.3, 0.1], [0.4, 0.2, 0.6]], dtype=jnp.float64)
-        null_space = jnp.eye(6, 3, dtype=jnp.float64)
-        _, diff = piecewise_smoothing(phi, null_space, None, smoothing_rate=0.01)
-        assert diff >= 0
 
-    def test_uniform_params_small_diff(self):
-        """Identical piecewise parameters ⇒ small diff on cross terms."""
-        single = jnp.array([0.5, 0.3, 0.1], dtype=jnp.float64)
-        phi = jnp.stack([single, single])
-        null_space = jnp.eye(6, 2, dtype=jnp.float64)
-        _, diff = piecewise_smoothing(phi, null_space, None, smoothing_rate=0.01)
-        assert diff >= 0
+class TestNullSpaceGradientStep:
+    """The one step every objective, and every weighted sum, goes through."""
+
+    def _inputs(self, n_gates=3, n_params=4, n_null=5):
+        rng = np.random.default_rng(1)
+        phi = jnp.asarray(rng.normal(size=(n_gates, n_params)))
+        q, _ = np.linalg.qr(rng.normal(size=(phi.size, phi.size)))
+        return phi, jnp.asarray(q[:, :n_null])
+
+    def _step(self, objective):
+        return _null_space_gradient_step(as_weighted_sum(objective).build(None))
+
+    def test_returns_the_moved_pulse_and_the_costs_at_the_old_one(self):
+        phi, ns = self._inputs()
+        objective = Smoothness() + 2.0 * CustomObjective(_quartic, "quartic")
+        new_phi, total, values = self._step(objective)(phi, ns, None, 0.01)
+        assert new_phi.shape == phi.shape
+        assert values.shape == (2,)
+        smooth = Smoothness().build(None)(phi)
+        np.testing.assert_allclose(values, [smooth, _quartic(phi)])
+        assert total == pytest.approx(float(smooth + 2.0 * _quartic(phi)))
+
+    def test_moves_a_fixed_length_inside_the_null_space(self):
+        phi, ns = self._inputs()
+        new_phi, _, _ = self._step(Smoothness())(phi, ns, None, 0.03)
+        update = (new_phi - phi).reshape(-1)
+        assert float(jnp.linalg.norm(update)) == pytest.approx(0.03)
+        # Orthonormal null-space basis: the update is its own projection.
+        np.testing.assert_allclose(ns @ (ns.T @ update), update, atol=1e-14)
+
+    def test_direction_of_a_sum_is_the_projected_weighted_gradient(self):
+        phi, ns = self._inputs()
+        objective = 0.7 * Smoothness() + 0.2 * CustomObjective(_quartic, "quartic")
+        new_phi, _, _ = self._step(objective)(phi, ns, None, 0.01)
+        gradient = 0.7 * jax.grad(Smoothness().build(None))(phi) + 0.2 * jax.grad(
+            _quartic
+        )(phi)
+        direction = -(ns @ (ns.T @ gradient.reshape(-1)))
+        expected = 0.01 * direction / jnp.linalg.norm(direction)
+        np.testing.assert_allclose((new_phi - phi).reshape(-1), expected, atol=1e-14)
 
     def test_with_expander(self):
-        phi = jnp.ones((2, 3), dtype=jnp.float64)
-        null_space = jnp.eye(6, 2, dtype=jnp.float64)
-        expander = jnp.eye(6, dtype=jnp.float64)
-        result, _ = piecewise_smoothing(phi, null_space, expander, smoothing_rate=0.01)
-        assert result.shape == phi.shape
-
-
-# ---------------------------------------------------------------------------
-# Tests — piecewise_bounding_mp
-# ---------------------------------------------------------------------------
-
-
-class TestPiecewiseBoundingMp:
-    def _make_inputs(self, n_gates=2, n_params=3, phi_val=0.5):
-        phi = jnp.full((n_gates, n_params), phi_val, dtype=jnp.float64)
-        null_space = jnp.eye(n_gates * n_params, 2, dtype=jnp.float64)
-        lower = jnp.zeros((n_gates, n_params), dtype=jnp.float64)
-        upper = jnp.ones((n_gates, n_params), dtype=jnp.float64)
-        return phi, null_space, lower, upper
-
-    def test_output_shape(self):
-        phi, ns, lo, hi = self._make_inputs()
-        result, diff = piecewise_bounding_mp(
-            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
-        )
-        assert result.shape == phi.shape
-        assert diff.shape == ()
-
-    def test_diff_nonnegative(self):
-        phi, ns, lo, hi = self._make_inputs()
-        _, diff = piecewise_bounding_mp(
-            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
-        )
-        assert diff >= 0
-
-    def test_with_expander(self):
-        phi, ns, lo, hi = self._make_inputs()
-        expander = jnp.eye(phi.size, dtype=jnp.float64)
-        result, _ = piecewise_bounding_mp(
-            phi, ns, expander, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
-        )
-        assert result.shape == phi.shape
-
-
-# ---------------------------------------------------------------------------
-# Tests — piecewise_bounding_pg
-# ---------------------------------------------------------------------------
-
-
-class TestPiecewiseBoundingPg:
-    def _make_inputs(self, n_gates=2, n_params=3, phi_val=0.5):
-        phi = jnp.full((n_gates, n_params), phi_val, dtype=jnp.float64)
-        null_space = jnp.eye(n_gates * n_params, 2, dtype=jnp.float64)
-        lower = jnp.zeros((n_gates, n_params), dtype=jnp.float64)
-        upper = jnp.ones((n_gates, n_params), dtype=jnp.float64)
-        return phi, null_space, lower, upper
-
-    def test_output_shape(self):
-        phi, ns, lo, hi = self._make_inputs(phi_val=2.0)
-        result, val = piecewise_bounding_pg(
-            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
-        )
-        assert result.shape == phi.shape
-        assert val.shape == ()
-
-    def test_within_bounds_zero_cost(self):
-        phi, ns, lo, hi = self._make_inputs(phi_val=0.5)
-        _, val = piecewise_bounding_pg(
-            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
-        )
-        assert jnp.isclose(val, 0.0, atol=1e-10)
-
-    def test_outside_bounds_positive_cost(self):
-        phi, ns, lo, hi = self._make_inputs(phi_val=2.0)
-        _, val = piecewise_bounding_pg(
-            phi, ns, None, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
-        )
-        assert val > 0
-
-    def test_with_expander(self):
-        phi, ns, lo, hi = self._make_inputs(phi_val=2.0)
-        expander = jnp.eye(phi.size, dtype=jnp.float64)
-        result, _ = piecewise_bounding_pg(
-            phi, ns, expander, bounding_rate=0.01, lower_bounds=lo, upper_bounds=hi
-        )
-        assert result.shape == phi.shape
+        phi, ns = self._inputs()
+        expander = jnp.eye(phi.size)
+        new_phi, _, _ = self._step(Smoothness())(phi, ns, expander, 0.01)
+        assert new_phi.shape == phi.shape
 
 
 # ---------------------------------------------------------------------------
@@ -499,4 +447,138 @@ class TestDeltaT:
         # Null-space bounding is first order and fidelity-preserving, so it
         # reduces the violation rather than hard-clamping it.
         assert violation() < before
+        assert abs(float(params.fidelity) - f0) < 5e-3
+
+
+# ---------------------------------------------------------------------------
+# Tests — Gecko.optimize over weighted sums of objectives
+# ---------------------------------------------------------------------------
+
+_CNOT = np.eye(4)[[0, 1, 3, 2]].astype(complex)
+_XX = 4  # column of "XX" in the Heisenberg projected basis
+
+
+def _four_segment_params(init_values=None):
+    return _params_2q(
+        _CNOT,
+        construct_full_pauli_basis(2),
+        construct_Heisenberg_pauli_basis(2),
+        piecewise_steps=4,
+        init_values=init_values,
+    )
+
+
+@pytest.fixture(scope="module")
+def solved_pulse():
+    """A converged 4-segment CNOT pulse, solved once for the optimize tests."""
+    params = _four_segment_params()
+    Geope(params).optimize(max_steps=200, precision=0.999)
+    return np.array(params.parameters)
+
+
+class TestOptimize:
+    def _gecko(self, solved_pulse):
+        return Gecko(_four_segment_params(init_values=solved_pulse))
+
+    def _projected(self, gk):
+        return jnp.real(
+            jnp.asarray(gk.params.parameters[:, gk.params.projected_indices])
+        )
+
+    def test_a_weighted_sum_lowers_its_cost_and_keeps_the_fidelity(self, solved_pulse):
+        gk = self._gecko(solved_pulse)
+        f0 = float(gk.params.fidelity)
+        objective = Smoothness() + 0.1 * PulseLength()
+        # A zero-step pass only subdivides, so the costs compare like for like.
+        gk.optimize(objective, piecewise_steps_multiplier=2, max_steps=0)
+        cost = objective.build(gk.params)
+        before = float(cost(self._projected(gk))[0])
+
+        gk.optimize(objective, max_steps=30, diff_tol=0.0)
+
+        assert gk.params.piecewise_steps == 8
+        assert float(cost(self._projected(gk))[0]) < before
+        assert abs(float(gk.params.fidelity) - f0) < 5e-3
+        assert set(gk.costs) == {"smoothness", "pulse_length"}
+
+    def test_a_zero_weight_term_is_reported_but_inert(self, solved_pulse):
+        alone, monitored = self._gecko(solved_pulse), self._gecko(solved_pulse)
+        alone.optimize(Smoothness(), max_steps=10, diff_tol=0.0)
+        monitored.optimize(
+            Smoothness() + 0 * PeakAmplitude(parameter_indices=(0,)),
+            max_steps=10,
+            diff_tol=0.0,
+        )
+        np.testing.assert_allclose(
+            monitored.params.parameters, alone.params.parameters, rtol=0, atol=1e-12
+        )
+        assert monitored.costs["smoothness"] == alone.costs["smoothness"]
+        assert monitored.costs["peak_amplitude"] > 0.0
+
+    def test_only_the_weight_ratios_matter(self, solved_pulse):
+        a, b = self._gecko(solved_pulse), self._gecko(solved_pulse)
+        a.optimize(Smoothness() + 0.5 * PulseLength(), max_steps=10, diff_tol=0.0)
+        b.optimize(4 * Smoothness() + 2 * PulseLength(), max_steps=10, diff_tol=0.0)
+        np.testing.assert_allclose(
+            b.params.parameters, a.params.parameters, rtol=0, atol=1e-10
+        )
+
+    def test_bounds_hold_across_a_subdivision(self, solved_pulse):
+        gk = self._gecko(solved_pulse)
+        f0 = float(gk.params.fidelity)
+        limit = 0.9 * float(jnp.max(jnp.abs(self._projected(gk)[:, _XX])))
+        violation = BoundViolation({"xx": (-limit, limit)})
+        before = float(violation.build(gk.params)(self._projected(gk)))
+
+        gk.optimize(violation, piecewise_steps_multiplier=2, max_steps=50, diff_tol=0.0)
+
+        assert gk.params.piecewise_steps == 8
+        assert float(violation.build(gk.params)(self._projected(gk))) < before
+        assert abs(float(gk.params.fidelity) - f0) < 5e-3
+
+    def test_a_custom_objective(self, solved_pulse):
+        gk = self._gecko(solved_pulse)
+        energy = CustomObjective(lambda phi: jnp.sum(phi**2), name="energy")
+        before = float(jnp.sum(self._projected(gk) ** 2))
+        gk.optimize(energy, max_steps=10, diff_tol=0.0)
+        assert "energy" in gk.costs
+        assert float(jnp.sum(self._projected(gk) ** 2)) < before
+
+    def test_a_failed_build_leaves_the_parameters_untouched(self, solved_pulse):
+        gk = self._gecko(solved_pulse)
+        parameters = gk.params.parameters
+        with pytest.raises(ValueError):
+            gk.optimize(
+                PeakAmplitude(parameter_labels=["QQ"]), piecewise_steps_multiplier=2
+            )
+        # The subdivision ran before the build and was rolled back.
+        assert gk.params.piecewise_steps == 4
+        assert gk.params.delta_t == 1.0
+        assert gk.params.parameters is parameters
+
+    def test_rejects_a_non_objective(self, solved_pulse):
+        gk = self._gecko(solved_pulse)
+        with pytest.raises(TypeError, match="Objective"):
+            gk.optimize(lambda phi: 0.0)
+
+    def test_experimental_space(self, cnot, full_basis_2q, projected_basis_2q):
+        params = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            piecewise_steps=4,
+            param_transform=lambda phi: phi,
+            n_experimental_params=projected_basis_2q.lie_algebra_dim,
+        )
+        Geope(params).optimize(max_steps=200, precision=0.999)
+        f0 = float(params.fidelity)
+        limit = 0.9 * float(jnp.max(jnp.abs(jnp.real(params.parameters[:, 0]))))
+        gk = Gecko(params)
+        gk.optimize(
+            PeakAmplitude(parameter_indices=(1,))
+            + BoundViolation({0: (-limit, limit)}),
+            piecewise_steps_multiplier=2,
+            max_steps=20,
+        )
+        assert set(gk.costs) == {"peak_amplitude", "bound_violation"}
         assert abs(float(params.fidelity) - f0) < 5e-3

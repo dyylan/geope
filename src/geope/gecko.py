@@ -11,6 +11,19 @@ from collections.abc import Callable
 from functools import partial
 
 from .geope import build_pulse_expander
+from .objectives import (
+    BoundMidpoint,
+    BoundViolation,
+    FrequencyFilter,
+    Objective,
+    PeakAmplitude,
+    PulseLength,
+    Robustness,
+    Smoothness,
+    SpectralPower,
+    WeightedSum,
+    as_weighted_sum,
+)
 from .parameters import Parameters
 from .utils.callbacks import normalize_callbacks, run_callbacks
 from .utils.history import History
@@ -28,6 +41,14 @@ class Gecko:
         g = Geope(p); g.optimize()
         Gecko(g.params).smooth(...)
 
+    The cost is an `Objective` from `geope.objectives`, or a weighted sum of
+    them, passed to :meth:`optimize`::
+
+        Gecko(g.params).optimize(Smoothness() + 0.1 * PulseLength())
+
+    The single-objective methods (`smooth`, `speed`, `bound`, ...) are
+    shorthands for one term.
+
     Because the functions are cached on ``params``, `Gecko` reuses the
     `Geope`'s already-compiled traces rather than recompiling.
 
@@ -36,11 +57,11 @@ class Gecko:
         history: Optional `History` logger. None by default.
         #TODO: do we need this to be public? Only used in optimize
         step_size: Transient last optimisation rate.
+        costs: The unweighted value of each objective term at the last
+            iteration, keyed by term name (``WeightedSum.names``). Refreshed
+            every iteration, so callbacks can read it.
         pulse_constraints: Optional pulse-shape constraint config.
         constraint_expander: Linear-equality constraint expander (from params).
-        #TODO: Are these not in params?
-        drift_parameters: Drift parameter ``np.ndarray`` (``None`` in
-            experimental / ``param_transform`` mode).
 
     .. note::
         The `Parameters` object is **shared** with the source `Geope`. A
@@ -86,16 +107,56 @@ class Gecko:
         if self.history is not None:
             self.history.params = self.params
         self.step_size = 0
+        self.costs: dict[str, float] = {}
         self.verbose = verbose
         self.pulse_constraints = self.params.pulse_constraints
         self.constraint_expander = self.params.constraint_expander
-        self.drift_parameters = (
-            None if self._real_params else self.params.drift_parameters
+
+    def optimize(
+        self,
+        objective: Objective | WeightedSum,
+        *,
+        piecewise_steps_multiplier: int = 1,
+        rate: float = 0.01,
+        max_steps: int = 100,
+        diff_tol: float = 0.1,
+        callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
+    ) -> tuple[bool, int]:
+        """Minimise an objective, or a weighted sum of objectives, in the null space.
+
+        Minimises the raw linear combination $C(\\phi) = \\sum_i w_i c_i(\\phi)$
+        by fixed-length steps along the null-space projection of
+        $-\\nabla C$, so fidelity is preserved to first order. Only the ratios
+        of the weights shape the trajectory; their overall scale changes what
+        ``diff_tol`` means. Each term's unweighted value is reported every
+        iteration in ``self.costs``.
+
+        Args:
+            objective: An `Objective` (e.g. ``Smoothness()``) or a `WeightedSum`
+                built with ``*`` and ``+``, e.g.
+                ``Smoothness() + 0.1 * PeakAmplitude(parameter_labels=["XI"])``.
+            piecewise_steps_multiplier: Factor by which to subdivide the gate
+                segments before the pass. Defaults to 1.
+            rate: Length of each step in parameter space. Defaults to 0.01.
+            max_steps: Maximum iterations. Defaults to 100.
+            diff_tol: Convergence tolerance on the combined cost $C$.
+                Defaults to 0.1.
+            callbacks: Optional callback(s) ``callback(step, history, gecko)``
+                run at the end of every iteration; a falsy return stops the
+                loop. See :meth:`_null_space_optimisation`.
+
+        Returns:
+            A tuple ``(success, iters)`` where `success` is ``True`` if
+            `diff_tol` was reached.
+        """
+        return self._null_space_optimisation(
+            objective,
+            piecewise_steps_multiplier=piecewise_steps_multiplier,
+            rate=rate,
+            max_steps=max_steps,
+            diff_tol=diff_tol,
+            callbacks=callbacks,
         )
-        # Bounding-only state, set lazily in bound().
-        self.parameter_bounds = None
-        self.lower_bounds = None
-        self.upper_bounds = None
 
     def smooth(
         self,
@@ -108,13 +169,13 @@ class Gecko:
         """Smooth the piecewise-constant pulse by null-space optimisation.
 
         Minimises the differences between consecutive gate segments
-        while remaining in the null space of the Jacobian so that
-        fidelity is preserved.
+        (`Smoothness`) while remaining in the null space of the Jacobian so
+        that fidelity is preserved.
 
         Args:
             piecewise_steps_multiplier: Factor by which to increase the
                 number of gate segments. Defaults to 1.
-            smoothing_rate: Learning rate for the null-space update.
+            smoothing_rate: Step length for the null-space update.
                 Defaults to 0.01.
             max_smoothing_steps: Maximum smoothing iterations.
                 Defaults to 100.
@@ -128,8 +189,8 @@ class Gecko:
             A tuple ``(success, iters)`` where `success` is ``True`` if
             `diff_tol` was reached.
         """
-        success, iters = self._null_space_optimisation(
-            piecewise_smoothing,
+        return self._null_space_optimisation(
+            Smoothness(),
             piecewise_steps_multiplier=piecewise_steps_multiplier,
             max_steps=max_smoothing_steps,
             rate=smoothing_rate,
@@ -137,7 +198,6 @@ class Gecko:
             label="Smoothing",
             callbacks=callbacks,
         )
-        return success, iters
 
     def smooth_frequency(
         self,
@@ -147,12 +207,12 @@ class Gecko:
         diff_tol: float = 0.1,
         callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
-        """Suppress high-frequency spectral power in the pulse.
+        """Suppress high-frequency spectral power in the pulse (`SpectralPower`).
 
         Args:
             piecewise_steps_multiplier: Factor by which to subdivide
                 gate segments. Defaults to 1.
-            smoothing_rate: Learning rate. Defaults to 0.01.
+            smoothing_rate: Step length. Defaults to 0.01.
             max_smoothing_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance on the spectral cost.
                 Defaults to 0.1.
@@ -163,8 +223,8 @@ class Gecko:
         Returns:
             A tuple ``(success, iters)``.
         """
-        success, iters = self._null_space_optimisation(
-            piecewise_smoothing_frequency,
+        return self._null_space_optimisation(
+            SpectralPower(),
             piecewise_steps_multiplier=piecewise_steps_multiplier,
             max_steps=max_smoothing_steps,
             rate=smoothing_rate,
@@ -172,7 +232,6 @@ class Gecko:
             label="Smoothing (freq)",
             callbacks=callbacks,
         )
-        return success, iters
 
     def filter_frequency(
         self,
@@ -183,13 +242,13 @@ class Gecko:
         diff_tol: float = 0.1,
         callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
     ) -> tuple[bool, int]:
-        """Drive the pulse toward ``filter_fn(rfft(pulse))``.
+        """Drive the pulse toward ``filter_fn(rfft(pulse))`` (`FrequencyFilter`).
 
         Args:
             filter_fn: Complex-array filter applied to the rfft of phi.
             piecewise_steps_multiplier: Factor by which to subdivide
                 gate segments. Defaults to 1.
-            smoothing_rate: Learning rate. Defaults to 0.01.
+            smoothing_rate: Step length. Defaults to 0.01.
             max_smoothing_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
             callbacks: Optional callback(s) ``callback(step, history, gecko)``
@@ -199,8 +258,8 @@ class Gecko:
         Returns:
             A tuple ``(success, iters)``.
         """
-        success, iters = self._null_space_optimisation(
-            partial(piecewise_smoothing_frequency_filter, filter_fn=filter_fn),
+        return self._null_space_optimisation(
+            FrequencyFilter(filter_fn),
             piecewise_steps_multiplier=piecewise_steps_multiplier,
             max_steps=max_smoothing_steps,
             rate=smoothing_rate,
@@ -208,53 +267,6 @@ class Gecko:
             label="Smoothing (freq filter)",
             callbacks=callbacks,
         )
-        return success, iters
-
-    def _resolve_parameter_indices(
-        self,
-        parameter_labels: list[str] | None,
-        parameter_indices: tuple[int, ...] | None,
-        default_all: bool = False,
-    ) -> tuple[int, ...]:
-        """Resolve ``parameter_labels`` / ``parameter_indices`` into integer indices.
-
-        Args:
-            parameter_labels: Optional list of projected-basis label strings.
-            parameter_indices: Optional tuple of integer indices.
-            default_all: If both are ``None`` and this is ``True``, return
-                the full range of projected indices.
-
-        Returns:
-            A tuple of integer indices into the projected basis.
-
-        Raises:
-            ValueError: If both are provided, or labels are passed with
-                ``param_transform`` active.
-        """
-        if parameter_labels is not None and parameter_indices is not None:
-            raise ValueError("Specify parameter_labels or parameter_indices, not both")
-        real = getattr(self, "_real_params", False)
-        if real:
-            if parameter_labels is not None:
-                raise ValueError(
-                    "parameter_labels not supported with param_transform; "
-                    "use parameter_indices instead"
-                )
-            if parameter_indices is None:
-                if default_all:
-                    return tuple(range(self.params.n_experimental_params))
-                raise ValueError("parameter_indices required with param_transform")
-            return tuple(parameter_indices)
-        if parameter_indices is not None:
-            return tuple(parameter_indices)
-        proj_labels = list(self.params.projected_basis.labels)
-        if parameter_labels is None:
-            if default_all:
-                return tuple(range(len(proj_labels)))
-            raise ValueError(
-                "Either parameter_labels or parameter_indices must be provided"
-            )
-        return tuple(proj_labels.index(label) for label in parameter_labels)
 
     def speed(
         self,
@@ -268,14 +280,14 @@ class Gecko:
     ) -> tuple[bool, int]:
         """Minimise the peak amplitude of selected projected parameters.
 
-        Cost: $\\max_{g,k\\in P}|\\phi_k(g)|$. Minimising it raises the
-        gate-speed limit.
+        Cost (`PeakAmplitude`): $\\max_{g,k\\in P}|\\phi_k(g)|$. Minimising it
+        raises the gate-speed limit.
 
         Args:
             parameter_labels: Projected-basis labels to minimise.
             parameter_indices: Integer indices (alternative to labels).
             piecewise_steps_multiplier: Subdivision factor. Defaults to 1.
-            optimization_rate: Learning rate. Defaults to 0.01.
+            optimization_rate: Step length. Defaults to 0.01.
             max_optimization_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
             callbacks: Optional callback(s) ``callback(step, history, gecko)``
@@ -285,18 +297,10 @@ class Gecko:
         Returns:
             A tuple ``(success, iters)``.
         """
-        parameter_indices = self._resolve_parameter_indices(
-            parameter_labels, parameter_indices, default_all=False
-        )
-        real = getattr(self, "_real_params", False)
-        n_proj = (
-            self.params.n_experimental_params
-            if real
-            else self.params.projected_basis.lie_algebra_dim
-        )
-        speed_fn = get_speed_null_space_fn(n_proj, parameter_indices)
-        success, iters = self._null_space_optimisation(
-            speed_fn,
+        return self._null_space_optimisation(
+            PeakAmplitude(
+                parameter_labels=parameter_labels, parameter_indices=parameter_indices
+            ),
             piecewise_steps_multiplier=piecewise_steps_multiplier,
             max_steps=max_optimization_steps,
             rate=optimization_rate,
@@ -304,7 +308,6 @@ class Gecko:
             label="Speed Optimization",
             callbacks=callbacks,
         )
-        return success, iters
 
     def length(
         self,
@@ -318,15 +321,15 @@ class Gecko:
     ) -> tuple[bool, int]:
         """Minimise the total pulse length.
 
-        Cost: $\\sum_g\\sqrt{\\sum_{k\\in P}\\phi_k(g)^2 + \\|d_g\\|^2}$
-        where $d_g$ is the per-segment drift contribution.
+        Cost (`PulseLength`): $\\sum_g\\sqrt{\\sum_{k\\in P}\\phi_k(g)^2 +
+        \\|d_g\\|^2}$ where $d_g$ is the per-segment drift contribution.
 
         Args:
             parameter_labels: Projected-basis labels to minimise.
                 If ``None``, all projected parameters are used.
             parameter_indices: Integer indices (alternative to labels).
             piecewise_steps_multiplier: Subdivision factor. Defaults to 1.
-            optimization_rate: Learning rate. Defaults to 0.01.
+            optimization_rate: Step length. Defaults to 0.01.
             max_optimization_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
             callbacks: Optional callback(s) ``callback(step, history, gecko)``
@@ -336,27 +339,10 @@ class Gecko:
         Returns:
             A tuple ``(success, iters)``.
         """
-        parameter_indices = self._resolve_parameter_indices(
-            parameter_labels, parameter_indices, default_all=True
-        )
-        real = getattr(self, "_real_params", False)
-        n_proj = (
-            self.params.n_experimental_params
-            if real
-            else self.params.projected_basis.lie_algebra_dim
-        )
-        drift_sq_norm = 0.0
-        if (
-            not real
-            and self.params.drift_basis is not None
-            and getattr(self, "drift_parameters", None) is not None
-        ):
-            drift_sq_norm = float(np.sum(np.array(self.drift_parameters) ** 2))
-        length_fn = get_length_null_space_fn(
-            n_proj, parameter_indices, drift_sq_norm=drift_sq_norm
-        )
-        success, iters = self._null_space_optimisation(
-            length_fn,
+        return self._null_space_optimisation(
+            PulseLength(
+                parameter_labels=parameter_labels, parameter_indices=parameter_indices
+            ),
             piecewise_steps_multiplier=piecewise_steps_multiplier,
             max_steps=max_optimization_steps,
             rate=optimization_rate,
@@ -364,7 +350,6 @@ class Gecko:
             label="Length Optimization",
             callbacks=callbacks,
         )
-        return success, iters
 
     def robust(
         self,
@@ -380,9 +365,10 @@ class Gecko:
     ) -> tuple[bool, int]:
         """Maximise the worst-case fidelity over $\\delta$ perturbations.
 
-        Cost: $1 - \\min_{\\boldsymbol\\delta} F(U(\\phi+\\sum_k \\delta_k e_k))$
-        over a Cartesian grid of ``num_samples`` evenly-spaced values
-        in $[-\\delta, +\\delta]$ for each $k\\in P$.
+        Cost (`Robustness`): $1 - \\min_{\\boldsymbol\\delta}
+        F(U(\\phi+\\sum_k \\delta_k e_k))$ over a Cartesian grid of
+        ``num_samples`` evenly-spaced values in $[-\\delta, +\\delta]$ for each
+        $k\\in P$.
 
         Args:
             parameter_labels: Projected-basis labels to make robust.
@@ -390,7 +376,7 @@ class Gecko:
             delta: Half-width of the perturbation box. Defaults to 0.01.
             num_samples: Samples per parameter. Defaults to 5.
             piecewise_steps_multiplier: Subdivision factor. Defaults to 1.
-            optimization_rate: Learning rate. Defaults to 0.01.
+            optimization_rate: Step length. Defaults to 0.01.
             max_optimization_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
             callbacks: Optional callback(s) ``callback(step, history, gecko)``
@@ -400,42 +386,13 @@ class Gecko:
         Returns:
             A tuple ``(success, iters)``.
         """
-        parameter_indices = self._resolve_parameter_indices(
-            parameter_labels, parameter_indices, default_all=False
-        )
-        real = getattr(self, "_real_params", False)
-        if real:
-            n_proj = self.params.n_experimental_params
-            n_projdrift = n_proj
-            drift_params = None
-            # Experimental space: every column is a free parameter.
-            proj_idx_pd = np.ones(n_proj, dtype=bool)
-            drift_idx_pd = np.zeros(n_proj, dtype=bool)
-        else:
-            n_proj = self.params.projected_basis.lie_algebra_dim
-            n_projdrift = self.params.proj_drift_basis.lie_algebra_dim
-            drift_params = (
-                self.drift_parameters
-                if hasattr(self, "drift_parameters")
-                and self.params.drift_basis is not None
-                else None
-            )
-            proj_idx_pd = self.params.proj_indices_projdrift_basis
-            drift_idx_pd = self.params.drift_indices_projdrift_basis
-        fidelity_at = self.params.manifold.fidelity_at
-        robustness_fn = get_robustness_null_space_fn(
-            lambda fp: fidelity_at(fp, jnp.asarray(self.params.delta_t, jnp.float64)),
-            proj_idx_pd,
-            drift_idx_pd,
-            drift_params,
-            n_proj,
-            n_projdrift,
-            parameter_indices,
-            delta,
-            num_samples,
-        )
-        success, iters = self._null_space_optimisation(
-            robustness_fn,
+        return self._null_space_optimisation(
+            Robustness(
+                parameter_labels=parameter_labels,
+                parameter_indices=parameter_indices,
+                delta=delta,
+                num_samples=num_samples,
+            ),
             piecewise_steps_multiplier=piecewise_steps_multiplier,
             max_steps=max_optimization_steps,
             rate=optimization_rate,
@@ -443,7 +400,6 @@ class Gecko:
             label="Robustness Optimization",
             callbacks=callbacks,
         )
-        return success, iters
 
     def bound(
         self,
@@ -456,7 +412,7 @@ class Gecko:
     ) -> tuple[bool, int]:
         """Enforce parameter bounds via null-space optimisation.
 
-        Projects the parameters into the feasible box defined by
+        Moves the parameters toward the feasible box defined by
         `parameter_bounds` while staying in the Jacobian null space.
 
         Args:
@@ -466,10 +422,12 @@ class Gecko:
                 parameter indices to ``(min, max)`` tuples — the same
                 index convention ``pulse_constraints`` uses there; unbounded
                 parameters default to ``(-inf, inf)``.
-            method: Bounding strategy — ``'projected_gradient'`` /
-                ``'pg'`` or ``'mid_point'`` / ``'mp'``.
+            method: Bounding strategy — ``'projected_gradient'`` / ``'pg'``
+                minimises the worst violation (`BoundViolation`);
+                ``'mid_point'`` / ``'mp'`` pulls bounded parameters toward the
+                centre of their box (`BoundMidpoint`).
                 Defaults to ``'projected_gradient'``.
-            bounding_rate: Learning rate. Defaults to 0.01.
+            bounding_rate: Step length. Defaults to 0.01.
             max_bounding_steps: Maximum iterations. Defaults to 100.
             diff_tol: Convergence tolerance. Defaults to 0.1.
             callbacks: Optional callback(s) ``callback(step, history, gecko)``
@@ -484,51 +442,21 @@ class Gecko:
             ValueError: If an unsupported `method` is provided, or if a
                 label-keyed dict is passed under ``param_transform``.
         """
-        self.parameter_bounds = parameter_bounds
-        if self._real_params:
-            if any(isinstance(key, str) for key in parameter_bounds):
-                raise ValueError(
-                    "Under `param_transform`, `bound` takes integer-indexed "
-                    "experimental-parameter bounds ({index: (lo, hi)}, the "
-                    "same convention as `pulse_constraints`); interaction "
-                    "labels have no meaning in experimental space."
-                )
-            n_exp = self.params.n_experimental_params
-            lower = np.full((self.params.piecewise_steps, n_exp), -np.inf)
-            upper = np.full((self.params.piecewise_steps, n_exp), np.inf)
-            for index, (low, high) in parameter_bounds.items():
-                lower[:, index] = low
-                upper[:, index] = high
-            self.lower_bounds = jnp.array(lower, dtype=jnp.float64)
-            self.upper_bounds = jnp.array(upper, dtype=jnp.float64)
-            proj_lower, proj_upper = self.lower_bounds, self.upper_bounds
-        else:
-            bounds = self.params.proj_drift_basis.generate_bounds(
-                self.parameter_bounds, self.params.piecewise_steps
-            )
-            self.lower_bounds = jnp.array(bounds[0], dtype=jnp.float64)
-            self.upper_bounds = jnp.array(bounds[1], dtype=jnp.float64)
-            proj_lower = self.lower_bounds[:, self.params.proj_indices_projdrift_basis]
-            proj_upper = self.upper_bounds[:, self.params.proj_indices_projdrift_basis]
-
         if method == "projected_gradient" or method == "pg":
-            piecewise_bounding = piecewise_bounding_pg
+            objective = BoundViolation(parameter_bounds)
         elif method == "mid_point" or method == "mp":
-            piecewise_bounding = piecewise_bounding_mp
+            objective = BoundMidpoint(parameter_bounds)
         else:
             raise ValueError(f"Bounding method {method} not implemented.")
 
-        success, iters = self._null_space_optimisation(
-            piecewise_bounding,
+        return self._null_space_optimisation(
+            objective,
             max_steps=max_bounding_steps,
             rate=bounding_rate,
             diff_tol=diff_tol,
             label="Bounding",
             callbacks=callbacks,
-            lower_bounds=proj_lower,
-            upper_bounds=proj_upper,
         )
-        return success, iters
 
     def get_free_params_update_smoothing(self) -> Callable[[Array, np.ndarray], Array]:
         """Build a JIT-compiled function to reconstruct free parameters.
@@ -570,9 +498,25 @@ class Gecko:
 
         return update_free_params_smoothing
 
+    def _subdivide(self, multiplier: int) -> None:
+        """Split every segment into ``multiplier`` copies and divide ``delta_t``.
+
+        Exact for any ``param_transform``, since
+        $\\exp(\\Delta t\\,A) = \\exp((\\Delta t/m)A)^m$. Keeps
+        ``params.parameters``, ``params.piecewise_steps`` and
+        ``params.delta_t`` in sync; a no-op for ``multiplier == 1``.
+        """
+        if multiplier == 1:
+            return
+        self.params.piecewise_steps = self.params.piecewise_steps * multiplier
+        self.params.delta_t = self.params.delta_t / multiplier
+        self.params.parameters = np.repeat(
+            np.asarray(self.params.parameters), multiplier, axis=0
+        )
+
     def _null_space_optimisation(
         self,
-        null_space_function: Callable[..., tuple[Array, Array]],
+        objective: Objective | WeightedSum,
         *,
         piecewise_steps_multiplier: int = 1,
         rate: float = 0.01,
@@ -580,23 +524,24 @@ class Gecko:
         diff_tol: float = 0.1,
         label: str | None = None,
         callbacks: Callable | list[Callable] | tuple[Callable, ...] | None = None,
-        **kwargs,
     ) -> tuple[bool, int]:
-        """Run a generic null-space optimisation loop.
+        """Run the null-space optimisation loop for one objective.
 
-        Iteratively applies `null_space_function` to move parameters
-        within the Jacobian null space, preserving fidelity while
-        optimising an auxiliary cost (smoothing or bounding).
+        Subdivides the pulse, builds ``objective`` against the subdivided
+        `Parameters`, then iteratively takes a fixed-length step of ``rate``
+        along the null-space projection of the negative cost gradient
+        (:func:`_null_space_gradient_step`), preserving fidelity to first order.
 
         Args:
-            null_space_function: Callable implementing the null-space
-                update rule.
+            objective: An `Objective` or a `WeightedSum` of objectives.
             piecewise_steps_multiplier: Factor by which to subdivide
                 existing gate segments. Defaults to 1.
-            rate: Learning rate. Defaults to 0.01.
+            rate: Step length. Defaults to 0.01.
             max_steps: Maximum iterations. Defaults to 100.
-            diff_tol: Convergence tolerance. Defaults to 0.1.
-            label: Label printed during progress logging.
+            diff_tol: Convergence tolerance on the combined cost.
+                Defaults to 0.1.
+            label: Label printed during progress logging. Defaults to the
+                objective's formula (``WeightedSum.label``).
             callbacks: Optional callback, or list/tuple of callbacks, invoked at
                 the end of every iteration with the signature
                 ``callback(step, history, gecko) -> bool``. All callbacks run
@@ -605,29 +550,41 @@ class Gecko:
                 ``step`` is the 1-based iteration index, ``history`` is
                 ``gecko.history`` (may be ``None``), and ``gecko`` is this
                 optimiser. During the loop the running geometry is visible via
-                ``gecko.params.parameters``; ``gecko.params.fidelity`` and
+                ``gecko.params.parameters`` and the per-term costs via
+                ``gecko.costs``; ``gecko.params.fidelity`` and
                 ``gecko.step_size`` are only finalised after the loop returns.
-            **kwargs: Extra keyword arguments forwarded to
-                `null_space_function`.
 
         Returns:
             A tuple ``(success, iters)`` where `success` is ``True`` if
             `diff_tol` was reached.
-        """
-        # Update the number of piecewise steps and initialise new parameters.
-        # Keep params.parameters length, params.piecewise_steps and
-        # params.delta_t in sync.
-        new_count = self.params.piecewise_steps * piecewise_steps_multiplier
-        self.params.piecewise_steps = new_count
-        self.params.delta_t = self.params.delta_t / piecewise_steps_multiplier
 
-        new_parameters = [
-            list(np.copy(self.params.parameters))
-            for _ in range(piecewise_steps_multiplier)
-        ]
-        self.params.parameters = np.array(
-            [x for group in zip(*new_parameters) for x in group]
+        Raises:
+            TypeError: If ``objective`` is not an `Objective` or `WeightedSum`.
+        """
+        objective = as_weighted_sum(objective)
+        label = objective.label if label is None else label
+
+        # Subdivide first: an objective may close over the subdivided duration.
+        # If it fails to build (a bad label, label-keyed bounds under
+        # ``param_transform``), undo the subdivision so the error leaves the
+        # shared Parameters as it found them.
+        previous = (
+            self.params.parameters,
+            self.params.piecewise_steps,
+            self.params.delta_t,
         )
+        self._subdivide(piecewise_steps_multiplier)
+        try:
+            cost_fn = objective.build(self.params)
+        except Exception:
+            (
+                self.params.parameters,
+                self.params.piecewise_steps,
+                self.params.delta_t,
+            ) = previous
+            raise
+        names = objective.names
+        step = _null_space_gradient_step(cost_fn)
 
         _dtype = jnp.float64 if self._real_params else jnp.complex128
         if self._real_params:
@@ -695,9 +652,9 @@ class Gecko:
             assert num > 0, "Nullspace is empty!"
             null_space = vh[num:, :].T.conj()
 
-            proj_params, diff = null_space_function(
-                proj_params, null_space, expander, rate, **kwargs
-            )
+            proj_params, total, values = step(proj_params, null_space, expander, rate)
+            diff = float(total)
+            self.costs = dict(zip(names, np.asarray(values).tolist()))
 
             if pulse_templates is not None:
                 proj_params = np.array(proj_params)
@@ -738,6 +695,39 @@ class Gecko:
         return success, c
 
 
+def _null_space_gradient_step(
+    cost_fn: Callable[[Array], tuple[Array, Array]],
+) -> Callable[..., tuple[Array, Array, Array]]:
+    """Build the one null-space step every objective shares.
+
+    The step solves ``x = lstsq(N, -grad C)`` — the null-space coordinates of
+    the projected negative gradient — and moves a fixed length ``rate`` along
+    ``N x``. The direction is linear in the gradient, so for a weighted sum it
+    is the normalised projection of $\\sum_i w_i \\nabla c_i$.
+
+    Args:
+        cost_fn: ``cost_fn(phi) -> (total, values)`` on the real projected
+            pulse, as returned by `WeightedSum.build`.
+
+    Returns:
+        A JIT-compiled callable ``step(phi, null_space, expander, rate) ->
+        (new_phi, total, values)``, with ``total`` and ``values`` evaluated at
+        the incoming ``phi``. ``rate`` is traced, so changing it does not
+        recompile.
+    """
+    value_and_grad = jax.value_and_grad(cost_fn, has_aux=True)
+
+    @jax.jit
+    def step(phi, null_space, expander, rate):
+        ns = expander @ null_space if expander is not None else null_space
+        (total, values), grad = value_and_grad(jnp.real(phi).astype(jnp.float64))
+        x, _, _, _ = jnp.linalg.lstsq(ns, -grad.reshape(-1))
+        update = ns @ (rate * x / (jnp.linalg.norm(x) + 1e-12))
+        return phi + update.reshape(phi.shape), total, values
+
+    return step
+
+
 @partial(jax.jit, static_argnames=("rcond"))
 def find_null_space(
     omegas_steps_phis: Array,
@@ -770,412 +760,3 @@ def find_null_space(
     tol = jnp.amax(s) * rcond
     num = jnp.sum(s > tol, dtype=int)
     return vh, num
-
-
-@partial(jax.jit, static_argnames=("smoothing_rate"))
-def piecewise_smoothing_frequency(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    smoothing_rate: float = 0.01,
-) -> tuple[Array, Array]:
-    """Null-space update that suppresses high-frequency spectral power.
-
-    Minimises $\\frac{1}{(N_g/2)K}\\sum_{m \\ge 1, k}|\\widehat{\\phi_k}(m)|^2$
-    via gradient descent projected onto the Jacobian null space, so
-    fidelity is preserved. The DC bin $m=0$ is excluded so the mean
-    level of each pulse is not penalised.
-
-    Args:
-        phi: Current projected parameter ``Array`` of shape ``(N_g, K)``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        smoothing_rate: Learning rate. Defaults to 0.01.
-
-    Returns:
-        A tuple ``(updated_phi, cost)``.
-    """
-    null_space = expander @ null_space if expander is not None else null_space
-    phi = jnp.real(phi).astype(jnp.float64)
-    phi_flat = phi.flatten()
-
-    def minimize_power(params_flat):
-        params_2d = params_flat.reshape(phi.shape)
-        phi_rfft = jnp.fft.rfft(params_2d, axis=0)
-        return jnp.mean(jnp.abs(phi_rfft[1:]) ** 2)
-
-    val, grad = jax.value_and_grad(minimize_power)(phi_flat)
-    x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
-    sol = null_space @ (
-        smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x) + 1e-12)
-    )
-    sol = phi + sol.reshape(phi.shape)
-    return sol, val
-
-
-@partial(jax.jit, static_argnames=("smoothing_rate", "filter_fn"))
-def piecewise_smoothing_frequency_filter(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    smoothing_rate: float = 0.01,
-    filter_fn: Callable[[Array], Array] | None = None,
-) -> tuple[Array, Array]:
-    """Null-space update that drives $\\phi$ toward ``filter_fn(rfft(phi))``.
-
-    Minimises the squared distance, in Fourier space, between the
-    current pulse and its filtered version. By Parseval's theorem
-    this equals the time-domain $L^2$ distance up to a constant.
-
-    Args:
-        phi: Current projected parameter ``Array`` of shape ``(N_g, K)``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        smoothing_rate: Learning rate. Defaults to 0.01.
-        filter_fn: Callable mapping a complex ``(N_rfft, K)`` rfft array
-            to a same-shape filtered array.
-
-    Returns:
-        A tuple ``(updated_phi, cost)``.
-    """
-    null_space = expander @ null_space if expander is not None else null_space
-    phi = jnp.real(phi).astype(jnp.float64)
-    phi_flat = phi.flatten()
-
-    def distance_to_filtered(params_flat):
-        params_2d = params_flat.reshape(phi.shape)
-        phi_rfft = jnp.fft.rfft(params_2d, axis=0)
-        phi_rfft_filtered = filter_fn(phi_rfft)
-        diff = phi_rfft - phi_rfft_filtered
-        return jnp.mean(jnp.abs(diff) ** 2)
-
-    val, grad = jax.value_and_grad(distance_to_filtered)(phi_flat)
-    x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
-    sol = null_space @ (
-        smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x) + 1e-12)
-    )
-    sol = phi + sol.reshape(phi.shape)
-    return sol, val
-
-
-def get_speed_null_space_fn(
-    n_proj: int, parameter_indices: tuple[int, ...]
-) -> Callable:
-    """Build a JIT-compiled peak-amplitude minimisation step.
-
-    Cost: $\\max_{g,k\\in P}|\\phi_k(g)|$.
-
-    Args:
-        n_proj: Number of projected basis parameters per step.
-        parameter_indices: Indices within the projected basis to minimise.
-
-    Returns:
-        A callable ``(phi, null_space, expander, optimization_rate) ->
-        (new_phi, cost)``.
-    """
-    _pi = tuple(parameter_indices)
-
-    def cost(phi_flat):
-        n_steps = phi_flat.size // n_proj
-        sel = jnp.concatenate([jnp.arange(n_steps) * n_proj + p for p in _pi])
-        return jnp.max(jnp.abs(phi_flat[sel]))
-
-    cost_vg = jax.jit(jax.value_and_grad(cost))
-
-    @partial(jax.jit, static_argnames=("optimization_rate",))
-    def step(phi, null_space, expander, optimization_rate=0.01):
-        ns = expander @ null_space if expander is not None else null_space
-        phi_flat = jnp.real(phi).flatten().astype(jnp.float64)
-        val, grad = cost_vg(phi_flat)
-        x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
-        sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
-        sol = phi + sol.reshape(phi.shape)
-        return sol, val
-
-    return step
-
-
-def get_length_null_space_fn(
-    n_proj: int, parameter_indices: tuple[int, ...], drift_sq_norm: float = 0.0
-) -> Callable:
-    """Build a JIT-compiled pulse-length minimisation step.
-
-    Cost: $\\sum_g \\sqrt{\\sum_{k\\in P}\\phi_k(g)^2 + \\|d_g\\|^2 + \\varepsilon}$
-    where $d_g$ is the constant drift contribution.
-
-    Args:
-        n_proj: Number of projected basis parameters per step.
-        parameter_indices: Indices within the projected basis to minimise.
-        drift_sq_norm: Sum of squared drift parameters per gate.
-            Added inside each per-step norm.
-
-    Returns:
-        A callable ``(phi, null_space, expander, optimization_rate) ->
-        (new_phi, cost)``.
-    """
-    _pi = jnp.array(parameter_indices, dtype=jnp.int32)
-    _dsq = jnp.float64(drift_sq_norm)
-
-    def cost(phi_flat):
-        n_steps = phi_flat.size // n_proj
-        phi_mat = phi_flat.reshape(n_steps, n_proj)
-        selected = phi_mat[:, _pi]
-        per_step_norms = jnp.sqrt(jnp.sum(selected**2, axis=1) + _dsq + 1e-30)
-        return jnp.sum(per_step_norms)
-
-    cost_vg = jax.jit(jax.value_and_grad(cost))
-
-    @partial(jax.jit, static_argnames=("optimization_rate",))
-    def step(phi, null_space, expander, optimization_rate=0.01):
-        ns = expander @ null_space if expander is not None else null_space
-        phi_flat = jnp.real(phi).flatten().astype(jnp.float64)
-        val, grad = cost_vg(phi_flat)
-        x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
-        sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
-        sol = phi + sol.reshape(phi.shape)
-        return sol, val
-
-    return step
-
-
-def get_robustness_null_space_fn(
-    fidelity_at: Callable,
-    proj_indices: np.ndarray,
-    drift_indices: np.ndarray,
-    drift_params: np.ndarray | None,
-    n_proj: int,
-    n_projdrift: int,
-    parameter_indices: tuple[int, ...],
-    delta: float,
-    num_samples: int = 5,
-) -> Callable:
-    """Build a JIT-compiled worst-case-fidelity null-space step.
-
-    Cost: $1 - \\min_{\\boldsymbol\\delta\\in[-\\Delta,\\Delta]^{|P|}}
-    F\\bigl(U(\\phi + \\sum_{k\\in P}\\delta_k e_k)\\bigr)$, sampled on a
-    Cartesian grid of $\\mathtt{num\\_samples}^{|P|}$ points. Each
-    perturbation $\\delta_k$ is applied uniformly to all gate segments.
-
-    Args:
-        fidelity_at: The fidelity of a free-parameter array against the
-            target (``manifold.fidelity_at``).
-        proj_indices: Boolean mask of projected positions within the
-            proj+drift basis.
-        drift_indices: Boolean mask of drift positions within the
-            proj+drift basis.
-        drift_params: Drift values, or ``None``.
-        n_proj: Number of projected parameters per gate.
-        n_projdrift: Number of proj+drift parameters per gate.
-        parameter_indices: Indices within the projected basis to make
-            robust.
-        delta: Half-width $\\Delta$ of the perturbation box.
-        num_samples: Number of samples per parameter. Defaults to 5.
-
-    Returns:
-        A callable ``(phi, null_space, expander, optimization_rate) ->
-        (new_phi, cost)``.
-    """
-    sample_deltas = jnp.linspace(-delta, delta, num_samples)
-    n_robust = len(parameter_indices)
-    grids = jnp.meshgrid(*([sample_deltas] * n_robust), indexing="ij")
-    delta_combinations = jnp.stack([g.ravel() for g in grids], axis=-1)
-    _pi = tuple(parameter_indices)
-
-    def _make_free_params(proj_flat_real):
-        n_steps = proj_flat_real.size // n_proj
-        proj_params = proj_flat_real.reshape(n_steps, n_proj)
-        free_params = jnp.zeros((n_steps, n_projdrift), dtype=jnp.complex128)
-        free_params = free_params.at[:, proj_indices].set(
-            proj_params.astype(jnp.complex128)
-        )
-        if drift_params is not None:
-            free_params = free_params.at[:, drift_indices].set(
-                jnp.tile(jnp.array(drift_params, dtype=jnp.complex128), (n_steps, 1))
-            )
-        return free_params
-
-    def min_fidelity_cost(proj_flat_real):
-        n_steps = proj_flat_real.size // n_proj
-
-        def fid_at_deltas(delta_vec):
-            perturbation = jnp.zeros_like(proj_flat_real)
-            for k, pidx in enumerate(_pi):
-                gate_idxs = jnp.arange(n_steps) * n_proj + pidx
-                perturbation = perturbation.at[gate_idxs].set(delta_vec[k])
-            return fidelity_at(_make_free_params(proj_flat_real + perturbation))
-
-        fidelities = jax.vmap(fid_at_deltas)(delta_combinations)
-        return jnp.real(1.0 - jnp.min(fidelities))
-
-    cost_vg = jax.jit(jax.value_and_grad(min_fidelity_cost))
-
-    @partial(jax.jit, static_argnames=("optimization_rate",))
-    def step(phi, null_space, expander, optimization_rate=0.01):
-        ns = expander @ null_space if expander is not None else null_space
-        phi_flat = jnp.real(phi).flatten().astype(jnp.float64)
-        val, grad = cost_vg(phi_flat)
-        x, _, _, _ = jnp.linalg.lstsq(ns, -grad)
-        sol = ns @ (optimization_rate * x / (jnp.linalg.norm(x) + 1e-12))
-        sol = phi + sol.reshape(phi.shape)
-        return sol, val
-
-    return step
-
-
-@partial(jax.jit, static_argnames=("smoothing_rate"))
-def piecewise_smoothing(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    smoothing_rate: float = 0.01,
-) -> tuple[Array, Array]:
-    """Null-space update that smooths consecutive gate segments.
-
-    Minimises the squared differences between adjacent parameter
-    blocks by projecting a least-squares solution onto the null space.
-
-    Args:
-        phi: Current projected parameter ``Array`` of shape
-            ``(piecewise_steps, K_proj)``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        smoothing_rate: Learning rate scaling the update. Defaults to 0.01.
-
-    Returns:
-        A tuple ``(updated_phi, cost)`` where ``cost`` is the squared
-        norm of the difference vector.
-    """
-    indep_params = phi.shape[1]  # size of lie algebra of projected basis
-    null_space = expander @ null_space if expander is not None else null_space
-    phi_flat = phi.flatten()
-    phi_flat = jnp.real(phi_flat).astype(jnp.float64)
-    n_params = phi_flat.size  # phi = (piecewise_step_multiplier * K, K_non_drift)
-    # Difference matrix
-    D = jnp.eye(n_params, k=0) - jnp.eye(n_params, k=indep_params)
-    D = jnp.vstack([jnp.eye(indep_params, D.shape[1]), D])
-    # We have D (phi + Nullspace @ x) as difference vector
-    A = D @ null_space  # A = (piecewise_step_multiplier * K + K_non_drift, dim(ker(J)))
-    b = D @ phi_flat  # b = (piecewise_step_multiplier * K + K_non_drift,)
-    x, _, _, _ = jnp.linalg.lstsq(A, -b)
-    sol = null_space @ (
-        smoothing_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x))
-    )
-    sol = phi + sol.reshape(phi.shape)
-    return sol, jnp.linalg.norm(b) ** 2  # Difference is given by phi @ D.T @ D @ phi
-
-
-@partial(jax.jit, static_argnames=("bounding_rate"))
-def piecewise_bounding_mp(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    bounding_rate: float = 0.01,
-    lower_bounds: Array | None = None,
-    upper_bounds: Array | None = None,
-) -> tuple[Array, Array]:
-    """Null-space bounding update using the mid-point method.
-
-    Moves parameters towards the centre of the feasible box via a
-    least-squares projection onto the null space.
-
-    Args:
-        phi: Current projected parameter ``Array``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        bounding_rate: Learning rate. Defaults to 0.01.
-        lower_bounds: Lower bound ``Array``. Defaults to ``None``.
-        upper_bounds: Upper bound ``Array``. Defaults to ``None``.
-
-    Returns:
-        A tuple ``(updated_phi, cost)``.
-    """
-    null_space = expander @ null_space if expander is not None else null_space
-    # Flatten parameters
-    phi_flat = phi.flatten()
-    phi_flat = jnp.real(phi_flat).astype(jnp.float64)
-    n_params = phi_flat.size
-    r, c = null_space.shape
-
-    # Prepare bounds in flattened form
-    lower_flat = lower_bounds.flatten()
-    upper_flat = upper_bounds.flatten()
-    mid_point = (lower_flat + upper_flat) / 2.0
-    range = upper_flat - lower_flat
-    range = range / jnp.max(range)  # Normalize range to avoid scaling issues
-
-    phi_mid = jnp.concatenate((phi_flat, mid_point))
-    zero_mid = jnp.concatenate((jnp.zeros(c), mid_point))
-
-    zero = jnp.zeros((n_params, n_params))
-    zero_r = jnp.zeros((r, n_params))
-    zero_c = jnp.zeros((n_params, c))
-    eye_n = jnp.eye(n_params)
-    eye_d = jnp.diag(1 / range)
-    eye_c = jnp.eye(c)
-    D = jnp.block([[eye_d, -eye_d], [zero, zero]])
-    N = jnp.block([[null_space, zero_r], [zero_c, eye_n]])
-    E = jnp.block([eye_c, zero_c.T]).T
-
-    # We have D (phi + Nullspace @ x) as difference vector
-    A = D @ N @ E  # A = (piecewise_step_multiplier * K + K_non_drift, dim(ker(J)))
-    b = (
-        D @ phi_mid + D @ N @ zero_mid
-    )  # b = (piecewise_step_multiplier * K + K_non_drift,)
-    x, _, _, _ = jnp.linalg.lstsq(A, -b)
-    sol = null_space @ (
-        bounding_rate * x / (jnp.linalg.norm(phi_flat) * jnp.linalg.norm(x))
-    )
-    sol = phi + sol.reshape(phi.shape)
-    return sol, jnp.linalg.norm(b) ** 2  # Difference is given by phi @ D.T @ D @ phi
-
-
-@partial(jax.jit, static_argnames=("bounding_rate"))
-def piecewise_bounding_pg(
-    phi: Array,
-    null_space: Array,
-    expander: Array | None,
-    bounding_rate: float = 0.01,
-    lower_bounds: Array | None = None,
-    upper_bounds: Array | None = None,
-) -> tuple[Array, Array]:
-    """Null-space bounding update using projected gradient.
-
-    Computes the gradient of the maximum bound violation and projects
-    it onto the null space to find a feasibility-improving direction.
-
-    Args:
-        phi: Current projected parameter ``Array``.
-        null_space: Null-space basis ``Array``.
-        expander: Optional constraint expansion ``Array``, or ``None``.
-        bounding_rate: Learning rate. Defaults to 0.01.
-        lower_bounds: Lower bound ``Array``. Defaults to ``None``.
-        upper_bounds: Upper bound ``Array``. Defaults to ``None``.
-
-    Returns:
-        A tuple ``(updated_phi, cost)`` where `cost` is the maximum
-        constraint violation.
-    """
-    null_space = expander @ null_space if expander is not None else null_space
-    # Flatten parameters
-    phi_flat = phi.flatten()
-    phi_flat = jnp.real(phi_flat).astype(jnp.float64)
-
-    # Prepare bounds in flattened form
-    lower_flat = lower_bounds.flatten()
-    upper_flat = upper_bounds.flatten()
-
-    # Cost: sum of squared distances outside the box
-    def cost_function(x):
-        upper_violation = jnp.clip(x - upper_flat, min=0.0)
-        lower_violation = jnp.clip(lower_flat - x, min=0.0)
-        # return jnp.mean(upper_violation**2 + lower_violation**2)
-        return jnp.max(upper_violation + lower_violation)
-
-    val, grad = jax.value_and_grad(cost_function)(phi_flat)
-
-    x, _, _, _ = jnp.linalg.lstsq(null_space, -grad)
-
-    sol = null_space @ (bounding_rate * x / (jnp.linalg.norm(x) + 1e-12))
-    sol = phi + sol.reshape(phi.shape)
-
-    return sol, val

@@ -1,4 +1,4 @@
-from . import line_searches, optimizers
+from . import line_searches, objectives, optimizers
 from .gecko import (
     Gecko,
 )
@@ -35,6 +35,19 @@ from .line_searches import (
     LineSearch,
     LineSearchResult,
     QuadraticArmijo,
+)
+from .objectives import (
+    BoundMidpoint,
+    BoundViolation,
+    CustomObjective,
+    FrequencyFilter,
+    Objective,
+    PeakAmplitude,
+    PulseLength,
+    Robustness,
+    Smoothness,
+    SpectralPower,
+    WeightedSum,
 )
 from .optimizers import (
     LBFGS,
