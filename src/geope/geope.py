@@ -54,6 +54,9 @@ LM_MU_MIN = 0.1
 LM_MU_MAX = 0.5
 # Iteration cap on the Hebden iteration matching the damping to the radius.
 LM_HEBDEN_MAXITER = 10
+# Relative predicted reduction at or below which a trial cannot be scored, so
+# the radius stops contracting (MINPACK's epsmch, its info = 6 test).
+LM_PREDICTED_EPS = float(np.finfo(np.float64).eps)
 
 
 class Geope:
@@ -1130,6 +1133,11 @@ def least_squares(
     $\rho\le\tfrac14$, grows to $2\lVert Dx\rVert$ when $\rho\ge\tfrac34$ (or
     the step was undamped), and stays put otherwise. Rejected trials retry at
     the same base point with the shrunk radius, up to ``lm_maxiter`` of them.
+    They stop early, keeping the radius, once a trial's relative predicted
+    reduction is at machine precision: its actual reduction is then rounding,
+    so $\rho$ is noise, and contracting on it would drive the radius to
+    underflow and the damping to overflow over a stalled run (MINPACK's
+    ``info = 6`` test).
 
     The scaling $D=\mathrm{diag}(d)$ is Moré's (§6), in the solve's own
     coordinates (after the expander): $d_i$ tracks the largest norm column $i$
@@ -1342,6 +1350,16 @@ def _levenberg_marquardt(
     # ||(A D^-1)^H b||: zero exactly when b has no component the controls reach.
     gradient_norm = jnp.sqrt(jnp.sum(c))
     stationary = gradient_norm == 0
+    # The radius at which a trial's relative predicted reduction reaches machine
+    # precision: for the tiny steps such a radius allows, Dx ~ (A D^-1)^H b / lam,
+    # so the prediction is ~ 2 ||g|| radius / ||b||^2. Below it no trial can be
+    # scored (see `unresolved` in the trial loop), and the damping ~ ||g|| /
+    # radius heads for overflow, so a radius handed in below it is raised to it.
+    radius_floor = jnp.where(
+        stationary,
+        0.0,
+        LM_PREDICTED_EPS * b_norm2 / (2.0 * jnp.where(stationary, 1.0, gradient_norm)),
+    )
 
     def solve(lam):
         """The step x(lam), back from the scaled unknowns w = D x."""
@@ -1396,11 +1414,11 @@ def _levenberg_marquardt(
         return jnp.where(fits, 0.0, lam)
 
     def outer_cond(carry):
-        n_trials, _, _, _, _, accepted = carry
-        return (~accepted) & (n_trials < maxiter) & (~stationary)
+        n_trials, _, _, _, _, accepted, unresolved = carry
+        return (~accepted) & (~unresolved) & (n_trials < maxiter) & (~stationary)
 
     def outer_body(carry):
-        n_trials, radius, lam, _, _, _ = carry
+        n_trials, radius, lam, _, _, _, _ = carry
         lam = damping_for(radius, lam)
         x = solve(lam)
         norm2 = jnp.sum(c / (s2 + lam) ** 2)
@@ -1426,8 +1444,18 @@ def _levenberg_marquardt(
                 (rho >= LM_GROW_RHO) | (lam == 0.0), 2.0 * jnp.sqrt(norm2), radius
             ),
         )
+        # A predicted reduction at machine precision cannot be scored: the
+        # actual one is lost to rounding (the trial may not even move the
+        # pulse), so rho is noise or exactly 0. Contracting further only
+        # repeats that, by 1/mu per trial and across steps, until the damping
+        # ~ ||g|| / radius overflows. So stop the trials and keep the radius --
+        # MINPACK's info = 6 test, which ends its run there instead.
+        unresolved = predicted <= LM_PREDICTED_EPS
+        radius_next = jnp.where(
+            unresolved, jnp.maximum(radius_next, radius), radius_next
+        )
         accepted = rho > LM_ACCEPT_RHO
-        return n_trials + 1, radius_next, lam, x, rho, accepted
+        return n_trials + 1, radius_next, lam, x, rho, accepted, unresolved
 
     # An unset radius (the first step of a run) starts at radius_init times the
     # scaled size ||D x0|| of the pulse itself, x0 being its solvable part in
@@ -1446,6 +1474,7 @@ def _levenberg_marquardt(
         return radius_init * jnp.where(size > 0, size, 1.0)
 
     radius = jax.lax.cond(usable, lambda: radius, initial_radius)
+    radius = jnp.maximum(radius, radius_floor)
 
     init = (
         jnp.asarray(0, jnp.int32),
@@ -1454,8 +1483,9 @@ def _levenberg_marquardt(
         jnp.zeros(v.shape[0], jnp.result_type(v, z)),
         jnp.asarray(jnp.nan, jnp.float64),
         jnp.asarray(False),
+        jnp.asarray(False),
     )
-    n_trials, radius, damping, x, rho, _ = jax.lax.while_loop(
+    n_trials, radius, damping, x, rho, _, _ = jax.lax.while_loop(
         outer_cond, outer_body, init
     )
     diagnostics = {
