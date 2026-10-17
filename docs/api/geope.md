@@ -2,9 +2,9 @@
 
 ::: geope.geope.Geope
 
-<!-- ::: geope.geope.build_pulse_expander
+::: geope.geope.least_squares
 
-::: geope.geope.linear_comb_projected_coeffs_multigate -->
+<!-- ::: geope.geope.build_pulse_expander -->
 
 <!-- geodesic_hamiltonian / get_geodesic_hamiltonian_fn are gone: the geodesic
 tangent is now `-manifold.log(point, target)`, read off the GeometricContext —

@@ -223,7 +223,7 @@ Other utilities:
 ```python
 Parameters(basis=None, control=None, drift=None,
            init_values=None, drift_values=None,
-           target=None, piecewise_steps=1, fixed_drift=True,
+           target=None, piecewise_steps=1, delta_t=1.0, fixed_drift=True,
            constraints=None, pulse_constraints=None, bounds=None,
            init_spread=0.1, seed=None,
            param_transform=None, n_experimental_params=None,
@@ -239,7 +239,7 @@ Parameters(basis=None, control=None, drift=None,
 | `drift_values` | dict, `ndarray`, or `None` (ones) |
 | `target` | target unitary as `ndarray` |
 | `piecewise_steps` | number of gate segments $N_g$ |
-| `delta_t` | segment duration $\Delta t$, so $U_g = \exp(-i\,\Delta t\,H_g)$; defaults to `1.0`. |
+| `delta_t` | segment duration $\Delta t$, so $U_g = \exp(-i\,\Delta t\,H_g)$; defaults to `1.0`. Settable after construction, which recomputes a live `params.fidelity` at the new duration (no recompile: the optimisers pass it as a traced argument). `params.total_time` is `piecewise_steps * delta_t`. |
 | `fixed_drift` | whether drift is held fixed during optimisation |
 | `constraints` | list of constraint vectors / dicts |
 | `pulse_constraints` | control-format dict `{site: [ops]}` (same format as `control`) of projected terms whose time-shape is fixed |
@@ -395,37 +395,82 @@ Geope(params, verbose=False, history=None)
 | `verbose` | print per-step progress |
 | `history` | optional `History` logger (`None` = no logging) |
 
-The iteration cap, the line search, and the three run-control knobs are arguments of `optimize`, not constructor fields:
+The iteration cap, the line search, the three run-control knobs and the least-squares configuration are arguments of `optimize`, not constructor fields:
 
 ```python
-from geope import ApproximateQuadraticArmijo, Armijo, GoldenSection, QuadraticArmijo
+from geope import ApproximateQuadraticArmijo, Armijo, Constant, GoldenSection, QuadraticArmijo
 
 optimize(max_steps=1000,
-         line_search=GoldenSection(),        # default; or Armijo(), QuadraticArmijo()
+         line_search=Armijo(),               # default; or GoldenSection(), QuadraticArmijo(), Constant()
          precision=0.9999999,
-         max_step_size=0.9, gram_schmidt_step_size=1.3)
+         max_step_size=1.0, gram_schmidt_step_size=1.3,
+         least_squares_args=None)            # e.g. {"method": "lm"}
 ```
 
 | `optimize` argument | Description |
 |---------------------|-------------|
 | `max_steps` | maximum number of optimisation steps |
-| `line_search` | a `LineSearch` object tuning the geodesic step size; defaults to `GoldenSection()` |
+| `line_search` | a `LineSearch` object tuning the geodesic step size; defaults to `Armijo()` |
 | `precision` | target fidelity threshold (host-side; no recompile) |
-| `max_step_size` | maximum line-search step (baked into the JIT; changing it recompiles) |
-| `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback (host-side; a falsy value disables it) |
+| `max_step_size` | maximum line-search step. For the normalised `"svd"` solve (the default), the longest step moves the pulse by `max_step_size / (sqrt(N_g) · delta_t)` in parameter space — per unit of total duration, whatever the scale of the least-squares solution; with `least_squares_args={"normalized": False}`, and always for `"lm"`, it is $\alpha_{\max}$ itself, where $\alpha = 1$ is the full Gauss–Newton step (for `"lm"`, the accepted trust-region step) (baked into the JIT; changing it recompiles) |
+| `gram_schmidt_step_size` | step size for the Gram–Schmidt fallback, also per unit of total duration (host-side; a falsy value disables it) |
+| `least_squares_args` | keyword arguments of `geope.geope.least_squares`, the per-step solve for the search direction (see below); `None` uses its defaults (baked into the JIT; changing it recompiles) |
+
+The least-squares solve is configured by a plain dict:
+
+| `least_squares_args` key | Default | Description |
+|--------------------------|---------|-------------|
+| `method` | `"svd"` | `"svd"`: `jnp.linalg.lstsq`. `"lm"`: the trust-region Levenberg–Marquardt step of Moré (1978), $x = \arg\min_{\lVert x\rVert\le\Delta}\lVert Ax-b\rVert$, read as a Gauss–Newton step on the squared geodesic distance — see below |
+| `svd_cutoff` | `None` | condition-number cap of the `"svd"` solve: singular values below $\sigma_0/$`svd_cutoff` are discarded. `None` keeps the `lstsq` default, $\varepsilon\max(M,N)$ relative, which `"lm"` always uses (for the numerical rank only) |
+| `lm_maxiter` | `10` | maximum number of trial steps per GEOPE step for `"lm"`, each one propagator and one `logm`; if none is accepted, the last (shortest) is used |
+| `lm_radius_init` | `100.0` | the first radius of a run for `"lm"`, relative to the scaled size $\lVert Dx_0\rVert$ of the pulse the run starts from (MINPACK's `factor`, and its default); for a zero pulse, the radius itself — see below |
+| `normalized` | `True` | not an argument of the solve, which always returns the solution at its least-squares scale, but of the `"svd"` bracket: `True` uses $[0, \texttt{max\_step\_size}/(\sqrt{N_g}\,\lVert\mathrm{sol}\rVert\,\Delta t)]$, whose far end is a step of fixed length in parameter space, so the bracket means the same thing at every step (and is empty if the solution vanishes). `False` brackets on $[0, \texttt{max\_step\_size}]$ instead. Ignored by `"lm"`, which always brackets on $[0, \texttt{max\_step\_size}]$: an LM step's length is its trust region's |
+
+**The `"lm"` controller** follows Moré's Algorithm (7.1), in the solve's own coordinates (after any constraint expander). For the current radius $\Delta$ it takes the undamped step if that fits within $(1+\sigma)\Delta$, $\sigma = 0.1$, and otherwise the damped step $(A^\dagger A+\lambda D^2)^{-1}A^\dagger b$ whose scaled length $\lVert Dx\rVert$ matches $\Delta$ to within $\sigma\Delta$, finding $\lambda$ by Moré's safeguarded Hebden iteration. One SVD of $AD^{-1}$ serves every $\lambda$, so choosing it costs no propagator. Each trial is scored by the gain ratio
+
+$$\rho = \frac{1 - F(x)/F_0}{(\lVert Ax\rVert^2 + 2\lambda\lVert Dx\rVert^2)/\lVert b\rVert^2},$$
+
+actual over predicted reduction, both relative so that the constant of `Manifold.coefficients` cancels. The trial is accepted when $\rho > 10^{-4}$; the radius shrinks by Moré's quadratic-fit factor $\mu \in [0.1, 0.5]$ when $\rho \le \tfrac14$, grows to $2\lVert Dx\rVert$ when $\rho \ge \tfrac34$ (or the step was undamped), and is otherwise left alone. A rejected trial retries at the same point with the shrunk radius.
+
+The scaling $D = \mathrm{diag}(d)$ is Moré's (§6): $d_i$ tracks the largest norm column $i$ of $A$ has had over the run — the square root of the Gauss–Newton curvature $(A^\dagger A)_{ii}$ along that unknown — and never shrinks, with a column not yet seen to move floored at 1. A stiffer unknown thus gets a shorter axis of the trust region and a heavier penalty, which makes the step invariant to rescaling an unknown: $A \to AS$ takes $D \to DS$, leaving $AD^{-1}$, and the step in the pulse's own units, unchanged. With unit-norm Pauli generators every column of $A$ is a conjugated generator, so its norm is the same to well under a percent and $D$ is close to a multiple of $I$; it earns its keep with generators of unequal norm, such as spin-boson bases, or a `param_transform` whose unknowns live on different scales.
+
+The radius and the scaling are carried from one step to the next in `geope.line_search_state` (`"lm_radius"` and `"lm_scale"`, one entry per unknown): the solve takes the threaded state and returns it updated, and the line search's own state is laid over it. Both restart with that state on every `optimize()`.
+
+The first radius of a run is MINPACK's: `lm_radius_init` times the scaled size $\lVert Dx_0\rVert$ of the pulse the run starts from, $x_0$ being its solvable columns in the solve's unknowns (through a constraint expander by least squares), or `lm_radius_init` itself for a zero pulse. It is deliberately not tied to the undamped Gauss–Newton step, which is longest exactly where $A$ is worst conditioned: from a near-zero pulse (`init_spread=0.01`) that step can be $10^4$ long, with a model that is already wrong at a thousandth of it. A radius that starts there shrinks by at most $10\times$ per trial, and the first trial with $\rho > 10^{-4}$, a nearly random point with controls hundreds of radians strong, is accepted; the run then crawls, because out there the model holds only for tiny steps (2-qubit Haar target, $x, y$ on qubit 1 plus a Heisenberg coupling, 75 segments: 3 of 5 seeds unconverged after 500 steps that way, against 4–11 steps now).
+
+Steps to $F > 1-10^{-7}$ with `Armijo`, seeds 0–5: on a 2-qubit CNOT with 4 segments, 6–10 for `"svd"` against 4–5 for `"lm"`; on a 3-qubit QFT with 12 segments, 27–37 against 8–10. Each `"lm"` step also pays one propagator and one `logm` per trial.
+
+An unknown key or invalid value raises in `optimize`, before anything compiles. The reported `step_size` (and `History.step_sizes`) is in units of the least-squares solution in both modes: with `normalized=False` it is a fraction of the full Gauss–Newton step. Because normalising goes through the bracket, a line search's own absolute tolerances (`GoldenSection.tol`, `t_min`) are in those units too. One redundancy to be aware of: with `"lm"` and an Armijo-family search, the first Armijo trial at $\alpha = 1$ re-evaluates the point LM has just accepted. That trial cannot be skipped — its distance is what `optimize` tests for progress — but the backtracking behind it is next to pointless, since an accepted LM step ($\rho > 10^{-4}$) passes the Armijo test unless $\rho < 2\cdot10^{-4}$ (the slope is at most twice the predicted reduction); `Constant()` drops it (see below).
 
 The line searches are immutable config objects (frozen dataclasses):
 
-- `GoldenSection(tol=1e-5)` — golden-section search (the default). Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
-- `Armijo(c1=1e-4, beta=0.5, t_min=1e-8)` — first-order backtracking Armijo on the squared geodesic distance. It seeds at the full bracket step $\alpha_{\max}$ and backtracks, taking the slope from the objective value alone ($s = -2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
-- `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — geometry-aware second-order line search: seeds the step from the SU(N) curvature (clipped to the bracket, falling back to the full step when the curvature is non-positive) and enforces sufficient decrease with Armijo backtracking (standard/projective mode only).
-- `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` on a group or the state sphere, and one small operator exponential on `Stiefel` (standard mode only; on `Stiefel` it also needs `projective=False`, see below).
+- `GoldenSection(tol=1e-5)` — golden-section search. Like every line search it reports a per-step evaluation count in its state (`{"n_eval"}`).
+- `Armijo(c1=1e-4, beta=0.5, t_min=1e-8, radius_factor=100.0)` — first-order backtracking Armijo on the squared geodesic distance (the default). It seeds at the full bracket step $\alpha_{\max}$ and backtracks, taking the slope from the objective value alone ($s = -2F_0$, exact under the tangent matching $\Omega = -A$), so it forms no derivative of the product unitary. Works in every mode, `param_transform` included.
+- `QuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8, concave_guard=True, radius_factor=100.0)` — geometry-aware second-order line search: seeds the step at the minimiser $-s/q$ of the local quadratic model built from the SU(N) curvature, clipped to the bracket, and enforces sufficient decrease with Armijo backtracking (standard/projective mode only). A negative curvature leaves the model without a minimiser; `concave_guard` then seeds at $\min(\alpha_{\max}, 2|s|/|q|)$, the step at which the quadratic term overtakes the linear one, and `concave_guard=False` restores the full bracket step $\alpha_{\max}$. The guard matters when $\alpha_{\max}$ is not itself a sensible scale, e.g. for a search direction whose norm is not fixed.
+- `Constant()` — no search: always takes the far end of the bracket, $\alpha = \alpha_{\max}$. Meant for `least_squares_args={"method": "lm"}`, where that is the trust-region step LM accepted (times `max_step_size`, by default 1). It still evaluates the squared geodesic distance once there — the distance, because LM accepts on it — so that `optimize`'s progress test can discard a step LM failed to accept within `lm_maxiter` trials and fall back to Gram–Schmidt. On an LM run it takes the steps of `Armijo(radius_factor=None)` until that would backtrack, which on the CNOT and QFT3 problems above it never did. With `"svd"` it is a fixed-length step (normalised) or the full Gauss–Newton step (`normalized=False`), with no safeguard on the decrease.
+- `ApproximateQuadraticArmijo(c1=1e-4, beta=0.5, t_min=1e-8, concave_guard=True, radius_factor=100.0)` — the same algorithm, but with the *exact* curvature. `QuadraticArmijo` builds $\psi''(0)$ using $\lVert\Omega\rVert_F^2$ for the intrinsic term $\langle\Omega,\mathcal{K}_A\Omega\rangle_F$, which is only valid when the achieved tangent $\Omega$ is parallel to the geodesic tangent $A$ — i.e. only when the least-squares solve for the search direction leaves no residual. This variant evaluates the form properly, so the residual couples into the curvature through the Riemannian Hessian as it should. Since $\mathcal{K}_A\preceq I$ it always seeds a **longer** step. Costs one extra `eigh` on a group or the state sphere, and one small operator exponential on `Stiefel` (standard mode only; on `Stiefel` it also needs `projective=False`, see below).
 
     Whether it changes anything is structural: the solve has `piecewise_steps × K_proj` unknowns against `K_basis` equations, so once there are enough pulse segments it is underdetermined, fits the geodesic tangent exactly, and the two curvatures coincide — the correction only bites for short pulses or thin control sets. `GeometricContext.xi_rel` reports the residual as the (scale-invariant) sine of the angle between $\Omega$ and $A$, and tracks `ls_diagnostics["residual_rel"]` closely; it is `0` exactly when the two curvatures agree.
 
+**The pulse-relative cap.** The three Armijo searches first cut the bracket to $[0, \min(\alpha_{\max}, r/\lVert\text{coeffs}\rVert)]$ with $r = $ `radius_factor` $\cdot\,\lVert\phi\rVert$, the norm of the current pulse's solvable columns (the whole pulse under `param_transform`; $r = $ `radius_factor` for a zero pulse). No step moves the pulse by more than `radius_factor` times its own size. The cap is recomputed every step and never adapted; `radius_factor=None` removes it. It is there for the raw Gauss–Newton step (`least_squares_args={"normalized": False}`). Near a zero pulse the solve is ill-conditioned ($\kappa \approx 10^5$ at `init_spread=0.01`) and that step can be $10^4$ long, with a model already wrong at a thousandth of it. Halving it a few times still lands the controls hundreds of radians out, where the run crawls. On a 2-qubit Haar target (x, y on qubit 1, Heisenberg coupling, 75 segments) from `init_spread=0.01`, the raw step converged on 1 of 5 seeds uncapped and 5 of 5 capped (median 5 steps); on a 3-qubit QFT (12 segments) 0 of 5 against 5 of 5 (median 9). The normalised bracket's far end is a step of length `max_step_size/(sqrt(N_g)·delta_t)`, which the cap only undercuts for a pulse smaller than a hundredth of that, so the default (normalised) runs are unchanged.
+
+Whether the cap was active is in the search's state as `radius_hit`: `True` when the cap was below $\alpha_{\max}$, so it shortened the bracket, whether or not the search then backtracked from it. The `"lm"` counterpart is `ls_diagnostics["lm_hit"]`, a step damped onto the trust-region boundary. To log both per step:
+
+```python
+from geope.utils.history import _default_logging_fn
+
+history = geope.History(logging_fn=lambda g: {
+    **_default_logging_fn(g),
+    "radius_hit": bool((g.line_search_state or {}).get("radius_hit", False)),
+    "lm_hit": g.ls_diagnostics.get("lm_hit", False),
+})
+```
+
+(`line_search_state` is `None` at the step-0 row, recorded at construction.)
+
 The three differ in what they evaluate per step, not just in flops: `GoldenSection` evaluates the cheap infidelity many times; `Armijo` evaluates the `logm`-bearing geodesic distance a few times; `QuadraticArmijo` adds one `logm` plus one directional HVP to seed its step. Note that a wider `max_step_size` is what makes the quadratic seed worth its cost — at the default the model minimiser usually falls outside $[0, \alpha_{\max}]$ and is clipped to $\alpha_{\max}$, which is exactly where `Armijo` starts anyway.
 
-The line-search object and `max_step_size` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `GoldenSection()`) reuse the compiled functions, while changing the object or `max_step_size` triggers a one-off recompile. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
+The line-search object, `max_step_size` and `least_squares_args` bake into JIT-compiled functions that `optimize` builds on first use and reuses across calls; the frozen-dataclass value equality means two equal line searches (e.g. the per-call default `Armijo()`) reuse the compiled functions, while changing the object, `max_step_size` or `least_squares_args` triggers a one-off recompile. `least_squares_args` is compared by value, against a frozen copy, so mutating the dict you passed and passing it again recompiles rather than reusing a stale step. `precision` and `gram_schmidt_step_size` are host-side only — changing them never recompiles.
 
 Live state and logging:
 
@@ -438,9 +483,16 @@ Live state and logging:
     | `residual` | $\lVert A\,\mathrm{sol}-b\rVert_2$, the absolute misfit |
     | `residual_rel` | $\lVert A\,\mathrm{sol}-b\rVert_2/\lVert b\rVert_2 \in [0,1]$ — the fraction of the geodesic direction the controls cannot reproduce. Dimensionless, so comparable across steps and problems; **this is the headline number**. `0.0` when $\lVert b\rVert_2$ vanishes |
     | `rank` | numerical rank of the least-squares system |
-    | `cond` | condition number over the singular values retained above the `rcond` cutoff |
+    | `cond` | condition number over the singular values retained above the cutoff (`svd_cutoff`, or the `lstsq` default) |
+    | `damping` | `"lm"` only: the Levenberg–Marquardt $\lambda$ that produced the solution; `0.0` for an undamped step |
+    | `lm_iter` | `"lm"` only: the number of trial steps evaluated this step |
+    | `lm_rho` | `"lm"` only: the gain ratio of the returned trial |
+    | `lm_radius` | `"lm"` only: the trust-region radius handed to the next step |
+    | `lm_hit` | `"lm"` only: whether the returned step lies on the trust-region boundary, i.e. was damped onto it ($\lambda > 0$); `False` when the undamped step fitted inside the radius |
 
-    Before the first solve of a run these hold `nan` / `-1` sentinels. A high `residual_rel` with full `rank` means the geodesic direction genuinely leaves the controllable subspace; a rank drop or a large `cond` instead means the solve itself is degenerate. Because `coeffs` is renormalised to fixed norm after the solve, these rate the *direction* fit, not the error of the step taken.
+    The five `"lm"` keys are absent under `method="svd"`. `ls_diagnostics` is keyed for the configured method — at construction the default `"svd"`, and re-keyed by every `optimize()` (shared keys keep their values, new ones start as sentinels) — so a `logging_fn` that records the LM keys should read them with `.get`, or the step-0 row will raise.
+
+    Before the first solve of a run these hold `nan` / `-1` / `False` sentinels. A high `residual_rel` with full `rank` means the geodesic direction genuinely leaves the controllable subspace; a rank drop or a large `cond` instead means the solve itself is degenerate. They describe the least-squares fit at the full solution, so under the default `normalized=True` (where the line search may take any fraction of it) they rate the *direction* fit, not the error of the step taken.
 
     These are **not** logged by default. To record them, pass a `logging_fn` (see `History` below) or read them from a callback.
 - `history` — an optional `History` logger (`None` unless one was passed). When supplied, the full run trajectory and `best_*` helpers are available on it (see below).
@@ -570,13 +622,20 @@ for each step:
     3. Compute the Jacobian projections:
        ω[g, k] = project(i · ∂U/∂φ_{g,k})
 
-    4. Solve the constrained least-squares problem:
-       sol = argmin ||ω^T · sol - γ||
-       (optionally through a constraint+pulse expander E)
-       → residual / rank / condition number recorded in geope.ls_diagnostics
+    4. Solve the constrained least-squares problem (least_squares):
+       sol = argmin ||ω^T · sol - γ||                       # method="svd"
+       sol = argmin ||ω^T · sol - γ||  s.t. ||sol|| ≤ Δ      # method="lm"
+       (optionally through a constraint+pulse expander E; "lm" retries
+        with a shrunk radius Δ until the gain ratio of the full step
+        φ - sol exceeds 1e-4, and hands its next Δ to the next step)
+       → residual / rank / condition number / λ / ρ / Δ recorded in
+         geope.ls_diagnostics
 
-    5. Normalise and line-search:
-       coeffs    = -sol · sqrt(N_g) / ||sol||
+    5. Line-search:
+       coeffs    = -sol                           # at its least-squares scale
+       α_max     = max_step_size / (sqrt(N_g) · ||sol|| · Δt)
+                                                  if "svd" and normalized
+                 = max_step_size                  otherwise (α = 1: full step)
        step_size = argmin infid(φ + α · coeffs)     # over α ∈ [0, α_max]
        φ_new     = φ + step_size · coeffs
 
@@ -590,8 +649,8 @@ The line search interval $[0, \alpha_{\max}]$ is the toward-target half-line: so
 ### Key functions
 
 - **`ctx.gammas` / `ctx.omegas`** — the least-squares operands, and the per-iteration core: one propagator, one Jacobian and one logarithm produce both. **Tangent vectors are mapped into the manifold's own representation before being resolved into coefficients** (on a group, left-trivialised by $U^\dagger$), and this is load-bearing: the Pauli basis is Hermitian, so the projection keeps only the traceless-Hermitian part of what it is handed, while the raw geodesic tangent and Jacobian columns are $U\cdot(\text{skew-Hermitian})$ and mostly fall outside it. Left-trivialising first makes the projection lossless and the least squares an honest $\langle\cdot,\cdot\rangle_F$-orthogonal projection of the geodesic tangent onto $\mathrm{Im}(\mathrm{D}\Phi)$ — which is what the second-order line searches assume. Left translation is itself an isometry; it is the projection *after* it that would be lossy, so the two cannot be commuted. Both operands go through the same coefficient map, so the residual compares like with like.
-- **`linear_comb_projected_coeffs_multigate(ω, γ, E, *, return_diagnostics=False)`** — least-squares solve, optionally through a constraint expander $E$. With `return_diagnostics=True` it returns `(sol, diagnostics)`, the second a dict of `residual` / `residual_rel` / `rank` / `cond` scalars; these come free from the same `lstsq` call and are what `Geope` surfaces as `ls_diagnostics`.
-- **`Geope.update_step(free_params, ls_state)`** — the whole step, in one jitted function: open the context, solve, renormalise the direction, attach it, line-search. It returns the accepted step alongside the line search's objective at $t=0$ and at the accepted step, which is what the loop tests for progress (see below).
+- **`least_squares(ctx, E, ls_state=None, *, method="svd", svd_cutoff=None, lm_maxiter=10, lm_radius_init=100.0)`** — the least-squares solve off a step's context, optionally through a constraint expander $E$, returning `(sol, diagnostics, ls_state)`: the solution in the solvable columns, at its least-squares scale (unnegated; scatter it with `manifold.tangent.embed`); a dict of `residual` / `residual_rel` / `rank` / `cond` scalars, plus `damping` / `lm_iter` / `lm_rho` / `lm_radius` for `"lm"`, which is what `Geope` surfaces as `ls_diagnostics`; and a copy of the threaded state, in which `"lm"` updates its trust-region radius `"lm_radius"` and `"svd"` changes nothing. The state is per-step, not configuration, so it is not a `least_squares_args` key. It takes the **same context the line search reads next**, and that is free: it reads only the direction-free tier 0 (`omegas`, `gammas`, and for `"lm"` `F0`), whose memo the line search then reuses, so the `"svd"` step still costs one propagator, one Jacobian and one logarithm. It never sets the direction (a context takes one, and the update step sets it), and the `"lm"` loop reads the context only through values taken before the loop, so no tracer of the loop body is memoised on it.
+- **`Geope.update_step(free_params, delta_t, ls_state)`** — the whole step, in one jitted function: open the context, solve, attach the negated direction, line-search on the (normalised) bracket. It returns the accepted step alongside the line search's objective at $\alpha=0$ and at the accepted step, which is what the loop tests for progress (see below).
 
 ## Callbacks
 
@@ -725,6 +784,7 @@ print(g.history.best_fidelity)         # best fidelity over the trajectory
 - `Gecko`'s null-space methods (`speed`, `length`, `robust`) must use `parameter_indices`, not `parameter_labels`, when `param_transform` is set — labels no longer correspond to optimised parameters. `Gecko` raises `ValueError` otherwise. (`Gecko` supports experimental parameters in every construction mode: when reusing a `Geope` the engine is already wrapped; when built from `params` it re-wraps a fresh engine.)
 - `Gecko.bound` likewise takes integer-indexed bounds under `param_transform` — `{index: (lo, hi)}`, the same convention as `pulse_constraints` — since interaction labels have no meaning in experimental space.
 - Internally `param_transform` mode uses `float64`; basis-coefficient mode uses `complex128`. Tolerances and bounds you supply should match.
+- Every `Gecko` cost acts on $\phi$ — the experimental knobs — not on the induced coefficients $\tau(\phi)$. Smoothing therefore produces a smooth *knob* trajectory, which is what hardware plays, but not necessarily a smooth field.
 - `Gecko` subdivision (`piecewise_steps_multiplier=m`) replicates each segment's parameters **unchanged** and divides `params.delta_t` by `m`, which is exact for *any* transform: $\exp(\Delta t\,A) = \exp((\Delta t/m)A)^m$. `params.total_time` is invariant under subdivision.
 
 ### An optimisable duration
@@ -846,7 +906,7 @@ These passes live on a separate optimiser, **`Gecko`**, which post-processes a s
 
 **The solution does not have to come from `Geope`.** `Gecko` operates on the current `params.parameters` — that array can be a `Geope` result, but it can equally be a solution found by any other method (a different optimiser, an analytic/hand-crafted pulse, an imported result, …). Just put the parameters into a `Parameters` object describing the same system (`basis`, `projected_basis`/`drift_basis`, `target`, `piecewise_steps`, and any `param_transform`) and call `Gecko(p)`; it refines the imported solution while preserving its fidelity. (When `params` has never been evaluated, `Gecko` computes the baseline fidelity itself on construction.)
 
-When you pass a `Geope`'s `params`, the `Parameters` object is shared with that `Geope`, so a pass with `piecewise_steps_multiplier > 1` advances the shared state forward (`params.parameters` and `params.piecewise_steps` move to the new count together).
+When you pass a `Geope`'s `params`, the `Parameters` object is shared with that `Geope`, so a pass with `piecewise_steps_multiplier > 1` advances the shared state forward (`params.parameters`, `params.piecewise_steps` and `params.delta_t` move together).
 
 ### Available objectives (methods on `Gecko`)
 
@@ -860,7 +920,11 @@ When you pass a `Geope`'s `params`, the `Parameters` object is shared with that 
 | `robust(parameter_*, delta, num_samples, ...)` | $1 - \min_{\delta \in [-\Delta,+\Delta]^{|P|}} F$ | maximise worst-case fidelity under uniform δ perturbations |
 | `bound(bounds, method, ...)` | $\max(\phi - u_b, l_b - \phi)$ | enforce a box constraint via `'projected_gradient'` / `'pg'` or `'mid_point'` / `'mp'` |
 
-Each returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.
+Each returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass, giving more null-space degrees of freedom.
+
+Subdivision splits each segment into $m$ **identical copies** and divides `params.delta_t` by $m$. That leaves the unitary exactly unchanged — $\exp(-i\,\Delta t A) = [\exp(-i\,(\Delta t/m) A)]^m$ — and keeps `params.total_time` invariant. It deliberately does *not* divide the parameters: that is only equivalent when the generator is linear in them, which fails for any nonlinear `param_transform`, where $\tau(\phi/m) \ne \tau(\phi)/m$ and the fidelity `Gecko` is meant to preserve is silently destroyed. The line-search bracket and the Gram–Schmidt step are both per unit of `total_time`, so a later `geope.optimize()` on the subdivided pulse takes the same steps.
+
+`bound(...)` takes label-keyed bounds in projected space; under `param_transform` labels do not name optimised quantities, so pass a dict keyed by integer parameter index instead (`{0: (-1.0, 1.0)}`), matching `pulse_constraints` and `parameter_indices`. Unlisted indices are unbounded.
 
 ### Null-space algorithm: `Gecko._null_space_optimisation()`
 

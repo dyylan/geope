@@ -16,6 +16,7 @@ Tested items:
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import pytest
 
 jax.config.update("jax_enable_x64", True)
@@ -28,6 +29,8 @@ from geope.gecko import (
     piecewise_smoothing,
 )
 from geope.geope import Geope
+from geope.grape import Grape
+from geope.optimizers import Adam
 from geope.parameters import Parameters
 from geope.utils import (
     construct_full_pauli_basis,
@@ -330,6 +333,20 @@ class TestGecko:
         assert g.params.piecewise_steps == new_steps
         assert g.params.parameters.shape[0] == new_steps
 
+    def test_smooth_respects_verbose(self, params_2q, capsys):
+        g = Geope(params_2q)
+        g.optimize(max_steps=400, precision=0.9999)
+        capsys.readouterr()
+
+        # Quiet by default: `verbose` gates every progress line.
+        Gecko(g.params).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=5)
+        assert capsys.readouterr().out == ""
+
+        Gecko(g.params, verbose=True).smooth(
+            piecewise_steps_multiplier=1, max_smoothing_steps=5
+        )
+        assert "Smoothing" in capsys.readouterr().out
+
     def test_params_mode_from_subdivided_params(self, params_2q):
         g = Geope(params_2q)
         g.optimize(max_steps=400, precision=0.9999)
@@ -500,3 +517,133 @@ class TestDeltaT:
         # reduces the violation rather than hard-clamping it.
         assert violation() < before
         assert abs(float(params.fidelity) - f0) < 5e-3
+
+
+# ---------------------------------------------------------------------------
+# Tests — delta_t: single-qubit regressions under a nonlinear transform
+# ---------------------------------------------------------------------------
+
+
+def _rabi(phi):
+    """Nonlinear transform: tau(phi/m) != tau(phi)/m."""
+    return jnp.array([phi[0] * jnp.cos(phi[1]), phi[0] * jnp.sin(phi[1]), 0.0])
+
+
+def _rx(theta):
+    return np.array(
+        [
+            [np.cos(theta / 2), -1j * np.sin(theta / 2)],
+            [-1j * np.sin(theta / 2), np.cos(theta / 2)],
+        ],
+        dtype=complex,
+    )
+
+
+def _fidelity_now(p):
+    """Fidelity recomputed from live state, independent of stored bookkeeping."""
+    return float(p.manifold.fidelity_at(p.free(), jnp.asarray(p.delta_t, jnp.float64)))
+
+
+def _solved_1q(transform=_rabi, *, steps=4):
+    """A converged single-qubit solution in experimental space."""
+    params = Parameters(
+        basis=construct_full_pauli_basis(1),
+        control={1: ["x", "y", "z"]},
+        target=_rx(np.pi / 3),
+        piecewise_steps=steps,
+        param_transform=transform,
+        n_experimental_params=2,
+        init_spread=0.3,
+        seed=0,
+    )
+    Geope(params).optimize(max_steps=400, precision=1 - 1e-9)
+    return params
+
+
+class TestDeltaTRegressions:
+    """Subdivision and a changed delta_t, end to end through every consumer."""
+
+    def test_subdivision_is_exact_in_projected_space_with_drift(
+        self, cnot, full_basis_2q, projected_basis_2q
+    ):
+        """Without a transform the drift columns used to be divided by m too."""
+        drift_basis = construct_full_pauli_basis(2)
+        labels = list(drift_basis.labels)
+        keep = [i for i, lab in enumerate(labels) if lab in ("XY", "YZ")]
+        params = _params_2q(
+            cnot,
+            full_basis_2q,
+            projected_basis_2q,
+            drift_basis=type(drift_basis)(
+                np.asarray(drift_basis.basis)[keep], labels=[labels[i] for i in keep]
+            ),
+            drift_values=np.array([0.2, -0.1]),
+            piecewise_steps=2,
+        )
+        Geope(params)  # writes the drift into the drift columns of `parameters`
+        assert np.any(params.parameters[:, params.drift_indices] != 0)
+        before = _fidelity_now(params)
+        Gecko(params).smooth(piecewise_steps_multiplier=3, max_smoothing_steps=0)
+        assert abs(_fidelity_now(params) - before) < 1e-12
+
+    def test_parameters_are_replicated_not_divided(self):
+        """phi is untouched; the duration absorbs the 1/m."""
+        p = _solved_1q()
+        phi_before = np.array(p.parameters)
+        Gecko(p).smooth(piecewise_steps_multiplier=2, max_smoothing_steps=0)
+        np.testing.assert_array_equal(p.parameters[0], phi_before[0])
+        np.testing.assert_array_equal(p.parameters[1], phi_before[0])
+        assert p.delta_t == pytest.approx(0.5)
+
+    def test_robust_evaluates_the_subdivided_chart(self):
+        """`robust` must score the pulse at the duration after subdivision."""
+        p = _solved_1q()
+        before = _fidelity_now(p)
+        Gecko(p).robust(
+            parameter_indices=(0,),
+            piecewise_steps_multiplier=2,
+            max_optimization_steps=3,
+            optimization_rate=1e-3,
+        )
+        assert float(p.fidelity) == pytest.approx(_fidelity_now(p), abs=1e-12)
+        assert abs(_fidelity_now(p) - before) < 5e-3
+
+    @pytest.mark.parametrize("bad", [0.0, -1.0, float("nan")])
+    def test_assigning_a_non_positive_delta_t_raises(self, params_2q, bad):
+        with pytest.raises(ValueError, match="delta_t must be positive"):
+            params_2q.delta_t = bad
+        assert params_2q.delta_t == 1.0
+
+    def test_assigning_delta_t_refreshes_the_live_fidelity(self, geope_2q):
+        """The live fidelity describes (parameters, delta_t), so it moves too."""
+        p = geope_2q.params
+        assert p.fidelity is not None
+        p.delta_t = 0.5
+        assert float(p.fidelity) == pytest.approx(_fidelity_now(p), abs=1e-13)
+
+    def test_geope_uses_a_new_delta_t(self):
+        """A Geope run after ``params.delta_t`` changed optimises the new
+        duration: the fidelity it reports matches a fresh evaluation there."""
+        p = _solved_1q()
+        g = Geope(p)
+        g.optimize(max_steps=5)
+        p.delta_t = 0.5
+        g.optimize(max_steps=1)
+        assert float(p.fidelity) == pytest.approx(_fidelity_now(p), abs=1e-9)
+
+    def test_grape_uses_a_new_delta_t(self):
+        """Grape reports the fidelity *at* the updated parameters, so a stale
+        duration shows up as a mismatch against a fresh evaluation."""
+        p = _solved_1q()
+        g = Grape(p)
+        g.optimize(max_steps=1, optimizer=Adam(learning_rate=0.01))
+        p.delta_t = 0.5
+        g.optimize(max_steps=1, optimizer=Adam(learning_rate=0.01))
+        assert float(p.fidelity) == pytest.approx(_fidelity_now(p), abs=1e-9)
+
+    def test_unlisted_bound_indices_are_unbounded(self):
+        p = _solved_1q()
+        gk = Gecko(p)
+        gk.bound({0: (-0.4, 0.4)}, max_bounding_steps=5)
+        assert np.isneginf(np.array(gk.lower_bounds)[:, 1]).all()
+        assert np.isposinf(np.array(gk.upper_bounds)[:, 1]).all()

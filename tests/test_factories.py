@@ -29,7 +29,7 @@ from geope.geometry.chart import (
 )
 from geope.geometry.lie import groups
 from geope.geometry.lie.groups import infidelity
-from geope.geope import linear_comb_projected_coeffs_multigate
+from geope.geope import least_squares
 from geope.jax import stiefel_hessian_quadratic_form, su_hessian_quadratic_form
 from geope.jax.hessian import get_hessian_fn
 from geope.parameters import Parameters
@@ -578,9 +578,7 @@ class TestLeftTrivialisation:
         assert np.linalg.norm(Ah - PA) / np.linalg.norm(Ah) > 1e-2
 
         ctx = p.manifold.context(free)
-        sol = np.asarray(
-            linear_comb_projected_coeffs_multigate(ctx.omegas, ctx.gammas, None)
-        )
+        sol = np.asarray(least_squares(ctx, None)[0])
         psi = np.einsum("gk,gkab->ab", sol, J)
 
         # Compare directions only: Geope renormalises the solution anyway.

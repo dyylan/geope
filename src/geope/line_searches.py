@@ -4,7 +4,7 @@ A line search tunes the scalar geodesic **step length ``alpha``** along the sear
 direction GEOPE computes each step (it is not a full-parameter optimiser — that
 is the separate :class:`Grape` class). The active object is passed to
 ``Geope.optimize(line_search=...)``; when omitted it defaults to
-:class:`GoldenSection`.
+:class:`Armijo`.
 
 Each line search is a ``@dataclass(frozen=True)`` — immutable config that gets
 value-based ``__eq__``/``__hash__``/``__repr__`` for free. The value ``__eq__``
@@ -39,18 +39,27 @@ The three orders of information cost different things per GEOPE step:
 cheap ``ctx.infidelity_at``; :class:`Armijo` is first-order and evaluates the
 ``logm``-bearing ``ctx.distance_at`` a few times but forms no derivative;
 :class:`QuadraticArmijo` is second-order and additionally pays one directional
-HVP to seed its step from the exact curvature. None of them pays for a second
-matrix logarithm: the context's single ``ctx.A`` serves the geodesic step and the
-line search alike.
+HVP to seed its step from the exact curvature. :class:`Constant` is no search
+at all: it takes the far end of the bracket, for a solve (``"lm"``) whose step
+length is already its own. None of them pays for a second matrix logarithm: the
+context's single ``ctx.A`` serves the geodesic step and the line search alike.
 
 Cross-step state is a JAX pytree threaded through the jitted update (mirroring
 ``Grape.optimizer_state``): a jitted closure traces once, so persistent state
 must enter/leave as an argument/result rather than as a mutated attribute. The
 state is line-search-owned and opaque to GEOPE — every search carries
-``{"n_eval"}`` (the per-step count of 1-D-objective evaluations it spent).
+``{"n_eval"}`` (the per-step count of 1-D-objective evaluations it spent), and
+the Armijo family adds ``"radius_hit"``, whether its pulse-relative cap on the
+bracket (``radius_factor``, see :class:`Armijo`) was active this step.
+GEOPE threads entries of its own through the same pytree, the ``"lm"``
+least-squares trust-region radius ``"lm_radius"`` and scaling ``"lm_scale"``.
+A search may see them but must not rely on them; it need not preserve them
+either, since ``Geope`` lays the search's returned state over its own rather
+than replacing it.
 ``Geope.optimize`` re-``init()``s the state at the start of every run.
 """
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import NamedTuple
@@ -107,7 +116,9 @@ class LineSearch:
                 direction already set.
             a: Near bracket endpoint, "don't move" (``Geope`` passes ``0.0``).
             b: Far bracket endpoint, the largest step (``Geope`` passes
-                ``max_step_size / G``).
+                ``max_step_size / (sqrt(G) * ||coeffs|| * delta_t)``, or
+                ``max_step_size`` itself when its least squares is not
+                normalised).
             state: This search's threaded state from the previous step.
 
         Returns:
@@ -118,7 +129,7 @@ class LineSearch:
 
 @dataclass(frozen=True)
 class GoldenSection(LineSearch):
-    """Golden-section search (the default) — zeroth-order.
+    """Golden-section search — zeroth-order.
 
     Minimises ``ctx.infidelity_at`` on the bracket, and reads nothing else off
     the context: no logarithm, no Jacobian, no HVP is traced on its account.
@@ -140,7 +151,7 @@ class GoldenSection(LineSearch):
 
 @dataclass(frozen=True)
 class Armijo(LineSearch):
-    r"""Backtracking Armijo line search — first-order, no curvature.
+    r"""Backtracking Armijo line search (the default) — first-order, no curvature.
 
     The non-quadratic sibling of :class:`QuadraticArmijo`: it seeds the trial
     step at the full bracket step $\alpha_0=b=\alpha_{\max}$ instead of at the quadratic
@@ -154,18 +165,37 @@ class Armijo(LineSearch):
     logarithm, and ``ctx.velocity`` is the exact slope $\langle A,\Omega\rangle$, one
     contraction of tier 0's Jacobian. So this search spends no propagator and no
     logarithm of its own before its first trial, and it uses the exact slope
-    rather than the radial $s=-2F_0$ of the note's §11 — which held only under
-    perfect tangent matching, and not once ``coeffs`` has been renormalised.
+    rather than the radial $s=-2F_0$ of the note's §11 — which holds only under
+    perfect tangent matching, i.e. not once the least-squares solve leaves a
+    residual.
 
     Because it never reads the *curvature*, this line search still works under
     ``param_transform`` (where the chart has no analytic second differential and
     :class:`QuadraticArmijo` raises): the slope comes from the Jacobian, not the
     HVP.
 
+    **The pulse-relative cap.** Before searching, the bracket is cut to
+    $[0, \min(b, r/\lVert\text{coeffs}\rVert)]$ with
+    $r = \texttt{radius\_factor}\cdot\lVert\phi\rVert$, the norm of the
+    pulse's solvable columns (the whole pulse under ``param_transform``; for a
+    zero pulse, $r = \texttt{radius\_factor}$): no step moves the pulse by more
+    than ``radius_factor`` times its own size. It is recomputed from the current
+    pulse every step and never adapted. It exists for the raw Gauss-Newton step
+    (``least_squares_args={"normalized": False}``): near a zero pulse the solve
+    is ill-conditioned and that step can be $10^4$ long, with a model already
+    wrong at a thousandth of it, and halving it a few times still lands the
+    pulse hundreds of radians out. The normalised bracket's fixed-length end is
+    far inside the cap unless the pulse is nearly zero. Whether the cap was
+    active (below $b$, so it shortened the bracket, whether or not the search
+    then backtracked from it) is reported in the state as ``radius_hit``.
+
     Args:
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum step magnitude before the search gives up. Defaults to 1e-8.
+        radius_factor: Cap on the step's length in parameter space, relative
+            to the pulse it starts from (see above). ``None`` disables it.
+            Defaults to 100.
     """
 
     name = "armijo"
@@ -173,8 +203,16 @@ class Armijo(LineSearch):
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
+    radius_factor: float | None = 100.0
+
+    def __post_init__(self):
+        _check_radius_factor(self.radius_factor)
+
+    def init(self):
+        return {**super().init(), "radius_hit": jnp.asarray(False)}
 
     def __call__(self, ctx, a, b, state):
+        b, capped = _pulse_capped_bracket(ctx, b, self.radius_factor)
         step_size, value, n_eval = _armijo_line_search(
             ctx.distance_at,
             b,
@@ -184,7 +222,9 @@ class Armijo(LineSearch):
             beta=self.beta,
             t_min=self.t_min,
         )
-        return LineSearchResult(step_size, value, {"n_eval": n_eval})
+        return LineSearchResult(
+            step_size, value, {"n_eval": n_eval, "radius_hit": capped}
+        )
 
 
 @dataclass(frozen=True)
@@ -195,8 +235,9 @@ class QuadraticArmijo(LineSearch):
     $\mathrm{SU}(N)$*: it reads the exact slope $s=\psi'(0)$ and curvature
     $q=\psi''(0)$ of the squared-geodesic-distance objective off the context
     (``ctx.velocity`` and ``ctx.q``), seeds the trial step at the local quadratic minimiser
-    $-s/q$ (clipped to the bracket, with a full-bracket fallback when the
-    curvature is non-positive), and enforces sufficient decrease with Armijo
+    $-s/q$ (clipped to the bracket; when the curvature is negative, at the step
+    $2|s|/|q|$ where the quadratic term overtakes the linear one, see
+    ``concave_guard``), and enforces sufficient decrease with Armijo
     backtracking on ``ctx.distance_at``. The per-step evaluation count is recorded
     in the state as ``n_eval``.
 
@@ -209,6 +250,16 @@ class QuadraticArmijo(LineSearch):
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum step magnitude before the search gives up. Defaults to 1e-8.
+        concave_guard: When the curvature is negative, seed at
+            $\min(\alpha_{\max}, 2|s|/|q|)$ instead of at $\alpha_{\max}$.
+            Defaults to ``True``. Without it a concave step starts at the end of
+            the bracket, which is a sensible scale only when that end is a step
+            of fixed length, as `geope.Geope`'s normalised bracket is; see
+            :func:`_quadratic_armijo_line_search`.
+        radius_factor: Cap on the step's length in parameter space, relative
+            to the pulse it starts from (see :class:`Armijo`). ``None``
+            disables it. Defaults to 100.
+            The model seed is clipped to the capped bracket.
     """
 
     name = "quadratic_armijo"
@@ -216,8 +267,17 @@ class QuadraticArmijo(LineSearch):
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
+    concave_guard: bool = True
+    radius_factor: float | None = 100.0
+
+    def __post_init__(self):
+        _check_radius_factor(self.radius_factor)
+
+    def init(self):
+        return {**super().init(), "radius_hit": jnp.asarray(False)}
 
     def __call__(self, ctx, a, b, state):
+        b, capped = _pulse_capped_bracket(ctx, b, self.radius_factor)
         step_size, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
             b,
@@ -227,8 +287,11 @@ class QuadraticArmijo(LineSearch):
             c1=self.c1,
             beta=self.beta,
             t_min=self.t_min,
+            concave_guard=self.concave_guard,
         )
-        return LineSearchResult(step_size, value, {"n_eval": n_eval})
+        return LineSearchResult(
+            step_size, value, {"n_eval": n_eval, "radius_hit": capped}
+        )
 
 
 @dataclass(frozen=True)
@@ -273,6 +336,12 @@ class ApproximateQuadraticArmijo(LineSearch):
         c1: Armijo sufficient-decrease constant. Defaults to 1e-4.
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum step magnitude before the search gives up. Defaults to 1e-8.
+        concave_guard: When the curvature is negative, seed at
+            $\min(\alpha_{\max}, 2|s|/|q|)$ instead of at $\alpha_{\max}$, as in
+            :class:`QuadraticArmijo`. Defaults to ``True``.
+        radius_factor: Cap on the step's length in parameter space, relative
+            to the pulse it starts from (see :class:`Armijo`). ``None``
+            disables it. Defaults to 100.
     """
 
     name = "approximate_quadratic_armijo"
@@ -280,8 +349,17 @@ class ApproximateQuadraticArmijo(LineSearch):
     c1: float = 1e-4
     beta: float = 0.5
     t_min: float = 1e-8
+    concave_guard: bool = True
+    radius_factor: float | None = 100.0
+
+    def __post_init__(self):
+        _check_radius_factor(self.radius_factor)
+
+    def init(self):
+        return {**super().init(), "radius_hit": jnp.asarray(False)}
 
     def __call__(self, ctx, a, b, state):
+        b, capped = _pulse_capped_bracket(ctx, b, self.radius_factor)
         step_size, value, n_eval = _quadratic_armijo_line_search(
             ctx.distance_at,
             b,
@@ -291,8 +369,85 @@ class ApproximateQuadraticArmijo(LineSearch):
             c1=self.c1,
             beta=self.beta,
             t_min=self.t_min,
+            concave_guard=self.concave_guard,
         )
-        return LineSearchResult(step_size, value, {"n_eval": n_eval})
+        return LineSearchResult(
+            step_size, value, {"n_eval": n_eval, "radius_hit": capped}
+        )
+
+
+@dataclass(frozen=True)
+class Constant(LineSearch):
+    r"""No line search: always take the far end of the bracket, $\alpha=b$.
+
+    Meant for ``least_squares_args={"method": "lm"}``, whose trust region has
+    already chosen the step's length: the bracket there is
+    $[0, \texttt{max\_step\_size}]$, so the default takes the accepted LM step
+    exactly. Backtracking along it buys next to nothing: an accepted step has
+    gain ratio $\rho > 10^{-4}$ on the squared geodesic distance, and since the
+    slope there is at most twice the predicted reduction, it passes
+    :class:`Armijo`'s first trial unless $\rho < 2\cdot10^{-4}$.
+
+    It still evaluates ``ctx.distance_at`` once, at $b$, because ``value`` is
+    what ``Geope.optimize`` tests for progress: a step that did not decrease the
+    distance (LM ran out of ``lm_maxiter`` trials without accepting one) is
+    then discarded for the Gram-Schmidt fallback, as with any other search. The
+    distance, not the cheaper infidelity, because it is what the LM controller
+    accepts on; a step that decreased the one but not the other would otherwise
+    be thrown away. That one evaluation is the one :class:`Armijo` spends when
+    it does not backtrack, so on an LM run it takes the same steps as
+    ``Armijo(radius_factor=None)`` until that would backtrack (the default
+    ``Armijo`` also caps the step at 100 times the pulse).
+
+    With ``"svd"`` and the default normalised bracket it is a fixed-length step
+    in parameter space; with ``normalized=False`` it is the full Gauss-Newton
+    step (scaled by ``max_step_size``). Neither safeguards the decrease. It
+    reads nothing off the context but ``distance_at``, so it needs no slope or
+    curvature and runs under ``param_transform``.
+    """
+
+    name = "constant"
+    objective = "distance"
+
+    def __call__(self, ctx, a, b, state):
+        return LineSearchResult(
+            b, ctx.distance_at(b), {"n_eval": jnp.asarray(1, jnp.int32)}
+        )
+
+
+def _check_radius_factor(radius_factor: float | None) -> None:
+    """Reject a ``radius_factor`` that is neither ``None`` nor positive."""
+    if radius_factor is not None and not radius_factor > 0:
+        raise ValueError(
+            f"radius_factor must be positive or None, got {radius_factor!r}."
+        )
+
+
+def _pulse_capped_bracket(
+    ctx, b: float | Array, radius_factor: float | None
+) -> tuple[Array, Array]:
+    r"""Cut the bracket ``[0, b]`` at a step of length ``radius_factor * ||pulse||``.
+
+    The pulse is the context's solvable columns (every column under
+    ``param_transform``), the same coordinates as ``ctx.coeffs``, so the step
+    $\alpha\cdot$``coeffs`` is at most $r = \texttt{radius\_factor}\cdot
+    \lVert\phi\rVert$ long ($r = \texttt{radius\_factor}$ for a zero pulse).
+
+    Returns:
+        ``(b_eff, capped)``: the bracket end to search on, and whether the cap
+        was below ``b``. ``(b, False)`` when ``radius_factor`` is ``None`` or
+        the direction vanishes.
+    """
+    if radius_factor is None:
+        return b, jnp.asarray(False)
+    columns = ctx.manifold.tangent.columns
+    pulse = ctx.free_params if columns is None else ctx.free_params[:, columns]
+    size = jnp.linalg.norm(pulse)
+    radius = radius_factor * jnp.where(size > 0, size, 1.0)
+    norm = jnp.linalg.norm(ctx.coeffs)
+    cap = radius / jnp.where(norm > 0, norm, 1.0)
+    capped = (norm > 0) & (cap < b)
+    return jnp.where(capped, cap, b), capped
 
 
 # ---------------------------------------------------------------------------
@@ -377,6 +532,8 @@ def _golden_section_search(
             f2_new = f(x2_new)
             return (a_new, b, x1_new, x2_new, f1_new, f2_new, i + 1)
 
+        # Ties keep the left portion, i.e. drift toward ``a`` — which on the
+        # descent bracket ``[0, alpha_max]`` is "don't move".
         return jax.lax.cond(f1 <= f2, left_branch, right_branch, state)
 
     a, b, x1, x2, f1, f2, i = jax.lax.while_loop(cond_fun, body_fun, state0)
@@ -389,6 +546,27 @@ def _golden_section_search(
     return t_best, f_best, n_eval
 
 
+def _backtracking_max_iter(beta: float, max_iter: int | None) -> int:
+    r"""The contraction budget of the two Armijo backtrackers.
+
+    ``max_iter`` when given; otherwise the fewest contractions that shrink the
+    seed by a factor of float64 machine epsilon,
+    $\lceil\log\varepsilon/\log\beta\rceil$ (52 at ``beta = 0.5``). For any seed
+    below ``t_min / eps`` the ``t_min`` floor is reached first, so this default
+    never binds on a finite seed of sensible size; it exists for the seeds that
+    do not shrink at all.
+
+    Raises:
+        ValueError: If the default is requested and ``beta`` is not in
+            ``(0, 1)``, where the formula has no meaning.
+    """
+    if max_iter is not None:
+        return max_iter
+    if not 0.0 < beta < 1.0:
+        raise ValueError(f"beta must be in (0, 1), got {beta}")
+    return math.ceil(math.log(jnp.finfo(jnp.float64).eps) / math.log(beta))
+
+
 def _quadratic_armijo_line_search(
     fF: Callable[[Array], Array],
     alpha_max: float | Array,
@@ -398,6 +576,8 @@ def _quadratic_armijo_line_search(
     c1: float = 1e-4,
     beta: float = 0.5,
     t_min: float = 1e-8,
+    max_iter: int | None = None,
+    concave_guard: bool = True,
 ) -> tuple[Array, Array, Array]:
     r"""JIT-compatible quadratic-seeded Armijo line search using JAX.
 
@@ -418,16 +598,29 @@ def _quadratic_armijo_line_search(
 
     - **Seed.** If ``q > 0`` (the local model has a minimiser), start at
       ``alpha0 = clip(-s / q, 0, alpha_max)`` — the model minimiser, clipped to
-      the bracket. Otherwise (``q <= 0``: the model is concave, so it has no
-      minimiser at all) fall back to the full step ``alpha0 = alpha_max``. A
-      non-positive ``q`` never invalidates the *direction* — descent is
-      guaranteed by ``s < 0`` — only its *scale*, which the backtracking then
-      fixes.
+      the bracket. If ``q < 0`` the model is concave and has no minimiser, but
+      $|q|$ still sets the scale at which the model stops being linear: the
+      quadratic term $\tfrac12|q|\alpha^2$ overtakes the linear one $|s|\alpha$
+      at $\alpha=2|s|/|q|$. With ``concave_guard`` (the default) the seed is
+      ``alpha0 = min(alpha_max, 2|s|/|q|)``; without it, the full step
+      ``alpha0 = alpha_max``. ``q == 0`` gives no scale either way and seeds at
+      ``alpha_max``. A non-positive ``q`` never invalidates the *direction* —
+      descent is guaranteed by ``s < 0`` — only its *scale*. Leaving that scale
+      to the backtracking alone is safe only when ``alpha_max`` is itself
+      sensible: on an unnormalised direction such as the raw Gauss–Newton step
+      $-J^+\gamma$, whose norm grows with the conditioning of $J$,
+      ``alpha_max`` can lie orders of magnitude past where the model holds, and
+      the weak Armijo test accepts the first lower point it finds out there.
     - **Armijo.** Accept ``alpha`` when ``fF(alpha) <= F0 + c1 * alpha * s``
       (sufficient decrease; the right-hand side is below ``F0`` since
       ``alpha * s < 0``).
     - **Backtrack.** Otherwise ``alpha <- beta * alpha`` (shrinking toward 0)
-      until the test passes or the next step would fall below ``t_min``.
+      until the test passes, the next step would fall below ``t_min``, or
+      ``max_iter`` contractions have been spent. The last exit is the only one
+      that is guaranteed: ``alpha0 = inf`` (an unbounded ``alpha_max`` with
+      ``q == 0``, or with ``q < 0`` and no guard) is a fixed point of the
+      contraction, and there the other two stay shut — the Armijo bound is
+      ``-inf`` and ``|beta * alpha| >= t_min`` holds forever.
 
     Args:
         fF: Scalar-valued objective along the ray, ``fF(alpha) -> value``. This is
@@ -442,10 +635,19 @@ def _quadratic_armijo_line_search(
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum allowed step magnitude before the search gives up.
             Defaults to 1e-8.
+        max_iter: Maximum number of contractions after the seed. Defaults to
+            ``None``: enough to shrink the seed to machine precision,
+            $\lceil\log\varepsilon/\log\beta\rceil$ (52 at ``beta = 0.5``).
+        concave_guard: When ``q < 0``, seed at ``min(alpha_max, 2|s|/|q|)``
+            rather than at ``alpha_max``. Defaults to ``True``.
 
     Returns:
         A tuple ``(alpha_best, F_best, n_eval)``: the accepted step, ``fF`` at
-        that step, and the number of ``fF`` evaluations spent.
+        that step, and the number of ``fF`` evaluations spent. When a cap stops
+        the search instead of the Armijo test, it is the last trial.
+
+    Raises:
+        ValueError: If ``max_iter`` is ``None`` and ``beta`` is not in ``(0, 1)``.
     """
     f64 = lambda x: jnp.asarray(x, dtype=jnp.float64)
     alpha_max = f64(alpha_max)
@@ -454,18 +656,25 @@ def _quadratic_armijo_line_search(
     F0 = f64(F0)
     # TODO: cut locus boundary.
     # With s < 0, a concave model (q < 0) puts -s/q on the *negative* side, which
-    # the clip would collapse to alpha = 0 (a stalled step); take the full
-    # bracket step instead. q == 0 reaches the same place via +inf, so branch on
-    # q > 0.
-    alpha0 = jnp.where(q > 0.0, jnp.clip(-s / q, 0.0, alpha_max), alpha_max)
+    # the clip would collapse to alpha = 0. concave_guard prevents stalls.
+    if concave_guard:
+        alpha_concave = jnp.where(
+            q < 0.0, jnp.minimum(alpha_max, 2.0 * jnp.abs(s) / jnp.abs(q)), alpha_max
+        )
+    else:
+        alpha_concave = alpha_max
+    alpha0 = jnp.where(q > 0.0, jnp.clip(-s / q, 0.0, alpha_max), alpha_concave)
+    max_iter = _backtracking_max_iter(beta, max_iter)
 
     state0 = (alpha0, f64(fF(alpha0)), jnp.array(1, dtype=jnp.int32))
 
     def cond_fun(state):
-        alpha, F_alpha, _ = state
+        alpha, F_alpha, n_eval = state
         armijo_ok = F_alpha <= F0 + c1 * alpha * s
         step_ok = jnp.abs(beta * alpha) >= t_min
-        return jnp.logical_and(jnp.logical_not(armijo_ok), step_ok)
+        # n_eval counts the seed, so n_eval - 1 contractions have been spent.
+        budget_ok = n_eval - 1 < max_iter
+        return jnp.logical_not(armijo_ok) & step_ok & budget_ok
 
     def body_fun(state):
         alpha, _, i = state
@@ -484,6 +693,7 @@ def _armijo_line_search(
     c1: float = 1e-4,
     beta: float = 0.5,
     t_min: float = 1e-8,
+    max_iter: int | None = None,
 ) -> tuple[Array, Array, Array]:
     r"""JIT-compatible backtracking Armijo line search using JAX.
 
@@ -506,9 +716,9 @@ def _armijo_line_search(
       the tangent matching $\Omega=-A$ that GEOPE's geodesic step targets,
       $s=-\|A\|_F^2=-2F_0$, and the Armijo test collapses to
       $F(\alpha)\le F_0\,(1-2c_1\alpha)$ — current and trial objective values only.
-      It is an approximation once ``coeffs`` has been renormalised to
-      $\|p\|_F=\sqrt{G}$ (so $\|\Omega\|_F\neq\|A\|_F$), but the test is scaled by
-      ``c1``, which is tiny by default. Pass ``s`` explicitly (e.g. the exact
+      It is an approximation once $\Omega\neq-A$ — a least-squares residual, or
+      a direction rescaled away from its least-squares scale — but the test is
+      scaled by ``c1``, which is tiny by default. Pass ``s`` explicitly (e.g. the exact
       $\langle A,\Omega\rangle_F$) to override.
     - **Seed.** ``alpha0 = alpha_max``, the full bracket step.
     - **Armijo.** Accept ``alpha`` when ``fF(alpha) <= F0 + c1 * alpha * s`` (the
@@ -516,8 +726,11 @@ def _armijo_line_search(
       ``F0`` — a converged iterate, where the test is vacuous — also accepts, so
       the loop cannot grind through $\log_\beta(t_{\min}/\alpha_{\max})$
       evaluations at the end of a run.
-    - **Backtrack.** Otherwise ``alpha <- beta * alpha`` until the test passes or
-      the next step would fall below ``t_min``.
+    - **Backtrack.** Otherwise ``alpha <- beta * alpha`` until the test passes,
+      the next step would fall below ``t_min``, or ``max_iter`` contractions
+      have been spent. As in :func:`_quadratic_armijo_line_search`, only the
+      last exit is guaranteed: an unbounded ``alpha_max = inf`` is a fixed point
+      of the contraction that neither of the other two ever closes.
 
     Args:
         fF: Scalar-valued objective along the ray, ``fF(alpha) -> value`` (e.g.
@@ -531,12 +744,19 @@ def _armijo_line_search(
         beta: Backtracking contraction factor in ``(0, 1)``. Defaults to 0.5.
         t_min: Minimum allowed step magnitude before the search gives up.
             Defaults to 1e-8.
+        max_iter: Maximum number of contractions after the seed. Defaults to
+            ``None``: enough to shrink the seed to machine precision,
+            $\lceil\log\varepsilon/\log\beta\rceil$ (52 at ``beta = 0.5``).
 
     Returns:
         A tuple ``(alpha_best, F_best, n_eval)``: the accepted step, ``fF`` at
         that step, and the number of ``fF`` evaluations spent — matching the contract
         of :func:`_golden_section_search` and
-        :func:`_quadratic_armijo_line_search`.
+        :func:`_quadratic_armijo_line_search`. When a cap stops the search
+        instead of the Armijo test, it is the last trial.
+
+    Raises:
+        ValueError: If ``max_iter`` is ``None`` and ``beta`` is not in ``(0, 1)``.
     """
     f64 = lambda x: jnp.asarray(x, dtype=jnp.float64)
     alpha_max = f64(alpha_max)
@@ -549,15 +769,18 @@ def _armijo_line_search(
     s = f64(-2.0 * F0 if s is None else s)
 
     alpha0 = alpha_max  # the full bracket step, no curvature involved
+    max_iter = _backtracking_max_iter(beta, max_iter)
     state0 = (alpha0, f64(fF(alpha0)), jnp.array(1 + n_probe, dtype=jnp.int32))
 
     def cond_fun(state):
-        alpha, F_alpha, _ = state
+        alpha, F_alpha, n_eval = state
         armijo_ok = F_alpha <= F0 + c1 * alpha * s
         # F0 <= 0: converged, so the test can never pass — accept and stop.
         armijo_ok = jnp.logical_or(armijo_ok, F0 <= 0.0)
         step_ok = jnp.abs(beta * alpha) >= t_min
-        return jnp.logical_and(jnp.logical_not(armijo_ok), step_ok)
+        # n_eval counts the probe and the seed; the rest are contractions.
+        budget_ok = n_eval - (1 + n_probe) < max_iter
+        return jnp.logical_not(armijo_ok) & step_ok & budget_ok
 
     def body_fun(state):
         alpha, _, i = state

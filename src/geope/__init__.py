@@ -31,6 +31,7 @@ from .grape import (
 from .line_searches import (
     ApproximateQuadraticArmijo,
     Armijo,
+    Constant,
     GoldenSection,
     LineSearch,
     LineSearchResult,

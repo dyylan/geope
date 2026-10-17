@@ -619,7 +619,6 @@ class Gecko:
         # params.delta_t in sync.
         new_count = self.params.piecewise_steps * piecewise_steps_multiplier
         self.params.piecewise_steps = new_count
-        self.params.delta_t = self.params.delta_t / piecewise_steps_multiplier
 
         new_parameters = [
             list(np.copy(self.params.parameters))
@@ -628,6 +627,9 @@ class Gecko:
         self.params.parameters = np.array(
             [x for group in zip(*new_parameters) for x in group]
         )
+        # After the replication: assigning delta_t rescores the live fidelity on
+        # the current parameters, which must already be the subdivided pulse.
+        self.params.delta_t = self.params.delta_t / piecewise_steps_multiplier
 
         _dtype = jnp.float64 if self._real_params else jnp.complex128
         if self._real_params:
@@ -710,18 +712,20 @@ class Gecko:
             fid = fid_of_params(free_params, delta_t)
 
             c += 1
-            print(
-                f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                      ",
-                end="\r",
-            )
+            if self.verbose:
+                print(
+                    f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                      ",
+                    end="\r",
+                )
 
             # Run user callbacks at the end of the iteration; stop early if any
             # requests it.
             if not run_callbacks(cbs, c, self.history, self):
                 break
-        print(
-            f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        "
-        )
+        if self.verbose:
+            print(
+                f"[{c}/{max_steps}] [Fidelity = {fid}] {label} : cost = {diff} (aim = {diff_tol})                        "
+            )
         success = diff_tol >= diff
         if self._real_params:
             new_params = np.array([np.real(p) for p in free_params])
