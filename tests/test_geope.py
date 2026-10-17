@@ -1274,6 +1274,20 @@ class TestLevenbergMarquardt:
         _, diag, _ = self._lm(lm_params, 1e3 * gn_norm, lm_maxiter=2)
         assert 1 <= int(diag["lm_iter"]) <= 2
 
+    @pytest.mark.parametrize("radius", [1e-20, 1e-120, 1e-300])
+    def test_a_radius_below_rounding_is_kept_not_contracted(self, lm_params, radius):
+        # A trial this short cannot be scored: its predicted reduction is below
+        # machine precision, so its actual one is rounding. Contracting on that
+        # drove the radius to underflow and the damping ~ ||g|| / radius to
+        # overflow (nan). The radius is raised to where the prediction reaches
+        # rounding instead, and the trials stop there, finite.
+        sol, diag, _ = self._lm(lm_params, radius)
+        assert jnp.isfinite(sol).all()
+        assert np.isfinite(float(diag["damping"]))
+        assert int(diag["lm_iter"]) <= 2  # not lm_maxiter rounds of noise
+        assert np.isfinite(float(diag["lm_radius"]))
+        assert float(diag["lm_radius"]) > radius
+
     # --- Moré's scaling (§6) ----------------------------------------------
 
     def test_scale_starts_at_the_column_norms(self, lm_params):
@@ -2073,6 +2087,41 @@ class TestGeope:
         assert g.params.fidelity > 0.999
         assert g.ls_diagnostics["lm_iter"] >= 1
         assert np.isfinite(g.ls_diagnostics["lm_rho"])
+
+    def test_a_stalled_levenberg_marquardt_run_stays_finite(self):
+        # From this start the run stalls short of the target with every trial
+        # rejected. Contracting on those rejections shrank the radius ~1000x per
+        # step until the damping overflowed and the run went nan at step 47 --
+        # past the reach of the Gram-Schmidt fallback, which needs a finite
+        # direction. It must stall finite instead.
+        params = Parameters(
+            basis=construct_full_pauli_basis(1),
+            control={1: ["x"]},
+            drift={1: ["z"]},
+            target=unitary_group.rvs(2, random_state=11),
+            piecewise_steps=3,
+            init_values=np.array(
+                [[-2.984998923129512], [2.9309693446617127], [-0.42721999950959655]]
+            ),
+        )
+        g = Geope(params)
+        radii = []
+
+        def record(step, history, geope):
+            radii.append(float(geope.line_search_state["lm_radius"]))
+            return True
+
+        g.optimize(
+            max_steps=80,
+            line_search=Constant(),
+            least_squares_args={"method": "lm"},
+            gram_schmidt_step_size=0,
+            callbacks=record,
+        )
+        assert len(radii) == 80
+        assert np.isfinite(g.params.fidelity)
+        assert g.params.fidelity < g.precision  # it is the stalled case
+        assert all(np.isfinite(r) and r > 0 for r in radii)
 
     def test_lm_state_rides_in_the_line_search_state(
         self, cnot, full_basis_2q, projected_basis_2q
