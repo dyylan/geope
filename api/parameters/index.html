@@ -18,7 +18,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../units/">
+        <link rel="next" href="../geope/">
       
       
       <link rel="icon" href="../../_static/geope_logo.png">
@@ -629,29 +629,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../examples/physical_units/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Physical units: a CNOT in nanoseconds and megahertz
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -817,29 +794,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../units/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    geope.units
-    
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -1283,18 +1237,12 @@ such as <code>Geope</code> updates in place.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><a class="autorefs autorefs-internal" title="            delta_t
-
-  
-      property
-   (geope.parameters.Parameters.delta_t)" href="#geope.parameters.Parameters.delta_t">delta_t</a></code></td>
+            <td><code><span title="geope.parameters.Parameters.delta_t">delta_t</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Duration of each segment, as the internal (dimensionless)
-float the optimisers consume. With units on it is <code>1.0</code> at
-construction; assign a time quantity to change it.</p>
+                <p>Duration of each segment.</p>
               </div>
             </td>
           </tr>
@@ -1309,34 +1257,6 @@ construction; assign a time quantity to change it.</p>
             <td>
               <div class="doc-md-description">
                 <p><code>piecewise_steps * delta_t</code> — invariant under subdivision.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="geope.parameters.Parameters.conversion">conversion</span></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The <code>geope.units.Conversion</code> between physical and
-internal values when <code>delta_t</code> was given as a time quantity;
-<code>None</code> when units are off.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><a class="autorefs autorefs-internal" title="            physical
-
-  
-      property
-   (geope.parameters.Parameters.physical)" href="#geope.parameters.Parameters.physical">physical</a></code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Read-only <code>PhysicalView</code> of <code>delta_t</code>, <code>total_time</code>,
-<code>basis_coefficients</code>, <code>drift_parameters</code> and <code>to_dict()</code> as
-quantities. Raises <code>geope.units.UnitsError</code> when units are off.</p>
               </div>
             </td>
           </tr>
@@ -1815,32 +1735,6 @@ this is just the current parameters.</p>
 
 
 
-<h5 id="geope.parameters.Parameters.delta_t" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">delta_t</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.delta_t" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Segment duration as the internal float the optimisers consume.</p>
-<p>With units on this is the duration in units of the reference time
-<span class="arithmatex">\(1/\omega_0\)</span> — exactly <code>1.0</code> at construction — and the physical
-value is <code>params.physical.delta_t</code>. Assign to change the duration:
-a positive float when units are off, a time quantity when they are on.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
 <h5 id="geope.parameters.Parameters.infidelity" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">infidelity</span></code>
 
@@ -1854,51 +1748,6 @@ a positive float when units are off, a time quantity when they are on.</p>
     <div class="doc doc-contents ">
 
         <p><code>1 - fidelity</code>, or <code>None</code> before a run has computed it.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h5 id="geope.parameters.Parameters.physical" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">physical</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#geope.parameters.Parameters.physical" class="headerlink" title="Permanent link">¤</a></h5>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Physical-unit readouts as quantities; see <code>PhysicalView</code>.</p>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            UnitsError (geope.units.UnitsError)" href="../units/#geope.units.UnitsError">UnitsError</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If units are off.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
     </div>
 
@@ -1956,7 +1805,7 @@ a positive float when units are off, a time quantity when they are on.</p>
 
 
 <h5 id="geope.parameters.Parameters.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projected_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform_unit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">manifold</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projected_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drift_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">piecewise_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">delta_t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fixed_drift</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pulse_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">init_spread</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">param_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_experimental_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">manifold</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#geope.parameters.Parameters.__init__" class="headerlink" title="Permanent link">¤</a></h5>
 
@@ -2136,18 +1985,12 @@ Defaults to 1.</p>
                 <code>delta_t</code>
             </td>
             <td>
-                  <code><span title="float">float</span> | <a class="autorefs autorefs-internal" title="            Quantity (geope.units.Quantity)" href="../units/#geope.units.Quantity">Quantity</a></code>
+                  <code><span title="float">float</span></code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Duration <span class="arithmatex">\(\Delta t\)</span> of each segment, so that
-<span class="arithmatex">\(U_g = \exp(-i\,\Delta t\,H_g)\)</span>. Defaults to <code>1.0</code>. A
-bare number is internal (dimensionless). A time quantity
-such as <code>25 * ns</code> turns physical units on: <code>init_values</code>,
-<code>drift_values</code>, <code>bounds</code> and (through <code>transform_unit</code>)
-the output of <code>param_transform</code> must then be quantities
-too, and <code>params.physical</code> reads the results back in
-physical units. See <code>geope.units</code>.</p>
+<span class="arithmatex">\(U_g = \exp(-i\,\Delta t\,H_g)\)</span>. Defaults to <code>1.0</code>.</p>
               </div>
             </td>
             <td>
@@ -2277,25 +2120,6 @@ to 0.1.</p>
                 <p>Optional callable mapping experimental
 params to basis coefficients. May take
 <code>(phi,)</code> or <code>(phi, step_index)</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>transform_unit</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            Unit (geope.units.Unit)" href="../units/#geope.units.Unit">Unit</a> | <span title="str">str</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The unit of <code>param_transform</code>'s output, e.g.
-<code>MHz</code> or <code>"rad/ns"</code>. Required when <code>param_transform</code>
-is set and units are on; disallowed otherwise. Every
-constant inside the transform is read in this unit.</p>
               </div>
             </td>
             <td>
