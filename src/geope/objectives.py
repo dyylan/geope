@@ -328,7 +328,7 @@ def resolve_parameter_indices(
     return tuple(proj_labels.index(label) for label in parameter_labels)
 
 
-def resolve_bounds(params: Parameters, bounds) -> tuple[np.ndarray, np.ndarray]:
+def resolve_bounds(params: Parameters, bounds: tuple) -> tuple[np.ndarray, np.ndarray]:
     """Resolve a bounds map into per-column ``(K_P,)`` lower and upper bounds.
 
     The bounds are constant in time, so they are returned per column and
