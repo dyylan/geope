@@ -595,7 +595,7 @@ The line search interval $[0, \alpha_{\max}]$ is the toward-target half-line: so
 
 ## Callbacks
 
-`Geope.optimize`, `Grape.optimize` and every `Gecko` post-processing method (`smooth`, `smooth_frequency`, `filter_frequency`, `speed`, `length`, `robust`, `bound`) accept a `callbacks` argument — a single callable, or a list/tuple of callables — invoked at the **end of every step** (after the state update and, for `Geope`, after pulse-template enforcement). Use them to log, plot, checkpoint, implement custom early-stopping, or drive dynamic behaviour.
+`Geope.optimize`, `Grape.optimize` and every `Gecko` post-processing method (`optimize`, `smooth`, `smooth_frequency`, `filter_frequency`, `speed`, `length`, `robust`, `bound`) accept a `callbacks` argument — a single callable, or a list/tuple of callables — invoked at the **end of every step** (after the state update and, for `Geope`, after pulse-template enforcement). Use them to log, plot, checkpoint, implement custom early-stopping, or drive dynamic behaviour.
 
 Each callback has the signature:
 
@@ -610,7 +610,7 @@ def callback(step, history, optimizer) -> bool:
 
 **Stopping semantics.** All callbacks run every step (so their side-effects always execute), then the loop **stops if any callback returns a falsy value** (`False`, `None`, `0`, …). The loop continues only while *every* callback returns truthy — so a pure logging callback **must** `return True`.
 
-> For `Gecko`, callbacks fire once per null-space iteration. During the loop the running geometry is visible via `optimizer.params.parameters`; `optimizer.params.fidelity` and `optimizer.step_size` are finalised only after the loop returns. `Gecko`'s `History` still records only at the start and end of a pass.
+> For `Gecko`, callbacks fire once per null-space iteration. During the loop the running geometry is visible via `optimizer.params.parameters` and each objective term's value via `optimizer.costs`; `optimizer.params.fidelity` and `optimizer.step_size` are finalised only after the loop returns. `Gecko`'s `History` still records only at the start and end of a pass.
 
 Example — custom early stopping plus logging:
 
@@ -848,35 +848,68 @@ These passes live on a separate optimiser, **`Gecko`**, which post-processes a s
 
 When you pass a `Geope`'s `params`, the `Parameters` object is shared with that `Geope`, so a pass with `piecewise_steps_multiplier > 1` advances the shared state forward (`params.parameters` and `params.piecewise_steps` move to the new count together).
 
-### Available objectives (methods on `Gecko`)
+### Available objectives
 
-| Method | Cost minimised | Purpose |
-|--------|----------------|---------|
-| `smooth(...)` | $\sum_g \|\phi_{g+1} - \phi_g\|^2$ | reduce variation across segments |
-| `smooth_frequency(...)` | $\sum_{m \ge 1, k}|\widehat{\phi_k}(m)|^2$ | suppress high-frequency content (DC excluded) |
-| `filter_frequency(filter_fn, ...)` | $\|\widehat\phi - \mathcal{F}(\widehat\phi)\|^2$ | drive $\phi$ toward a user-defined filtered version (= $L^2$ distance by Parseval) |
-| `speed(parameter_*, ...)` | $\max_{g, k \in P}|\phi_{g,k}|$ | reduce peak control amplitude |
-| `length(parameter_*, ...)` | $\sum_g \sqrt{\sum_{k \in P}\phi_{g,k}^2 + \|d_g\|^2}$ | reduce total pulse length (drift contribution included) |
-| `robust(parameter_*, delta, num_samples, ...)` | $1 - \min_{\delta \in [-\Delta,+\Delta]^{|P|}} F$ | maximise worst-case fidelity under uniform δ perturbations |
-| `bound(bounds, method, ...)` | $\max(\phi - u_b, l_b - \phi)$ | enforce a box constraint via `'projected_gradient'` / `'pg'` or `'mid_point'` / `'mp'` |
+Each cost is an **objective** object in `geope.objectives` (also exported at the top level). The `Gecko` methods are shorthands that run one of them on its own.
 
-Each returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass (linear interpolation), giving more null-space degrees of freedom.
+| Objective | Method shorthand | Cost minimised | Purpose |
+|-----------|------------------|----------------|---------|
+| `Smoothness()` | `smooth(...)` | $\|\phi_0\|^2 + \sum_g \|\phi_{g+1} - \phi_g\|^2 + \|\phi_{N_g-1}\|^2$ | reduce variation across segments (the pulse is zero-padded at both ends, so abrupt switch-on/off is penalised too) |
+| `SpectralPower()` | `smooth_frequency(...)` | $\sum_{m \ge 1, k}|\widehat{\phi_k}(m)|^2$ (mean) | suppress high-frequency content (DC excluded) |
+| `FrequencyFilter(filter_fn)` | `filter_frequency(filter_fn, ...)` | $\|\widehat\phi - \mathcal{F}(\widehat\phi)\|^2$ | drive $\phi$ toward a user-defined filtered version (= $L^2$ distance by Parseval) |
+| `PeakAmplitude(parameter_*)` | `speed(parameter_*, ...)` | $\max_{g, k \in P}|\phi_{g,k}|$ | reduce peak control amplitude |
+| `PulseLength(parameter_*)` | `length(parameter_*, ...)` | $\sum_g \sqrt{\sum_{k \in P}\phi_{g,k}^2 + \|d_g\|^2}$ | reduce total pulse length (drift contribution included) |
+| `Robustness(parameter_*, delta, num_samples)` | `robust(parameter_*, delta, num_samples, ...)` | $1 - \min_{\delta \in [-\Delta,+\Delta]^{|P|}} F$ | maximise worst-case fidelity under uniform δ perturbations |
+| `BoundViolation(bounds)` | `bound(bounds, method="pg", ...)` | $\max(\phi - u_b, l_b - \phi)$ | push parameters into a box |
+| `BoundMidpoint(bounds)` | `bound(bounds, method="mp", ...)` | $\sum_{\text{bounded}} ((\phi - m_b)/\hat r_b)^2$ | pull bounded parameters toward the centre of their box |
+| `CustomObjective(fn, name)` | — | `fn(phi)` | any traceable cost of the real `(N_g, K_P)` projected pulse |
+
+Each call returns `(success, iters)`. Pass `piecewise_steps_multiplier > 1` to subdivide existing segments before the pass (each segment is replicated and `delta_t` divided, which is exact), giving more null-space degrees of freedom. The rate arguments (`smoothing_rate`, `optimization_rate`, `bounding_rate`, `rate`) are all the same thing: the length of each step in parameter space.
+
+### Combining objectives
+
+Objectives combine linearly with `*`, `+` and `-`, and `Gecko.optimize` minimises the raw weighted sum $C(\phi) = \sum_i w_i c_i(\phi)$:
+
+```python
+from geope import Smoothness, PeakAmplitude, Robustness
+
+gk = geope.Gecko(g.params)
+gk.optimize(
+    Smoothness()
+    + 0.1 * PeakAmplitude(parameter_labels=["XII", "IXI"])
+    + 10.0 * Robustness(parameter_labels=["XII"], delta=0.01),
+    piecewise_steps_multiplier=2,
+    rate=0.01,
+    max_steps=200,
+    diff_tol=1e-3,
+)
+gk.costs    # {'smoothness': ..., 'peak_amplitude': ..., 'robustness': ...}
+```
+
+- **Only the weight ratios matter.** Each step has a fixed length `rate` along the null-space projection of $-\nabla C$, so `4*a + 2*b` follows the same trajectory as `2*a + b`. The overall scale changes only what `diff_tol` (a tolerance on $C$) means.
+- **The costs are not normalised.** Their magnitudes can differ by orders of magnitude (smoothness $\sim 10^0$–$10^2$, $1-F \sim 10^{-4}$), so choose the weights with that in mind.
+- **`gk.costs`** holds each term's *unweighted* value, keyed by name (repeated objectives become `smoothness`, `smoothness_2`, …). It is refreshed every iteration, so callbacks can read it.
+- **A zero weight monitors a term without optimising it.** `Smoothness() + 0 * Robustness(...)` reports robustness but leaves the trajectory of `Smoothness()` unchanged and skips that term's backward pass. A negative weight *maximises* its term.
+- **Custom costs** are wrapped with `CustomObjective(fn, name="...")`. `fn` receives the real projected pulse of shape `(N_g, K_P)` (`K_P` = `n_experimental_params` under `param_transform`) and must return a scalar.
 
 ### Null-space algorithm: `Gecko._null_space_optimisation()`
 
 ```
 1. Optionally subdivide piecewise steps (piecewise_steps_multiplier)
-2. Build the combined expander (pulse × linear-equality)
-3. For each iteration:
+2. Build the objective against the (subdivided) Parameters → C(φ) = Σ wᵢ cᵢ(φ)
+3. Build the combined expander (pulse × linear-equality)
+4. For each iteration:
    a. Compute Jacobian projections ω
    b. SVD of ω → null-space basis N (right-singular vectors below the rank)
-   c. Compute the cost gradient ∇C(φ)
+   c. Compute the cost gradient ∇C(φ) (and each cᵢ, reported in gecko.costs)
    d. Project the negative gradient onto the null space:
         x = lstsq(N, -∇C)
    e. Step: φ ← φ + rate · N·x / ||x||
    f. Enforce pulse templates if applicable
    g. Recompute fidelity (preserved to first order)
 ```
+
+If the objective fails to build (an unknown label, label-keyed bounds under `param_transform`), the subdivision of step 1 is undone before the error propagates.
 
 ## Parameter spaces and index mappings
 
@@ -940,6 +973,9 @@ gk.bound({"x": (-1, 1), "z": (-1, 1)}, method='projected_gradient')
 gk.robust(parameter_labels=["XII", "IXI", "IIX"], delta=0.01)
 gk.speed(parameter_labels=["XII", "IXI", "IIX"])
 gk.length()
+
+# …or several objectives at once, as a weighted sum.
+gk.optimize(geope.Smoothness() + 0.1 * geope.PulseLength(), rate=0.05, diff_tol=1e-3)
 ```
 
 ### Refining a solution from another method

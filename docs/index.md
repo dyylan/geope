@@ -59,7 +59,7 @@ This lets a solution be reshaped to satisfy experimental optimisations that the 
 - **Robustness** — reduce sensitivity to control errors (`robust`).
 - **Bounds** — push parameters into hardware-allowed ranges (`bound`).
 
-Because all of these passes preserve fidelity by construction, they can be composed freely after optimisation. A `Gecko` is constructed from a `Parameters` object — pass a `Geope`'s `geope.params` to reuse its cached, already-compiled functions.
+Because all of these passes preserve fidelity by construction, they can be composed freely after optimisation — run one after another, or optimised together as a weighted sum of objectives (`gk.optimize(Smoothness() + 0.1 * PulseLength())`). A `Gecko` is constructed from a `Parameters` object — pass a `Geope`'s `geope.params` to reuse its cached, already-compiled functions.
 
 The Gecko method is described in the paper:
 
